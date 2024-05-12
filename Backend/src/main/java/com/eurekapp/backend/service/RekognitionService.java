@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RekognitionService {
     private static final Logger log = LoggerFactory.getLogger(RekognitionService.class);
 
-    public List<WorkItem> detectLabel(byte[] bytes, String key){
+    public List<WorkItem> detectLabel(byte[] bytes){
         try (RekognitionAsyncClient client = RekognitionAsyncClient.builder()
                 .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
                 .region(Region.US_EAST_1)
@@ -44,7 +44,6 @@ public class RekognitionService {
                     log.info("Detected labels for the given photo");
                     List<WorkItem> list = labels.stream()
                             .map(l -> WorkItem.builder()
-                                    .key(key)
                                     .confidence(l.confidence().toString())
                                     .name(l.name())
                                     .build())
