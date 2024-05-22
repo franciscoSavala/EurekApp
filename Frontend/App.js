@@ -34,7 +34,6 @@ export default function App() {
       <Button title={"Upload Image"} onPress={selectImage}></Button>
       <Text>Buscar un objeto: </Text>
       <TextInput style={styles.input}></TextInput>
-      <Button title={"Query Image"} onPress={}></Button>
       <StatusBar style="auto" />
     </View>
   );
