@@ -47,7 +47,7 @@ public class S3Service {
     private S3AsyncClient getClient() {
         return S3AsyncClient.builder()
                 .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-                .region(Region.US_EAST_1)
+                .region(Region.SA_EAST_1)
                 .build();
     }
 

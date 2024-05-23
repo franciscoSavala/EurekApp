@@ -5,7 +5,7 @@ spring:
 application:
   s3:
     bucket:
-      name: 'eurekapp'
+      name: 'eurekapp-bucket'
   openai:
     api:
       key: ${OPENAI_SECRET_KEY}
