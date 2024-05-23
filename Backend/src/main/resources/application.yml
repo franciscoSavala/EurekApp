@@ -5,4 +5,4 @@ spring:
 application:
   s3:
     bucket:
-      name: 'eurekapp'
+      name: 'eurekapp-bucket'
