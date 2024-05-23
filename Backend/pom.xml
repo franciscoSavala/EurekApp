@@ -64,10 +64,6 @@
 		</dependency>
 		<dependency>
 			<groupId>software.amazon.awssdk</groupId>
-			<artifactId>rekognition</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>software.amazon.awssdk</groupId>
 			<artifactId>ses</artifactId>
 		</dependency>
 		<dependency>

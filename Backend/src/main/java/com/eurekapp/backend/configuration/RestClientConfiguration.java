@@ -13,12 +13,23 @@ public class RestClientConfiguration {
 
 
     @Bean
-    @Qualifier("openAiRestClient")
-    public RestClient restClient(
+    @Qualifier("embeddingClient")
+    public RestClient embeddingClient(
             @Value("${application.openai.api.key}") String apiKey
     ){
         return RestClient.builder()
                 .baseUrl("https://api.openai.com/v1/embeddings")
+                .defaultHeader("Authorization", String.format("Bearer %s", apiKey))
+                .build();
+    }
+
+    @Bean
+    @Qualifier("completitionClient")
+    public RestClient completitionClient(
+            @Value("${application.openai.api.key}") String apiKey
+    ){
+        return RestClient.builder()
+                .baseUrl("https://api.openai.com/v1/completition")
                 .defaultHeader("Authorization", String.format("Bearer %s", apiKey))
                 .build();
     }

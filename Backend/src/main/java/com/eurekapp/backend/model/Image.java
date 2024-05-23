@@ -9,17 +9,11 @@ import org.hibernate.annotations.Fetch;
 
 import java.util.List;
 
-@Entity
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class Image {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-    @Column(name = "s3_key")
-    private String key;
-    @OneToMany(cascade = CascadeType.ALL)
-    private List<WorkItem> workItems;
+    private String id;
+    private String textEncodind;
 }

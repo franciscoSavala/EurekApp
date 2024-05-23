@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class TextResponseDto {
     private String text;
     private String score;
+    private byte[] image;
 }
