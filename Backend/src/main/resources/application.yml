@@ -6,3 +6,10 @@ application:
   s3:
     bucket:
       name: 'eurekapp'
+  openai:
+    api:
+      key: ${OPENAI_SECRET_KEY}
+  pinecone:
+    api:
+      key: ${PINECONE_SECRET_KEY}
+    namespace: 'image-description'

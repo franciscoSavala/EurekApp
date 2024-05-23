@@ -1,18 +1,13 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.model.Image;
-import com.eurekapp.backend.model.WorkItem;
 import com.eurekapp.backend.service.PhotoService;
-import com.eurekapp.backend.service.RekognitionService;
 import lombok.SneakyThrows;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/photo")

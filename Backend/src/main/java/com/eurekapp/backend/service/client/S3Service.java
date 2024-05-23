@@ -1,4 +1,4 @@
-package com.eurekapp.backend.service;
+package com.eurekapp.backend.service.client;
 
 import com.eurekapp.backend.model.BucketItem;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package com.eurekapp.backend.service;
+package com.eurekapp.backend.service.client;
 
 import com.eurekapp.backend.model.WorkItem;
 import org.slf4j.Logger;
@@ -10,7 +10,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.rekognition.RekognitionAsyncClient;
 import software.amazon.awssdk.services.rekognition.model.*;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;

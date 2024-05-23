@@ -4,12 +4,12 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Image;
 import com.eurekapp.backend.model.WorkItem;
 import com.eurekapp.backend.repository.ImageRepository;
+import com.eurekapp.backend.service.client.RekognitionService;
+import com.eurekapp.backend.service.client.S3Service;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
