@@ -1,14 +1,21 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.exception.NotFoundException;
-import com.eurekapp.backend.model.Image;
-import com.eurekapp.backend.repository.ImageRepository;
+import com.eurekapp.backend.dto.ImageScoreDto;
+import com.eurekapp.backend.dto.TextRequestDto;
+import com.eurekapp.backend.dto.TopSimilarImagesDto;
+import com.eurekapp.backend.model.ImageDto;
+import com.eurekapp.backend.model.ImageVector;
+import com.eurekapp.backend.model.TextVector;
+import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
+import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
+import com.eurekapp.backend.service.client.TextPineconeService;
 import com.eurekapp.backend.service.client.S3Service;
+import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.MethodNotAllowedException;
 
-import java.io.*;
+import java.util.Base64;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -16,15 +23,81 @@ import java.util.UUID;
 public class PhotoService {
 
     private final S3Service s3Service;
-    private final ImageRepository repository;
+    private final OpenAiImageDescriptionService descriptionService;
+    private final OpenAiEmbeddingModelService embeddingService;
+    private final TextPineconeService<ImageVector> imageVectorTextPineconeService;
 
-    public PhotoService(S3Service s3Service, ImageRepository repository) {
+
+    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeService<ImageVector> imageVectorTextPineconeService) {
         this.s3Service = s3Service;
-        this.repository = repository;
+        this.descriptionService = descriptionService;
+        this.embeddingService = embeddingService;
+        this.imageVectorTextPineconeService = imageVectorTextPineconeService;
     }
 
+    @SneakyThrows
+    public ImageDto uploadPhoto(MultipartFile file) {
+        byte[] bytes = file.getBytes();
+        String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
+        List<Float> embeddings = embeddingService.getEmbedding(textRepresentation);
+        String imageId = UUID.randomUUID().toString();
+        ImageVector imageVector = ImageVector.builder()
+                .id(imageId)
+                .text(textRepresentation)
+                .embeddings(embeddings)
+                .build();
+        // TODO: VER COMO HACERLO ASYNC
+        imageVectorTextPineconeService.upsertVector(imageVector);
+        s3Service.putObject(bytes, imageId);
+        return ImageDto.builder()
+                .textEncodind(textRepresentation)
+                .id(imageId)
+                .build();
+    }
 
-    public byte[] getImageFromTag(String tag) {
-        throw new RuntimeException("Not implemented");
+    @SneakyThrows
+    public List<ImageScoreDto> getImagesByImageSimilarity(MultipartFile file){
+        byte[] bytes = file.getBytes();
+        String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
+        List<Float> embeddings = embeddingService.getEmbedding(textRepresentation);
+        ImageVector imageVector = ImageVector.builder()
+                .text(textRepresentation)
+                .embeddings(embeddings)
+                .build();
+        List<ImageVector> imageVectors = imageVectorTextPineconeService.queryVector(imageVector);
+        return imageVectors.stream()
+                .map(this::imageVectorToImageScoreDto)
+                .sorted(Comparator.comparing(ImageScoreDto::getScore).reversed())
+                .toList();
+    }
+
+    @SneakyThrows
+    public TopSimilarImagesDto getImageByTextDescription(TextRequestDto text){
+        List<Float> embeddings = embeddingService.getEmbedding(text.getText());
+         ImageVector textVector = ImageVector.builder() // ESTO ESTÁ MAL DEBERIA SER UN TEXTVECTOR PERO ME BUGUEE
+                .text(text.getText())
+                .embeddings(embeddings)
+                .build();
+        List<ImageVector> imageVectors = imageVectorTextPineconeService.queryVector(textVector);
+
+        List<ImageScoreDto> imageScoreDtos = imageVectors.stream()
+                .map(this::imageVectorToImageScoreDto)
+                .sorted(Comparator.comparing(ImageScoreDto::getScore).reversed())
+                .toList();
+
+        return TopSimilarImagesDto.builder()
+                .imageScoreDtos(imageScoreDtos)
+                .build();
+
+    }
+
+    public ImageScoreDto imageVectorToImageScoreDto(ImageVector imageVector){
+        byte[] bytes = s3Service.getObjectBytes(imageVector.getId());
+        return ImageScoreDto.builder()
+                .textRepresentation(imageVector.getText())
+                .id(imageVector.getId())
+                .b64Json(Base64.getEncoder().encodeToString(bytes))
+                .score(imageVector.getScore())
+                .build();
     }
 }

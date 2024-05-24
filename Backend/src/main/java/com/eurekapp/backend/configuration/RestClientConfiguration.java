@@ -29,7 +29,7 @@ public class RestClientConfiguration {
             @Value("${application.openai.api.key}") String apiKey
     ){
         return RestClient.builder()
-                .baseUrl("https://api.openai.com/v1/completition")
+                .baseUrl("https://api.openai.com/v1/chat/completions")
                 .defaultHeader("Authorization", String.format("Bearer %s", apiKey))
                 .build();
     }

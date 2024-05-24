@@ -7,7 +7,7 @@ import com.eurekapp.backend.model.TextPostedResponseDto;
 import com.eurekapp.backend.model.TextVector;
 import com.eurekapp.backend.model.TextVectorScore;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
-import com.eurekapp.backend.service.client.PineconeService;
+import com.eurekapp.backend.service.client.TextPineconeService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,11 +17,11 @@ import java.util.UUID;
 public class TextService {
 
     private final OpenAiEmbeddingModelService openAiEmbeddingModelService;
-    private final PineconeService pineconeService;
+    private final TextPineconeService textPineconeService;
 
-    public TextService(OpenAiEmbeddingModelService openAiEmbeddingModelService, PineconeService pineconeService) {
+    public TextService(OpenAiEmbeddingModelService openAiEmbeddingModelService, TextPineconeService textPineconeService) {
         this.openAiEmbeddingModelService = openAiEmbeddingModelService;
-        this.pineconeService = pineconeService;
+        this.textPineconeService = textPineconeService;
     }
 
     public List<Float> retriveEmbeddingFromText(String text){
@@ -31,7 +31,7 @@ public class TextService {
     public TopEqualTextDto getSimilarTextFrom(TextRequestDto textRequestDto) {
         List<Float> embeddings = openAiEmbeddingModelService.getEmbedding(textRequestDto.getText());
         TextVector textVector = createTextVector(embeddings, textRequestDto.getText());
-        List<TextVectorScore> vectorScores = pineconeService.queryVector(textVector);
+        List<TextVectorScore> vectorScores = textPineconeService.queryVector(textVector);
         List<TextResponseDto> textResponseDtos = vectorScores.stream()
                 .map(t -> TextResponseDto.builder()
                         .score(String.format("%f", t.getScore()))
@@ -44,7 +44,7 @@ public class TextService {
     public TextPostedResponseDto postText(TextRequestDto textRequestDto) {
         List<Float> embeddings = openAiEmbeddingModelService.getEmbedding(textRequestDto.getText());
         TextVector textVector = createTextVector(embeddings, textRequestDto.getText());
-        pineconeService.upsertVector(textVector);
+        textPineconeService.upsertVector(textVector);
         return TextPostedResponseDto.builder()
                 .id(textVector.getId())
                 .build();
