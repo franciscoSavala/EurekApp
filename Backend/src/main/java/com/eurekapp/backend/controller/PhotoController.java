@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/photo")
+@RequestMapping("/photos")
 public class PhotoController {
     @Autowired
     private PhotoService service;

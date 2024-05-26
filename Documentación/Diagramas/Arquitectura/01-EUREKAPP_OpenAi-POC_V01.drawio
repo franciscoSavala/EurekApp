@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net" modified="2024-05-26T02:24:04.671Z" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36" etag="B8swb6faOwuAOshV-c-h" version="24.4.7" type="device">
+  <diagram name="Página-1" id="ECaz3eAfLhAAPnM46k_p">
+    <mxGraphModel dx="1122" dy="753" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-2" target="UL2SsjqsO6P-8xdtVJgl-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-15" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="980" y="250" width="240" height="120" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="Pinecone" c4Type="Almacenamiento" c4Description="Base de datos vectorial encargado de la búsqueda de similaridad entre textos e imágenes." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-13">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#8C8496;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#736782;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-15">
+            <mxGeometry width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-14" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://seeklogo.com/images/P/pinecone-icon-logo-AF8B5B7F96-seeklogo.com.png;" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-15">
+          <mxGeometry x="200" y="10" width="30" height="33.71" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-1" target="UL2SsjqsO6P-8xdtVJgl-13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-1" target="UL2SsjqsO6P-8xdtVJgl-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-32" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="640" y="250" width="240" height="120" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="Backend" c4Type="Software System" c4Description="Encargado de las llamadas a las apis, seguridad, negocio y bases de datos." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-1">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#1061B0;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#0D5091;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-32">
+            <mxGeometry width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-27" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://static-00.iconduck.com/assets.00/spring-boot-icon-2048x2046-hlpnsm8r.png;" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-32">
+          <mxGeometry x="194" y="10" width="34" height="33.97" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-33" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="260" y="250" width="240" height="120" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="Frontend" c4Type="Software System" c4Description="interfaz de usuario, permitiendo la interacción directa del usuario con la aplicación a través de elementos visuales como botones, formularios y gráficos." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-2">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#1061B0;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#0D5091;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-33">
+            <mxGeometry width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-24" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://static-00.iconduck.com/assets.00/sdk-react-native-icon-512x490-ynyk8t4w.png;" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-33">
+          <mxGeometry x="190" y="7" width="40.8" height="39.04" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-34" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="640" y="510" width="240" height="120" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="OpenAi&#xa;Embeddings" c4Type="Software System" c4Description="Servicio que permite la representar vectorialmente texto" label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-35">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#8C8496;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#736782;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-34">
+            <mxGeometry width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-36" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://static-00.iconduck.com/assets.00/openai-icon-2021x2048-4rpe5x7n.png;" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-34">
+          <mxGeometry x="190" y="10" width="32" height="32.43" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="OpenAi&#xa;Completions" c4Type="Software System" c4Description="Servicio que permite la descripción de informacion, como audio, video, texto e imágenes." label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-18">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#8C8496;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#736782;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="1">
+            <mxGeometry x="980" y="400" width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-40" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-28" target="UL2SsjqsO6P-8xdtVJgl-28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-28" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://static-00.iconduck.com/assets.00/openai-icon-2021x2048-4rpe5x7n.png;" vertex="1" parent="1">
+          <mxGeometry x="1172" y="410.00333333333333" width="32" height="32.43" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-42" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-1" target="UL2SsjqsO6P-8xdtVJgl-18">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-43" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="UL2SsjqsO6P-8xdtVJgl-1" target="UL2SsjqsO6P-8xdtVJgl-35">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-45" value="" style="group" vertex="1" connectable="0" parent="1">
+          <mxGeometry x="980" y="100" width="240" height="120" as="geometry" />
+        </mxCell>
+        <object placeholders="1" c4Name="Simple Storage &#xa;Service (S3)" c4Type="Almacenamiento" c4Description="Servicio de AWS utilizado para guardar las imagenes de los objetos perdidos" label="&lt;font style=&quot;font-size: 16px&quot;&gt;&lt;b&gt;%c4Name%&lt;/b&gt;&lt;/font&gt;&lt;div&gt;[%c4Type%]&lt;/div&gt;&lt;br&gt;&lt;div&gt;&lt;font style=&quot;font-size: 11px&quot;&gt;&lt;font color=&quot;#cccccc&quot;&gt;%c4Description%&lt;/font&gt;&lt;/div&gt;" id="UL2SsjqsO6P-8xdtVJgl-17">
+          <mxCell style="rounded=1;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#8C8496;fontColor=#ffffff;align=center;arcSize=10;strokeColor=#736782;metaEdit=1;resizable=0;points=[[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0.25,0],[1,0.5,0],[1,0.75,0],[0.75,1,0],[0.5,1,0],[0.25,1,0],[0,0.75,0],[0,0.5,0],[0,0.25,0]];" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-45">
+            <mxGeometry width="240" height="120" as="geometry" />
+          </mxCell>
+        </object>
+        <mxCell id="UL2SsjqsO6P-8xdtVJgl-29" value="" style="shape=image;verticalLabelPosition=bottom;labelBackgroundColor=default;verticalAlign=top;aspect=fixed;imageAspect=0;image=https://static-00.iconduck.com/assets.00/aws-s3-simple-storage-service-icon-423x512-sofvbo3x.png;" vertex="1" parent="UL2SsjqsO6P-8xdtVJgl-45">
+          <mxGeometry x="192" y="10" width="33" height="39.95" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

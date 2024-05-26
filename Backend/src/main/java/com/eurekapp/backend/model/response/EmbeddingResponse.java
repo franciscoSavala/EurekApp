@@ -1,5 +1,6 @@
 package com.eurekapp.backend.model.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,6 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class EmbeddingObject {
+public class EmbeddingResponse {
     private List<Float> embedding;
 }

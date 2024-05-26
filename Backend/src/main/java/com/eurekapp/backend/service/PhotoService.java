@@ -5,12 +5,13 @@ import com.eurekapp.backend.dto.TextRequestDto;
 import com.eurekapp.backend.dto.TopSimilarImagesDto;
 import com.eurekapp.backend.model.ImageDto;
 import com.eurekapp.backend.model.ImageVector;
-import com.eurekapp.backend.model.TextVector;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
 import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
 import com.eurekapp.backend.service.client.TextPineconeService;
 import com.eurekapp.backend.service.client.S3Service;
 import lombok.SneakyThrows;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,6 +23,7 @@ import java.util.UUID;
 @Service
 public class PhotoService {
 
+    private static final Logger log = LoggerFactory.getLogger(PhotoService.class);
     private final S3Service s3Service;
     private final OpenAiImageDescriptionService descriptionService;
     private final OpenAiEmbeddingModelService embeddingService;
@@ -39,7 +41,7 @@ public class PhotoService {
     public ImageDto uploadPhoto(MultipartFile file) {
         byte[] bytes = file.getBytes();
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
-        List<Float> embeddings = embeddingService.getEmbedding(textRepresentation);
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
         String imageId = UUID.randomUUID().toString();
         ImageVector imageVector = ImageVector.builder()
                 .id(imageId)
@@ -49,6 +51,7 @@ public class PhotoService {
         // TODO: VER COMO HACERLO ASYNC
         imageVectorTextPineconeService.upsertVector(imageVector);
         s3Service.putObject(bytes, imageId);
+        log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
         return ImageDto.builder()
                 .textEncodind(textRepresentation)
                 .id(imageId)
@@ -59,7 +62,7 @@ public class PhotoService {
     public List<ImageScoreDto> getImagesByImageSimilarity(MultipartFile file){
         byte[] bytes = file.getBytes();
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
-        List<Float> embeddings = embeddingService.getEmbedding(textRepresentation);
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
         ImageVector imageVector = ImageVector.builder()
                 .text(textRepresentation)
                 .embeddings(embeddings)
@@ -73,8 +76,8 @@ public class PhotoService {
 
     @SneakyThrows
     public TopSimilarImagesDto getImageByTextDescription(TextRequestDto text){
-        List<Float> embeddings = embeddingService.getEmbedding(text.getText());
-         ImageVector textVector = ImageVector.builder() // ESTO ESTÁ MAL DEBERIA SER UN TEXTVECTOR PERO ME BUGUEE
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(text.getText());
+        ImageVector textVector = ImageVector.builder() // ESTO ESTÁ MAL DEBERIA SER UN TEXTVECTOR PERO ME BUGUEE
                 .text(text.getText())
                 .embeddings(embeddings)
                 .build();
@@ -91,8 +94,9 @@ public class PhotoService {
 
     }
 
-    public ImageScoreDto imageVectorToImageScoreDto(ImageVector imageVector){
+    public ImageScoreDto imageVectorToImageScoreDto(ImageVector imageVector) {
         byte[] bytes = s3Service.getObjectBytes(imageVector.getId());
+        log.info("[api_method:GET] [service:S3] Bytes processed: {}", bytes.length);
         return ImageScoreDto.builder()
                 .textRepresentation(imageVector.getText())
                 .id(imageVector.getId())

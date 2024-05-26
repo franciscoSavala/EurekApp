@@ -33,7 +33,7 @@ public class TextPineconeService<T extends VectorPinecone> {
     }
 
     public List<T> queryVector(T pineconeVector) {
-        return queryVector(pineconeVector, 10);
+        return queryVector(pineconeVector, 3);
     }
 
     public List<T> queryVector(T pineconeVector, Integer topK){

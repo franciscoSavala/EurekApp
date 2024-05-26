@@ -1,12 +1,15 @@
 package com.eurekapp.backend.service.client;
 
 
+import com.eurekapp.backend.model.request.EmbeddingRequest;
 import com.eurekapp.backend.model.response.ResponseEmbedding;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -19,21 +22,30 @@ public class OpenAiEmbeddingModelService {
 
     @Qualifier("embeddingClient")
     private final RestClient embeddingClient;
+    private final ObjectMapper objectMapper;
 
-    public OpenAiEmbeddingModelService( RestClient embeddingClient) {
+    public OpenAiEmbeddingModelService(RestClient embeddingClient, ObjectMapper objectMapper) {
         this.embeddingClient = embeddingClient;
+        this.objectMapper = objectMapper;
     }
 
-    public List<Float> getEmbedding(String text){
-        ResponseEmbedding embedding = embeddingClient.post()
+    @SneakyThrows
+    public List<Float> getTextVectorRepresentation(String text){
+        String requestBody = objectMapper.writeValueAsString(new EmbeddingRequest(text));
+        ResponseEntity<ResponseEmbedding> embeddingResponse = embeddingClient.post()
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(String.format("{\"model\":\"text-embedding-3-small\",\"input\":\"%s\"}",text))
+                .body(requestBody)
                 .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
-                    log.error(response.getBody().toString());
-                    throw new RuntimeException("No se pudo conectar con la app!!");
-                })
-                .body(ResponseEmbedding.class);
-        return embedding.getData().getFirst().getEmbedding();
+                .toEntity(ResponseEmbedding.class);
+
+        String logMessage = String.format("[method:POST] [api_call:openAiEmbeddings] Request=%s Response=%s", requestBody, "PII PROTECTED (?");
+        if(embeddingResponse.getStatusCode().is2xxSuccessful()){
+            log.info(logMessage);
+        }else{
+            log.error(logMessage);
+            throw new RuntimeException("Falló la call a openAiEmbeddings");
+        }
+
+        return embeddingResponse.getBody().getData().getFirst().getEmbedding();
     }
 }

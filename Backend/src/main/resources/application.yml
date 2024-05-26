@@ -7,9 +7,8 @@ application:
     bucket:
       name: 'eurekapp-bucket'
   openai:
-    api:
-      key: ${OPENAI_SECRET_KEY}
+    url: 'https://api.openai.com/v1/'
+    api-key: ${OPENAI_SECRET_KEY}
   pinecone:
-    api:
-      key: ${PINECONE_SECRET_KEY}
+    api-key: ${PINECONE_SECRET_KEY}
     namespace: 'image-description'

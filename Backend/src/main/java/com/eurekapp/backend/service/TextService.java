@@ -25,11 +25,11 @@ public class TextService {
     }
 
     public List<Float> retriveEmbeddingFromText(String text){
-        return openAiEmbeddingModelService.getEmbedding(text);
+        return openAiEmbeddingModelService.getTextVectorRepresentation(text);
     }
 
     public TopEqualTextDto getSimilarTextFrom(TextRequestDto textRequestDto) {
-        List<Float> embeddings = openAiEmbeddingModelService.getEmbedding(textRequestDto.getText());
+        List<Float> embeddings = openAiEmbeddingModelService.getTextVectorRepresentation(textRequestDto.getText());
         TextVector textVector = createTextVector(embeddings, textRequestDto.getText());
         List<TextVectorScore> vectorScores = textPineconeService.queryVector(textVector);
         List<TextResponseDto> textResponseDtos = vectorScores.stream()
@@ -42,7 +42,7 @@ public class TextService {
     }
 
     public TextPostedResponseDto postText(TextRequestDto textRequestDto) {
-        List<Float> embeddings = openAiEmbeddingModelService.getEmbedding(textRequestDto.getText());
+        List<Float> embeddings = openAiEmbeddingModelService.getTextVectorRepresentation(textRequestDto.getText());
         TextVector textVector = createTextVector(embeddings, textRequestDto.getText());
         textPineconeService.upsertVector(textVector);
         return TextPostedResponseDto.builder()
