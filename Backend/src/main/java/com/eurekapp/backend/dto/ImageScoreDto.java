@@ -12,7 +12,6 @@ import lombok.NoArgsConstructor;
 @Builder
 public class ImageScoreDto {
     private String textRepresentation;
-    @JsonIgnore
     private String b64Json;
     private Float score;
     private String id;

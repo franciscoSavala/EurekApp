@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from "react";
-import {Button, FlatList, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Button, FlatList, StyleSheet, Text, TextInput, View, Image} from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import axios from "axios";
@@ -48,6 +48,12 @@ export default function App() {
             <Text>{item.id}</Text>
             <Text>{item.textRepresentation}</Text>
             <Text>{item.score}</Text>
+            {item.b64Json && (
+                <Image
+                    source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
+                    style={styles.image}
+                />
+            )}
         </View>
     );
 
@@ -100,6 +106,11 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 10,
+    },
+    image: {
+        width: 100,
+        height: 100,
+        marginTop: 10,
     },
 });
 
