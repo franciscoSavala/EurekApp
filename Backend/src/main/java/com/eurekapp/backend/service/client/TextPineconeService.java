@@ -1,16 +1,13 @@
 package com.eurekapp.backend.service.client;
 
-import com.eurekapp.backend.model.TextVector;
-import com.eurekapp.backend.model.TextVectorScore;
 import com.eurekapp.backend.model.VectorPinecone;
 import com.google.protobuf.Struct;
-import com.google.protobuf.Value;
 import io.pinecone.clients.Index;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.unsigned_indices_model.QueryResponseWithUnsignedIndices;
-import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
@@ -20,7 +17,7 @@ import java.util.List;
 public class TextPineconeService<T extends VectorPinecone> {
     private static final Logger log = LoggerFactory.getLogger(TextPineconeService.class);
     private final Index client;
-    @org.springframework.beans.factory.annotation.Value("${application.pinecone.namespace}")
+    @Value("${application.pinecone.namespace}")
     private String namespace;
     public TextPineconeService(Index client) {
         this.client = client;

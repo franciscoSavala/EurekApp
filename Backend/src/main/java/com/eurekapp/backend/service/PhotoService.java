@@ -75,10 +75,10 @@ public class PhotoService {
     }
 
     @SneakyThrows
-    public TopSimilarImagesDto getImageByTextDescription(TextRequestDto text){
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(text.getText());
+    public TopSimilarImagesDto getImageByTextDescription(String query){
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(query);
         ImageVector textVector = ImageVector.builder() // ESTO ESTÁ MAL DEBERIA SER UN TEXTVECTOR PERO ME BUGUEE
-                .text(text.getText())
+                .text(query)
                 .embeddings(embeddings)
                 .build();
         List<ImageVector> imageVectors = imageVectorTextPineconeService.queryVector(textVector);

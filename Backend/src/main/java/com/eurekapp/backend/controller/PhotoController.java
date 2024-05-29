@@ -24,7 +24,7 @@ public class PhotoController {
     }
 
     @GetMapping
-    public ResponseEntity<TopSimilarImagesDto> getImagesByTextDescription(@RequestBody TextRequestDto textRequestDto){
-        return ResponseEntity.ok(service.getImageByTextDescription(textRequestDto));
+    public ResponseEntity<TopSimilarImagesDto> getImagesByTextDescription(@RequestParam String query){
+        return ResponseEntity.ok(service.getImageByTextDescription(query));
     }
 }
