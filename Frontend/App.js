@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from "react";
-import {Button, StyleSheet, Text, TextInput, View} from 'react-native';
+import {Button, FlatList, StyleSheet, Text, TextInput, View} from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import axios from "axios";
@@ -16,7 +16,9 @@ const ensureDirExists = async () => {
 }
 
 export default function App() {
-    const [queryObjects, setQueryObjects] = useState("")
+    const [queryObjects, setQueryObjects] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [objectsFound, setObjectsFound] = useState([]);
     const selectImage = async () => {
         let res = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images
@@ -26,17 +28,52 @@ export default function App() {
         }
     }
     const queryLostObject = async () => {
-        let res = await fetch(BACK_URL + "/photo");
-        let jsonData = res.json();
+        setLoading(true);
+        try {
+            let res = await axios.get(BACK_URL + "/photos",
+                {params: {query: queryObjects}});
+            let jsonData = res.data;
+            console.log(jsonData)
+            setObjectsFound(jsonData.imageScoreDtos);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoading(false);
+        }
 
     }
+
+    const renderItem = ({ item }) => (
+        <View style={styles.item}>
+            <Text>{item.id}</Text>
+            <Text>{item.textRepresentation}</Text>
+            <Text>{item.score}</Text>
+        </View>
+    );
+
+    const ItemSeparator = () => (
+        <View style={styles.separator} />
+    );
+
     return (
         <View style={styles.container}>
-            <Text>Postear un objeto perdido: </Text>
-            <Button title={"Upload Image"} onPress={selectImage}></Button>
             <Text>Buscar un objeto: </Text>
-            <TextInput style={styles.input}></TextInput>
-            <StatusBar style="auto" />
+            <TextInput
+                style={styles.input}
+                placeholder={"Describe el objeto que buscas"}
+                onChangeText={setQueryObjects}
+                value={queryObjects} />
+            <Button title="Buscar Objeto" onPress={queryLostObject} />
+            {loading ? (
+                <Text>Cargando...</Text>
+            ) : (
+                <FlatList
+                    data={objectsFound}
+                    keyExtractor={(item) => item.id.toString()}
+                    renderItem={renderItem}
+                    ItemSeparatorComponent={ItemSeparator}
+                />
+            )}
         </View>
     );
 }
@@ -55,6 +92,14 @@ const styles = StyleSheet.create({
         borderColor: '#ccc',
         borderRadius: 5,
         paddingLeft: 10, // Esto es opcional, agrega espacio a la izquierda del texto
+    },
+    item: {
+        padding: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ccc',
+    },
+    separator: {
+        height: 10,
     },
 });
 
