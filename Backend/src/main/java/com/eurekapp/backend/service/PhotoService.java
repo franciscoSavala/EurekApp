@@ -1,9 +1,8 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.ImageScoreDto;
-import com.eurekapp.backend.dto.TextRequestDto;
 import com.eurekapp.backend.dto.TopSimilarImagesDto;
-import com.eurekapp.backend.model.ImageDto;
+import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.ImageVector;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
 import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
@@ -38,7 +37,7 @@ public class PhotoService {
     }
 
     @SneakyThrows
-    public ImageDto uploadPhoto(MultipartFile file) {
+    public ImageUploadedResponseDto uploadPhoto(MultipartFile file, String description) {
         byte[] bytes = file.getBytes();
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
@@ -47,13 +46,15 @@ public class PhotoService {
                 .id(imageId)
                 .text(textRepresentation)
                 .embeddings(embeddings)
+                .humanDescription(description)
                 .build();
         // TODO: VER COMO HACERLO ASYNC
         imageVectorTextPineconeService.upsertVector(imageVector);
         s3Service.putObject(bytes, imageId);
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
-        return ImageDto.builder()
+        return ImageUploadedResponseDto.builder()
                 .textEncodind(textRepresentation)
+                .description(description)
                 .id(imageId)
                 .build();
     }

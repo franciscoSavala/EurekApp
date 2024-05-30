@@ -1,4 +1,4 @@
-package com.eurekapp.backend.model;
+package com.eurekapp.backend.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ImageDto {
+public class ImageUploadedResponseDto {
     private String id;
     private String textEncodind;
+    private String description;
 }
