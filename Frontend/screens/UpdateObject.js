@@ -1,34 +1,71 @@
-import * as FileSystem from "expo-file-system";
-import * as ImagePicker from "expo-image-picker";
-import {Button, Text, View, StyleSheet} from "react-native";
+import React, { useState } from 'react';
+import {View, Text, TextInput, Button, Image, StyleSheet} from 'react-native';
+import axios from 'axios';
+import * as ImagePicker from "react-native-image-picker";
+import Constants from "expo-constants";
 
-const imgDir = FileSystem.documentDirectory + 'images';
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
+const UpdateObject = () => {
+    const [text, setText] = useState('');
+    const [image, setImage] = useState(null);
 
-const ensureDirExists = async () => {
-    const dirInfo = await FileSystem.getInfoAsync(imgDir);
-    if(!dirInfo.exists){
-        await FileSystem.makeDirectoryAsync(imgDir, { intermediates: true });
-    }
-}
-
-const UpdateObject = ({navigation}) => {
-    const selectImage = async () => {
-        let res = await ImagePicker.launchCameraAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibrary({
+            mediaType: 'photo',
+            includeBase64: true,
         });
-        if(!res.canceled){
-            console.log(res.assets[0].fileName);
+
+        if (!result.didCancel) {
+            setImage(result.assets[0]);
         }
-    }
+    };
+
+    const submitData = async () => {
+        if (!text || !image) {
+            alert('Please provide both text and image.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('description', text);
+        formData.append('file', {
+            uri: image.uri,
+            type: image.type,
+            name: image.fileName,
+        });
+
+        try {
+            const response = await axios.post(BACK_URL + '/photos', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            });
+            console.log(response.data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     return (
         <View style={styles.container}>
-            <Text>Postear objeto: </Text>
-            <Button title="Seleccionar Imagen" onPress={selectImage} />
+            <Text>Text:</Text>
+            <TextInput
+                value={text}
+                onChangeText={setText}
+                style={styles.input}
+            />
+            <Button title="Pick Image" onPress={pickImage} />
+            {image && (
+                <Image
+                    source={{ uri: image.uri }}
+                    style={styles.image}
+                />
+            )}
+            <Button title="Submit" onPress={submitData} />
         </View>
     );
-}
+};
 
 const styles = StyleSheet.create({
     container: {
@@ -36,6 +73,36 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    input: {
+        width: 300,
+        height: 40,
+        borderWidth: 1,
+        borderColor: '#ccc',
+        borderRadius: 5,
+        paddingLeft: 10, // Esto es opcional, agrega espacio a la izquierda del texto
+    },
+    item: {
+        padding: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#ccc',
+    },
+    separator: {
+        height: 10,
+    },
+    image: {
+        width: 100,
+        height: 100,
+        marginTop: 10,
+    },
+    loadingText: {
+        marginTop: 20,
+        fontSize: 18,
+    },
+    list: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 

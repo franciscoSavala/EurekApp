@@ -4,6 +4,7 @@
     "@react-navigation/native": "^6.1.17",
     "@react-navigation/stack": "^6.3.29",
     "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
     "expo": "^51.0.8",
     "expo-cli": "^6.3.10",
     "expo-file-system": "^17.0.1",
@@ -12,7 +13,9 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-native": "0.74.1",
-    "react-native-web": "~0.19.6"
+    "react-native-image-picker": "^7.1.2",
+    "react-native-web": "~0.19.6",
+    "expo-constants": "~16.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.19.3"

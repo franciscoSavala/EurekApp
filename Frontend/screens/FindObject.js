@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import {Button, FlatList, StyleSheet, Text, TextInput, View, Image} from 'react-native';
 import axios from "axios";
+import Constants from "expo-constants";
 
-const BACK_URL = "http://localhost:8080";
+
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
     const [queryObjects, setQueryObjects] = useState("");
@@ -13,6 +15,7 @@ const FindObject = ({ navigation }) => {
     const queryLostObject = async () => {
         setLoading(true);
         setButtonWasPressed(true);
+        console.log(BACK_URL)
         try {
             let res = await axios.get(BACK_URL + "/photos",
                 {params: {query: queryObjects}});
@@ -30,7 +33,7 @@ const FindObject = ({ navigation }) => {
     const renderItem = ({ item }) => (
         <View style={styles.item}>
             <Text>{item.id}</Text>
-            <Text>{item.textRepresentation}</Text>
+            <Text>{item.description}</Text>
             <Text>{item.score}</Text>
             {item.b64Json && (
                 <Image
