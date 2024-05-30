@@ -8,9 +8,11 @@ const FindObject = ({ navigation }) => {
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [objectsFound, setObjectsFound] = useState([]);
+    const [buttonWasPressed, setButtonWasPressed] = useState(false);
 
     const queryLostObject = async () => {
         setLoading(true);
+        setButtonWasPressed(true);
         try {
             let res = await axios.get(BACK_URL + "/photos",
                 {params: {query: queryObjects}});
@@ -52,16 +54,21 @@ const FindObject = ({ navigation }) => {
                 onChangeText={setQueryObjects}
                 value={queryObjects} />
             <Button title="Buscar Objeto" onPress={queryLostObject} />
-            {loading ? (
-                <Text>Cargando...</Text>
-            ) : (
-                <FlatList
-                    data={objectsFound}
-                    keyExtractor={(item) => item.id.toString()}
-                    renderItem={renderItem}
-                    ItemSeparatorComponent={ItemSeparator}
-                />
-            )}
+            {buttonWasPressed ? (
+                loading ? (
+                        <Text style={styles.loadingText}>Cargando...</Text>
+                    ) : (
+                        <FlatList
+                            data={objectsFound}
+                            keyExtractor={(item) => item.id.toString()}
+                            renderItem={renderItem}
+                            ItemSeparatorComponent={ItemSeparator}
+                            contentContainerStyle={styles.list}
+                        />
+                    )
+            ) : (<View />)
+            }
+
         </View>
     );
 }
@@ -93,6 +100,15 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         marginTop: 10,
+    },
+    loadingText: {
+        marginTop: 20,
+        fontSize: 18,
+    },
+    list: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 
