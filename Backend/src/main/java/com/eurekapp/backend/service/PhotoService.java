@@ -101,6 +101,7 @@ public class PhotoService {
         return ImageScoreDto.builder()
                 .textRepresentation(imageVector.getText())
                 .id(imageVector.getId())
+                .description(imageVector.getHumanDescription())
                 .b64Json(Base64.getEncoder().encodeToString(bytes))
                 .score(imageVector.getScore())
                 .build();
