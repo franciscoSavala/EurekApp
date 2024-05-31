@@ -36,7 +36,7 @@ const UpdateObject = () => {
         console.log(image);
         const blob = new Blob([imageByte]);
         const formData = new FormData();
-        formData.append('file', blob, 'somefilename');
+        formData.append('file', blob);
         formData.append('description', text);
 
         try {
