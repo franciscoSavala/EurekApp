@@ -33,7 +33,6 @@ const UpdateObject = () => {
             return;
         }
 
-        console.log(image);
         const blob = new Blob([imageByte]);
         const formData = new FormData();
         formData.append('file', blob);
@@ -44,8 +43,7 @@ const UpdateObject = () => {
                     method: 'POST',
                     body: formData,
                 });
-            console.log(response)
-            if (response.status === 1) {
+            if (response.status === 200) {
                 alert('Upload Successful')
             }
         } catch (error) {
