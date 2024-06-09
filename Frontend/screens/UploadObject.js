@@ -8,7 +8,7 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
-const UpdateObject = () => {
+const UploadObject = () => {
     const [text, setText] = useState('');
     const [image, setImage] = useState(null);
     const [imageByte, setImageByte] = useState(new Buffer("something"));
@@ -53,20 +53,23 @@ const UpdateObject = () => {
 
     return (
         <View style={styles.container}>
-            <Text>Text:</Text>
             <TextInput
                 value={text}
+                placeholder={"Descripción del objeto"}
                 onChangeText={setText}
                 style={styles.input}
             />
-            <Button title="Pick Image" onPress={pickImage} />
+            <View style={styles.button_container}>
+                <Button title="Seleccionar Imagen" onPress={pickImage} />
+                <Button title="Subir" onPress={submitData} />
+            </View>
             {image && (
                 <Image
                     source={{ uri: image.uri }}
                     style={styles.image}
                 />
             )}
-            <Button title="Submit" onPress={submitData} />
+
         </View>
     );
 };
@@ -78,13 +81,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
+    button_container: {
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        width: 300,
+    },
     input: {
         width: 300,
         height: 40,
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 5,
-        paddingLeft: 10, // Esto es opcional, agrega espacio a la izquierda del texto
+        paddingLeft: 10,
+        marginVertical: 10,
     },
     item: {
         padding: 10,
@@ -110,4 +119,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default UpdateObject;
+export default UploadObject;

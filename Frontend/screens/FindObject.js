@@ -32,9 +32,8 @@ const FindObject = ({ navigation }) => {
 
     const renderItem = ({ item }) => (
         <View style={styles.item}>
-            <Text>{item.id}</Text>
-            <Text>{item.description}</Text>
-            <Text>{item.score}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+            <Text>Probabilidad: {item.score}</Text>
             {item.b64Json && (
                 <Image
                     source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
@@ -50,7 +49,6 @@ const FindObject = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <Text>Buscar un objeto: </Text>
             <TextInput
                 style={styles.input}
                 placeholder={"Describe el objeto que buscas"}
@@ -71,7 +69,6 @@ const FindObject = ({ navigation }) => {
                     )
             ) : (<View />)
             }
-
         </View>
     );
 }
@@ -81,6 +78,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         alignItems: 'center',
+        width: '100%',
         justifyContent: 'center',
     },
     input: {
@@ -89,7 +87,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ccc',
         borderRadius: 5,
-        paddingLeft: 10, // Esto es opcional, agrega espacio a la izquierda del texto
+        paddingLeft: 10,
+        marginVertical: 10,
     },
     item: {
         padding: 10,
@@ -113,6 +112,10 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    description: {
+        fontSize: 16,
+        fontWeight: 'bold',
+    }
 });
 
 export default FindObject;
