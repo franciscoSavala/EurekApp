@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import FindObject from './screens/FindObject';
 import UploadObject from "./screens/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {createStackNavigator} from "@react-navigation/stack";
 
 const Tab = createBottomTabNavigator();
 
@@ -18,4 +17,6 @@ const App = () => {
         </NavigationContainer>
     );
 }
+
+export default App;
 
