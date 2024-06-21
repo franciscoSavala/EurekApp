@@ -6,8 +6,8 @@ import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.ImageVector;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
 import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
-import com.eurekapp.backend.service.client.TextPineconeService;
-import com.eurekapp.backend.service.client.S3Service;
+import com.eurekapp.backend.repository.TextPineconeRepository;
+import com.eurekapp.backend.repository.S3Service;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,14 +26,14 @@ public class PhotoService {
     private final S3Service s3Service;
     private final OpenAiImageDescriptionService descriptionService;
     private final OpenAiEmbeddingModelService embeddingService;
-    private final TextPineconeService<ImageVector> imageVectorTextPineconeService;
+    private final TextPineconeRepository<ImageVector> imageVectorTextPineconeRepository;
 
 
-    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeService<ImageVector> imageVectorTextPineconeService) {
+    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeRepository<ImageVector> imageVectorTextPineconeRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
-        this.imageVectorTextPineconeService = imageVectorTextPineconeService;
+        this.imageVectorTextPineconeRepository = imageVectorTextPineconeRepository;
     }
 
     @SneakyThrows
@@ -49,7 +49,7 @@ public class PhotoService {
                 .humanDescription(description)
                 .build();
         // TODO: VER COMO HACERLO ASYNC
-        imageVectorTextPineconeService.upsertVector(imageVector);
+        imageVectorTextPineconeRepository.upsertVector(imageVector);
         s3Service.putObject(bytes, imageId);
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
         return ImageUploadedResponseDto.builder()
@@ -68,7 +68,7 @@ public class PhotoService {
                 .text(textRepresentation)
                 .embeddings(embeddings)
                 .build();
-        List<ImageVector> imageVectors = imageVectorTextPineconeService.queryVector(imageVector);
+        List<ImageVector> imageVectors = imageVectorTextPineconeRepository.queryVector(imageVector);
         return imageVectors.stream()
                 .map(this::imageVectorToImageScoreDto)
                 .sorted(Comparator.comparing(ImageScoreDto::getScore).reversed())
@@ -82,7 +82,7 @@ public class PhotoService {
                 .text(query)
                 .embeddings(embeddings)
                 .build();
-        List<ImageVector> imageVectors = imageVectorTextPineconeService.queryVector(textVector);
+        List<ImageVector> imageVectors = imageVectorTextPineconeRepository.queryVector(textVector);
 
         List<ImageScoreDto> imageScoreDtos = imageVectors.stream()
                 .map(this::imageVectorToImageScoreDto)

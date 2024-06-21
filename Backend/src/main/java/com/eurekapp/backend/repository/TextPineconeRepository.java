@@ -1,4 +1,4 @@
-package com.eurekapp.backend.service.client;
+package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.model.VectorPinecone;
 import com.google.protobuf.Struct;
@@ -14,12 +14,12 @@ import java.util.Comparator;
 import java.util.List;
 
 @Service
-public class TextPineconeService<T extends VectorPinecone> {
-    private static final Logger log = LoggerFactory.getLogger(TextPineconeService.class);
+public class TextPineconeRepository<T extends VectorPinecone> {
+    private static final Logger log = LoggerFactory.getLogger(TextPineconeRepository.class);
     private final Index client;
     @Value("${application.pinecone.namespace}")
     private String namespace;
-    public TextPineconeService(Index client) {
+    public TextPineconeRepository(Index client) {
         this.client = client;
     }
 

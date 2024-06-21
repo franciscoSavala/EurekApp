@@ -1,4 +1,4 @@
-package com.eurekapp.backend.service.client;
+package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.dto.BucketItem;
 import org.springframework.beans.factory.annotation.Value;
