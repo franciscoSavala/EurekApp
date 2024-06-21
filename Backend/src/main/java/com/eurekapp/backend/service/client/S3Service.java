@@ -1,6 +1,6 @@
 package com.eurekapp.backend.service.client;
 
-import com.eurekapp.backend.model.BucketItem;
+import com.eurekapp.backend.dto.BucketItem;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;

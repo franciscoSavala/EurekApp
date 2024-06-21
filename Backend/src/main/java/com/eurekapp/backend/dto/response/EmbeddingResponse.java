@@ -1,4 +1,4 @@
-package com.eurekapp.backend.model.response;
+package com.eurekapp.backend.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;

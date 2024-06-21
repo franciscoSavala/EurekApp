@@ -1,8 +1,8 @@
 package com.eurekapp.backend.service.client;
 
 
-import com.eurekapp.backend.model.request.EmbeddingRequest;
-import com.eurekapp.backend.model.response.ResponseEmbedding;
+import com.eurekapp.backend.dto.request.EmbeddingRequest;
+import com.eurekapp.backend.dto.response.ResponseEmbedding;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;

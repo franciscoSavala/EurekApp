@@ -1,4 +1,4 @@
-package com.eurekapp.backend.model.request;
+package com.eurekapp.backend.dto.request;
 
 import lombok.Getter;
 

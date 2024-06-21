@@ -1,13 +1,12 @@
 package com.eurekapp.backend.service.client;
 
-import com.eurekapp.backend.model.request.ChatCompletionRequest;
-import com.eurekapp.backend.model.response.ChatCompletionResponse;
+import com.eurekapp.backend.dto.request.ChatCompletionRequest;
+import com.eurekapp.backend.dto.response.ChatCompletionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;

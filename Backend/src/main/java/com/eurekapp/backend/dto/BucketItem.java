@@ -1,4 +1,4 @@
-package com.eurekapp.backend.model;
+package com.eurekapp.backend.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

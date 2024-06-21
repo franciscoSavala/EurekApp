@@ -1,14 +1,16 @@
-package com.eurekapp.backend.model.response;
+package com.eurekapp.backend.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Setter
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class ChatResponseChoices {
-    private ChatMessage message;
+public class ResponseEmbedding {
+    private List<EmbeddingResponse> data;
 }
