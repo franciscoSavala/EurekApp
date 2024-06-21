@@ -14,18 +14,18 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/photos")
 @CrossOrigin("*")
 @Validated
-public class PhotoController {
+public class FoundObjectController {
     @Autowired
     private PhotoService service;
 
     @PostMapping
-    public ResponseEntity<ImageUploadedResponseDto> uploadPhoto(@RequestParam("file") MultipartFile file,
-                                                                @RequestParam("description") @Size(max = 100) String description){
+    public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
+                                                                      @RequestParam("description") @Size(max = 100) String description){
         return ResponseEntity.ok(service.uploadPhoto(file, description));
     }
 
     @GetMapping
-    public ResponseEntity<TopSimilarImagesDto> getImagesByTextDescription(@RequestParam String query){
-        return ResponseEntity.ok(service.getImageByTextDescription(query));
+    public ResponseEntity<TopSimilarImagesDto> getFoundObjectsByTextDescription(@RequestParam String query){
+        return ResponseEntity.ok(service.getFoundObjectByTextDescription(query));
     }
 }

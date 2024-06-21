@@ -12,12 +12,15 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class ImageVector implements VectorPinecone{
+public class FoundObjectVector implements VectorPinecone{
     private String id;
     private List<Float> embeddings;
+    private Float score;
+
+    //metadata
     private String text;
     private String humanDescription;
-    private Float score;
+    private String organization;
 
     @Override
     public Struct toStruct() {
@@ -30,7 +33,7 @@ public class ImageVector implements VectorPinecone{
     @Override
     public VectorPinecone fromScoredVector(ScoredVectorWithUnsignedIndices scoredVector){
         Value defaultValue = Value.newBuilder().setStringValue("").build();
-        return ImageVector.builder()
+        return FoundObjectVector.builder()
                 .id(scoredVector.getId())
                 .score(scoredVector.getScore())
                 .text(scoredVector.getMetadata().getFieldsOrThrow("text").getStringValue())
