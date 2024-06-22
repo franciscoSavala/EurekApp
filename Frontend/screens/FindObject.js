@@ -17,11 +17,11 @@ const FindObject = ({ navigation }) => {
         setButtonWasPressed(true);
         console.log(BACK_URL)
         try {
-            let res = await axios.get(BACK_URL + "/photos",
+            let res = await axios.get(BACK_URL + "/found-objects",
                 {params: {query: queryObjects}});
             let jsonData = res.data;
             console.log(jsonData)
-            setObjectsFound(jsonData.imageScoreDtos);
+            setObjectsFound(jsonData.found_objects);
         } catch (error) {
             console.error(error);
         } finally {
