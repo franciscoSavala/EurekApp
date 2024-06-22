@@ -1,7 +1,9 @@
 spring:
   application:
     name: Backend
-
+  servlet:
+    multipart:
+      max-file-size: 10MB
 application:
   s3:
     bucket:

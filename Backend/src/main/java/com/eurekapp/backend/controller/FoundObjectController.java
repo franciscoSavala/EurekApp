@@ -15,21 +15,21 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/found-objects")
 @CrossOrigin("*")
-@Validated
 public class FoundObjectController {
     @Autowired
     private PhotoService service;
 
     @PostMapping
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
-                                                                      @RequestParam("description") @Size(max = 100) String description){
-        return ResponseEntity.ok(service.uploadFoundObject(file, description));
+                                                                      @RequestParam("description") @Length(max = 30, message = "Max description size is 30") String description,
+                                                                      @RequestParam(value = "organization_id", required = false) Long organizationId){
+        return ResponseEntity.ok(service.uploadFoundObject(file, description, organizationId));
     }
 
     @GetMapping("/organizations/{organizationId}")
     public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescriptionAndOrganization(@RequestParam
                                                                                           @Length(max = 255,
-                                                                                                  message = "Max length supported is 256")
+                                                                                                  message = "Max length supported is 255")
                                                                                           String query,
                                                                                       @PathVariable(name = "organizationId",
                                                                                               required = false) Long organizationId){
@@ -38,7 +38,7 @@ public class FoundObjectController {
     @GetMapping
     public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescription(@RequestParam
                                                                                       @Length(max = 255,
-                                                                                              message = "Max length supported is 256")
+                                                                                              message = "Max length supported is 255")
                                                                                       String query){
         return ResponseEntity.ok(service.getFoundObjectByTextDescription(query, null));
     }

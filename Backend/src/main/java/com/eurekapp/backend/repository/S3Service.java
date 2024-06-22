@@ -1,6 +1,8 @@
 package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.dto.BucketItem;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -44,15 +46,20 @@ public class S3Service {
 
     S3AsyncClient s3AsyncClient;
 
-    private S3AsyncClient getClient() {
-        return S3AsyncClient.builder()
+    @PostConstruct
+    private void constructClient(){
+        s3AsyncClient = S3AsyncClient.builder()
                 .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
                 .region(Region.SA_EAST_1)
                 .build();
     }
 
+    @PreDestroy
+    private void closeConnection() {
+        s3AsyncClient.close();
+    }
+
     public byte[] getObjectBytes(String keyName) {
-        s3AsyncClient = getClient();
         final AtomicReference<byte[]> reference = new AtomicReference<>();
         try {
             GetObjectRequest objectRequest = GetObjectRequest.builder()
@@ -66,17 +73,12 @@ public class S3Service {
                             AsyncResponseTransformer.toBytes()) };
 
             futureGet[0].whenComplete((resp, err) -> {
-                try {
-                    if (resp != null) {
-                        // Set the AtomicReference object.
-                        reference.set(resp.asByteArray());
+                if (resp != null) {
+                    // Set the AtomicReference object.
+                    reference.set(resp.asByteArray());
 
-                    } else {
-                        err.printStackTrace();
-                    }
-                } finally {
-                    // Only close the client when you are completely done with it.
-                    s3AsyncClient.close();
+                } else {
+                    err.printStackTrace();
                 }
             });
             futureGet[0].join();
@@ -93,7 +95,6 @@ public class S3Service {
 
     // Returns the names of all images in the given bucket.
     public List<String> ListBucketObjects() {
-        s3AsyncClient = getClient();
         final AtomicReference<List<String>> reference = new AtomicReference<>();
         try {
             ListObjectsRequest listObjects = ListObjectsRequest
@@ -103,24 +104,19 @@ public class S3Service {
 
             CompletableFuture<ListObjectsResponse> futureGet = s3AsyncClient.listObjects(listObjects);
             futureGet.whenComplete((resp, err) -> {
-                try {
-                    List<String> keys = new ArrayList<>();
-                    String keyName;
-                    if (resp != null) {
-                        List<S3Object> objects = resp.contents();
-                        for (S3Object myValue : objects) {
-                            keyName = myValue.key();
-                            keys.add(keyName);
-                        }
-
-                        // Set the AtomicReference object.
-                        reference.set(keys);
-                    } else {
-                        err.printStackTrace();
+                List<String> keys = new ArrayList<>();
+                String keyName;
+                if (resp != null) {
+                    List<S3Object> objects = resp.contents();
+                    for (S3Object myValue : objects) {
+                        keyName = myValue.key();
+                        keys.add(keyName);
                     }
-                } finally {
-                    // Only close the client when you are completely done with it.
-                    s3AsyncClient.close();
+
+                    // Set the AtomicReference object.
+                    reference.set(keys);
+                } else {
+                    err.printStackTrace();
                 }
             });
             futureGet.join();
@@ -137,7 +133,6 @@ public class S3Service {
 
     // Places an image into a S3 bucket.
     public void putObject(byte[] data, String objectKey) {
-        s3AsyncClient = getClient();
         try {
             PutObjectRequest objectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
@@ -148,16 +143,11 @@ public class S3Service {
             CompletableFuture<PutObjectResponse> future = s3AsyncClient.putObject(objectRequest,
                     AsyncRequestBody.fromBytes(data));
             future.whenComplete((resp, err) -> {
-                try {
-                    if (resp != null) {
-                        System.out.println("Object uploaded. Details: " + resp);
-                    } else {
-                        // Handle error
-                        err.printStackTrace();
-                    }
-                } finally {
-                    // Only close the client when you are completely done with it
-                    s3AsyncClient.close();
+                if (resp != null) {
+                    System.out.println("Object uploaded. Details: " + resp);
+                } else {
+                    // Handle error
+                    err.printStackTrace();
                 }
             });
             future.join();
@@ -170,7 +160,6 @@ public class S3Service {
 
     // Returns the names of all images and data within XML.
     public String ListAllObjects() {
-        s3AsyncClient = getClient();
         final AtomicReference<List<BucketItem>> reference = new AtomicReference<>();
         List<BucketItem> bucketItems = new ArrayList<>();
         try {
@@ -181,32 +170,26 @@ public class S3Service {
 
             CompletableFuture<ListObjectsResponse> future = s3AsyncClient.listObjects(listObjects);
             future.whenComplete((resp, err) -> {
-                try {
-                    if (resp != null) {
-                        BucketItem myItem;
-                        long sizeLg;
-                        Instant DateIn;
-                        List<S3Object> objects = resp.contents();
-                        for (S3Object myValue : objects) {
-                            myItem = new BucketItem();
-                            myItem.setKey(myValue.key());
-                            myItem.setOwner(myValue.owner().displayName());
-                            sizeLg = myValue.size() / 1024;
-                            myItem.setSize(String.valueOf(sizeLg));
-                            DateIn = myValue.lastModified();
-                            myItem.setDate(String.valueOf(DateIn));
+                if (resp != null) {
+                    BucketItem myItem;
+                    long sizeLg;
+                    Instant DateIn;
+                    List<S3Object> objects = resp.contents();
+                    for (S3Object myValue : objects) {
+                        myItem = new BucketItem();
+                        myItem.setKey(myValue.key());
+                        myItem.setOwner(myValue.owner().displayName());
+                        sizeLg = myValue.size() / 1024;
+                        myItem.setSize(String.valueOf(sizeLg));
+                        DateIn = myValue.lastModified();
+                        myItem.setDate(String.valueOf(DateIn));
 
-                            // Push the items to the list.
-                            bucketItems.add(myItem);
-                        }
-                        reference.set(bucketItems);
-
-                    } else {
-                        err.printStackTrace();
+                        // Push the items to the list.
+                        bucketItems.add(myItem);
                     }
-                } finally {
-                    // Only close the client when you are completely done with it.
-                    s3AsyncClient.close();
+                    reference.set(bucketItems);
+                } else {
+                    err.printStackTrace();
                 }
             });
             future.join();

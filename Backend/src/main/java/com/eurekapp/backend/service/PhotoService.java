@@ -3,7 +3,10 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
+import com.eurekapp.backend.exception.NotFoundException;
+import com.eurekapp.backend.exception.NotValidContentTypeException;
 import com.eurekapp.backend.model.FoundObjectVector;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
 import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
 import com.eurekapp.backend.repository.TextPineconeRepository;
@@ -14,6 +17,7 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.UnknownContentTypeException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
@@ -24,23 +28,29 @@ import java.util.UUID;
 @Service
 public class PhotoService {
 
+    private static final List<String> VALID_CONTENT_TYPES = List.of("image/png", "image/jpeg", "image/jpg");
+
     private static final Logger log = LoggerFactory.getLogger(PhotoService.class);
     private final S3Service s3Service;
     private final OpenAiImageDescriptionService descriptionService;
     private final OpenAiEmbeddingModelService embeddingService;
     private final TextPineconeRepository<FoundObjectVector> imageVectorTextPineconeRepository;
+    private final IOrganizationRepository organizationRepository;
 
 
-    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeRepository<FoundObjectVector> imageVectorTextPineconeRepository) {
+    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeRepository<FoundObjectVector> imageVectorTextPineconeRepository, IOrganizationRepository organizationRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
         this.imageVectorTextPineconeRepository = imageVectorTextPineconeRepository;
+        this.organizationRepository = organizationRepository;
     }
 
     @SneakyThrows
-    public ImageUploadedResponseDto uploadFoundObject(MultipartFile file, String description) {
+    public ImageUploadedResponseDto uploadFoundObject(MultipartFile file, String description, Long organizationId) {
         byte[] bytes = file.getBytes();
+        if(organizationId != null && !organizationRepository.existsById(organizationId)) throw new NotFoundException(String.format("Organization with id '%d' not found", organizationId));
+        if(!validateFileContentType(file)) throw new NotValidContentTypeException(String.format("Content type %s not valid, should be one of the following: %s", file.getContentType(), String.join(", ", VALID_CONTENT_TYPES)));
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
         String foundObjectId = UUID.randomUUID().toString();
@@ -49,6 +59,7 @@ public class PhotoService {
                 .text(textRepresentation)
                 .embeddings(embeddings)
                 .humanDescription(description)
+                .organization(String.valueOf(organizationId))
                 .build();
         // TODO: VER COMO HACERLO ASYNC
         imageVectorTextPineconeRepository.upsertVector(foundObjectVector);
@@ -59,6 +70,11 @@ public class PhotoService {
                 .description(description)
                 .id(foundObjectId)
                 .build();
+    }
+
+    private boolean validateFileContentType(MultipartFile file) {
+        return VALID_CONTENT_TYPES.stream()
+                .anyMatch(ct -> ct.equals(file.getContentType()));
     }
 
     @SneakyThrows

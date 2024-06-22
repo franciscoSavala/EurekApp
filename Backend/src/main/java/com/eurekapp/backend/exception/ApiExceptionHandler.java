@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.List;
 
@@ -25,6 +26,18 @@ public class ApiExceptionHandler {
                 .map(ConstraintViolation::getMessage)
                 .toList();
         ApiError apiError = new ApiError("bad_request", messages.getFirst(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> maxUploadSizeException(Exception e){
+        ApiError apiError = new ApiError("file_too_large", e.getMessage(), HttpStatus.PAYLOAD_TOO_LARGE.value());
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    @ExceptionHandler(NotValidContentTypeException.class)
+    public ResponseEntity<ApiError> notValidContentType(Exception e) {
+        ApiError apiError = new ApiError("unrecognized_file_type", e.getMessage(), HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 }
