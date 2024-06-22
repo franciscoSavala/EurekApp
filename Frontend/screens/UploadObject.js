@@ -39,7 +39,7 @@ const UploadObject = () => {
         formData.append('description', text);
 
         try {
-            let response = await fetch( BACK_URL + '/photos', {
+            let response = await fetch( BACK_URL + '/found-objects', {
                     method: 'POST',
                     body: formData,
                 });
