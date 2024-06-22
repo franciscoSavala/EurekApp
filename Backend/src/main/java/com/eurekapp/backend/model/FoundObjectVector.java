@@ -27,6 +27,7 @@ public class FoundObjectVector implements VectorPinecone{
         return Struct.newBuilder()
                 .putFields("text", Value.newBuilder().setStringValue(text).build())
                 .putFields("human_description", Value.newBuilder().setStringValue(humanDescription).build())
+                .putFields("organization_id", Value.newBuilder().setStringValue(organization).build())
                 .build();
     }
 
@@ -38,6 +39,7 @@ public class FoundObjectVector implements VectorPinecone{
                 .score(scoredVector.getScore())
                 .text(scoredVector.getMetadata().getFieldsOrThrow("text").getStringValue())
                 .humanDescription(scoredVector.getMetadata().getFieldsOrDefault("human_description", defaultValue).getStringValue())
+                .organization(scoredVector.getMetadata().getFieldsOrDefault("organization_id", defaultValue).getStringValue())
                 .build();
     }
 }

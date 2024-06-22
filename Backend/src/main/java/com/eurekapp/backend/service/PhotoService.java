@@ -1,13 +1,15 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.dto.ImageScoreDto;
-import com.eurekapp.backend.dto.TopSimilarImagesDto;
+import com.eurekapp.backend.dto.FoundObjectDto;
+import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.FoundObjectVector;
 import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
 import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
 import com.eurekapp.backend.repository.TextPineconeRepository;
 import com.eurekapp.backend.repository.S3Service;
+import com.google.protobuf.Struct;
+import com.google.protobuf.Value;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,30 +39,30 @@ public class PhotoService {
     }
 
     @SneakyThrows
-    public ImageUploadedResponseDto uploadPhoto(MultipartFile file, String description) {
+    public ImageUploadedResponseDto uploadFoundObject(MultipartFile file, String description) {
         byte[] bytes = file.getBytes();
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
-        String imageId = UUID.randomUUID().toString();
+        String foundObjectId = UUID.randomUUID().toString();
         FoundObjectVector foundObjectVector = FoundObjectVector.builder()
-                .id(imageId)
+                .id(foundObjectId)
                 .text(textRepresentation)
                 .embeddings(embeddings)
                 .humanDescription(description)
                 .build();
         // TODO: VER COMO HACERLO ASYNC
         imageVectorTextPineconeRepository.upsertVector(foundObjectVector);
-        s3Service.putObject(bytes, imageId);
+        s3Service.putObject(bytes, foundObjectId);
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
         return ImageUploadedResponseDto.builder()
                 .textEncodind(textRepresentation)
                 .description(description)
-                .id(imageId)
+                .id(foundObjectId)
                 .build();
     }
 
     @SneakyThrows
-    public List<ImageScoreDto> getImagesByImageSimilarity(MultipartFile file){
+    public List<FoundObjectDto> getImagesByImageSimilarity(MultipartFile file){
         byte[] bytes = file.getBytes();
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
@@ -70,36 +72,39 @@ public class PhotoService {
                 .build();
         List<FoundObjectVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(foundObjectVector);
         return foundObjectVectors.stream()
-                .map(this::imageVectorToImageScoreDto)
-                .sorted(Comparator.comparing(ImageScoreDto::getScore).reversed())
+                .map(this::foundObjectToDto)
+                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
                 .toList();
     }
 
     @SneakyThrows
-    public TopSimilarImagesDto getFoundObjectByTextDescription(String query){
+    public TopSimilarFoundObjectsDto getFoundObjectByTextDescription(String query, Long organizationId){
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(query);
-        FoundObjectVector textVector = FoundObjectVector.builder() // ESTO ESTÁ MAL DEBERIA SER UN TEXTVECTOR PERO ME BUGUEE
+        FoundObjectVector textVector = FoundObjectVector.builder()
                 .text(query)
                 .embeddings(embeddings)
                 .build();
-        List<FoundObjectVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(textVector);
+        Struct.Builder filter = Struct.newBuilder();
+        if(organizationId != null){
+            filter.putFields("organization_id", Value.newBuilder().setStringValue(String.valueOf(organizationId)).build());
+        }
+        List<FoundObjectVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(textVector, 5, filter.build());
 
-        List<ImageScoreDto> imageScoreDtos = foundObjectVectors.stream()
-                .map(this::imageVectorToImageScoreDto)
-                .sorted(Comparator.comparing(ImageScoreDto::getScore).reversed())
+        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
+                .filter(v -> v.getScore() >= 0.6) //Retorna los que tengan el score mayor a 0.6
+                .map(this::foundObjectToDto)
+                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
                 .toList();
 
-        return TopSimilarImagesDto.builder()
-                .imageScoreDtos(imageScoreDtos)
+        return TopSimilarFoundObjectsDto.builder()
+                .foundObjectDtos(foundObjectDtos)
                 .build();
-
     }
 
-    public ImageScoreDto imageVectorToImageScoreDto(FoundObjectVector foundObjectVector) {
+    public FoundObjectDto foundObjectToDto(FoundObjectVector foundObjectVector) {
         byte[] bytes = s3Service.getObjectBytes(foundObjectVector.getId());
         log.info("[api_method:GET] [service:S3] Bytes processed: {}", bytes.length);
-        return ImageScoreDto.builder()
-                .textRepresentation(foundObjectVector.getText())
+        return FoundObjectDto.builder()
                 .id(foundObjectVector.getId())
                 .description(foundObjectVector.getHumanDescription())
                 .b64Json(Base64.getEncoder().encodeToString(bytes))

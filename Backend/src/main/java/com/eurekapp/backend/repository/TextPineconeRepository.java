@@ -30,14 +30,15 @@ public class TextPineconeRepository<T extends VectorPinecone> {
     }
 
     public List<T> queryVector(T pineconeVector) {
-        return queryVector(pineconeVector, 3);
+        return queryVector(pineconeVector, 3, null);
     }
 
-    public List<T> queryVector(T pineconeVector, Integer topK){
+    public List<T> queryVector(T pineconeVector, Integer topK, Struct filter){
         QueryResponseWithUnsignedIndices queryResponse = client.queryByVector(
                 topK,
                 pineconeVector.getEmbeddings(),
                 namespace,
+                filter, //if filter is null, pinecone ignores it
                 false,
                 true);
 

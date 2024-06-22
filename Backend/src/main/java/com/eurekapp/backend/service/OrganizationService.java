@@ -28,6 +28,7 @@ public class OrganizationService {
         return OrganizationDto.builder()
                 .id(organization.getId())
                 .name(organization.getName())
+                .contactData(organization.getContactData())
                 .build();
     }
 }

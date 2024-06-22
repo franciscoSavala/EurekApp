@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Data
 @Builder
-public class ImageScoreDto {
-    private String textRepresentation;
+public class FoundObjectDto {
     private String description;
+    @JsonIgnore
     private String b64Json;
     private Float score;
     private String id;

@@ -11,6 +11,6 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 @Builder
-public class TopSimilarImagesDto {
-    private List<ImageScoreDto> imageScoreDtos;
+public class TopSimilarFoundObjectsDto {
+    private List<FoundObjectDto> foundObjectDtos;
 }

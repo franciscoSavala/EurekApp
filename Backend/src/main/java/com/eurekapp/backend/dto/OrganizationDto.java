@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class OrganizationDto {
     private Long id;
     private String name;
+    private String contactData;
 }
