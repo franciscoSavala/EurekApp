@@ -97,7 +97,7 @@ public class PhotoService {
                 .toList();
 
         return TopSimilarFoundObjectsDto.builder()
-                .foundObjectDtos(foundObjectDtos)
+                .foundObjects(foundObjectDtos)
                 .build();
     }
 
