@@ -3,6 +3,13 @@
     "name": "Frontend",
     "slug": "Frontend",
     "version": "1.0.0",
+    "plugins": [
+      [
+      "expo-font",
+      {
+        "fonts": ["node_modules/@expo-google-fonts/inter/Inter_100Thin.ttf"]
+      }]
+    ],
     "platforms": [
       "ios",
       "android",

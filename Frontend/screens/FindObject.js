@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {Button, FlatList, StyleSheet, Text, TextInput, View, Image} from 'react-native';
 import axios from "axios";
 import Constants from "expo-constants";
+import EurekappButton from "./components/Button";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -54,7 +55,7 @@ const FindObject = ({ navigation }) => {
                 placeholder={"Describe el objeto que buscas"}
                 onChangeText={setQueryObjects}
                 value={queryObjects} />
-            <Button title="Buscar Objeto" onPress={queryLostObject} />
+            <EurekappButton title="Buscar Objeto" onPress={queryLostObject} />
             {buttonWasPressed ? (
                 loading ? (
                         <Text style={styles.loadingText}>Cargando...</Text>
@@ -76,7 +77,6 @@ const FindObject = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
         alignItems: 'center',
         width: '100%',
         justifyContent: 'center',
@@ -97,15 +97,6 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 10,
-    },
-    image: {
-        width: 100,
-        height: 100,
-        marginTop: 10,
-    },
-    loadingText: {
-        marginTop: 20,
-        fontSize: 18,
     },
     list: {
         flexGrow: 1,
