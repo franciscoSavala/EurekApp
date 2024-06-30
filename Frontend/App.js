@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import FindObject from './screens/FindObject';
 import UploadObject from "./screens/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {useFonts} from "expo-font";
 
 const Tab = createBottomTabNavigator();
 
