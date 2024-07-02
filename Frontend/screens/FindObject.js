@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import {Button, FlatList, StyleSheet, Text, TextInput, View, Image} from 'react-native';
+import {Picker, StyleSheet, Text, TextInput, View} from 'react-native';
 import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "./components/Button";
@@ -8,9 +8,9 @@ import EurekappButton from "./components/Button";
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
+    const [selectedValue, setSelectedValue] = React.useState("one");
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
-    const [objectsFound, setObjectsFound] = useState([]);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
 
     const queryLostObject = async () => {
@@ -22,7 +22,7 @@ const FindObject = ({ navigation }) => {
                 {params: {query: queryObjects}});
             let jsonData = res.data;
             console.log(jsonData)
-            setObjectsFound(jsonData.found_objects);
+            navigation.navigate('FoundObjects', jsonData.found_objects)
         } catch (error) {
             console.error(error);
         } finally {
@@ -31,45 +31,37 @@ const FindObject = ({ navigation }) => {
 
     }
 
-    const renderItem = ({ item }) => (
-        <View style={styles.item}>
-            <Text style={styles.description}>{item.description}</Text>
-            <Text>Probabilidad: {item.score}</Text>
-            {item.b64Json && (
-                <Image
-                    source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
-                    style={styles.image}
-                />
-            )}
-        </View>
-    );
-
-    const ItemSeparator = () => (
-        <View style={styles.separator} />
-    );
-
     return (
         <View style={styles.container}>
-            <TextInput
-                style={styles.input}
-                placeholder={"Describe el objeto que buscas"}
-                onChangeText={setQueryObjects}
-                value={queryObjects} />
+            <View style={styles.formContainer}>
+                <Text style={styles.labelText}>Descripción del objeto</Text>
+                <TextInput
+                    style={styles.textArea}
+                    placeholder="Escribe una descripción"
+                    multiline
+                />
+                <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
+                <View style={styles.pickerContainer}>
+                    <Picker
+                        selectedValue={selectedValue}
+                        style={styles.picker}
+                        onValueChange={(itemValue) => setSelectedValue(itemValue)}
+                    >
+                        <Picker.Item label="Selecciona el establecimiento" value="one" />
+                        <Picker.Item label="two" value="two" />
+                        <Picker.Item label="three" value="three" />
+                    </Picker>
+                </View>
+            </View>
+            {/*{buttonWasPressed ? (
+                    loading ? (
+                            <Text style={styles.loadingText}>Cargando...</Text>
+                        ) : (
+                            <Text>PASAR A LA OTRA SCREEN</Text>
+                        )
+                ) : (<View />)
+            }*/}
             <EurekappButton title="Buscar Objeto" onPress={queryLostObject} />
-            {buttonWasPressed ? (
-                loading ? (
-                        <Text style={styles.loadingText}>Cargando...</Text>
-                    ) : (
-                        <FlatList
-                            data={objectsFound}
-                            keyExtractor={(item) => item.id.toString()}
-                            renderItem={renderItem}
-                            ItemSeparatorComponent={ItemSeparator}
-                            contentContainerStyle={styles.list}
-                        />
-                    )
-            ) : (<View />)
-            }
         </View>
     );
 }
@@ -80,9 +72,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: '100%',
         justifyContent: 'center',
+        backgroundColor: '#fff',
     },
     input: {
-        width: 300,
+        width: '100%',
         height: 40,
         borderWidth: 1,
         borderColor: '#ccc',
@@ -90,23 +83,68 @@ const styles = StyleSheet.create({
         paddingLeft: 10,
         marginVertical: 10,
     },
-    item: {
-        padding: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#ccc',
-    },
-    separator: {
-        height: 10,
-    },
-    list: {
-        flexGrow: 1,
-        justifyContent: 'center',
+    header: {
+        flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: 'white',
+        padding: 16,
+        paddingBottom: 8,
     },
-    description: {
-        fontSize: 16,
+    headerText: {
+        color: '#111818',
+        fontSize: 18,
         fontWeight: 'bold',
-    }
+        textAlign: 'center',
+        flex: 1,
+        paddingLeft: 48,
+        paddingRight: 48,
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
+    formContainer: {
+        flexDirection: 'column',
+        flex: 1,
+        width: '90%',
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+    },
+    labelText: {
+        color: '#111818',
+        fontSize: 16,
+        fontWeight: '500',
+        paddingBottom: 8,
+        width: '100%',
+        marginTop: 10,
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
+    textArea: {
+        width: '100%',
+        minHeight: 144,
+        resize: 'none',
+        overflow: 'hidden',
+        borderRadius: 12,
+        color: '#111818',
+        backgroundColor: '#f0f4f4',
+        padding: 16,
+        fontSize: 16,
+        fontWeight: 'normal',
+        placeholderTextColor: '#638888',
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
+    pickerContainer: {
+        overflow: 'hidden',
+        width: '100%'
+    },
+    picker: {
+        borderRadius: 12,
+        height: 56,
+        color: '#638888',
+        fontSize: 16,
+        fontWeight: 'normal',
+        backgroundColor: '#f0f4f4',
+        padding: 16,
+        borderWidth: 0,
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
 });
 
 export default FindObject;

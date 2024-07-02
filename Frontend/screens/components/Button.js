@@ -1,11 +1,8 @@
-import React, { useRef } from 'react';
-import {Animated, Platform, StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
-import {useFonts} from "expo-font";
+import React from 'react';
+import {StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
 
 const EurekappButton = ({ onPress, text = 'Buscar mi objeto', backgroundColor = '#19e6e6', textColor = '#111818' }) => {
-    const [ fontsLoaded ] = useFonts({
-        'PlusJakartaSans-Bold': require('../../assets/fonts/PlusJakartaSans-Bold.ttf')
-    })
+    
     return (
         <View style={styles.container}>
             <TouchableWithoutFeedback
@@ -24,7 +21,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         justifyContent: "flex-end",
-        width: '95%',
+        width: '90%',
         marginVertical: 10,
     },
     button: {
