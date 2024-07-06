@@ -1,34 +1,61 @@
-import React, { useState } from "react";
-import {Picker, StyleSheet, Text, TextInput, View} from 'react-native';
+import React, {useEffect, useState} from "react";
+import {ActivityIndicator, Alert, StyleSheet, Text, TextInput, View} from 'react-native';
 import axios from "axios";
 import Constants from "expo-constants";
-import EurekappButton from "./components/Button";
+import EurekappButton from "../components/Button";
+import {Picker} from '@react-native-picker/picker';
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
-    const [selectedValue, setSelectedValue] = React.useState("one");
+    const [selectedInstitute, setSelectedInstitution] = useState("");
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
+    const [pickerFocused, setPickerFocused] = useState(false);
+    const [institutionList, setInstitutionList] = useState([]);
+
+    useEffect(() => {
+        const fetchInstitutes = async () => {
+            try {
+                let res = await axios.get(BACK_URL + "/organizations");
+                let jsonData = res.data;
+                setInstitutionList(jsonData.organizations);
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        fetchInstitutes();
+    }, []);
 
     const queryLostObject = async () => {
+        if(!selectedInstitute || !queryObjects) {
+            Alert.alert("No se seleccionó una institución");
+            return;
+        }
         setLoading(true);
         setButtonWasPressed(true);
-        console.log(BACK_URL)
         try {
-            let res = await axios.get(BACK_URL + "/found-objects",
+            let res = await axios.get(BACK_URL + `/found-objects/organizations/${selectedInstitute}`, //esto es inseguro pero ok...
                 {params: {query: queryObjects}});
             let jsonData = res.data;
-            console.log(jsonData)
-            navigation.navigate('FoundObjects', jsonData.found_objects)
+            if(jsonData.found_objects.length === 0) {
+                navigation.navigate('NotFoundObjects');
+            }else{
+                navigation.navigate('FoundObjects',
+                    {
+                        objectsFound: jsonData.found_objects,
+                        institution: institutionList.find(org =>
+                            org.id === Number(selectedInstitute))
+                    });
+            }
+
         } catch (error) {
             console.error(error);
         } finally {
             setLoading(false);
         }
-
     }
 
     return (
@@ -39,28 +66,33 @@ const FindObject = ({ navigation }) => {
                     style={styles.textArea}
                     placeholder="Escribe una descripción"
                     multiline
+                    onChangeText={(text) => setQueryObjects(text)}
                 />
                 <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
-                <View style={styles.pickerContainer}>
-                    <Picker
-                        selectedValue={selectedValue}
-                        style={styles.picker}
-                        onValueChange={(itemValue) => setSelectedValue(itemValue)}
-                    >
-                        <Picker.Item label="Selecciona el establecimiento" value="one" />
-                        <Picker.Item label="two" value="two" />
-                        <Picker.Item label="three" value="three" />
-                    </Picker>
-                </View>
+                <Picker
+                    selectedValue={selectedInstitute}
+                    style={styles.picker}
+                    onValueChange={(itemValue, itemIndex) => {
+                        setSelectedInstitution(itemValue)}}
+                    onFocus={() => setPickerFocused(true)}
+                    onBlur={() => setPickerFocused(false)}
+                >
+                    <Picker.Item label="Selecciona el establecimiento"
+                                 value=""
+                                 enabled={!pickerFocused}/>
+                    {institutionList.map((org) => (
+                        <Picker.Item label={org.name} value={org.id} key={org.id} />
+                    ))}
+                </Picker>
             </View>
-            {/*{buttonWasPressed ? (
+            {buttonWasPressed ? (
                     loading ? (
-                            <Text style={styles.loadingText}>Cargando...</Text>
+                            <ActivityIndicator size="large" color="#111818" />
                         ) : (
-                            <Text>PASAR A LA OTRA SCREEN</Text>
+                            <View></View>
                         )
                 ) : (<View />)
-            }*/}
+            }
             <EurekappButton title="Buscar Objeto" onPress={queryLostObject} />
         </View>
     );
@@ -135,6 +167,7 @@ const styles = StyleSheet.create({
         width: '100%'
     },
     picker: {
+        width: '100%',
         borderRadius: 12,
         height: 56,
         color: '#638888',

@@ -1,13 +1,43 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
-import FindObject from './screens/FindObject';
+import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {StyleSheet} from "react-native";
 import {useFonts} from "expo-font";
+import {createNativeStackNavigator} from "@react-navigation/native-stack";
+import FoundObjects from "./screens/findObjectStack/FoundObjects";
+import NotFoundObjects from "./screens/findObjectStack/NotFoundObjects";
 
 const Tab = createBottomTabNavigator();
+
+const FindObjectStack = createNativeStackNavigator();
+
+function FindObjectStackScreen() {
+    return (
+        <FindObjectStack.Navigator>
+            <FindObjectStack.Screen options={{
+                title: 'Buscar un objeto',
+                headerTitleStyle: style.headerText,
+                headerTitleAlign: 'center',
+                headerStyle: style.header
+            }} name="FindObject" component={FindObject} />
+            <FindObjectStack.Screen options={{
+                title: 'Objetos Encontrados',
+                headerTitleStyle: style.headerText,
+                headerTitleAlign: 'center',
+                headerStyle: style.header
+            }} name="FoundObjects" component={FoundObjects} />
+            <FindObjectStack.Screen options={{
+                title: 'Objetos Encontrados',
+                headerTitleStyle: style.headerText,
+                headerTitleAlign: 'center',
+                headerStyle: style.header
+            }} name="NotFoundObjects" component={NotFoundObjects} />
+        </FindObjectStack.Navigator>
+    );
+}
 
 const App = () => {
     const [ fontsLoaded ] = useFonts({
@@ -25,11 +55,8 @@ const App = () => {
                     headerStyle: style.header
                 }} component={UploadObject} />
                 <Tab.Screen name="Encontrar Objeto" options={{
-                    title: 'Buscar un objeto',
-                    headerTitleStyle: style.headerText,
-                    headerTitleAlign: 'center',
-                    headerStyle: style.header
-                }} component={FindObject} />
+                    headerShown: false,
+                }} component={FindObjectStackScreen} />
             </Tab.Navigator>
         </NavigationContainer>
     );

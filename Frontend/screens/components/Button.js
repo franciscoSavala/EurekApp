@@ -31,6 +31,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderRadius: 24, // equivalente a rounded-full en tailwind
         maxHeight: 48,
+        minHeight: 48,
     },
     buttonText: {
         fontSize: 18,
