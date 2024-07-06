@@ -4,38 +4,32 @@ import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
 import {Picker} from '@react-native-picker/picker';
+import InstitutePicker from "../components/InstitutePicker";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
-    const [selectedInstitute, setSelectedInstitution] = useState("");
+    const [selectedInstitute, setSelectedInstitution] = useState({});
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
-    const [pickerFocused, setPickerFocused] = useState(false);
-    const [institutionList, setInstitutionList] = useState([]);
-
-    useEffect(() => {
-        const fetchInstitutes = async () => {
-            try {
-                let res = await axios.get(BACK_URL + "/organizations");
-                let jsonData = res.data;
-                setInstitutionList(jsonData.organizations);
-            } catch (error) {
-                console.error(error);
-            }
-        }
-        fetchInstitutes();
-    }, []);
 
     const validateInputConstraints = () => {
-        if(!selectedInstitute || !queryObjects) {
-            Alert.alert("No se seleccionó una institución");
+        if(!queryObjects){
+            alert("No se ingresó una descripción del objeto");
+            console.log("No se ingresó una descripción del objeto");
+            return false;
+        }
+        if(!selectedInstitute) {
+            alert("No se seleccionó una institución");
+            console.log("No se seleccionó una institución")
+            console.log(selectedInstitute)
             return false;
         }
         if (queryObjects.length > 255) {
-            Alert.alert("La descripción del objeto es muy larga");
+            alert("La descripción del objeto es muy larga");
+            console.log("La descripción del objeto es muy larga");
             return false;
         }
         return true;
@@ -46,7 +40,7 @@ const FindObject = ({ navigation }) => {
         setLoading(true);
         setButtonWasPressed(true);
         try {
-            let res = await axios.get(BACK_URL + `/found-objects/organizations/${selectedInstitute}`, //esto es inseguro pero ok...
+            let res = await axios.get(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, //esto es inseguro pero ok...
                 {params: {query: queryObjects}});
             let jsonData = res.data;
             if(jsonData.found_objects.length === 0) {
@@ -55,8 +49,7 @@ const FindObject = ({ navigation }) => {
                 navigation.navigate('FoundObjects',
                     {
                         objectsFound: jsonData.found_objects,
-                        institution: institutionList.find(org =>
-                            org.id === Number(selectedInstitute))
+                        institution: selectedInstitute
                     });
             }
 
@@ -78,21 +71,7 @@ const FindObject = ({ navigation }) => {
                     onChangeText={(text) => setQueryObjects(text)}
                 />
                 <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
-                <Picker
-                    selectedValue={selectedInstitute}
-                    style={styles.picker}
-                    onValueChange={(itemValue, itemIndex) => {
-                        setSelectedInstitution(itemValue)}}
-                    onFocus={() => setPickerFocused(true)}
-                    onBlur={() => setPickerFocused(false)}
-                >
-                    <Picker.Item label="Selecciona el establecimiento"
-                                 value=""
-                                 enabled={!pickerFocused}/>
-                    {institutionList.map((org) => (
-                        <Picker.Item label={org.name} value={org.id} key={org.id} />
-                    ))}
-                </Picker>
+                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
             </View>
             {buttonWasPressed ? (
                     loading ? (
@@ -169,23 +148,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'normal',
         placeholderTextColor: '#638888',
-        fontFamily: 'PlusJakartaSans-Regular'
-    },
-    pickerContainer: {
-        overflow: 'hidden',
-        width: '100%'
-    },
-    picker: {
-        width: '100%',
-        borderRadius: 12,
-        height: 56,
-        color: '#638888',
-        fontSize: 16,
-        fontWeight: 'normal',
-        backgroundColor: '#f0f4f4',
-        padding: 16,
-        borderWidth: 0,
-        fontFamily: 'PlusJakartaSans-Regular'
+        fontFamily: 'PlusJakartaSans-Regular',
     },
 });
 

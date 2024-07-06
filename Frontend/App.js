@@ -2,7 +2,7 @@ import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
-import UploadObject from "./screens/UploadObject";
+import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {StyleSheet} from "react-native";
 import {useFonts} from "expo-font";

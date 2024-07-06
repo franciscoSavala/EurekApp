@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, StyleSheet, Text, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 

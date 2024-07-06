@@ -19,10 +19,10 @@ public class FoundObjectController {
     @Autowired
     private PhotoService service;
 
-    @PostMapping
+    @PostMapping("/organizations/{organizationId}")
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
                                                                       @RequestParam("description") @Length(max = 30, message = "Max description size is 30") String description,
-                                                                      @RequestParam(value = "organization_id", required = false) Long organizationId){
+                                                                      @PathVariable(value = "organizationId", required = false) Long organizationId){
         return ResponseEntity.ok(service.uploadFoundObject(file, description, organizationId));
     }
 
