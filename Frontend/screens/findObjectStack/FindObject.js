@@ -29,11 +29,20 @@ const FindObject = ({ navigation }) => {
         fetchInstitutes();
     }, []);
 
-    const queryLostObject = async () => {
+    const validateInputConstraints = () => {
         if(!selectedInstitute || !queryObjects) {
             Alert.alert("No se seleccionó una institución");
-            return;
+            return false;
         }
+        if (queryObjects.length > 255) {
+            Alert.alert("La descripción del objeto es muy larga");
+            return false;
+        }
+        return true;
+    }
+
+    const queryLostObject = async () => {
+        if(!validateInputConstraints()) return;
         setLoading(true);
         setButtonWasPressed(true);
         try {
@@ -93,7 +102,7 @@ const FindObject = ({ navigation }) => {
                         )
                 ) : (<View />)
             }
-            <EurekappButton title="Buscar Objeto" onPress={queryLostObject} />
+            <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
         </View>
     );
 }

@@ -1,17 +1,17 @@
 import React from 'react';
-import {StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
+import {Pressable, StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
 
 const EurekappButton = ({ onPress, text = 'Buscar mi objeto', backgroundColor = '#19e6e6', textColor = '#111818' }) => {
     
     return (
         <View style={styles.container}>
-            <TouchableWithoutFeedback
+            <Pressable
                 onPress={onPress}
             >
                 <View style={[styles.button, { backgroundColor: backgroundColor }]}>
                     <Text style={[styles.buttonText, { color: textColor}]}>{text}</Text>
                 </View>
-            </TouchableWithoutFeedback>
+            </Pressable>
         </View>
     );
 };

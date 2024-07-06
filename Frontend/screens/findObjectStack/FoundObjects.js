@@ -1,19 +1,28 @@
-import {FlatList, Image, StyleSheet, Text, View} from "react-native";
+import React, {useState} from "react";
+
+import {Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import EurekappButton from "../components/Button";
+import Icon from "react-native-vector-icons/FontAwesome6";
 
 
 const FoundObjects = ({ route, navigation }) => {
     const { objectsFound, institution } = route.params;
+    const [objectSelectedId, setObjectSelectedId] = useState("");
+    const [modalVisible, setModalVisible] = useState(false);
 
-    const renderItem = ({ item }) => (
-        <View style={styles.item}>
-            <Image
-                source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
-                style={styles.image}
-            />
-            <Text style={styles.description}>{item.description}</Text>
-        </View>
-    );
+    const renderItem = ({ item }) => {
+        const isSelected = item.id === objectSelectedId;
+        return (
+            <Pressable style={[styles.item, isSelected && styles.highlightedObjectFound]}
+                              onPress={() => setObjectSelectedId(item.id)}>
+                <Image
+                    source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
+                    style={styles.image}
+                />
+                <Text style={styles.description}>{item.description}</Text>
+            </Pressable>
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -21,15 +30,36 @@ const FoundObjects = ({ route, navigation }) => {
                 <Text style={styles.headerText}>Coincidencias en {institution.name}</Text>
                 <FlatList
                     data={objectsFound}
-                    keyExtractor={(item) => item.id.toString()}
+                    keyExtractor={(item) => item.id}
                     renderItem={renderItem}
                     contentContainerStyle={styles.contentContainer}
+                    extraData={objectSelectedId}
                 />
             </View>
             <View style={styles.buttonContainer}>
-                <EurekappButton backgroundColor={'#f0f4f4'} textColor={'#111818'} text="Este es mi objeto" />
-                <EurekappButton backgroundColor={'#fff'} textColor={'#111818'} text="No encontré mi objeto" />
+                <EurekappButton onPress={() => setModalVisible(true)}
+                                backgroundColor={'#f0f4f4'}
+                                textColor={'#111818'}
+                                text="Este es mi objeto" />
+                <EurekappButton onPress={() => navigation.goBack()}
+                                backgroundColor={'#fff'}
+                                textColor={'#111818'}
+                                text="No encontré mi objeto" />
             </View>
+
+            <Modal
+                animationType="none"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(!modalVisible)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
+                        <Text style={styles.modalText}>Info de contacto: {institution.contactData}</Text>
+                        <EurekappButton text='Cerrar' onPress={() => setModalVisible(false)}/>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -57,7 +87,9 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     item: {
+        borderRadius: 16,
         padding: 10,
+        marginBottom: 10,
     },
     separator: {
         width: 10,
@@ -76,6 +108,7 @@ const styles = StyleSheet.create({
         color: '#111818',
         fontSize: 16,
         lineHeight: 20,
+        marginVertical: 5,
         fontFamily: 'PlusJakartaSans-Regular'
     },
     flatListContainer: {
@@ -86,6 +119,44 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         alignItems: 'center',
         width: '100%',
-    }
+    },
+    highlightedObjectFound: {
+        backgroundColor: '#19e6e6',
+    },
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 35,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalText: {
+        marginBottom: 15,
+        textAlign: 'center',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    modalButton: {
+        width: '100%',
+        backgroundColor: '#f0f4f4',
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    infoIcon: {
+        marginBottom: 15,
+    },
 })
 export default FoundObjects;
