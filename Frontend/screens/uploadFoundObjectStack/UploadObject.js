@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from 'react';
-import {View, Text, TextInput, Image, StyleSheet, Pressable, ActivityIndicator} from 'react-native';
+import React, {useState} from 'react';
+import {View, Text, TextInput, Image, StyleSheet, Pressable, ActivityIndicator, ImageBackground} from 'react-native';
 import Constants from "expo-constants";
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -7,6 +7,7 @@ import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
+import * as http from "node:http";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -45,7 +46,7 @@ const UploadObject = () => {
     };
 
     const takePhoto = async () => {
-        let result = await ImagePicker.launchCameraAsync(imagePickerConfig)
+        let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
         handleImagePicked(result);
     };
 
@@ -56,6 +57,18 @@ const UploadObject = () => {
         }
         if (!objectDescription) {
             alert('Por favor escribe una descripción');
+            return false;
+        }
+        if(objectDescription.length > 30){
+            alert('Por favor escribe una descripción de menos de 30 caracteres');
+            return false;
+        }
+        if(imageByte.length / 1024 / 1024 > 10){
+            alert('Por favor sube una imagen de menos de 10MB');
+            return false;
+        }
+        if(image.mimeType !== 'image/jpeg' && image.mimeType !== 'image/png'){
+            alert('Por favor sube una imagen en formato jpg o png');
             return false;
         }
         return true;
@@ -72,7 +85,7 @@ const UploadObject = () => {
         try {
             let response = await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, formData);
             setLoading(false);
-            if (response.status === 200) {
+            if (response.status >= 200 && response.status < 300) {
                 setResponseOk(true);
             }else{
                 setResponseOk(false);
@@ -83,6 +96,11 @@ const UploadObject = () => {
             setResponseOk(false);
         }
     };
+
+    const deleteImage = () => {
+        setImage({});
+        setImageUploaded(false);
+    }
 
     const StatusComponent = () => {
         return(
@@ -106,10 +124,14 @@ const UploadObject = () => {
         <View style={styles.container}>
             <View style={styles.formContainer}>
                 { imageUploaded ? (
-                        <Image
+                        <ImageBackground
                             source={{ uri: image.uri }}
-                            style={styles.image}
-                        />
+                            style={styles.viewImage}
+                            imageStyle={styles.onlyImage} >
+                            <Pressable style={{margin: 10}} onPress={deleteImage}>
+                                <Icon name={'trash-can'} size={24} color={'#000000'}/>
+                            </Pressable>
+                        </ImageBackground>
                     ) : (
                         <Image
                             source={require('../../assets/defaultImage.png')}
@@ -165,6 +187,19 @@ const styles = StyleSheet.create({
         width: '100%',
         aspectRatio: 1,
         borderRadius: 16,
+        marginBottom: 10,
+    },
+    onlyImage: {
+        borderRadius: 16,
+    },
+    viewImage: {
+        maxHeight: 300,
+        overflow: 'hidden',
+        width: '100%',
+        aspectRatio: 1,
+        flex: 1,
+        justifyContent: 'flex-end',
+        alignItems: 'flex-end',
         marginBottom: 10,
     },
     imageLoadContainer: {
