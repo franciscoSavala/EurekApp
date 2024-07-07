@@ -50,7 +50,7 @@ public class PhotoService {
     public ImageUploadedResponseDto uploadFoundObject(MultipartFile file, String description, Long organizationId) {
         byte[] bytes = file.getBytes();
         if(organizationId != null && !organizationRepository.existsById(organizationId)) throw new NotFoundException(String.format("Organization with id '%d' not found", organizationId));
-        if(!validateFileContentType(file)) throw new NotValidContentTypeException(String.format("Content type %s not valid, should be one of the following: %s", file.getContentType(), String.join(", ", VALID_CONTENT_TYPES)));
+        //if(!validateFileContentType(file)) throw new NotValidContentTypeException(String.format("Content type %s not valid, should be one of the following: %s", file.getContentType(), String.join(", ", VALID_CONTENT_TYPES)));
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
         String foundObjectId = UUID.randomUUID().toString();

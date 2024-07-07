@@ -30,8 +30,9 @@ const UploadObject = () => {
         quality: 1,
     };
 
-    const handleImagePicked = async (result) => {
+    const handleImagePicked = (result) => {
         if (!result.canceled) {
+            console.log(result.assets[0]);
             setImage(result.assets[0]);
             setImageByte(Buffer.from(result.assets[0].base64, "base64"));
             setImageUploaded(true);
@@ -40,12 +41,12 @@ const UploadObject = () => {
 
     const pickImage = async () => {
         let result = await ImagePicker.launchImageLibraryAsync(imagePickerConfig);
-        await handleImagePicked(result);
+        handleImagePicked(result);
     };
 
     const takePhoto = async () => {
         let result = await ImagePicker.launchCameraAsync(imagePickerConfig)
-        await handleImagePicked(result);
+        handleImagePicked(result);
     };
 
     const validateConstraints = () => {
@@ -63,15 +64,14 @@ const UploadObject = () => {
         if(!validateConstraints()) return;
         const blob = new Blob([imageByte]);
         const formData = new FormData();
-        formData.append('file', blob);
+        formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
         formData.append('description', objectDescription);
         setLoading(true);
         setButtonWasPressed(true);
 
         try {
-            let response = await axios.post( BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, formData,{
-                    timeout: 5000,
-                });
+            let response = await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, formData);
+            setLoading(false);
             if (response.status === 200) {
                 setResponseOk(true);
             }else{
@@ -79,21 +79,22 @@ const UploadObject = () => {
             }
         } catch (error) {
             console.error(error);
+            setLoading(false);
             setResponseOk(false);
         }
     };
 
     const StatusComponent = () => {
         return(
-            <View>
+            <View style={{marginTop: 10}}>
                 {buttonWasPressed ? (
                     loading ? (
                         <ActivityIndicator size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon name={'circle-check'} size={24} color={'#008000'}/>
+                            <Icon name={'circle-check'} size={50} color={'#008000'}/>
                         ) : (
-                            <Icon name={'circle-xmark'} size={24} color={'#ED4337'}/>
+                            <Icon name={'circle-xmark'} size={50} color={'#ED4337'}/>
                         )
                     )
                 ) : (<View />)
