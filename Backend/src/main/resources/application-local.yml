@@ -10,3 +10,7 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+application:
+  s3:
+    bucket:
+      name: 'eurekapp-temp'
