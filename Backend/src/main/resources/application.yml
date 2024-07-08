@@ -7,10 +7,12 @@ spring:
 application:
   s3:
     bucket:
-      name: 'eurekapp-bucket'
+      name: 'eurekapp-temporal'
   openai:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}
   pinecone:
     api-key: ${PINECONE_SECRET_KEY}
     namespace: 'image-description'
+  jwt:
+    sign-key: ${JWT_SIGN_KEY}
