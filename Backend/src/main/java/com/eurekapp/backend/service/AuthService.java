@@ -3,6 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.configuration.JwtService;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
+import com.eurekapp.backend.exception.AuthenticationException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -52,10 +53,15 @@ public class AuthService {
     }
 
     public JwtTokenDto register(UserDto user){
+        if(userRepository.findByUsername(user.getUsername())
+                .isPresent())
+            throw new AuthenticationException("Ya existe un usuario con ese nombre de usuario");
+
         UserEurekapp userDetails = UserEurekapp.builder()
                 .role(Role.USER)
                 .password(passwordEncoder.encode(user.getPassword()))
                 .username(user.getUsername())
+                .active(true)
                 .build();
 
         userRepository.save(userDetails);

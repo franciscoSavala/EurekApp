@@ -40,4 +40,10 @@ public class ApiExceptionHandler {
         ApiError apiError = new ApiError("unrecognized_file_type", e.getMessage(), HttpStatus.UNSUPPORTED_MEDIA_TYPE.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiError> badRequestException(Exception e) {
+        ApiError apiError = new ApiError("not_valid_credentials", e.getMessage(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
 }

@@ -1,5 +1,6 @@
 package com.eurekapp.backend.configuration;
 
+import com.eurekapp.backend.exception.AuthenticationException;
 import com.eurekapp.backend.repository.IUserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +24,7 @@ public class ApplicationConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Username not found"));
+                .orElseThrow(() -> new AuthenticationException("No existe un usuario con ese nombre"));
     }
 
     @Bean

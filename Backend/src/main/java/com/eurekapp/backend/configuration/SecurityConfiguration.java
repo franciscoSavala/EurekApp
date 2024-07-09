@@ -38,8 +38,14 @@ public class SecurityConfiguration {
     @Bean
     @Profile("local")
     public SecurityFilterChain securityFilterChainLocal(HttpSecurity http) throws Exception {
-        return http
-                .csrf(csrf-> csrf.disable())
-                .build();
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(authRequest -> authRequest
+                        .requestMatchers( "/**").permitAll())
+                .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 }
