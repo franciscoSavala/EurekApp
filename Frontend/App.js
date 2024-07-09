@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {createContext, useState} from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
@@ -9,12 +9,15 @@ import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
 import NotFoundObjects from "./screens/findObjectStack/NotFoundObjects";
+import {createStackNavigator} from "@react-navigation/stack";
+import LandingScreen from "./screens/login/Landing";
+import LoginScreen from "./screens/login/LoginScreen";
 
 const Tab = createBottomTabNavigator();
 
 const FindObjectStack = createNativeStackNavigator();
 
-function FindObjectStackScreen() {
+const FindObjectStackScreen = () => {
     return (
         <FindObjectStack.Navigator>
             <FindObjectStack.Screen options={{
@@ -39,7 +42,46 @@ function FindObjectStackScreen() {
     );
 }
 
+const AuthStack = createStackNavigator();
+
+const AuthStackScreen = () => {
+    return (
+        <AuthStack.Navigator>
+            <AuthStack.Screen
+                name="LandingScreen"
+                component={LandingScreen}
+                options={{ headerShown: false }}
+            />
+            <AuthStack.Screen
+                name="LoginScreen"
+                component={LoginScreen}
+                options={{ headerShown: false }}
+            />
+        </AuthStack.Navigator>
+    );
+}
+
+const EurekappTab = () => {
+    return (
+        <Tab.Navigator>
+            <Tab.Screen name="UploadObject" options={{
+                title: 'Subir objeto',
+                headerTitleStyle: style.headerText,
+                headerTitleAlign: 'center',
+                headerStyle: style.header
+            }} component={UploadObject} />
+            <Tab.Screen name="FindObjectStackScreen" options={{
+                title: 'Encontrar Objecto',
+                headerShown: false,
+            }} component={FindObjectStackScreen} />
+        </Tab.Navigator>
+    );
+}
+
+export const LoginContext = createContext();
+
 const App = () => {
+    const [user, setUser] = useState('');
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
         'PlusJakartaSans-Regular': require('./assets/fonts/PlusJakartaSans-Regular.ttf')
@@ -47,17 +89,9 @@ const App = () => {
 
     return (
         <NavigationContainer>
-            <Tab.Navigator>
-                <Tab.Screen name="Subir Objeto" options={{
-                    title: 'Subir objeto',
-                    headerTitleStyle: style.headerText,
-                    headerTitleAlign: 'center',
-                    headerStyle: style.header
-                }} component={UploadObject} />
-                <Tab.Screen name="Encontrar Objeto" options={{
-                    headerShown: false,
-                }} component={FindObjectStackScreen} />
-            </Tab.Navigator>
+            <LoginContext.Provider value={{ setUser: setUser, user }}>
+                {user ? <EurekappTab /> : <AuthStackScreen />}
+            </LoginContext.Provider>
         </NavigationContainer>
     );
 }

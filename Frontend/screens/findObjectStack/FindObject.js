@@ -3,7 +3,6 @@ import {ActivityIndicator, Alert, StyleSheet, Text, TextInput, View} from 'react
 import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
-import {Picker} from '@react-native-picker/picker';
 import InstitutePicker from "../components/InstitutePicker";
 
 
