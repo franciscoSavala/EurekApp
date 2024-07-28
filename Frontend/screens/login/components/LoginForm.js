@@ -4,7 +4,7 @@ import {
     StyleSheet,
     Alert,
     TouchableOpacity,
-    ActivityIndicator,
+    ActivityIndicator, TextInput,
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import Constants from 'expo-constants';
@@ -18,6 +18,25 @@ export default function LoginForm(props) {
         formState: {errors},
         setValue,
         getValues } = useForm();
+
+    const InputLogin = ({text, valueName, value, secure = true}) => {
+        return (
+            <Input
+                placeholder={text}
+                placeholderTextColor={'rgba(255,255,255,0.6)'}
+                onChangeText={(value) => setValue(valueName, value)}
+                value={value}
+                secureTextEntry={secure}
+                inputContainerStyle={{
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'white',
+                }}
+                style={{
+                    color: 'white'
+                }}
+            />
+        );
+    }
 
     const onSubmit = async (data) => {
         //Quitar hasta efectuar validaciones
@@ -45,20 +64,14 @@ export default function LoginForm(props) {
             <Controller
                 control={control}
                 render={({ onChange, onBlur, value }) => (
-                    <Input
-                        placeholder="Email"
-                        placeholderTextColor="white"
-                        onChangeText={(value) => setValue('Username', value)}
-                        value={value}
-                        inputContainerStyle={{
-                            borderBottomWidth: 1,
-                            borderBottomColor: 'white',
-                        }}
-                    />
+                    <InputLogin text='Email'
+                                valueName='Username'
+                                value={value}
+                                secure={false}/>
                 )}
                 name='Username'
                 rules={{
-                    required: { value: true, message: 'Username is requiered' },
+                    required: { value: true, message: 'Email requerido' },
                 }}
                 defaultValue=""
             />
@@ -69,20 +82,10 @@ export default function LoginForm(props) {
             <Controller
                 control={control}
                 render={({ onChange, value }) => (
-                    <Input
-                        placeholder='Password'
-                        placeholderTextColor='white'
-                        onChangeText={(value) => setValue('Password', value)}
-                        value={value}
-                        secureTextEntry
-                        inputContainerStyle={{
-                            borderBottomWidth: 1,
-                            borderBottomColor: 'white',
-                        }}
-                    />
+                    <InputLogin text='Contraseña' valueName='Password' value={value}/>
                 )}
                 name='Password'
-                rules={{ required: { value: true, message: 'Password is requried' } }}
+                rules={{ required: { value: true, message: 'Contraseña requerida' } }}
                 defaultValue=''
             />
             {errors.Password && (
@@ -95,9 +98,11 @@ export default function LoginForm(props) {
                         backgroundColor: 'white',
                         width: 200,
                         marginTop: 20,
+                        borderRadius: 8
                     }}
                     titleStyle={{
-                        color: '#f75b5b',
+                        color: '#017575',
+                        fontFamily: 'PlusJakartaSans-Regular'
                     }}
                     title='Iniciar sesión'
                     onPress={handleSubmit(onSubmit)}

@@ -9,18 +9,16 @@ const LoginScreen = ({navigation}) => {
     return (
         <ImageBackground source={image} style={styles.image}>
             <View style={styles.overlay}>
-                {/*
-                TODO: LOGO EUREKAPP
-                    <View style={styles.logo}>
-                        <Image
-                            source={require('../../assets/logo.png')}
-                            style={{ width: 100, height: 100 }}
-                        />
-                    </View>
-                */}
-                <View><Text style={styles.title}>Inicia sesión</Text></View>
+                <View>
+                    <Text style={styles.title}>Inicia sesión</Text>
+                </View>
+                <View style={styles.logo}>
+                    <Image
+                        source={require('../../assets/icon-eurekapp.png')}
+                        style={{ width: 100, height: 100 }}
+                    />
+                </View>
                 <LoginForm nav={navigation}/>
-
             </View>
         </ImageBackground>
     );
@@ -36,7 +34,8 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 20,
-        textAlign:"center"
+        textAlign:"center",
+        fontFamily: 'PlusJakartaSans-Bold'
     },
     image: {
         flex: 1,
@@ -47,7 +46,7 @@ const styles = StyleSheet.create({
         height: '100%',
         width: '100%',
         position: 'absolute',
-        backgroundColor: '#054a4a',
+        backgroundColor: 'rgba(25,165,230,0.5)',
         justifyContent: 'space-evenly',
         flexDirection: 'column',
     },

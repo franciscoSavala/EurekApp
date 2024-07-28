@@ -5,7 +5,7 @@ import {
     StyleSheet,
     ImageBackground,
 } from 'react-native';
-import { Button } from 'react-native-elements';
+import {Button, Image} from 'react-native-elements';
 const image = {
     uri: 'https://picsum.photos/200/300',
 };
@@ -17,23 +17,36 @@ const LandingScreen = ({ navigation }) => {
                     <View style={styles.logo}>
                         <Text style={styles.title}>Bienvenido a Eurekapp</Text>
                     </View>
-
+                    <View style={styles.logo}>
+                        <Image
+                            source={require('../../assets/icon-eurekapp.png')}
+                            style={{ width: 100, height: 100 }}
+                        />
+                    </View>
                     <View style={styles.btn}>
                         <Button
                             buttonStyle={{
                                 backgroundColor: 'white',
                                 width: 200,
+                                borderRadius: 8
                             }}
                             titleStyle={{
                                 color: '#017575',
+                                fontFamily: 'PlusJakartaSans-Regular'
                             }}
                             onPress={() => navigation.navigate('LoginScreen')}
                             title="Login"
                         />
                         <Button
-                            buttonStyle={{ color: 'white', width: 200, borderColor: 'white' }}
+                            buttonStyle={{
+                                color: 'white',
+                                width: 200,
+                                borderColor: 'white',
+                                borderRadius: 8
+                            }}
                             titleStyle={{
                                 color: 'white',
+                                fontFamily: 'PlusJakartaSans-Regular'
                             }}
                             title="Registrate"
                             type="outline"
@@ -57,6 +70,7 @@ const styles = StyleSheet.create({
         color: 'white',
         fontWeight: 'bold',
         fontSize: 20,
+        fontFamily: 'PlusJakartaSans-Bold'
     },
     btn: {
         flexDirection: 'column',
@@ -76,13 +90,14 @@ const styles = StyleSheet.create({
     },
     footerText: {
         color: 'white',
+        fontFamily: 'PlusJakartaSans-Regular'
     },
     overlay: {
         flex: 1,
         height: '100%',
         width: '100%',
         position: 'absolute',
-        backgroundColor: '#19e6e6',
+        backgroundColor: 'rgba(25,165,230,0.4)',
         justifyContent: 'space-evenly',
         flexDirection: 'column',
     },
