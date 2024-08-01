@@ -15,7 +15,7 @@ import org.springframework.web.client.RestClient;
 import java.util.Base64;
 
 @Service
-public class OpenAiImageDescriptionService {
+public class OpenAiImageDescriptionService implements ImageDescriptionService {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiImageDescriptionService.class);
     private final ObjectMapper objectMapper;

@@ -11,7 +11,6 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfiguration {
 
-
     @Bean
     @Qualifier("embeddingClient")
     public RestClient embeddingClient(

@@ -5,10 +5,10 @@ import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 
 import java.util.List;
 
-public interface VectorPinecone {
+public interface StructVector {
     Struct toStruct();
     List<Float> getEmbeddings();
     String getId();
-    VectorPinecone fromScoredVector(ScoredVectorWithUnsignedIndices scoredVectorWithUnsignedIndices);
+    StructVector fromScoredVector(ScoredVectorWithUnsignedIndices scoredVectorWithUnsignedIndices);
     Float getScore();
 }

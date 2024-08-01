@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Component
-public class S3Service {
+public class S3Service implements ObjectStorage {
 
     @Value("${application.s3.bucket.name}")
     String bucketName;
@@ -93,44 +93,6 @@ public class S3Service {
         return null;
     }
 
-    // Returns the names of all images in the given bucket.
-    public List<String> ListBucketObjects() {
-        final AtomicReference<List<String>> reference = new AtomicReference<>();
-        try {
-            ListObjectsRequest listObjects = ListObjectsRequest
-                    .builder()
-                    .bucket(bucketName)
-                    .build();
-
-            CompletableFuture<ListObjectsResponse> futureGet = s3AsyncClient.listObjects(listObjects);
-            futureGet.whenComplete((resp, err) -> {
-                List<String> keys = new ArrayList<>();
-                String keyName;
-                if (resp != null) {
-                    List<S3Object> objects = resp.contents();
-                    for (S3Object myValue : objects) {
-                        keyName = myValue.key();
-                        keys.add(keyName);
-                    }
-
-                    // Set the AtomicReference object.
-                    reference.set(keys);
-                } else {
-                    err.printStackTrace();
-                }
-            });
-            futureGet.join();
-
-            // Read the AtomicReference object.
-            return reference.get();
-
-        } catch (S3Exception e) {
-            System.err.println(e.awsErrorDetails().errorMessage());
-            System.exit(1);
-        }
-        return null;
-    }
-
     // Places an image into a S3 bucket.
     public void putObject(byte[] data, String objectKey) {
         try {
@@ -156,119 +118,5 @@ public class S3Service {
             System.err.println(e.getMessage());
             System.exit(1);
         }
-    }
-
-    // Returns the names of all images and data within XML.
-    public String ListAllObjects() {
-        final AtomicReference<List<BucketItem>> reference = new AtomicReference<>();
-        List<BucketItem> bucketItems = new ArrayList<>();
-        try {
-            ListObjectsRequest listObjects = ListObjectsRequest
-                    .builder()
-                    .bucket(bucketName)
-                    .build();
-
-            CompletableFuture<ListObjectsResponse> future = s3AsyncClient.listObjects(listObjects);
-            future.whenComplete((resp, err) -> {
-                if (resp != null) {
-                    BucketItem myItem;
-                    long sizeLg;
-                    Instant DateIn;
-                    List<S3Object> objects = resp.contents();
-                    for (S3Object myValue : objects) {
-                        myItem = new BucketItem();
-                        myItem.setKey(myValue.key());
-                        myItem.setOwner(myValue.owner().displayName());
-                        sizeLg = myValue.size() / 1024;
-                        myItem.setSize(String.valueOf(sizeLg));
-                        DateIn = myValue.lastModified();
-                        myItem.setDate(String.valueOf(DateIn));
-
-                        // Push the items to the list.
-                        bucketItems.add(myItem);
-                    }
-                    reference.set(bucketItems);
-                } else {
-                    err.printStackTrace();
-                }
-            });
-            future.join();
-            return convertToString(toXml(reference.get()));
-
-        } catch (S3Exception e) {
-            System.err.println(e.awsErrorDetails().errorMessage());
-            System.exit(1);
-        }
-        return null;
-    }
-
-    // Convert items into XML to pass back to the view.
-    private Document toXml(List<BucketItem> itemList) {
-        try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.newDocument();
-
-            // Start building the XML.
-            Element root = doc.createElement("Items");
-            doc.appendChild(root);
-
-            // Iterate through the collection.
-            for (BucketItem myItem : itemList) {
-                Element item = doc.createElement("Item");
-                root.appendChild(item);
-
-                // Set Key.
-                Element id = doc.createElement("Key");
-                id.appendChild(doc.createTextNode(myItem.getKey()));
-                item.appendChild(id);
-
-                // Set Owner.
-                Element name = doc.createElement("Owner");
-                name.appendChild(doc.createTextNode(myItem.getOwner()));
-                item.appendChild(name);
-
-                // Set Date.
-                Element date = doc.createElement("Date");
-                date.appendChild(doc.createTextNode(myItem.getDate()));
-                item.appendChild(date);
-
-                // Set Size.
-                Element desc = doc.createElement("Size");
-                desc.appendChild(doc.createTextNode(myItem.getSize()));
-                item.appendChild(desc);
-            }
-
-            return doc;
-        } catch (ParserConfigurationException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-
-    private String convertToString(Document xml) {
-        try {
-            TransformerFactory transformerFactory = getSecureTransformerFactory();
-            Transformer transformer = transformerFactory.newTransformer();
-            StreamResult result = new StreamResult(new StringWriter());
-            DOMSource source = new DOMSource(xml);
-            transformer.transform(source, result);
-            return result.getWriter().toString();
-
-        } catch (TransformerException ex) {
-            ex.printStackTrace();
-        }
-        return null;
-    }
-
-    private static TransformerFactory getSecureTransformerFactory() {
-        TransformerFactory transformerFactory = TransformerFactory.newInstance();
-        try {
-            transformerFactory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        } catch (TransformerConfigurationException e) {
-            e.printStackTrace();
-        }
-        return transformerFactory;
     }
 }

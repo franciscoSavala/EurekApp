@@ -1,6 +1,6 @@
 package com.eurekapp.backend.repository;
 
-import com.eurekapp.backend.model.VectorPinecone;
+import com.eurekapp.backend.model.StructVector;
 import com.google.protobuf.Struct;
 import io.pinecone.clients.Index;
 import io.pinecone.proto.UpsertResponse;
@@ -14,7 +14,7 @@ import java.util.Comparator;
 import java.util.List;
 
 @Service
-public class TextPineconeRepository<T extends VectorPinecone> {
+public class TextPineconeRepository<T extends StructVector> implements VectorStorage<T>{
     private static final Logger log = LoggerFactory.getLogger(TextPineconeRepository.class);
     private final Index client;
     @Value("${application.pinecone.namespace}")
@@ -23,20 +23,20 @@ public class TextPineconeRepository<T extends VectorPinecone> {
         this.client = client;
     }
 
-    public void upsertVector(T pineconeVector){
-        Struct struct = pineconeVector.toStruct();
-        UpsertResponse upsertResponse = client.upsert(pineconeVector.getId(), pineconeVector.getEmbeddings(), null, null, struct, namespace);
+    public void upsertVector(T vector){
+        Struct struct = vector.toStruct();
+        UpsertResponse upsertResponse = client.upsert(vector.getId(), vector.getEmbeddings(), null, null, struct, namespace);
         log.info("[api_method:GET] [api_call:pinecone] Request={} Response={}", struct, upsertResponse);
     }
 
-    public List<T> queryVector(T pineconeVector) {
-        return queryVector(pineconeVector, 3, null);
+    public List<T> queryVector(T vector) {
+        return queryVector(vector, 3, null);
     }
 
-    public List<T> queryVector(T pineconeVector, Integer topK, Struct filter){
+    public List<T> queryVector(T vector, Integer topK, Struct filter){
         QueryResponseWithUnsignedIndices queryResponse = client.queryByVector(
                 topK,
-                pineconeVector.getEmbeddings(),
+                vector.getEmbeddings(),
                 namespace,
                 filter, //if filter is null, pinecone ignores it
                 false,
@@ -45,8 +45,8 @@ public class TextPineconeRepository<T extends VectorPinecone> {
         log.info("[api_method:GET] [api_call:pinecone] Response={}", queryResponse);
 
         return queryResponse.getMatchesList().stream()
-                .map(scoredVector -> (T) pineconeVector.fromScoredVector(scoredVector))
-                .sorted(Comparator.comparing(VectorPinecone::getScore).reversed())
+                .map(scoredVector -> (T) vector.fromScoredVector(scoredVector))
+                .sorted(Comparator.comparing(StructVector::getScore).reversed())
                 .toList();
     }
 

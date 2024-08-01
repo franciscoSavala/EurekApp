@@ -2,6 +2,7 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
+import com.eurekapp.backend.service.FoundObjectService;
 import com.eurekapp.backend.service.PhotoService;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
@@ -17,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin("*")
 public class FoundObjectController {
     @Autowired
-    private PhotoService service;
+    private FoundObjectService service;
 
     @PostMapping("/organizations/{organizationId}")
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,

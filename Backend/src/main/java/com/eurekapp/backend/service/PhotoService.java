@@ -4,20 +4,18 @@ import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.exception.NotFoundException;
-import com.eurekapp.backend.exception.NotValidContentTypeException;
-import com.eurekapp.backend.model.FoundObjectVector;
+import com.eurekapp.backend.model.FoundObjectStructVector;
 import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.service.client.OpenAiEmbeddingModelService;
-import com.eurekapp.backend.service.client.OpenAiImageDescriptionService;
-import com.eurekapp.backend.repository.TextPineconeRepository;
-import com.eurekapp.backend.repository.S3Service;
+import com.eurekapp.backend.repository.ObjectStorage;
+import com.eurekapp.backend.repository.VectorStorage;
+import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageDescriptionService;
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.UnknownContentTypeException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Base64;
@@ -26,19 +24,23 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class PhotoService {
+public class PhotoService implements FoundObjectService {
 
     private static final List<String> VALID_CONTENT_TYPES = List.of("image/png", "image/jpeg", "image/jpg");
 
     private static final Logger log = LoggerFactory.getLogger(PhotoService.class);
-    private final S3Service s3Service;
-    private final OpenAiImageDescriptionService descriptionService;
-    private final OpenAiEmbeddingModelService embeddingService;
-    private final TextPineconeRepository<FoundObjectVector> imageVectorTextPineconeRepository;
+    private final ObjectStorage s3Service;
+    private final ImageDescriptionService descriptionService;
+    private final EmbeddingService embeddingService;
+    private final VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository;
     private final IOrganizationRepository organizationRepository;
 
 
-    public PhotoService(S3Service s3Service, OpenAiImageDescriptionService descriptionService, OpenAiEmbeddingModelService embeddingService, TextPineconeRepository<FoundObjectVector> imageVectorTextPineconeRepository, IOrganizationRepository organizationRepository) {
+    public PhotoService(ObjectStorage s3Service,
+                        ImageDescriptionService descriptionService,
+                        EmbeddingService embeddingService,
+                        VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository,
+                        IOrganizationRepository organizationRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -54,7 +56,7 @@ public class PhotoService {
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
         String foundObjectId = UUID.randomUUID().toString();
-        FoundObjectVector foundObjectVector = FoundObjectVector.builder()
+        FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
                 .text(textRepresentation)
                 .embeddings(embeddings)
@@ -78,25 +80,9 @@ public class PhotoService {
     }
 
     @SneakyThrows
-    public List<FoundObjectDto> getImagesByImageSimilarity(MultipartFile file){
-        byte[] bytes = file.getBytes();
-        String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
-        FoundObjectVector foundObjectVector = FoundObjectVector.builder()
-                .text(textRepresentation)
-                .embeddings(embeddings)
-                .build();
-        List<FoundObjectVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(foundObjectVector);
-        return foundObjectVectors.stream()
-                .map(this::foundObjectToDto)
-                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
-                .toList();
-    }
-
-    @SneakyThrows
     public TopSimilarFoundObjectsDto getFoundObjectByTextDescription(String query, Long organizationId){
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(query);
-        FoundObjectVector textVector = FoundObjectVector.builder()
+        FoundObjectStructVector textVector = FoundObjectStructVector.builder()
                 .text(query)
                 .embeddings(embeddings)
                 .build();
@@ -104,7 +90,7 @@ public class PhotoService {
         if(organizationId != null){
             filter.putFields("organization_id", Value.newBuilder().setStringValue(String.valueOf(organizationId)).build());
         }
-        List<FoundObjectVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(textVector, 5, filter.build());
+        List<FoundObjectStructVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(textVector, 5, filter.build());
 
         List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
                 .filter(v -> v.getScore() >= 0.6) //Retorna los que tengan el score mayor a 0.6
@@ -117,7 +103,7 @@ public class PhotoService {
                 .build();
     }
 
-    public FoundObjectDto foundObjectToDto(FoundObjectVector foundObjectVector) {
+    private FoundObjectDto foundObjectToDto(FoundObjectStructVector foundObjectVector) {
         byte[] bytes = s3Service.getObjectBytes(foundObjectVector.getId());
         log.info("[api_method:GET] [service:S3] Bytes processed: {}", bytes.length);
         return FoundObjectDto.builder()

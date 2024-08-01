@@ -16,7 +16,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 
 @Service
-public class OpenAiEmbeddingModelService {
+public class OpenAiEmbeddingModelService implements EmbeddingService {
 
     private static final Logger log = LoggerFactory.getLogger(OpenAiEmbeddingModelService.class);
 

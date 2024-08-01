@@ -14,7 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 @Builder
-public class TextVector implements VectorPinecone{
+public class TextStructVector implements StructVector {
     private String id;
     private List<Float> embeddings;
     private String text;
@@ -28,8 +28,8 @@ public class TextVector implements VectorPinecone{
     }
 
     @Override
-    public VectorPinecone fromScoredVector(ScoredVectorWithUnsignedIndices scoredVector){
-        return TextVector.builder()
+    public StructVector fromScoredVector(ScoredVectorWithUnsignedIndices scoredVector){
+        return TextStructVector.builder()
                 .id(scoredVector.getId())
                 .score(scoredVector.getScore())
                 .text(scoredVector.getMetadata().getFieldsOrThrow("text").getStringValue())
