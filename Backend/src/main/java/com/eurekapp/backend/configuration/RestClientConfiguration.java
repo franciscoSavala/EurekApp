@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.web.client.RestClient;
 
 @Configuration
-@Profile({"default"})
+@Profile("!test")
 public class RestClientConfiguration {
 
     @Bean

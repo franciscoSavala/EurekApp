@@ -65,10 +65,10 @@ public class EndpointSecurityTest {
                         .description("description")
                         .build());
         MockMultipartFile file = new MockMultipartFile(
-                "file",                     // Nombre del parámetro
-                "testfile.txt",             // Nombre del archivo original
-                "text/plain",               // Tipo de contenido MIME
-                "Hello, World!".getBytes()  // Contenido del archivo
+                "file",
+                "testfile.txt",
+                "text/plain",
+                new byte[]{}
         );
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();

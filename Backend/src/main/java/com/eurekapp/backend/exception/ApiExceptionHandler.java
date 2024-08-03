@@ -1,5 +1,6 @@
 package com.eurekapp.backend.exception;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.http.HttpStatus;
@@ -44,6 +45,12 @@ public class ApiExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> badRequestException(Exception e) {
         ApiError apiError = new ApiError("not_valid_credentials", e.getMessage(), HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity<ApiError> jwtNotValid(Exception e){
+        ApiError apiError = new ApiError("invalid_jwt", e.getMessage(), HttpStatus.FORBIDDEN.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 }
