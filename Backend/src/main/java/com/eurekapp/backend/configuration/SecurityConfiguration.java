@@ -1,6 +1,7 @@
 package com.eurekapp.backend.configuration;
 
 import com.eurekapp.backend.model.Role;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -12,15 +13,20 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfiguration {
     private final JwtAuthenticationFilter authenticationFilter;
+    private final OrganizationAuthorizationFilter organizationAuthorizationFilter;
     private final AuthenticationProvider authenticationProvider;
 
-    public SecurityConfiguration(JwtAuthenticationFilter authenticationFilter, AuthenticationProvider authenticationProvider) {
+    public SecurityConfiguration(JwtAuthenticationFilter authenticationFilter,
+                                 OrganizationAuthorizationFilter organizationAuthorizationFilter,
+                                 AuthenticationProvider authenticationProvider) {
         this.authenticationFilter = authenticationFilter;
+        this.organizationAuthorizationFilter = organizationAuthorizationFilter;
         this.authenticationProvider = authenticationProvider;
     }
 
@@ -35,7 +41,8 @@ public class SecurityConfiguration {
                         .requestMatchers( "/**").permitAll())
                 .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(organizationAuthorizationFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

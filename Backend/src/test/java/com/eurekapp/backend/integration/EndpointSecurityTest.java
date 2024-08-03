@@ -56,7 +56,9 @@ public class EndpointSecurityTest {
     Index index;
 
     @Test
-    @WithMockUser(authorities = "ORGANIZATION_OWNER")
+    @WithMockUser(authorities = "ORGANIZATION_OWNER",
+            username = "utn-admin",
+            password = "root")
     void whenUploadFoundObjectWithUserAllowed_canUpload() throws Exception {
         when(service.uploadFoundObject(any(), anyString(), anyLong()))
                 .thenReturn(ImageUploadedResponseDto.builder()
@@ -75,7 +77,7 @@ public class EndpointSecurityTest {
         params.add("description", "");
         params.add("organizationId", "");
 
-        mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 10L)
+        mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 1L)
                         .file(file)
                         .params(params))
                 .andDo(print())
