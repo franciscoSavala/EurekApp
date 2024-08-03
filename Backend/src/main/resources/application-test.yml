@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: Backend
+  servlet:
+    multipart:
+      max-file-size: 10MB
+application:
+  s3:
+    bucket:
+      name: 'eurekapp-temporal'
+  openai:
+    url: 'https://api.openai.com/v1/'
+    api-key: "123"
+  pinecone:
+    api-key: "123"
+    namespace: 'image-description'
+  jwt:
+    sign-key: "somethingsomethingsomethingsomethingsomethingsomething"

@@ -44,16 +44,4 @@ public class ApplicationConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
-
-    @Bean
-    @Profile({"local", "test"})
-    public EmbeddingService embeddingService() {
-        return t -> List.of(1f,1f,1f,1f);
-    }
-
-    @Bean
-    @Profile({"local", "test"})
-    public ImageDescriptionService imageDescriptionService() {
-        return bytes -> "some description";
-    }
 }

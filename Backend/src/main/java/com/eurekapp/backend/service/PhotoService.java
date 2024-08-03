@@ -68,7 +68,7 @@ public class PhotoService implements FoundObjectService {
         s3Service.putObject(bytes, foundObjectId);
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
         return ImageUploadedResponseDto.builder()
-                .textEncodind(textRepresentation)
+                .textEncoding(textRepresentation)
                 .description(description)
                 .id(foundObjectId)
                 .build();

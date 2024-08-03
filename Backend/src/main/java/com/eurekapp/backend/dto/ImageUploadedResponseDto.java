@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ImageUploadedResponseDto {
     private String id;
-    private String textEncodind;
+    private String textEncoding;
     private String description;
 }
