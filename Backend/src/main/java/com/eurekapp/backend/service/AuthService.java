@@ -1,6 +1,6 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.configuration.JwtService;
+import com.eurekapp.backend.configuration.security.JwtService;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
 import com.eurekapp.backend.exception.AuthenticationException;
@@ -12,8 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

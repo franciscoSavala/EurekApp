@@ -1,5 +1,7 @@
-package com.eurekapp.backend.configuration;
+package com.eurekapp.backend.configuration.security;
 
+import com.eurekapp.backend.exception.AuthenticationException;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -28,7 +30,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
         if (path.startsWith("/found-objects/organizations/")) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication == null || !authentication.isAuthenticated()) {
-                throw new ServletException("User is not authenticated");
+                filterChain.doFilter(request, response);
             }
 
             String role = authentication.getAuthorities().stream()
@@ -37,7 +39,8 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
                     .orElse(null);
 
             if (role == null || !role.startsWith(Role.ORGANIZATION_OWNER.name())) {
-                throw new ServletException("User does not have the required role");
+                filterChain.doFilter(request, response);
+                return;
             }
 
             // Extract organization ID from the URL
@@ -48,17 +51,17 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
             Long userOrganizationId = getUserOrganizationId(authentication);
 
             if (!organizationIdFromPath.equals(userOrganizationId)) {
-                throw new ServletException("User does not have access to this organization");
+                throw new AuthenticationException("User does not have access to this organization");
             }
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private Long getUserOrganizationId(Authentication authentication) throws ServletException {
+    private Long getUserOrganizationId(Authentication authentication) {
         UserEurekapp user = (UserEurekapp) authentication.getPrincipal();
         Organization organization = user.getOrganization();
-        if (organization == null) throw new ServletException("User is not an organization owner");
+        if (organization == null) throw new AuthenticationException("User is not an organization owner");
         return organization.getId();
     }
 }

@@ -1,4 +1,4 @@
-package com.eurekapp.backend.configuration;
+package com.eurekapp.backend.configuration.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
