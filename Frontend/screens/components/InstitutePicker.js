@@ -2,6 +2,7 @@ import React, {useEffect, useState} from "react";
 import {Picker} from "@react-native-picker/picker";
 import axios from "axios";
 import Constants from "expo-constants";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -12,7 +13,13 @@ const InstitutePicker = ({ setSelected }) => {
     useEffect(() => {
         const fetchInstitutes = async () => {
             try {
-                let res = await axios.get(BACK_URL + "/organizations");
+                let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+                let config = {
+                    headers: {
+                        'Authorization': authHeader
+                    }
+                }
+                let res = await axios.get(BACK_URL + "/organizations", config);
                 let jsonData = res.data;
                 setInstitutionList(jsonData.organizations);
             } catch (error) {

@@ -136,31 +136,4 @@ public class EndpointSecurityTest {
                 .andDo(print())
                 .andExpect(MockMvcResultMatchers.status().is4xxClientError());
     }
-
-    @Test
-    @WithMockUser(authorities = "USER")
-    void whenUploadFoundObjectWithUserAllowed_forbidden() throws Exception {
-        when(service.uploadFoundObject(any(), anyString(), anyLong()))
-                .thenReturn(ImageUploadedResponseDto.builder()
-                        .id("123")
-                        .textEncoding("encoding")
-                        .description("description")
-                        .build());
-        MockMultipartFile file = new MockMultipartFile(
-                "file",                     // Nombre del parámetro
-                "testfile.txt",             // Nombre del archivo original
-                "text/plain",               // Tipo de contenido MIME
-                "Hello, World!".getBytes()  // Contenido del archivo
-        );
-
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("description", "");
-        params.add("organizationId", "");
-
-        mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 10L)
-                        .file(file)
-                        .params(params))
-                .andDo(print())
-                .andExpect(MockMvcResultMatchers.status().isForbidden());
-    }
 }

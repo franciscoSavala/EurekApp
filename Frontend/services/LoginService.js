@@ -1,9 +1,7 @@
 import Constants from "expo-constants";
-import {HttpStatusCode} from "axios";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
-//SITIO WEB DE LA API https://reqres.in/
-//Recibe por parametro un objeto con el username y nuestro password
+
 export default function login({ username, password }) {
     return fetch(`${BACK_URL}/login`, {
         method: 'POST',
@@ -21,8 +19,7 @@ export default function login({ username, password }) {
             return res.json();
         })
         .then((response) => {
-            //Recibimos un JWT
-            const { token } = response;
-            return token;
+            //Recibimos un JWT Dto con info de más
+            return response;
         });
 }

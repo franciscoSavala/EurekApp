@@ -17,10 +17,15 @@ export default function useUser() {
     const login = useCallback(
         ({ username, password }) => {
             loginService({ username, password })
-                .then(async (jwt) => {
+                .then(async (userContext) => {
                     try {
-                        await AsyncStorage.setItem('jwt', jwt);
-                        setUser(jwt);
+                        await AsyncStorage.setItem('jwt', userContext.token);
+                        const organization = userContext.organization;
+                        if(organization != null) {
+                            await AsyncStorage.setItem('org.id', organization.id);
+                            await AsyncStorage.setItem('org.name', organization.name);
+                        }
+                        setUser(userContext.token);
                         setState({ loading: true, error: false, logged: true });
                     } catch (e) {
                         alert('error');

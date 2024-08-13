@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, Text, TextInput, Image, StyleSheet, Pressable, ActivityIndicator, ImageBackground} from 'react-native';
 import Constants from "expo-constants";
 import * as ImagePicker from 'expo-image-picker';
@@ -7,7 +7,7 @@ import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
-import * as http from "node:http";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -17,12 +17,23 @@ const UploadObject = () => {
     const [objectDescription, setObjectDescription] = useState('');
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer("something"));
-    const [selectedInstitute, setSelectedInstitute] = useState({});
+    const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [imageUploaded, setImageUploaded ] = useState(false);
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed ] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
 
+    useEffect(() => {
+        const getContextInstitute = async () => {
+            const institute = {
+                id: await AsyncStorage.getItem('org.id'),
+                name: await AsyncStorage.getItem('org.name')
+            };
+            if(institute.id == null || institute.name == null) return;
+            setSelectedInstitute( institute );
+        }
+        getContextInstitute();
+    }, []);
 
     const imagePickerConfig = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -81,9 +92,17 @@ const UploadObject = () => {
         formData.append('description', objectDescription);
         setLoading(true);
         setButtonWasPressed(true);
-
         try {
-            let response = await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, formData);
+            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+            console.log('HOLA!');
+            let config = {
+                headers: {
+                    'Authorization': authHeader
+                }
+            }
+            let response =
+                await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`,
+                    formData, config);
             setLoading(false);
             if (response.status >= 200 && response.status < 300) {
                 setResponseOk(true);
@@ -123,6 +142,12 @@ const UploadObject = () => {
     return (
         <View style={styles.container}>
             <View style={styles.formContainer}>
+                {selectedInstitute != null ?
+                    <View style={styles.headerContainer}>
+                        <Text style={styles.headerText}>{selectedInstitute.name}</Text>
+                    </View> : null
+                }
+
                 { imageUploaded ? (
                         <ImageBackground
                             source={{ uri: image.uri }}
@@ -159,7 +184,10 @@ const UploadObject = () => {
                     multiline
                     onChangeText={(text) => setObjectDescription(text)}
                 />
-                <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
+                { selectedInstitute == null ?
+                    <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
+                    : null
+                }
                 <StatusComponent />
             </View>
 
@@ -242,6 +270,17 @@ const styles = StyleSheet.create({
         placeholderTextColor: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
         marginBottom: 10,
+    },
+    headerContainer: {
+        height: 50,
+        alignItems: 'flex-start'
+    },
+    headerText: {
+        color: '#111818',
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        fontFamily: 'PlusJakartaSans-Bold'
     },
 });
 

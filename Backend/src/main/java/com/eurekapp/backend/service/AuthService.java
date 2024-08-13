@@ -1,10 +1,12 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.configuration.security.JwtService;
+import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
 import com.eurekapp.backend.exception.AuthenticationException;
 import com.eurekapp.backend.exception.NotFoundException;
+import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IUserRepository;
@@ -47,6 +49,15 @@ public class AuthService {
                         ));
 
         String jwt = jwtService.generateToken(userEurekapp);
+        Organization organization = userEurekapp.getOrganization();
+        if ( organization != null ) {
+            OrganizationDto organizationDto = OrganizationDto.builder()
+                    .id(organization.getId())
+                    .name(organization.getName())
+                    .contactData(organization.getContactData())
+                    .build();
+            return JwtTokenDto.builder().organization(organizationDto).token(jwt).build();
+        }
         return JwtTokenDto.builder().token(jwt).build();
     }
 

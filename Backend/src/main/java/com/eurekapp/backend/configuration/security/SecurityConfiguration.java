@@ -37,9 +37,7 @@ public class SecurityConfiguration {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authRequest -> authRequest
-                        .requestMatchers(HttpMethod.POST,
-                                "/found-objects/organizations/**")
-                            .hasAuthority(Role.ORGANIZATION_OWNER.name())
+                        .requestMatchers("/login", "/signup").permitAll()
                         .requestMatchers( "/**").authenticated())
                 .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)

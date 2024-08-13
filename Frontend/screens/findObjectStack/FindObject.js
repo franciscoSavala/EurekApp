@@ -4,6 +4,7 @@ import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -39,8 +40,15 @@ const FindObject = ({ navigation }) => {
         setLoading(true);
         setButtonWasPressed(true);
         try {
+            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+            let config = {
+                params: {query: queryObjects},
+                headers: {
+                    'Authorization': authHeader
+                }
+            }
             let res = await axios.get(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, //esto es inseguro pero ok...
-                {params: {query: queryObjects}});
+                config );
             let jsonData = res.data;
             if(jsonData.found_objects.length === 0) {
                 navigation.navigate('NotFoundObjects');

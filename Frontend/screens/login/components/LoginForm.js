@@ -39,14 +39,6 @@ export default function LoginForm(props) {
     }
 
     const onSubmit = async (data) => {
-        //Quitar hasta efectuar validaciones
-        /*
-                TEST USER
-                {
-                    "email": "eve.holt@reqres.in",
-                    "password": "cityslicka"
-                }
-         */
         const username = getValues('Username');
         const password = getValues('Password');
 

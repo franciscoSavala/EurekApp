@@ -13,7 +13,7 @@ public class ChatCompletionRequest {
     private final String MODEL = "gpt-4o";
     private final List<Message> messages = new LinkedList<>();
     @JsonProperty("max_tokens")
-    private final Integer maxTokens = 200;
+    private final Integer maxTokens = 100;
 
     public ChatCompletionRequest(String base64ImageRepresentation){
         var imageUrl = new ImageUrl(base64ImageRepresentation);
@@ -32,7 +32,7 @@ public class ChatCompletionRequest {
 
     @Getter
     static class SystemMessage extends Message{
-        private final String content = "Eres una persona que perdió un objeto y necesitas ayuda para encontrarlo";
+        private final String content = "Eres una persona describiendo un objeto";
         public SystemMessage(){
             this.role = "system";
         }
@@ -55,7 +55,7 @@ public class ChatCompletionRequest {
 
     @Getter
     static class TextContent extends Content{
-        private final String text = "Describe el objeto como si lo hayas perdido";
+        private final String text = "¿Qué es lo principal que hay acá? en un párrafo, directo al grano";
         public TextContent(){
             this.type = "text";
         }
