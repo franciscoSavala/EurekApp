@@ -20,6 +20,9 @@ public class FoundObjectController {
     @Autowired
     private FoundObjectService service;
 
+    /* Esta clase nuclea a los endpoints correspondientes a los posteos de objetos encontrados. */
+
+    // Endpoint usado para postear un objeto encontrado, con foto y descripción textual.
     @PostMapping("/organizations/{organizationId}")
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
                                                                       @RequestParam("description") @Length(max = 30, message = "Max description size is 30") String description,
@@ -27,6 +30,8 @@ public class FoundObjectController {
         return ResponseEntity.ok(service.uploadFoundObject(file, description, organizationId));
     }
 
+    // Endpoint que devuelve los objetos perdidos en una organización en particular que tengan el mayor grado de
+    // coincidencia con la descripción textual provista.
     @GetMapping("/organizations/{organizationId}")
     public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescriptionAndOrganization(@RequestParam
                                                                                           @Length(max = 255,
@@ -36,6 +41,9 @@ public class FoundObjectController {
                                                                                               required = false) Long organizationId){
         return ResponseEntity.ok(service.getFoundObjectByTextDescription(query, organizationId));
     }
+
+    // Endpoint que devuelve los objetos perdidos en todas las organizaciones que tengan el mayor grado de coincidencia
+    // con la descripción textual provista.
     @GetMapping
     public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescription(@RequestParam
                                                                                       @Length(max = 255,

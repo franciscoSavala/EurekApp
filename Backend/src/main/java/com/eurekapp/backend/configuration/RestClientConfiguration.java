@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.web.client.RestClient;
 
+
+// Clase que maneja las configuraciones de las conexiones a los servicios externos.
 @Configuration
 @Profile("!test")
 public class RestClientConfiguration {

@@ -15,6 +15,10 @@ public class ChatCompletionRequest {
     @JsonProperty("max_tokens")
     private final Integer maxTokens = 100;
 
+    /* El propósito de esta clase es que, cuando una instancia de OpenAiImageDescriptionService deba
+       enviar una request a ChatGPT, la misma no tenga que  armar manualmente el JSON a enviar, sino que en su
+      lugar le pasará una instancia de esta clase a una librería externa que armará el JSON por ella. */
+
     public ChatCompletionRequest(String base64ImageRepresentation){
         var imageUrl = new ImageUrl(base64ImageRepresentation);
         var imageContent = new ImageContent(imageUrl);
