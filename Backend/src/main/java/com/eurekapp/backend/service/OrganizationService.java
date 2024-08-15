@@ -24,7 +24,7 @@ public class OrganizationService {
         return new OrganizationListResponseDto(organizationDtos);
     }
 
-    private OrganizationDto organizationToDto(Organization organization) {
+    public OrganizationDto organizationToDto(Organization organization) {
         return OrganizationDto.builder()
                 .id(organization.getId())
                 .name(organization.getName())

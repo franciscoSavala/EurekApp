@@ -1,10 +1,12 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.FoundObjectDto;
+import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.FoundObjectStructVector;
+import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.repository.VectorStorage;
@@ -34,18 +36,20 @@ public class PhotoService implements FoundObjectService {
     private final EmbeddingService embeddingService;
     private final VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository;
     private final IOrganizationRepository organizationRepository;
+    private final OrganizationService organizationService;
 
 
     public PhotoService(ObjectStorage s3Service,
                         ImageDescriptionService descriptionService,
                         EmbeddingService embeddingService,
                         VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository,
-                        IOrganizationRepository organizationRepository) {
+                        IOrganizationRepository organizationRepository, OrganizationService organizationService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
         this.imageVectorTextPineconeRepository = imageVectorTextPineconeRepository;
         this.organizationRepository = organizationRepository;
+        this.organizationService = organizationService;
     }
 
     @SneakyThrows
@@ -106,11 +110,18 @@ public class PhotoService implements FoundObjectService {
     private FoundObjectDto foundObjectToDto(FoundObjectStructVector foundObjectVector) {
         byte[] bytes = s3Service.getObjectBytes(foundObjectVector.getId());
         log.info("[api_method:GET] [service:S3] Bytes processed: {}", bytes.length);
+        Long objectOrganizationId = Long.parseLong(foundObjectVector.getOrganization());
+        Organization organization = organizationRepository.findById(objectOrganizationId)
+                .orElse(null);
+        OrganizationDto organizationDto = organization != null ?
+                organizationService.organizationToDto(organization) :
+                null;
         return FoundObjectDto.builder()
                 .id(foundObjectVector.getId())
                 .description(foundObjectVector.getHumanDescription())
                 .b64Json(Base64.getEncoder().encodeToString(bytes))
                 .score(foundObjectVector.getScore())
+                .organization(organizationDto)
                 .build();
     }
 }

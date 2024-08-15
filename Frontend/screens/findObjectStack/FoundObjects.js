@@ -6,9 +6,10 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound, institution } = route.params;
+    const { objectsFound } = route.params;
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [modalVisible, setModalVisible] = useState(false);
+    const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const renderItem = ({ item }) => {
         const isSelected = item.id === objectSelectedId;
@@ -27,7 +28,7 @@ const FoundObjects = ({ route, navigation }) => {
     return (
         <View style={styles.container}>
             <View style={styles.coincidencesContainer}>
-                <Text style={styles.headerText}>Coincidencias en {institution.name}</Text>
+                <Text style={styles.headerText}>Coincidencias encontradas</Text>
                 <FlatList
                     data={objectsFound}
                     keyExtractor={(item) => item.id}
@@ -55,7 +56,11 @@ const FoundObjects = ({ route, navigation }) => {
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
-                        <Text style={styles.modalText}>Info de contacto: {institution.contactData}</Text>
+                        <Text style={styles.modalText}>
+                            Info de contacto: {foundObjectsMap.has(objectSelectedId) ?
+                            foundObjectsMap.get(objectSelectedId).organization.contactData :
+                            "no se deberia ver xd"}
+                        </Text>
                         <EurekappButton text='Cerrar' onPress={() => setModalVisible(false)}/>
                     </View>
                 </View>

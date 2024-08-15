@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
-    const [selectedInstitute, setSelectedInstitution] = useState({});
+    const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
@@ -19,12 +19,6 @@ const FindObject = ({ navigation }) => {
         if(!queryObjects){
             alert("No se ingresó una descripción del objeto");
             console.log("No se ingresó una descripción del objeto");
-            return false;
-        }
-        if(!selectedInstitute) {
-            alert("No se seleccionó una institución");
-            console.log("No se seleccionó una institución")
-            console.log(selectedInstitute)
             return false;
         }
         if (queryObjects.length > 255) {
@@ -47,7 +41,8 @@ const FindObject = ({ navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.get(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`, //esto es inseguro pero ok...
+            let endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
+            let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
             if(jsonData.found_objects.length === 0) {
@@ -55,8 +50,7 @@ const FindObject = ({ navigation }) => {
             }else{
                 navigation.navigate('FoundObjects',
                     {
-                        objectsFound: jsonData.found_objects,
-                        institution: selectedInstitute
+                        objectsFound: jsonData.found_objects
                     });
             }
 
