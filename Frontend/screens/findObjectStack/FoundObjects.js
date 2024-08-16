@@ -59,7 +59,7 @@ const FoundObjects = ({ route, navigation }) => {
                         <Text style={styles.modalText}>
                             Info de contacto: {foundObjectsMap.has(objectSelectedId) ?
                             foundObjectsMap.get(objectSelectedId).organization.contactData :
-                            "no se deberia ver xd"}
+                            null}
                         </Text>
                         <EurekappButton text='Cerrar' onPress={() => setModalVisible(false)}/>
                     </View>
