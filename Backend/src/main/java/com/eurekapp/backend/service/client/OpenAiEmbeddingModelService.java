@@ -29,16 +29,25 @@ public class OpenAiEmbeddingModelService implements EmbeddingService {
         this.objectMapper = objectMapper;
     }
 
+    /* Este método toma un texto (en nuestra app, siempre será la descripción textual de una foto), lo envía a la API
+    *    de Open AI Embeddings, y recibe de la misma una representación vectorial de dicho texto. */
     @SneakyThrows
     public List<Float> getTextVectorRepresentation(String text){
+
+        // Esta línea arma el JSON que enviaremos en la request a la API de Open AI Embeddings.
         String requestBody = objectMapper.writeValueAsString(new EmbeddingRequest(text));
+
+        // Enviamos la request, y guardamos la respuesta de la API en la variable "embeddingResponse".
         ResponseEntity<ResponseEmbedding> embeddingResponse = embeddingClient.post()
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(requestBody)
                 .retrieve()
                 .toEntity(ResponseEmbedding.class);
 
+        // Armamos el mensaje que se asentará en el log.
         String logMessage = String.format("[method:POST] [api_call:openAiEmbeddings] Request=%s Response=%s", requestBody, "PII PROTECTED (?");
+
+        // Si la request fue exitosa, guardamos el mensaje en e log. Sino, lanzamos una excepción.
         if(embeddingResponse.getStatusCode().is2xxSuccessful()){
             log.info(logMessage);
         }else{
@@ -46,6 +55,8 @@ public class OpenAiEmbeddingModelService implements EmbeddingService {
             throw new RuntimeException("Falló la call a openAiEmbeddings");
         }
 
+        // Finalmente, si no se lanzó una excepión, devolvemos el vector que representa al texto que pasamos como
+        //  parámetro inicialmente.
         return embeddingResponse.getBody().getData().getFirst().getEmbedding();
     }
 }
