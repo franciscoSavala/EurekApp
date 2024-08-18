@@ -2,6 +2,8 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
+import com.eurekapp.backend.model.SimilarObjectsCommand;
+import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.FoundObjectService;
 import com.eurekapp.backend.service.PhotoService;
 import jakarta.validation.constraints.Max;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/found-objects")
@@ -25,21 +28,32 @@ public class FoundObjectController {
     // Endpoint usado para postear un objeto encontrado, con foto y descripción textual.
     @PostMapping("/organizations/{organizationId}")
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
-                                                                      @RequestParam("description") @Length(max = 30, message = "Max description size is 30") String description,
+                                                                      @RequestParam("description")
+                                                                      @Length(max = 30, message = "Max description size is 30") String description,
+                                                                      @RequestParam("found_date") LocalDateTime foundDate,
                                                                       @PathVariable(value = "organizationId", required = false) Long organizationId){
-        return ResponseEntity.ok(service.uploadFoundObject(file, description, organizationId));
+        UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
+                .image(file)
+                .description(description)
+                .foundDate(foundDate)
+                .organizationId(organizationId)
+                .build();
+        return ResponseEntity.ok(service.uploadFoundObject(command));
     }
 
     // Endpoint que devuelve los objetos perdidos en una organización en particular que tengan el mayor grado de
     // coincidencia con la descripción textual provista.
     @GetMapping("/organizations/{organizationId}")
-    public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescriptionAndOrganization(@RequestParam
-                                                                                          @Length(max = 255,
-                                                                                                  message = "Max length supported is 255")
-                                                                                          String query,
-                                                                                      @PathVariable(name = "organizationId",
-                                                                                              required = false) Long organizationId){
-        return ResponseEntity.ok(service.getFoundObjectByTextDescription(query, organizationId));
+    public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescriptionAndOrganization(
+            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
+            @PathVariable(name = "organizationId", required = false) Long organizationId,
+            @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate){
+        SimilarObjectsCommand command = SimilarObjectsCommand.builder()
+                .query(query)
+                .organizationId(organizationId)
+                .lostDate(lostDate)
+                .build();
+        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
     }
 
     // Endpoint que devuelve los objetos perdidos en todas las organizaciones que tengan el mayor grado de coincidencia
@@ -49,6 +63,9 @@ public class FoundObjectController {
                                                                                       @Length(max = 255,
                                                                                               message = "Max length supported is 255")
                                                                                       String query){
-        return ResponseEntity.ok(service.getFoundObjectByTextDescription(query, null));
+        SimilarObjectsCommand command = SimilarObjectsCommand.builder()
+                .query(query)
+                .build();
+        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
     }
 }

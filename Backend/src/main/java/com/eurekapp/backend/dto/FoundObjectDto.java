@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class FoundObjectDto {
     private String description;
+    @JsonIgnore
     private String b64Json;
     private Float score;
     private String id;

@@ -1,7 +1,6 @@
 package com.eurekapp.backend.configuration.security;
 
-import com.eurekapp.backend.exception.AuthenticationException;
-import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.exception.ForbbidenException;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -51,7 +50,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
             Long userOrganizationId = getUserOrganizationId(authentication);
 
             if (!organizationIdFromPath.equals(userOrganizationId)) {
-                throw new AuthenticationException("User does not have access to this organization");
+                throw new ForbbidenException("not_valid_credentials", "User does not have access to this organization");
             }
         }
 
@@ -61,7 +60,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
     private Long getUserOrganizationId(Authentication authentication) {
         UserEurekapp user = (UserEurekapp) authentication.getPrincipal();
         Organization organization = user.getOrganization();
-        if (organization == null) throw new AuthenticationException("User is not an organization owner");
+        if (organization == null) throw new ForbbidenException("not_org_owner", "User is not an organization owner");
         return organization.getId();
     }
 }
