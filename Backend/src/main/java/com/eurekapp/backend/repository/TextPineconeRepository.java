@@ -24,6 +24,10 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
         this.client = client;
     }
 
+    /* Upsert = Operación de BD que implica intentar hacer un "INSERT", y si el registro ya existe, entonces hacer un
+        "UPDATE" en su lugar.
+        Este método recibe un vector y hace un upsert en la BD de Pinecone, mediante la API de Pinecone.
+        En nuestra aplicación, el vector en cuestión representa un objeto perdido/encontrado. */
     public void upsertVector(T vector){
         Struct struct = vector.toStruct();
         UpsertResponse upsertResponse = client.upsert(vector.getId(), vector.getEmbeddings(), null, null, struct, namespace);

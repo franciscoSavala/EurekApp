@@ -22,6 +22,7 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -57,17 +58,30 @@ public class PhotoService implements FoundObjectService {
         this.organizationService = organizationService;
     }
 
+    /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
+    *   una descripción textual provista por el usuario, y el ID del establecimiento en el que se encontró, */
     @SneakyThrows
     public ImageUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
+        // Convertimos el archivo de imagen en bytes, para poder enviarlo en una request.
         byte[] bytes = command.getImage().getBytes();
+        // Antes de seguir, chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() != null
                 && !organizationRepository.existsById(command.getOrganizationId()))
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
+        // Solicitamos a la API "OpenAI Chat Completion" una descripción textual de la foto.
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
+
+        /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la descripción textual que nos dio
+        *   la otra API. */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
+
+        // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
+
+        /* Pasmos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
+        *   Esto es necesario para poder meterlo en la BD Pinecone. */
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
                 .text(textRepresentation)
@@ -77,9 +91,16 @@ public class PhotoService implements FoundObjectService {
                 .foundDate(command.getFoundDate())
                 .build();
         // TODO: VER COMO HACERLO ASYNC
+
+        // Hacemos el upsert en la BD Pinecone.
         imageVectorTextPineconeRepository.upsertVector(foundObjectVector);
+
+        // Subimos la foto provista por el usuario a la BD Amazon S3.
         s3Service.putObject(bytes, foundObjectId);
+
+        // Asentamos la operación en el log.
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
+
         return ImageUploadedResponseDto.builder()
                 .textEncoding(textRepresentation)
                 .description(command.getDescription())
