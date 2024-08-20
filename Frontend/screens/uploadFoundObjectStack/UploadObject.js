@@ -8,6 +8,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import RNDateTimePicker from "@react-native-community/datetimepicker";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -22,6 +23,7 @@ const UploadObject = () => {
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed ] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
+    const [foundDate, setFoundDate] = useState(new Date());
 
     useEffect(() => {
         const getContextInstitute = async () => {
@@ -184,6 +186,7 @@ const UploadObject = () => {
                     multiline
                     onChangeText={(text) => setObjectDescription(text)}
                 />
+                <RNDateTimePicker value={foundDate} maximumDate={new Date()} onChange={(e, d) => setFoundDate(d)}/>
                 { selectedInstitute == null ?
                     <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
                     : null
