@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {StyleSheet} from "react-native";
+import {SafeAreaView, StyleSheet, View} from "react-native";
 import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
@@ -12,6 +12,7 @@ import NotFoundObjects from "./screens/findObjectStack/NotFoundObjects";
 import {createStackNavigator} from "@react-navigation/stack";
 import LandingScreen from "./screens/login/Landing";
 import LoginScreen from "./screens/login/LoginScreen";
+import {LoginContext} from "./hooks/useUser";
 
 const Tab = createBottomTabNavigator();
 
@@ -78,7 +79,7 @@ const EurekappTab = () => {
     );
 }
 
-export const LoginContext = createContext();
+
 
 const App = () => {
     const [user, setUser] = useState('');
@@ -86,6 +87,7 @@ const App = () => {
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
         'PlusJakartaSans-Regular': require('./assets/fonts/PlusJakartaSans-Regular.ttf')
     });
+    if(!fontsLoaded) return (<View></View>);
 
     return (
         <NavigationContainer>
@@ -98,7 +100,7 @@ const App = () => {
 
 const style = StyleSheet.create({
     header: {
-        height: 50,
+        height: 80,
         borderWidth: 0,
     },
     headerText: {

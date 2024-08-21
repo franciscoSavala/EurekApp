@@ -1,12 +1,13 @@
-import { useState, useCallback, useContext } from 'react';
+import {useState, useCallback, useContext, createContext} from 'react';
 import loginService from '../services/LoginService';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as CONSTANTS from '../App';
+
+export const LoginContext = createContext();
 
 export default function useUser() {
     // Creamos el contexto de nuestra aplicación
-    const { setUser } = useContext(CONSTANTS.LoginContext);
+    const { setUser } = useContext(LoginContext);
     //Utilizamos el estado para poder saber si está o no cargando
     const [state, setState] = useState({
         loading: true,
@@ -22,7 +23,7 @@ export default function useUser() {
                         await AsyncStorage.setItem('jwt', userContext.token);
                         const organization = userContext.organization;
                         if(organization != null) {
-                            await AsyncStorage.setItem('org.id', organization.id);
+                            await AsyncStorage.setItem('org.id', organization.id.toString());
                             await AsyncStorage.setItem('org.name', organization.name);
                         }
                         setUser(userContext.token);

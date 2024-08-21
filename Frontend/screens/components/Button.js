@@ -2,7 +2,6 @@ import React from 'react';
 import {Pressable, StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
 
 const EurekappButton = ({ onPress, text = 'Buscar mi objeto', backgroundColor = '#19e6e6', textColor = '#111818' }) => {
-    
     return (
         <View style={styles.container}>
             <Pressable
@@ -20,9 +19,8 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         flexDirection: 'column',
-        justifyContent: "flex-end",
-        width: '90%',
-        marginVertical: 10,
+        alignSelf: 'stretch',
+        marginHorizontal: 10,
     },
     button: {
         flex: 1,

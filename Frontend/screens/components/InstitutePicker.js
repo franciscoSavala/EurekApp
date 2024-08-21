@@ -4,7 +4,7 @@ import axios from "axios";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BACK_URL = Constants.expoConfig.extra.backUrl;
+const BACK_URL = "http://10.0.2.2:8080";
 
 const InstitutePicker = ({ setSelected }) => {
     const [institutionList, setInstitutionList] = useState([]);
