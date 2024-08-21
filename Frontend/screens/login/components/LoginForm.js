@@ -1,13 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
     View,
-    StyleSheet,
-    Alert,
-    TouchableOpacity,
-    ActivityIndicator, TextInput,
+    StyleSheet
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import Constants from 'expo-constants';
 import { Input, Icon, Text, Item, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 
@@ -44,12 +40,6 @@ export default function LoginForm(props) {
 
         login({ username, password });
     };
-
-    useEffect(() => {
-        if (isLogged === true) {
-            props.nav.navigate('FindObject');
-        }
-    }, [isLogged, props.nav]);
 
     return (
         <View style={styles.loginContainer}>

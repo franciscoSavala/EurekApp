@@ -7,7 +7,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
-const BACK_URL = Constants.expoConfig.extra.backUrl;
+const BACK_URL = "http://10.0.2.2:8080";
 
 const FindObject = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);

@@ -1,6 +1,15 @@
 import React, {useEffect, useState} from 'react';
-import {View, Text, TextInput, Image, StyleSheet, Pressable, ActivityIndicator, ImageBackground} from 'react-native';
-import Constants from "expo-constants";
+import {
+    View,
+    Text,
+    TextInput,
+    Image,
+    StyleSheet,
+    Pressable,
+    ActivityIndicator,
+    ImageBackground,
+    SafeAreaView
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
@@ -9,7 +18,7 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const BACK_URL = Constants.expoConfig.extra.backUrl;
+const BACK_URL = "http://10.0.2.2:8080";
 
 const FormData = global.FormData;
 
@@ -86,10 +95,15 @@ const UploadObject = () => {
     }
     const submitData = async () => {
         if(!validateConstraints()) return;
-        const blob = new Blob([imageByte]);
+        //const blob = new Blob([imageByte]);
         const formData = new FormData();
-        formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
-        formData.append('description', objectDescription);
+        //formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
+        formData.append('description', objectDescription)
+        formData.append('file', {
+            uri: image.uri,
+            type: 'image/jpeg',
+            name: 'profile-picture'
+        });
         setLoading(true);
         setButtonWasPressed(true);
         try {
@@ -97,7 +111,8 @@ const UploadObject = () => {
             console.log('HOLA!');
             let config = {
                 headers: {
-                    'Authorization': authHeader
+                    'Authorization': authHeader,
+                    'Content-Type': 'multipart/form-data'
                 }
             }
             let response =
@@ -140,7 +155,7 @@ const UploadObject = () => {
         );
     }
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.formContainer}>
                 {selectedInstitute != null ?
                     <View style={styles.headerContainer}>
@@ -192,7 +207,7 @@ const UploadObject = () => {
             </View>
 
             <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
-        </View>
+        </SafeAreaView>
     );
 };
 
@@ -200,8 +215,7 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-        justifyContent: 'center',
-        alignItems: 'center',
+        alignItems: 'center'
     },
     formContainer: {
         flexGrow: 1,
