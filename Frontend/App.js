@@ -69,7 +69,7 @@ const EurekappTab = () => {
                 title: 'Subir objeto',
                 headerTitleStyle: style.headerText,
                 headerTitleAlign: 'center',
-                headerStyle: style.header
+                headerStyle: style.header,
             }} component={UploadObject} />
             <Tab.Screen name="FindObjectStackScreen" options={{
                 title: 'Encontrar Objecto',

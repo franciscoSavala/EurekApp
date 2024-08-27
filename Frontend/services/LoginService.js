@@ -20,5 +20,7 @@ export default function login({ username, password }) {
         .then((response) => {
             //Recibimos un JWT Dto con info de más
             return response;
+        }).catch((e) => {
+            console.error(e);
         });
 }

@@ -8,7 +8,7 @@ import {
     Pressable,
     ActivityIndicator,
     ImageBackground,
-    SafeAreaView
+    ScrollView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -17,7 +17,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import RNDateTimePicker from "@react-native-community/datetimepicker";
+import LostDateComponent from "./LostDateComponent";
 
 const BACK_URL = "http://10.0.2.2:8080";
 
@@ -55,7 +55,6 @@ const UploadObject = () => {
 
     const handleImagePicked = (result) => {
         if (!result.canceled) {
-            console.log(result.assets[0]);
             setImage(result.assets[0]);
             setImageByte(Buffer.from(result.assets[0].base64, "base64"));
             setImageUploaded(true);
@@ -101,16 +100,16 @@ const UploadObject = () => {
         const formData = new FormData();
         //formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
         formData.append('description', objectDescription)
+        formData.append('found_date', foundDate);
         formData.append('file', {
             uri: image.uri,
+            name: 'dummyname.jpeg',
             type: 'image/jpeg',
-            name: 'profile-picture'
         });
         setLoading(true);
         setButtonWasPressed(true);
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            console.log('HOLA!');
             let config = {
                 headers: {
                     'Authorization': authHeader,
@@ -140,25 +139,25 @@ const UploadObject = () => {
 
     const StatusComponent = () => {
         return(
-            <View style={{marginTop: 10}}>
+            <View>
                 {buttonWasPressed ? (
                     loading ? (
-                        <ActivityIndicator size="large" color="#111818" />
+                        <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon name={'circle-check'} size={50} color={'#008000'}/>
+                            <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
                         ) : (
-                            <Icon name={'circle-xmark'} size={50} color={'#ED4337'}/>
+                            <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
                         )
                     )
-                ) : (<View />)
+                ) : null
                 }
             </View>
         );
     }
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.formContainer}>
+        <View style={styles.container}>
+            <ScrollView contentContainerStyle={styles.formContainer}>
                 {selectedInstitute != null ?
                     <View style={styles.headerContainer}>
                         <Text style={styles.headerText}>{selectedInstitute.name}</Text>
@@ -184,7 +183,7 @@ const UploadObject = () => {
                 <View style={styles.imageLoadContainer}>
                     <Pressable onPress={pickImage}
                                style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Seleccionar imagen</Text>
+                        <Text style={styles.imageLoadText}>Seleccionar foto</Text>
                         <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
                     </Pressable>
                     <View style={{width: 10}}></View>
@@ -195,22 +194,24 @@ const UploadObject = () => {
                     </Pressable>
                 </View>
 
-                <TextInput
-                    style={styles.textArea}
-                    placeholder="Escribe una descripción"
-                    multiline
-                    onChangeText={(text) => setObjectDescription(text)}
-                />
-                <RNDateTimePicker value={foundDate} maximumDate={new Date()} onChange={(e, d) => setFoundDate(d)}/>
+                <View style={styles.textAreaContainer}>
+                    <TextInput
+                        style={styles.textArea}
+                        placeholder="Escribe una descripción"
+                        multiline
+                        onChangeText={(text) => setObjectDescription(text)}
+                    />
+                </View>
+
+                <LostDateComponent setFoundDate={setFoundDate} foundDate={foundDate}/>
                 { selectedInstitute == null ?
                     <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
                     : null
                 }
                 <StatusComponent />
-            </View>
-
-            <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
-        </SafeAreaView>
+                <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
+            </ScrollView>
+        </View>
     );
 };
 
@@ -218,14 +219,17 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
-        alignItems: 'center'
+        alignItems: 'center',
     },
     formContainer: {
         flexGrow: 1,
         flexDirection: 'column',
-        width: '90%',
         alignItems: 'center',
         justifyContent: 'flex-start',
+        marginHorizontal: 10
+    },
+    formView: {
+        marginHorizontal: 10
     },
     image: {
         height: 300,
@@ -265,7 +269,8 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#bdc1c1',
         backgroundColor: '#fff',
-        padding: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 12,
     },
     imageLoadText: {
         fontSize: 16,
@@ -273,8 +278,11 @@ const styles = StyleSheet.create({
         color: '#638888',
         fontFamily: 'PlusJakartaSans-Regular'
     },
+    textAreaContainer: {
+        flex: 1,
+        alignSelf: 'stretch'
+    },
     textArea: {
-        width: '100%',
         minHeight: 144,
         resize: 'none',
         overflow: 'hidden',
@@ -299,6 +307,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
+
 });
 
 export default UploadObject;
