@@ -48,7 +48,7 @@ public class AuthService {
                                 String.format("No se encontró el usuario con el username %s",
                                         user.getUsername())
                         ));
-
+        log.info("[action:login] User {} logged", user.getUsername());
         String jwt = jwtService.generateToken(userEurekapp);
         Organization organization = userEurekapp.getOrganization();
         if ( organization != null ) {

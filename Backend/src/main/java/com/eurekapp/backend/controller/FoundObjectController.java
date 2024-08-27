@@ -10,6 +10,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -26,11 +27,11 @@ public class FoundObjectController {
     /* Esta clase nuclea a los endpoints correspondientes a los posteos de objetos encontrados. */
 
     // Endpoint usado para postear un objeto encontrado, con foto y descripción textual.
-    @PostMapping("/organizations/{organizationId}")
+    @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
                                                                       @RequestParam("description")
                                                                       @Length(max = 30, message = "Max description size is 30") String description,
-                                                                      @RequestParam("found_date") LocalDateTime foundDate,
+                                                                      @RequestParam(value = "found_date") LocalDateTime foundDate,
                                                                       @PathVariable(value = "organizationId", required = false) Long organizationId){
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .image(file)
