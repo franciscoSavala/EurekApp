@@ -18,8 +18,10 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import LostDateComponent from "./LostDateComponent";
+import Constants from "expo-constants";
+import ReactNativeBlobUtil from "react-native-blob-util";
 
-const BACK_URL = "http://10.0.2.2:8080";
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
@@ -97,30 +99,23 @@ const UploadObject = () => {
     const submitData = async () => {
         if(!validateConstraints()) return;
         //const blob = new Blob([imageByte]);
-        const formData = new FormData();
-        //formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
-        formData.append('description', objectDescription)
-        formData.append('found_date', foundDate);
-        formData.append('file', {
-            uri: image.uri,
-            name: 'dummyname.jpeg',
-            type: 'image/jpeg',
-        });
+
         setLoading(true);
         setButtonWasPressed(true);
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader,
-                    'Content-Type': 'multipart/form-data'
-                }
-            }
+
             let response =
-                await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`,
-                    formData, config);
+                await ReactNativeBlobUtil.fetch('POST',
+                    `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
+                        'Authorization': authHeader,
+                        'Content-Type': 'multipart/form-data'
+                    },[{name: 'description', data: objectDescription},
+                        {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                        {name: 'file', filename: 'found_object.jpg',
+                            data: String(image.base64)}]);
             setLoading(false);
-            if (response.status >= 200 && response.status < 300) {
+            if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
                 setResponseOk(true);
             }else{
                 setResponseOk(false);
@@ -163,7 +158,6 @@ const UploadObject = () => {
                         <Text style={styles.headerText}>{selectedInstitute.name}</Text>
                     </View> : null
                 }
-
                 { imageUploaded ? (
                         <ImageBackground
                             source={{ uri: image.uri }}

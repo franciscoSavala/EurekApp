@@ -7,7 +7,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
-const BACK_URL = "http://10.0.2.2:8080";
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
@@ -75,12 +75,8 @@ const FindObject = ({ navigation }) => {
                 <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
             </View>
             {buttonWasPressed ? (
-                    loading ? (
-                            <ActivityIndicator size="large" color="#111818" />
-                        ) : (
-                            <View></View>
-                        )
-                ) : (<View />)
+                    loading ? <ActivityIndicator size="large" color="#111818" /> : null
+                ) : null
             }
             <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
         </View>
@@ -92,7 +88,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: 'center',
         width: '100%',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         backgroundColor: '#fff',
     },
     input: {

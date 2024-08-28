@@ -1,5 +1,6 @@
+import Constants from "expo-constants";
 
-const BACK_URL = "http://10.0.2.2:8080";
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 export default function login({ username, password }) {
     return fetch(`${BACK_URL}/login`, {
