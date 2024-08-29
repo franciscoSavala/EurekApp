@@ -1,19 +1,21 @@
 import React, {useEffect, useState} from "react";
-import {ActivityIndicator, Alert, StyleSheet, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
 import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import EurekappDateComponent from "../components/EurekappDateComponent";
 
 
-const BACK_URL = "http://10.0.2.2:8080";
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FindObject = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
+    const [lostDate, setLostDate] = useState(new Date());
 
     const validateInputConstraints = () => {
         if(!queryObjects){
@@ -36,7 +38,10 @@ const FindObject = ({ navigation }) => {
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let config = {
-                params: {query: queryObjects},
+                params: {
+                    query: queryObjects,
+                    'lost_date': lostDate.toISOString().split('.')[0]
+                },
                 headers: {
                     'Authorization': authHeader
                 }
@@ -63,26 +68,25 @@ const FindObject = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.formContainer}>
-                <Text style={styles.labelText}>Descripción del objeto</Text>
-                <TextInput
-                    style={styles.textArea}
-                    placeholder="Escribe una descripción"
-                    multiline
-                    onChangeText={(text) => setQueryObjects(text)}
-                />
-                <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
-                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
+            <View style={{flex: 1, marginHorizontal: 10, justifyContent: 'space-between'}}>
+                <View style={styles.formContainer}>
+                    <Text style={styles.labelText}>Descripción del objeto</Text>
+                    <TextInput
+                        style={styles.textArea}
+                        placeholder="Escribe una descripción"
+                        multiline
+                        onChangeText={(text) => setQueryObjects(text)}
+                    />
+                    <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
+                    <EurekappDateComponent labelText={'Fecha de pérdida de objeto: '}
+                                           date={lostDate} setDate={setLostDate}/>
+                </View>
+                {buttonWasPressed ? (
+                    loading ? <ActivityIndicator size="large" color="#111818" /> : null
+                ) : null
+                }
+                <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
             </View>
-            {buttonWasPressed ? (
-                    loading ? (
-                            <ActivityIndicator size="large" color="#111818" />
-                        ) : (
-                            <View></View>
-                        )
-                ) : (<View />)
-            }
-            <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
         </View>
     );
 }
@@ -90,10 +94,13 @@ const FindObject = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        alignItems: 'center',
-        width: '100%',
-        justifyContent: 'center',
         backgroundColor: '#fff',
+    },
+    formContainer: {
+        flex: 1,
+        flexDirection: 'column',
+        alignContent: 'center',
+        justifyContent: 'flex-start',
     },
     input: {
         width: '100%',
@@ -104,41 +111,20 @@ const styles = StyleSheet.create({
         paddingLeft: 10,
         marginVertical: 10,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'white',
-        padding: 16,
-        paddingBottom: 8,
-    },
-    headerText: {
-        color: '#111818',
-        fontSize: 18,
-        fontWeight: 'bold',
-        textAlign: 'center',
-        flex: 1,
-        paddingLeft: 48,
-        paddingRight: 48,
-        fontFamily: 'PlusJakartaSans-Regular'
-    },
-    formContainer: {
-        flexDirection: 'column',
-        flex: 1,
-        width: '90%',
-        alignItems: 'flex-start',
-        justifyContent: 'flex-start',
-    },
     labelText: {
         color: '#111818',
         fontSize: 16,
         fontWeight: '500',
-        paddingBottom: 8,
-        width: '100%',
-        marginTop: 10,
         fontFamily: 'PlusJakartaSans-Regular'
     },
-    textArea: {
+    labelContainer: {
         width: '100%',
+    },
+    textAreaContainer: {
+        flex: 1,
+        alignSelf: 'stretch'
+    },
+    textArea: {
         minHeight: 144,
         resize: 'none',
         overflow: 'hidden',
@@ -150,6 +136,7 @@ const styles = StyleSheet.create({
         fontWeight: 'normal',
         placeholderTextColor: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
+        marginBottom: 10,
     },
 });
 

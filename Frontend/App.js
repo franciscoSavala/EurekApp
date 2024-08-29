@@ -13,6 +13,7 @@ import {createStackNavigator} from "@react-navigation/stack";
 import LandingScreen from "./screens/login/Landing";
 import LoginScreen from "./screens/login/LoginScreen";
 import {LoginContext} from "./hooks/useUser";
+import Icon from "react-native-vector-icons/FontAwesome6";
 
 const Tab = createBottomTabNavigator();
 
@@ -25,19 +26,22 @@ const FindObjectStackScreen = () => {
                 title: 'Buscar un objeto',
                 headerTitleStyle: style.headerText,
                 headerTitleAlign: 'center',
-                headerStyle: style.header
+                headerStyle: style.header,
+                headerShadowVisible: false,
             }} name="FindObject" component={FindObject} />
             <FindObjectStack.Screen options={{
                 title: 'Objetos Encontrados',
                 headerTitleStyle: style.headerText,
                 headerTitleAlign: 'center',
-                headerStyle: style.header
+                headerStyle: style.header,
+                headerShadowVisible: false,
             }} name="FoundObjects" component={FoundObjects} />
             <FindObjectStack.Screen options={{
                 title: 'Objetos Encontrados',
                 headerTitleStyle: style.headerText,
                 headerTitleAlign: 'center',
-                headerStyle: style.header
+                headerStyle: style.header,
+                headerShadowVisible: false,
             }} name="NotFoundObjects" component={NotFoundObjects} />
         </FindObjectStack.Navigator>
     );
@@ -63,17 +67,21 @@ const AuthStackScreen = () => {
 }
 
 const EurekappTab = () => {
+    const uploadIcon = () => <Icon name={'upload'} size={20}/>
+    const searchIcon = () => <Icon name={'magnifying-glass'} size={20}/>
     return (
         <Tab.Navigator>
             <Tab.Screen name="UploadObject" options={{
                 title: 'Subir objeto',
                 headerTitleStyle: style.headerText,
                 headerTitleAlign: 'center',
-                headerStyle: style.header
+                headerStyle: style.header,
+                tabBarIcon: uploadIcon
             }} component={UploadObject} />
             <Tab.Screen name="FindObjectStackScreen" options={{
-                title: 'Encontrar Objecto',
+                title: 'Encontrar Objeto',
                 headerShown: false,
+                tabBarIcon: searchIcon
             }} component={FindObjectStackScreen} />
         </Tab.Navigator>
     );

@@ -8,7 +8,7 @@ import {
     Pressable,
     ActivityIndicator,
     ImageBackground,
-    SafeAreaView
+    ScrollView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -17,8 +17,11 @@ import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import EurekappDateComponent from "../components/EurekappDateComponent";
+import Constants from "expo-constants";
+import ReactNativeBlobUtil from "react-native-blob-util";
 
-const BACK_URL = "http://10.0.2.2:8080";
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
@@ -31,6 +34,7 @@ const UploadObject = () => {
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed ] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
+    const [foundDate, setFoundDate] = useState(new Date());
 
     useEffect(() => {
         const getContextInstitute = async () => {
@@ -53,7 +57,6 @@ const UploadObject = () => {
 
     const handleImagePicked = (result) => {
         if (!result.canceled) {
-            console.log(result.assets[0]);
             setImage(result.assets[0]);
             setImageByte(Buffer.from(result.assets[0].base64, "base64"));
             setImageUploaded(true);
@@ -96,30 +99,23 @@ const UploadObject = () => {
     const submitData = async () => {
         if(!validateConstraints()) return;
         //const blob = new Blob([imageByte]);
-        const formData = new FormData();
-        //formData.append('file', blob); //posible brecha de seguridad pero no me sale de otra forma jsdaj
-        formData.append('description', objectDescription)
-        formData.append('file', {
-            uri: image.uri,
-            type: 'image/jpeg',
-            name: 'profile-picture'
-        });
+
         setLoading(true);
         setButtonWasPressed(true);
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            console.log('HOLA!');
-            let config = {
-                headers: {
-                    'Authorization': authHeader,
-                    'Content-Type': 'multipart/form-data'
-                }
-            }
+
             let response =
-                await axios.post(BACK_URL + `/found-objects/organizations/${selectedInstitute.id}`,
-                    formData, config);
+                await ReactNativeBlobUtil.fetch('POST',
+                    `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
+                        'Authorization': authHeader,
+                        'Content-Type': 'multipart/form-data'
+                    },[{name: 'description', data: objectDescription},
+                        {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                        {name: 'file', filename: 'found_object.jpg',
+                            data: String(image.base64)}]);
             setLoading(false);
-            if (response.status >= 200 && response.status < 300) {
+            if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
                 setResponseOk(true);
             }else{
                 setResponseOk(false);
@@ -138,32 +134,32 @@ const UploadObject = () => {
 
     const StatusComponent = () => {
         return(
-            <View style={{marginTop: 10}}>
+            <View>
                 {buttonWasPressed ? (
                     loading ? (
-                        <ActivityIndicator size="large" color="#111818" />
+                        <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon name={'circle-check'} size={50} color={'#008000'}/>
+                            <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
                         ) : (
-                            <Icon name={'circle-xmark'} size={50} color={'#ED4337'}/>
+                            <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
                         )
                     )
-                ) : (<View />)
+                ) : null
                 }
             </View>
         );
     }
     return (
-        <SafeAreaView style={styles.container}>
-            <View style={styles.formContainer}>
-                {selectedInstitute != null ?
-                    <View style={styles.headerContainer}>
-                        <Text style={styles.headerText}>{selectedInstitute.name}</Text>
-                    </View> : null
-                }
-
-                { imageUploaded ? (
+        <View style={{flex: 1, backgroundColor: '#fff'}}>
+            <View style={styles.container}>
+                <ScrollView contentContainerStyle={styles.formContainer}>
+                    {selectedInstitute != null ?
+                        <View style={styles.headerContainer}>
+                            <Text style={styles.headerText}>{selectedInstitute.name}</Text>
+                        </View> : null
+                    }
+                    { imageUploaded ? (
                         <ImageBackground
                             source={{ uri: image.uri }}
                             style={styles.viewImage}
@@ -178,51 +174,63 @@ const UploadObject = () => {
                             style={styles.image}
                         />
                     )
-                }
-                <View style={styles.imageLoadContainer}>
-                    <Pressable onPress={pickImage}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Seleccionar imagen</Text>
-                        <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                    <View style={{width: 10}}></View>
-                    <Pressable onPress={takePhoto}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                        <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                </View>
-
-                <TextInput
-                    style={styles.textArea}
-                    placeholder="Escribe una descripción"
-                    multiline
-                    onChangeText={(text) => setObjectDescription(text)}
-                />
-                { selectedInstitute == null ?
-                    <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
-                    : null
-                }
-                <StatusComponent />
+                    }
+                    <View style={styles.imageLoadContainer}>
+                        <Pressable onPress={pickImage}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                        <View style={{width: 10}}></View>
+                        <Pressable onPress={takePhoto}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                    </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={{
+                            color: '#111818',
+                            fontSize: 16,
+                            fontWeight: '500',
+                            fontFamily: 'PlusJakartaSans-Regular'
+                        }}>Escribe una descripción corta:</Text>
+                        <TextInput
+                            maxLength={30}
+                            style={styles.textArea}
+                            placeholder="Escribe una descripción"
+                            multiline
+                            onChangeText={(text) => setObjectDescription(text)}
+                        />
+                    </View>
+                    <EurekappDateComponent labelText={"Fecha de pérdida del objeto: "}
+                                           setDate={setFoundDate} date={foundDate}/>
+                    { selectedInstitute == null ?
+                        <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
+                        : null
+                    }
+                    <StatusComponent />
+                </ScrollView>
+                <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
             </View>
-
-            <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
-        </SafeAreaView>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center'
+        alignItems: 'center',
+        marginHorizontal: 10,
     },
     formContainer: {
         flexGrow: 1,
         flexDirection: 'column',
-        width: '90%',
         alignItems: 'center',
         justifyContent: 'flex-start',
+    },
+    formView: {
+        marginHorizontal: 10
     },
     image: {
         height: 300,
@@ -239,7 +247,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         width: '100%',
         aspectRatio: 1,
-        flex: 1,
         justifyContent: 'flex-end',
         alignItems: 'flex-end',
         marginBottom: 10,
@@ -262,7 +269,8 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: '#bdc1c1',
         backgroundColor: '#fff',
-        padding: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 12,
     },
     imageLoadText: {
         fontSize: 16,
@@ -270,9 +278,11 @@ const styles = StyleSheet.create({
         color: '#638888',
         fontFamily: 'PlusJakartaSans-Regular'
     },
+    textAreaContainer: {
+        alignSelf: 'stretch'
+    },
     textArea: {
-        width: '100%',
-        minHeight: 144,
+        minHeight: 80,
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
@@ -283,6 +293,7 @@ const styles = StyleSheet.create({
         fontWeight: 'normal',
         placeholderTextColor: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
+        textAlignVertical: 'top',
         marginBottom: 10,
     },
     headerContainer: {
@@ -296,6 +307,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
+
 });
 
 export default UploadObject;

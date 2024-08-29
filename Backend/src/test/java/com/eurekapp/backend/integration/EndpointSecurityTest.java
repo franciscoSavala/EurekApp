@@ -3,6 +3,7 @@ package com.eurekapp.backend.integration;
 import com.eurekapp.backend.BackendApplication;
 import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.FoundObjectStructVector;
+import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.repository.VectorStorage;
 import com.eurekapp.backend.service.FoundObjectService;
 import com.eurekapp.backend.service.client.EmbeddingService;
@@ -59,7 +60,7 @@ public class EndpointSecurityTest {
 
     @Test
     void whenUserNotAuthenticated_NotAllowToAccessAnyEndpoint() throws Exception {
-        when(service.uploadFoundObject(any(), anyString(), anyLong()))
+        when(service.uploadFoundObject(any(UploadFoundObjectCommand.class)))
                 .thenReturn(ImageUploadedResponseDto.builder()
                         .id("123")
                         .textEncoding("encoding")
@@ -86,7 +87,7 @@ public class EndpointSecurityTest {
     @Test
     @WithUserDetails(value = "utn-admin", userDetailsServiceBeanName = "userDetailsService")
     void whenUploadFoundObjectWithUserAllowed_canUpload() throws Exception {
-        when(service.uploadFoundObject(any(), anyString(), anyLong()))
+        when(service.uploadFoundObject(any(UploadFoundObjectCommand.class)))
                 .thenReturn(ImageUploadedResponseDto.builder()
                         .id("123")
                         .textEncoding("encoding")
@@ -113,7 +114,7 @@ public class EndpointSecurityTest {
     @Test
     @WithUserDetails(value = "patio-olmos-admin", userDetailsServiceBeanName = "userDetailsService")
     void whenUploadFoundObjectWithUserOfDifferentOrg_error() throws Exception {
-        when(service.uploadFoundObject(any(), anyString(), anyLong()))
+        when(service.uploadFoundObject(any(UploadFoundObjectCommand.class)))
                 .thenReturn(ImageUploadedResponseDto.builder()
                         .id("123")
                         .textEncoding("encoding")

@@ -105,7 +105,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     image: {
-        height: 300,
         aspectRatio: 1,
         borderRadius: 16,
     },

@@ -4,7 +4,7 @@ import com.eurekapp.backend.configuration.security.JwtService;
 import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
-import com.eurekapp.backend.exception.AuthenticationException;
+import com.eurekapp.backend.exception.ForbbidenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
@@ -44,10 +44,11 @@ public class AuthService {
         UserEurekapp userEurekapp = userRepository.findByUsername(user.getUsername())
                 .orElseThrow(
                         () -> new NotFoundException(
+                                "user_not_found",
                                 String.format("No se encontró el usuario con el username %s",
                                         user.getUsername())
                         ));
-
+        log.info("[action:login] User {} logged", user.getUsername());
         String jwt = jwtService.generateToken(userEurekapp);
         Organization organization = userEurekapp.getOrganization();
         if ( organization != null ) {
@@ -64,7 +65,7 @@ public class AuthService {
     public JwtTokenDto register(UserDto user){
         if(userRepository.findByUsername(user.getUsername())
                 .isPresent())
-            throw new AuthenticationException("Ya existe un usuario con ese nombre de usuario");
+            throw new ForbbidenException("repeated_user","Ya existe un usuario con ese nombre de usuario");
 
         UserEurekapp userDetails = UserEurekapp.builder()
                 .role(Role.USER)
