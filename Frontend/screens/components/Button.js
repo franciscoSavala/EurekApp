@@ -1,9 +1,12 @@
 import React from 'react';
 import {Pressable, StyleSheet, Text, TouchableWithoutFeedback, View} from 'react-native';
 
-const EurekappButton = ({ onPress, text = 'Buscar mi objeto', backgroundColor = '#19e6e6', textColor = '#111818' }) => {
+const EurekappButton = ({ onPress, text = 'Buscar mi objeto',
+                            backgroundColor = '#19e6e6',
+                            textColor = '#111818',
+                            style}) => {
     return (
-        <View style={styles.container}>
+        <View style={style ? style : styles.container}>
             <Pressable
                 onPress={onPress}
             >
@@ -17,18 +20,15 @@ const EurekappButton = ({ onPress, text = 'Buscar mi objeto', backgroundColor = 
 
 const styles = StyleSheet.create({
     container: {
-        flex: 1,
-        flexDirection: 'column',
         alignSelf: 'stretch',
-        marginHorizontal: 10,
+        marginVertical: 10,
     },
     button: {
-        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
         borderRadius: 24, // equivalente a rounded-full en tailwind
-        maxHeight: 48,
+        height: 48,
         minHeight: 48,
     },
     buttonText: {

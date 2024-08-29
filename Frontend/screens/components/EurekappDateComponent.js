@@ -2,23 +2,27 @@ import {Pressable, Text, View} from "react-native";
 import RNDateTimePicker from "@react-native-community/datetimepicker";
 import React, {useState} from "react";
 
-const LostDateComponent = ({foundDate, setFoundDate}) => {
+const EurekappDateComponent = ({labelText, date, setDate}) => {
     const [openCalendar, setOpenCalendar] = useState(false);
     const [openTime, setOpenTime] = useState(false);
 
     return (
         <View style={styles.dateContainer}>
             <View>
-                <Text style={{fontFamily: 'PlusJakartaSans-Regular'}}>Fecha de pérdida del objeto: </Text>
+                <Text style={{
+                    color: '#111818',
+                    fontSize: 16,
+                    fontFamily: 'PlusJakartaSans-Regular'
+                }}>{labelText}</Text>
             </View>
-            <View style={{flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}>
+            <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}>
                 <Text>El</Text>
                 <Pressable
                     onPress={() => setOpenCalendar(true)}
                 >
                     <View style={styles.calendarButtonContainer}>
                         <Text style={styles.calendarButtonText}>
-                            {foundDate.getDate()}/{foundDate.getMonth() + 1}/{foundDate.getFullYear()}
+                            {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                         </Text>
                     </View>
                 </Pressable>
@@ -28,27 +32,27 @@ const LostDateComponent = ({foundDate, setFoundDate}) => {
                 >
                     <View style={styles.calendarButtonContainer}>
                         <Text style={styles.calendarButtonText}>
-                            {foundDate.toLocaleTimeString()}
+                            {date.toLocaleTimeString()}
                         </Text>
                     </View>
                 </Pressable>
             </View>
 
             { openCalendar ?
-                <RNDateTimePicker value={foundDate}
+                <RNDateTimePicker value={date}
                                   maximumDate={new Date()}
                                   onChange={(e, d) => {
                                       setOpenCalendar(false);
-                                      if(d !== undefined) setFoundDate(d);
+                                      if(d !== undefined) setDate(d);
                                   }} />
                 : null
             }
             { openTime ?
-                <RNDateTimePicker is24Hour={true} mode='time' value={foundDate}
+                <RNDateTimePicker is24Hour={true} mode='time' value={date}
                                   maximumDate={new Date()}
                                   onChange={(e, d) => {
                                       setOpenTime(false);
-                                      if(d !== undefined) setFoundDate(d);
+                                      if(d !== undefined) setDate(d);
                                   }} />
                 : null
             }
@@ -67,9 +71,8 @@ const styles = {
         fontFamily: 'PlusJakartaSans-Regular',
     },
     dateContainer: {
-        flex: 1,
         alignSelf: 'stretch',
-        marginBottom: 10,
+        marginVertical: 10,
     }
 }
-export default LostDateComponent;
+export default EurekappDateComponent;

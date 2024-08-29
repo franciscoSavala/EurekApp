@@ -3,7 +3,7 @@ import {Picker} from "@react-native-picker/picker";
 import axios from "axios";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {View} from "react-native";
+import {Text, View} from "react-native";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -36,6 +36,7 @@ const InstitutePicker = ({ setSelected }) => {
     }
     return (
         <View style={styles.pickerContainer}>
+            <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
             <Picker
                 selectedValue={selectedInstitute}
                 style={styles.picker}
@@ -56,10 +57,7 @@ const InstitutePicker = ({ setSelected }) => {
 
 const styles = {
     pickerContainer: {
-        flex: 1,
-        justifyContent: 'center',
         alignSelf: 'stretch',
-        marginBottom: 10,
     },
     picker: {
         borderRadius: 12,
@@ -69,6 +67,11 @@ const styles = {
         padding: 16,
         borderWidth: 0,
         fontFamily: 'PlusJakartaSans-Regular',
+    },
+    labelText: {
+        color: '#111818',
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans-Regular'
     },
 }
 

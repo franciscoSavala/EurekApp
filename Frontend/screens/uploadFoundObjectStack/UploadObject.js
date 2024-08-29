@@ -17,7 +17,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import LostDateComponent from "./LostDateComponent";
+import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
 
@@ -151,14 +151,15 @@ const UploadObject = () => {
         );
     }
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.formContainer}>
-                {selectedInstitute != null ?
-                    <View style={styles.headerContainer}>
-                        <Text style={styles.headerText}>{selectedInstitute.name}</Text>
-                    </View> : null
-                }
-                { imageUploaded ? (
+        <View style={{flex: 1, backgroundColor: '#fff'}}>
+            <View style={styles.container}>
+                <ScrollView contentContainerStyle={styles.formContainer}>
+                    {selectedInstitute != null ?
+                        <View style={styles.headerContainer}>
+                            <Text style={styles.headerText}>{selectedInstitute.name}</Text>
+                        </View> : null
+                    }
+                    { imageUploaded ? (
                         <ImageBackground
                             source={{ uri: image.uri }}
                             style={styles.viewImage}
@@ -173,38 +174,45 @@ const UploadObject = () => {
                             style={styles.image}
                         />
                     )
-                }
-                <View style={styles.imageLoadContainer}>
-                    <Pressable onPress={pickImage}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                        <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                    <View style={{width: 10}}></View>
-                    <Pressable onPress={takePhoto}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                        <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                </View>
-
-                <View style={styles.textAreaContainer}>
-                    <TextInput
-                        style={styles.textArea}
-                        placeholder="Escribe una descripción"
-                        multiline
-                        onChangeText={(text) => setObjectDescription(text)}
-                    />
-                </View>
-
-                <LostDateComponent setFoundDate={setFoundDate} foundDate={foundDate}/>
-                { selectedInstitute == null ?
-                    <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
-                    : null
-                }
-                <StatusComponent />
+                    }
+                    <View style={styles.imageLoadContainer}>
+                        <Pressable onPress={pickImage}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                        <View style={{width: 10}}></View>
+                        <Pressable onPress={takePhoto}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                    </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={{
+                            color: '#111818',
+                            fontSize: 16,
+                            fontWeight: '500',
+                            fontFamily: 'PlusJakartaSans-Regular'
+                        }}>Escribe una descripción corta:</Text>
+                        <TextInput
+                            maxLength={30}
+                            style={styles.textArea}
+                            placeholder="Escribe una descripción"
+                            multiline
+                            onChangeText={(text) => setObjectDescription(text)}
+                        />
+                    </View>
+                    <EurekappDateComponent labelText={"Fecha de pérdida del objeto: "}
+                                           setDate={setFoundDate} date={foundDate}/>
+                    { selectedInstitute == null ?
+                        <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
+                        : null
+                    }
+                    <StatusComponent />
+                </ScrollView>
                 <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
-            </ScrollView>
+            </View>
         </View>
     );
 };
@@ -212,15 +220,14 @@ const UploadObject = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
         alignItems: 'center',
+        marginHorizontal: 10,
     },
     formContainer: {
         flexGrow: 1,
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        marginHorizontal: 10
     },
     formView: {
         marginHorizontal: 10
@@ -240,7 +247,6 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         width: '100%',
         aspectRatio: 1,
-        flex: 1,
         justifyContent: 'flex-end',
         alignItems: 'flex-end',
         marginBottom: 10,
@@ -273,11 +279,10 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular'
     },
     textAreaContainer: {
-        flex: 1,
         alignSelf: 'stretch'
     },
     textArea: {
-        minHeight: 144,
+        minHeight: 80,
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
@@ -288,6 +293,7 @@ const styles = StyleSheet.create({
         fontWeight: 'normal',
         placeholderTextColor: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
+        textAlignVertical: 'top',
         marginBottom: 10,
     },
     headerContainer: {
