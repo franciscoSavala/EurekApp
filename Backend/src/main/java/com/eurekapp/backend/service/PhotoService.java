@@ -43,19 +43,22 @@ public class PhotoService implements FoundObjectService {
     private final VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository;
     private final IOrganizationRepository organizationRepository;
     private final OrganizationService organizationService;
+    private final LostObjectService lostObjectService;
 
 
     public PhotoService(ObjectStorage s3Service,
                         ImageDescriptionService descriptionService,
                         EmbeddingService embeddingService,
                         VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository,
-                        IOrganizationRepository organizationRepository, OrganizationService organizationService) {
+                        IOrganizationRepository organizationRepository, OrganizationService organizationService,
+                        LostObjectService lostObjectService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
         this.imageVectorTextPineconeRepository = imageVectorTextPineconeRepository;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
+        this.lostObjectService = lostObjectService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -91,7 +94,7 @@ public class PhotoService implements FoundObjectService {
                 .foundDate(command.getFoundDate())
                 .build();
         // TODO: VER COMO HACERLO ASYNC
-
+        lostObjectService.findCoincidences(foundObjectVector);
         // Hacemos el upsert en la BD Pinecone.
         imageVectorTextPineconeRepository.upsertVector(foundObjectVector);
 
