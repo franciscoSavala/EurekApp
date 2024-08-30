@@ -46,8 +46,11 @@ public class RestClientConfiguration {
         return new Pinecone.Builder(apiKey).build();
     }
 
+    /* eurekapp: Index default.
+    *  eurekapp-return-lost-objects: Index usado en la rama feature/eu-23-register-return-lost-object */
     @Bean
-    public Index index(Pinecone pinecone){
-        return pinecone.getIndexConnection("eurekapp");
+    public Index indexDefault(Pinecone pinecone){
+        return pinecone.getIndexConnection("eurekapp-return-lost-object");
     }
+
 }

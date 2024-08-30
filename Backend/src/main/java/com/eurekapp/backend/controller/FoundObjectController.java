@@ -5,13 +5,10 @@ import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.FoundObjectService;
-import com.eurekapp.backend.service.PhotoService;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Size;
+import com.eurekapp.backend.service.IPhotoService;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
@@ -21,7 +18,10 @@ import java.time.LocalDateTime;
 @CrossOrigin("*")
 public class FoundObjectController {
     @Autowired
-    private FoundObjectService service;
+    private IPhotoService service;
+
+    @Autowired
+    private FoundObjectService foundObjectService;
 
     /* Esta clase nuclea a los endpoints correspondientes a los posteos de objetos encontrados. */
 
@@ -39,6 +39,22 @@ public class FoundObjectController {
                 .organizationId(organizationId)
                 .build();
         return ResponseEntity.ok(service.uploadFoundObject(command));
+    }
+
+    // Endpoint usado para postear un objeto encontrado, con foto y descripción textual, persistiéndolo.
+    @PostMapping("/organizations2/{organizationId}")
+    public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject2(@RequestParam("file") MultipartFile file,
+                                                                      @RequestParam("description")
+                                                                      @Length(max = 30, message = "Max description size is 30") String description,
+                                                                      @RequestParam("found_date") LocalDateTime foundDate,
+                                                                      @PathVariable(value = "organizationId", required = false) Long organizationId){
+        UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
+                .image(file)
+                .description(description)
+                .foundDate(foundDate)
+                .organizationId(organizationId)
+                .build();
+        return ResponseEntity.ok(foundObjectService.uploadFoundObject(command));
     }
 
     // Endpoint que devuelve los objetos perdidos en una organización en particular que tengan el mayor grado de

@@ -5,7 +5,7 @@ import com.eurekapp.backend.dto.ImageUploadedResponseDto;
 import com.eurekapp.backend.model.FoundObjectStructVector;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.repository.VectorStorage;
-import com.eurekapp.backend.service.FoundObjectService;
+import com.eurekapp.backend.service.IPhotoService;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
 import io.pinecone.clients.Index;
@@ -16,7 +16,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.security.test.context.support.WithUserDetails;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.jdbc.Sql;
@@ -27,8 +26,6 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 
@@ -44,7 +41,7 @@ public class EndpointSecurityTest {
     MockMvc mvc;
 
     @MockBean
-    FoundObjectService service;
+    IPhotoService service;
 
     @MockBean
     EmbeddingService embeddingService;

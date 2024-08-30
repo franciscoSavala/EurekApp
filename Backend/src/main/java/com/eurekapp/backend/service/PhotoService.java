@@ -22,7 +22,6 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -32,7 +31,7 @@ import java.util.UUID;
 import java.util.function.Predicate;
 
 @Service
-public class PhotoService implements FoundObjectService {
+public class PhotoService implements IPhotoService {
     private static final double MIN_SCORE = 0.6;
     private static final int GRACE_HOURS = 6;
 
@@ -80,7 +79,7 @@ public class PhotoService implements FoundObjectService {
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
 
-        /* Pasmos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
+        /* Pasamos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
         *   Esto es necesario para poder meterlo en la BD Pinecone. */
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
