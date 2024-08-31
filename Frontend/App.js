@@ -1,10 +1,10 @@
-import React, {createContext, useState} from 'react';
+import React, {createContext, useEffect, useState} from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {SafeAreaView, StyleSheet, View} from "react-native";
+import {StyleSheet, View} from "react-native";
 import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
@@ -14,35 +14,22 @@ import LandingScreen from "./screens/login/Landing";
 import LoginScreen from "./screens/login/LoginScreen";
 import {LoginContext} from "./hooks/useUser";
 import Icon from "react-native-vector-icons/FontAwesome6";
+import {createDrawerNavigator} from "@react-navigation/drawer";
+import LostObjectReturn from "./screens/lostObjectReturnStack/LostObjectReturn";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const Tab = createBottomTabNavigator();
 
 const FindObjectStack = createNativeStackNavigator();
 
 const FindObjectStackScreen = () => {
     return (
         <FindObjectStack.Navigator>
-            <FindObjectStack.Screen options={{
-                title: 'Buscar un objeto',
-                headerTitleStyle: style.headerText,
-                headerTitleAlign: 'center',
-                headerStyle: style.header,
-                headerShadowVisible: false,
-            }} name="FindObject" component={FindObject} />
-            <FindObjectStack.Screen options={{
-                title: 'Objetos Encontrados',
-                headerTitleStyle: style.headerText,
-                headerTitleAlign: 'center',
-                headerStyle: style.header,
-                headerShadowVisible: false,
-            }} name="FoundObjects" component={FoundObjects} />
-            <FindObjectStack.Screen options={{
-                title: 'Objetos Encontrados',
-                headerTitleStyle: style.headerText,
-                headerTitleAlign: 'center',
-                headerStyle: style.header,
-                headerShadowVisible: false,
-            }} name="NotFoundObjects" component={NotFoundObjects} />
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="FindObject" component={FindObject} />
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="FoundObjects" component={FoundObjects} />
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="NotFoundObjects" component={NotFoundObjects} />
         </FindObjectStack.Navigator>
     );
 }
@@ -66,24 +53,41 @@ const AuthStackScreen = () => {
     );
 }
 
+const Drawer = createDrawerNavigator();
+
 const EurekappTab = () => {
-    const uploadIcon = () => <Icon name={'upload'} size={20}/>
-    const searchIcon = () => <Icon name={'magnifying-glass'} size={20}/>
+    const uploadIcon = () => <Icon name={'upload'} size={20} />
+    const searchIcon = () => <Icon name={'magnifying-glass'} size={20} />
+    const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
+    useEffect(() => {
+        const fetchUserType = async () => {
+            const orgId = await AsyncStorage.getItem('org.id');
+            setIsOrgAdmin(orgId != null);
+        }
+        fetchUserType();
+    }, []);
     return (
-        <Tab.Navigator>
-            <Tab.Screen name="UploadObject" options={{
-                title: 'Subir objeto',
-                headerTitleStyle: style.headerText,
-                headerTitleAlign: 'center',
-                headerStyle: style.header,
-                tabBarIcon: uploadIcon
-            }} component={UploadObject} />
-            <Tab.Screen name="FindObjectStackScreen" options={{
+        <Drawer.Navigator>
+            <Drawer.Screen name="FindObjectStackScreen" options={{
                 title: 'Encontrar Objeto',
-                headerShown: false,
+                headerTitleAlign: 'center',
                 tabBarIcon: searchIcon
             }} component={FindObjectStackScreen} />
-        </Tab.Navigator>
+            {isOrgAdmin ?
+                <>
+                    <Drawer.Screen name="UploadObject" options={{
+                        title: 'Subir objeto',
+                        headerTitleAlign: 'center',
+                        tabBarIcon: uploadIcon
+                    }} component={UploadObject} />
+                    <Drawer.Screen name="LostObjectReturnStackScreen" options={{
+                        title: 'Devolver Objeto',
+                        headerTitleAlign: 'center'
+                    }} component={LostObjectReturn}/>
+                </>
+                : null
+            }
+        </Drawer.Navigator>
     );
 }
 

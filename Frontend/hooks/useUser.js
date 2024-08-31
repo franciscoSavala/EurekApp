@@ -20,11 +20,14 @@ export default function useUser() {
             loginService({ username, password })
                 .then(async (userContext) => {
                     try {
-                        await AsyncStorage.setItem('jwt', userContext.token);
                         const organization = userContext.organization;
+                        await AsyncStorage.setItem('jwt', userContext.token);
                         if(organization != null) {
                             await AsyncStorage.setItem('org.id', organization.id.toString());
                             await AsyncStorage.setItem('org.name', organization.name);
+                        }else{
+                            await AsyncStorage.removeItem('org.id');
+                            await AsyncStorage.removeItem('org.name');
                         }
                         setUser(userContext.token);
                         setState({ loading: true, error: false, logged: true });
