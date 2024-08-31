@@ -17,6 +17,7 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import {createDrawerNavigator} from "@react-navigation/drawer";
 import LostObjectReturn from "./screens/lostObjectReturnStack/LostObjectReturn";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import ReturnObjectForm from "./screens/lostObjectReturnStack/ReturnObjectForm";
 
 
 const FindObjectStack = createNativeStackNavigator();
@@ -53,6 +54,23 @@ const AuthStackScreen = () => {
     );
 }
 
+const ReturnStack = createStackNavigator();
+
+const ReturnObjectStackScreen = () => {
+    return (
+        <ReturnStack.Navigator>
+            <ReturnStack.Screen
+                name='ReturnObjectList'
+                component={LostObjectReturn}
+                options={{headerShown: false}} />
+            <ReturnStack.Screen
+                name='ReturnObjectForm'
+                component={ReturnObjectForm}
+                options={{headerShown: false}} />
+        </ReturnStack.Navigator>
+    );
+}
+
 const Drawer = createDrawerNavigator();
 
 const EurekappTab = () => {
@@ -83,7 +101,7 @@ const EurekappTab = () => {
                     <Drawer.Screen name="LostObjectReturnStackScreen" options={{
                         title: 'Devolver Objeto',
                         headerTitleAlign: 'center'
-                    }} component={LostObjectReturn}/>
+                    }} component={ReturnObjectStackScreen}/>
                 </>
                 : null
             }

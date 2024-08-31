@@ -1,4 +1,4 @@
-import {FlatList, Image, Pressable, StyleSheet, Text, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import React, {useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappButton from "../components/Button";
@@ -6,6 +6,7 @@ import EurekappButton from "../components/Button";
 
 const LostObjectReturn = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitute] = useState(null);
+    const [objectSelectedId, setObjectSelectedId] = useState("");
     const [institutesObject, setInstitutesObject] = useState([{
         id: '123',
         description: 'Un gatitoooo',
@@ -14,8 +15,23 @@ const LostObjectReturn = ({ navigation }) => {
         id: '200',
         description: 'Un gatitoooo',
         'found_date': new Date()
+    },{
+        id: '4242',
+        description: 'Un gatitoooo',
+        'found_date': new Date()
+    },{
+        id: '23',
+        description: 'Un gatitoooo',
+        'found_date': new Date()
+    },{
+        id: '2939',
+        description: 'Un gatitoooo',
+        'found_date': new Date()
+    },{
+        id: '123123123',
+        description: 'Un gatitoooo',
+        'found_date': new Date()
     }]);
-    const [objectSelectedId, setObjectSelectedId] = useState("");
     useEffect(() => {
         const getContextInstitute = async () => {
             const institute = {
@@ -68,11 +84,11 @@ const LostObjectReturn = ({ navigation }) => {
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
                     contentContainerStyle={styles.contentContainer}
-                    extraData={objectSelectedId}
+                    scrollEnabled={true}
                 />
             </View>
             <EurekappButton text='Marcar como encontrado'
-                            onPress={() => navigation.navigate()}/>
+                            onPress={() => navigation.navigate('ReturnObjectForm')}/>
         </View>
     );
 
@@ -88,11 +104,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     contentContainer: {
-        flex: 1,
     },
     item: {
         height: 150,
-        backgroundColor: '#f00',
+        backgroundColor: '#f0f4f4',
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
@@ -101,7 +116,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     highlightedOrganizationObject: {
-
+        backgroundColor: '#19e6e6',
     },
     image: {
         aspectRatio: 1,
