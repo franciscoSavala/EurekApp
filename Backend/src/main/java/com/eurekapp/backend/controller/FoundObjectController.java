@@ -1,18 +1,14 @@
 package com.eurekapp.backend.controller;
 
-import com.eurekapp.backend.dto.TopSimilarFoundObjectsDto;
-import com.eurekapp.backend.dto.ImageUploadedResponseDto;
+import com.eurekapp.backend.dto.FoundObjectsListDto;
+import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
-import com.eurekapp.backend.service.FoundObjectService;
-import com.eurekapp.backend.service.PhotoService;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Size;
+import com.eurekapp.backend.service.IFoundObjectService;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
@@ -22,17 +18,17 @@ import java.time.LocalDateTime;
 @CrossOrigin("*")
 public class FoundObjectController {
     @Autowired
-    private FoundObjectService service;
+    private IFoundObjectService service;
 
     /* Esta clase nuclea a los endpoints correspondientes a los posteos de objetos encontrados. */
 
     // Endpoint usado para postear un objeto encontrado, con foto y descripción textual.
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ImageUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
-                                                                      @RequestParam("description")
+    public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(@RequestParam("file") MultipartFile file,
+                                                                            @RequestParam("description")
                                                                       @Length(max = 30, message = "Max description size is 30") String description,
-                                                                      @RequestParam(value = "found_date") LocalDateTime foundDate,
-                                                                      @PathVariable(value = "organizationId", required = false) Long organizationId){
+                                                                            @RequestParam(value = "found_date") LocalDateTime foundDate,
+                                                                            @PathVariable(value = "organizationId", required = false) Long organizationId){
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .image(file)
                 .description(description)
@@ -45,7 +41,7 @@ public class FoundObjectController {
     // Endpoint que devuelve los objetos perdidos en una organización en particular que tengan el mayor grado de
     // coincidencia con la descripción textual provista.
     @GetMapping("/organizations/{organizationId}")
-    public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescriptionAndOrganization(
+    public ResponseEntity<FoundObjectsListDto> getFoundObjectsByTextDescriptionAndOrganization(
             @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
             @PathVariable(name = "organizationId", required = false) Long organizationId,
             @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate){
@@ -57,10 +53,20 @@ public class FoundObjectController {
         return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
     }
 
+    // Endpoint que devuelve todos los objetos encontrados que una organización tiene en su poder actualmente.
+    @GetMapping("/organizations/{organizationId}/all")
+    public ResponseEntity<FoundObjectsListDto> getAllUnreturnedFoundObjectsByOrganization(
+            @PathVariable(name = "organizationId", required = false) Long organizationId){
+        SimilarObjectsCommand command = SimilarObjectsCommand.builder()
+                .organizationId(organizationId)
+                .build();
+        return ResponseEntity.ok(service.getAllUnreturnedFoundObjectsByOrganization(command));
+    }
+
     // Endpoint que devuelve los objetos perdidos en todas las organizaciones que tengan el mayor grado de coincidencia
     // con la descripción textual provista.
     @GetMapping
-    public ResponseEntity<TopSimilarFoundObjectsDto> getFoundObjectsByTextDescription(@RequestParam
+    public ResponseEntity<FoundObjectsListDto> getFoundObjectsByTextDescription(@RequestParam
                                                                                       @Length(max = 255,
                                                                                               message = "Max length supported is 255")
                                                                                       String query){
