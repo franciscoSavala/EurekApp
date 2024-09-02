@@ -217,7 +217,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         alignItems: 'center',
-        marginHorizontal: 10,
     },
     formContainer: {
         flexGrow: 1,
@@ -225,6 +224,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
+        paddingHorizontal: 10,
     },
     formView: {
         marginHorizontal: 10
