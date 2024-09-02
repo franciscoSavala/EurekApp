@@ -1,37 +1,17 @@
-import {FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
+import {ActivityIndicator, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import React, {useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappButton from "../components/Button";
+import axios from "axios";
+import Constants from "expo-constants";
 
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const LostObjectReturn = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [objectSelectedId, setObjectSelectedId] = useState("");
-    const [institutesObject, setInstitutesObject] = useState([{
-        id: '123',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    },{
-        id: '200',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    },{
-        id: '4242',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    },{
-        id: '23',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    },{
-        id: '2939',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    },{
-        id: '123123123',
-        description: 'Un gatitoooo',
-        'found_date': new Date()
-    }]);
+    const [institutesObject, setInstitutesObject] = useState([]);
+    const [loading, setLoading] = useState(true);
     useEffect(() => {
         const getContextInstitute = async () => {
             const institute = {
@@ -39,18 +19,31 @@ const LostObjectReturn = ({ navigation }) => {
                 name: await AsyncStorage.getItem('org.name')
             };
             if(institute.id == null || institute.name == null) return;
-
-            //TODO: LLAMAR A API PARA BUSCAR OBJETOS DE LA INSTITUCION
-
-
             setSelectedInstitute( institute );
+            try {
+                let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+                let config = {
+                    headers: {
+                        'Authorization': authHeader
+                    }
+                }
+                let res = await axios.get(`${BACK_URL}/found-objects/organizations/all/${institute.id}`,
+                    config );
+                let jsonData = res.data;
+                setInstitutesObject(jsonData.found_objects);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setLoading(false);
+            }
         }
         getContextInstitute();
     }, []);
 
     const renderItem = ({item}) => {
         const isSelected = item.id === objectSelectedId;
-        const date = item.found_date;
+        const date = new Date(item.found_date);
+        console.log(date);
         return (
             <Pressable style={[styles.item, isSelected && styles.highlightedOrganizationObject]}
                        onPress={() => setObjectSelectedId(item.id)}>
@@ -79,13 +72,17 @@ const LostObjectReturn = ({ navigation }) => {
                     ? <Text style={styles.organizationHeader}>Objetos de {selectedInstitute.name}</Text>
                     : null
                 }
-                <FlatList
-                    data={institutesObject}
-                    keyExtractor={(item) => item.id}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.contentContainer}
-                    scrollEnabled={true}
-                />
+                { loading ? <ActivityIndicator size="large" color="#111818" /> : (
+                    institutesObject.length > 0 ? <FlatList
+                        data={institutesObject}
+                        keyExtractor={(item) => item.id}
+                        renderItem={renderItem}
+                        contentContainerStyle={styles.contentContainer}
+                        scrollEnabled={true}
+                    /> : <Text>Tu organización no tiene objetos!</Text>
+                )
+                }
+
             </View>
             <EurekappButton text='Marcar como encontrado'
                             onPress={() => navigation.navigate('ReturnObjectForm')}/>
