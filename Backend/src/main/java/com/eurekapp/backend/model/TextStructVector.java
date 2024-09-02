@@ -27,18 +27,4 @@ public class TextStructVector implements StructVector {
                 .putFields("text", Value.newBuilder().setStringValue(text).build())
                 .build();
     }
-
-    @Override
-    public StructVector fromScoredVector(ScoredVectorWithUnsignedIndices scoredVector){
-        return TextStructVector.builder()
-                .id(scoredVector.getId())
-                .score(scoredVector.getScore())
-                .text(scoredVector.getMetadata().getFieldsOrThrow("text").getStringValue())
-                .build();
-    }
-
-    /* Esto está mal pero tiene que estar para que funcione. Vamos a poder arreglarlo al aplicar Factory Method
-        a la interfaz StructVector */
-    @Override
-    public StructVector fromVector(Vector vector){ return new TextStructVector(); }
 }

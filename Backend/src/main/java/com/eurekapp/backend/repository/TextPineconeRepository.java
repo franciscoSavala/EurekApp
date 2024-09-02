@@ -1,7 +1,9 @@
 package com.eurekapp.backend.repository;
 
+import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.FoundObjectStructVector;
 import com.eurekapp.backend.model.StructVector;
+import com.eurekapp.backend.model.StructVectorFactory;
 import com.google.protobuf.Struct;
 import io.pinecone.clients.Index;
 import io.pinecone.proto.FetchResponse;
@@ -11,11 +13,13 @@ import io.pinecone.unsigned_indices_model.QueryResponseWithUnsignedIndices;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,10 +31,13 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
     private final Index client;
     @Value("${application.pinecone.namespace}")
     private String namespace;
+    private StructVectorFactory factory;
 
 
-    public TextPineconeRepository(Index client) {
+    public TextPineconeRepository(Index client,
+                                  @Qualifier("foundObjectVectorFactory") StructVectorFactory factory) {
         this.client = client;
+        this.factory = factory;
     }
 
     /* Upsert = Operación de BD que implica intentar hacer un "INSERT", y si el registro ya existe, entonces hacer un
@@ -44,18 +51,16 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
     }
 
     public T fetchVector(String id){
-        List<String> listaFetch = new ArrayList<String>();
-        listaFetch.add(id);
-        FetchResponse fetchResponse = client.fetch(listaFetch);
+        List<String> idList = Collections.singletonList(id);
+        FetchResponse fetchResponse = client.fetch(idList, namespace);
+        Map<String, Vector> vectors = fetchResponse.getVectorsMap();
+        if(vectors.isEmpty())
+            throw new NotFoundException("found_object_not_found",
+                    String.format("The object with uuid '%s' was not found", id));
 
         log.info("[api_method:GET] [api_call:pinecone] Response={}", fetchResponse);
-        Map<String, Vector> vectors = fetchResponse.getVectorsMap();
-        FoundObjectStructVector foundObjectStructVector = new FoundObjectStructVector();
 
-        // TODO: Aplicar Factory Method acá
-        T vector = (T) foundObjectStructVector.fromVector(vectors.get(id));
-
-        return vector;
+        return (T) factory.fromVector(vectors.get(id));
     }
 
     public List<T> queryVector(T vector) {
@@ -74,7 +79,7 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
         log.info("[api_method:GET] [api_call:pinecone] Response={}", queryResponse);
 
         return queryResponse.getMatchesList().stream()
-                .map(scoredVector -> (T) vector.fromScoredVector(scoredVector))
+                .map(scoredVector -> (T) factory.fromScoredVector(scoredVector))
                 .sorted(Comparator.comparing(StructVector::getScore).reversed())
                 .toList();
     }

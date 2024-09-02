@@ -15,9 +15,16 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
+
+    private final static Map<String, String> SECURED_PATHS =
+            Map.of("/found-objects/return/", "POST",
+                    "/found-objects/organizations/", "POST",
+                    "/found-objects/organizations/all/", "GET");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -25,8 +32,9 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws ServletException, IOException {
         String path = request.getRequestURI();
+        String method = request.getMethod();
 
-        if (path.startsWith("/found-objects/organizations/")) {
+        if (SECURED_PATHS.keySet().stream().anyMatch(key -> path.startsWith(key) && method.equals(SECURED_PATHS.get(key)))) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication == null || !authentication.isAuthenticated()) {
                 filterChain.doFilter(request, response);
