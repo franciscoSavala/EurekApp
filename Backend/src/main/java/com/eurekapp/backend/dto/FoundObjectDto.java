@@ -6,6 +6,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDateTime;
+import java.util.Date;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,4 +19,6 @@ public class FoundObjectDto {
     private Float score;
     private String id;
     private OrganizationDto organization;
+    @JsonProperty("found_date")
+    private LocalDateTime foundDate;
 }

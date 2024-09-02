@@ -161,6 +161,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .b64Json(Base64.getEncoder().encodeToString(bytes))
                 .score(foundObjectVector.getScore())
                 .organization(organizationDto)
+                .foundDate(foundObjectVector.getFoundDate())
                 .build();
     }
 
