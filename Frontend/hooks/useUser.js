@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const LoginContext = createContext();
 
-export default function useUser() {
+export default function useUser(callback, deps) {
     // Creamos el contexto de nuestra aplicación
     const { setUser } = useContext(LoginContext);
     //Utilizamos el estado para poder saber si está o no cargando
@@ -15,6 +15,19 @@ export default function useUser() {
         logged: true,
     });
 
+    const logout = useCallback(async () => {
+        try {
+            await AsyncStorage.removeItem('org.name');
+            await AsyncStorage.removeItem('org.id');
+            await AsyncStorage.removeItem('jwt');
+            await AsyncStorage.removeItem('username');
+            setState({loading: true, error: false, logged: false});
+        } catch (error) {
+            console.error('Error al hacer logout:', error);
+            setState({loading: false, error: true, logged: true});
+        }
+    }, [])
+
     const login = useCallback(
         ({ username, password }) => {
             loginService({ username, password })
@@ -22,6 +35,7 @@ export default function useUser() {
                     try {
                         const organization = userContext.organization;
                         await AsyncStorage.setItem('jwt', userContext.token);
+                        await AsyncStorage.setItem('username', username);
                         if(organization != null) {
                             await AsyncStorage.setItem('org.id', organization.id.toString());
                             await AsyncStorage.setItem('org.name', organization.name);
@@ -48,5 +62,6 @@ export default function useUser() {
         isLoginLoading: state.loading,
         hasLoginError: state.error,
         login,
+        logout,
     };
 }

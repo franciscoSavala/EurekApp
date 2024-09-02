@@ -76,7 +76,7 @@ const LostObjectReturn = ({ navigation }) => {
         <View style={styles.container}>
             <View style={styles.organizationObjectsContainer}>
                 {selectedInstitute != null
-                    ? <Text style={{alignSelf: 'center'}}>Objetos de {selectedInstitute.name}</Text>
+                    ? <Text style={styles.organizationHeader}>Objetos de {selectedInstitute.name}</Text>
                     : null
                 }
                 <FlatList
@@ -133,6 +133,13 @@ const styles = StyleSheet.create({
         color: '#111818',
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-Regular'
+    },
+    organizationHeader: {
+        color: '#111818',
+        fontSize: 24,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        fontFamily: 'PlusJakartaSans-Bold'
     }
 });
 
