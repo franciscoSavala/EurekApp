@@ -101,7 +101,7 @@ const CustomDrawerContent = (props) => {
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.infoText}>Versión de la app: 0.0.1</Text>
-                <Text style={styles.infoText}>Contacto: fran@eurekapp.com</Text>
+                <Text style={styles.infoText}>Contacto: soporte@eurekapp.com</Text>
             </View>
             <DrawerItem
                 label="Logout"
