@@ -95,6 +95,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 10,
         marginBottom: 10,
+        backgroundColor: '#f0f4f4',
     },
     separator: {
         width: 10,

@@ -9,8 +9,11 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class ImageUploadedResponseDto {
+public class ReturnFoundObjectResponseDto {
     private String id;
-    private String textEncoding;
-    private String description;
+    private String username;
+    private String DNI;
+    private String phoneNumber;
+    private String foundObjectId;
+    private String returnDateTime;
 }

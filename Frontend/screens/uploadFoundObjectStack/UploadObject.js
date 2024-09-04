@@ -203,12 +203,8 @@ const UploadObject = () => {
                             onChangeText={(text) => setObjectDescription(text)}
                         />
                     </View>
-                    <EurekappDateComponent labelText={"Fecha de pérdida del objeto: "}
+                    <EurekappDateComponent labelText={"Fecha de encuentro del objeto: "}
                                            setDate={setFoundDate} date={foundDate}/>
-                    { selectedInstitute == null ?
-                        <InstitutePicker setSelected={(institution) => setSelectedInstitute(institution)} />
-                        : null
-                    }
                     <StatusComponent />
                 </ScrollView>
                 <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
@@ -221,19 +217,20 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         alignItems: 'center',
-        marginHorizontal: 10,
     },
     formContainer: {
         flexGrow: 1,
+        width: '100%',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
+        paddingHorizontal: 10,
     },
     formView: {
         marginHorizontal: 10
     },
     image: {
-        height: 300,
+        height: 'auto',
         width: '100%',
         aspectRatio: 1,
         borderRadius: 16,

@@ -48,6 +48,6 @@ public class RestClientConfiguration {
 
     @Bean
     public Index index(Pinecone pinecone){
-        return pinecone.getIndexConnection("eurekapp");
+        return pinecone.getIndexConnection("eurekapp-return-lost-object");
     }
 }

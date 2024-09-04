@@ -2,6 +2,7 @@ package com.eurekapp.backend.model;
 
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
+import io.pinecone.proto.Vector;
 import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,15 +25,6 @@ public class TextStructVector implements StructVector {
     public Struct toStruct() {
         return Struct.newBuilder()
                 .putFields("text", Value.newBuilder().setStringValue(text).build())
-                .build();
-    }
-
-    @Override
-    public StructVector fromScoredVector(ScoredVectorWithUnsignedIndices scoredVector){
-        return TextStructVector.builder()
-                .id(scoredVector.getId())
-                .score(scoredVector.getScore())
-                .text(scoredVector.getMetadata().getFieldsOrThrow("text").getStringValue())
                 .build();
     }
 }

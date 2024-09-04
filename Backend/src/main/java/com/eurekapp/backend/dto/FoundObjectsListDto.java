@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 @Builder
-public class TopSimilarFoundObjectsDto {
+public class FoundObjectsListDto {
     @JsonProperty("found_objects")
     private List<FoundObjectDto> foundObjects;
 }
