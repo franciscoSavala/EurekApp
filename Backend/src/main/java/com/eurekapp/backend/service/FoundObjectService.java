@@ -39,22 +39,25 @@ public class FoundObjectService implements IFoundObjectService {
     private final ObjectStorage s3Service;
     private final ImageDescriptionService descriptionService;
     private final EmbeddingService embeddingService;
-    private final VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository;
+    private final VectorStorage<FoundObjectStructVector> foundObjectVectorStorage;
     private final IOrganizationRepository organizationRepository;
     private final OrganizationService organizationService;
-
+    private final LostObjectService lostObjectService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
                               EmbeddingService embeddingService,
-                              VectorStorage<FoundObjectStructVector> imageVectorTextPineconeRepository,
-                              IOrganizationRepository organizationRepository, OrganizationService organizationService) {
+                              VectorStorage<FoundObjectStructVector> foundObjectVectorStorage,
+                              IOrganizationRepository organizationRepository,
+                              OrganizationService organizationService,
+                              LostObjectService lostObjectService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
-        this.imageVectorTextPineconeRepository = imageVectorTextPineconeRepository;
+        this.foundObjectVectorStorage = foundObjectVectorStorage;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
+        this.lostObjectService = lostObjectService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -62,7 +65,7 @@ public class FoundObjectService implements IFoundObjectService {
     @SneakyThrows
     public FoundObjectUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
         // Convertimos el archivo de imagen en bytes, para poder enviarlo en una request.
-        byte[] bytes = command.getImage().getBytes();
+        byte[] imageBytes = command.getImage().getBytes();
         // Antes de seguir, chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() == null
                 || !organizationRepository.existsById(command.getOrganizationId()))
@@ -70,7 +73,7 @@ public class FoundObjectService implements IFoundObjectService {
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
         // Solicitamos a la API "OpenAI Chat Completion" una descripción textual de la foto.
-        String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
+        String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
 
         /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la descripción textual que nos dio
         *   la otra API. */
@@ -93,13 +96,15 @@ public class FoundObjectService implements IFoundObjectService {
         // TODO: VER COMO HACERLO ASYNC
 
         // Hacemos el upsert en la BD Pinecone.
-        imageVectorTextPineconeRepository.upsertVector(foundObjectVector);
+        foundObjectVectorStorage.upsertVector(foundObjectVector);
 
         // Subimos la foto provista por el usuario a la BD Amazon S3.
-        s3Service.putObject(bytes, foundObjectId);
+        s3Service.putObject(imageBytes, foundObjectId);
+
+        lostObjectService.findSimilarLostObject(embeddings, command.getOrganizationId(), command.getDescription(), imageBytes);
 
         // Asentamos la operación en el log.
-        log.info("[api_method:POST] [service:S3] Bytes processed: {}", bytes.length);
+        log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
 
         return FoundObjectUploadedResponseDto.builder()
                 .textEncoding(textRepresentation)
@@ -117,7 +122,9 @@ public class FoundObjectService implements IFoundObjectService {
     @SneakyThrows
     public FoundObjectsListDto getFoundObjectByTextDescription(SimilarObjectsCommand command){
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
-        FoundObjectStructVector textVector = FoundObjectStructVector.builder()
+
+        //TODO: Hacer una implementación de StructVector pero que solo se use para buscar, es decir que solo tenga embeddings
+        FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .text(command.getQuery())
                 .embeddings(embeddings)
                 .build();
@@ -127,7 +134,7 @@ public class FoundObjectService implements IFoundObjectService {
                     Value.newBuilder().setStringValue(
                             String.valueOf(command.getOrganizationId())).build());
         }
-        List<FoundObjectStructVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(textVector, 5, filter.build());
+        List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(foundObjectVector, 5, filter.build());
 
         List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
                 .filter(isFoundDateAfterLostDate(command))
@@ -147,8 +154,8 @@ public class FoundObjectService implements IFoundObjectService {
     }
 
     private FoundObjectDto foundObjectToDto(FoundObjectStructVector foundObjectVector) {
-        byte[] bytes = s3Service.getObjectBytes(foundObjectVector.getId());
-        log.info("[api_method:GET] [service:S3] Bytes processed: {}", bytes.length);
+        byte[] imageBytes = s3Service.getObjectBytes(foundObjectVector.getId());
+        log.info("[api_method:GET] [service:S3] Bytes processed: {}", imageBytes.length);
         Long objectOrganizationId = Long.parseLong(foundObjectVector.getOrganization());
         Organization organization = organizationRepository.findById(objectOrganizationId)
                 .orElse(null);
@@ -158,7 +165,7 @@ public class FoundObjectService implements IFoundObjectService {
         return FoundObjectDto.builder()
                 .id(foundObjectVector.getId())
                 .description(foundObjectVector.getHumanDescription())
-                .b64Json(Base64.getEncoder().encodeToString(bytes))
+                .b64Json(Base64.getEncoder().encodeToString(imageBytes))
                 .score(foundObjectVector.getScore())
                 .organization(organizationDto)
                 .foundDate(foundObjectVector.getFoundDate())
@@ -191,7 +198,7 @@ public class FoundObjectService implements IFoundObjectService {
         filter.putFields("was_returned", Value.newBuilder().setBoolValue(Boolean.valueOf(false)).build());
 
         // Hacemos la query a Pinecone con el vector y el filtro anteriores.
-        List<FoundObjectStructVector> foundObjectVectors = imageVectorTextPineconeRepository.queryVector(vector,
+        List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(vector,
                 10000, filter.build());
 
         // A partir de la response, acá se elabora la lista que el método devolverá.

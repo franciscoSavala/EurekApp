@@ -13,7 +13,6 @@ application:
     api-key: ${OPENAI_SECRET_KEY}
   pinecone:
     api-key: ${PINECONE_SECRET_KEY}
-    namespace: 'image-description'
   jwt:
     sign-key: ${JWT_SIGN_KEY}
   mailtrap:

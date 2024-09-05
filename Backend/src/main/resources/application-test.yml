@@ -24,6 +24,5 @@ application:
     api-key: "123"
   pinecone:
     api-key: "123"
-    namespace: 'image-description'
   jwt:
     sign-key: "somethingsomethingsomethingsomethingsomethingsomething"

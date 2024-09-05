@@ -2,8 +2,6 @@ package com.eurekapp.backend.model;
 
 import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
-import io.pinecone.proto.Vector;
-import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,16 +13,20 @@ import java.util.List;
 @AllArgsConstructor
 @Data
 @Builder
-public class TextStructVector implements StructVector {
+public class LostObjectStructVector implements StructVector {
     private String id;
     private List<Float> embeddings;
-    private String text;
     private Float score;
+
+    //metadata
+    private String description;
+    private String username;
 
     @Override
     public Struct toStruct() {
         return Struct.newBuilder()
-                .putFields("text", Value.newBuilder().setStringValue(text).build())
+                .putFields("description", Value.newBuilder().setStringValue(description).build())
+                .putFields("username", Value.newBuilder().setStringValue(username).build())
                 .build();
     }
 }
