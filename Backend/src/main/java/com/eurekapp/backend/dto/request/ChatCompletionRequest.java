@@ -13,7 +13,7 @@ public class ChatCompletionRequest {
     private final String MODEL = "gpt-4o";
     private final List<Message> messages = new LinkedList<>();
     @JsonProperty("max_tokens")
-    private final Integer maxTokens = 100;
+    private final Integer maxTokens = 200;
 
     /* El propósito de esta clase es que, cuando una instancia de OpenAiImageDescriptionService deba
        enviar una request a ChatGPT, la misma no tenga que  armar manualmente el JSON a enviar, sino que en su
@@ -36,7 +36,8 @@ public class ChatCompletionRequest {
 
     @Getter
     static class SystemMessage extends Message{
-        private final String content = "Eres una persona describiendo un objeto";
+        private final String content = "";
+        //private final String content = "Eres una persona describiendo un objeto";
         public SystemMessage(){
             this.role = "system";
         }
@@ -59,7 +60,10 @@ public class ChatCompletionRequest {
 
     @Getter
     static class TextContent extends Content{
-        private final String text = "¿Qué es lo principal que hay acá? en un párrafo, directo al grano";
+        private final String text = "Describe esta imagen. Sé lo más descriptivo posible. " +
+                "MINIMIZA la cantidad de palabras usadas, o sea, evita palabras de relleno." +
+                "No empieces con \"La imagen muestra etc.\"," +
+                "simplemente dí \"[objeto] [adjetivo]\", por dar un ejemplo.";
         public TextContent(){
             this.type = "text";
         }
