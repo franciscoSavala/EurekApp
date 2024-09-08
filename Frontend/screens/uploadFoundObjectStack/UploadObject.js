@@ -24,7 +24,8 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const FormData = global.FormData;
 
 const UploadObject = () => {
-    const [objectDescription, setObjectDescription] = useState('');
+    const [objectTitle, setObjectTitle] = useState('');
+    const [detailedDescription, setDetailedDescription] = useState('');
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [selectedInstitute, setSelectedInstitute] = useState(null);
@@ -76,11 +77,11 @@ const UploadObject = () => {
             alert('Por favor sube una imagen');
             return false;
         }
-        if (!objectDescription) {
+        if (!objectTitle) {
             alert('Por favor escribe una descripción');
             return false;
         }
-        if(objectDescription.length > 30){
+        if(objectTitle.length > 30){
             alert('Por favor escribe una descripción de menos de 30 caracteres');
             return false;
         }
@@ -96,8 +97,6 @@ const UploadObject = () => {
     }
     const submitData = async () => {
         if(!validateConstraints()) return;
-        //const blob = new Blob([imageByte]);
-
         setLoading(true);
         setButtonWasPressed(true);
         try {
@@ -108,8 +107,9 @@ const UploadObject = () => {
                     `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
                         'Authorization': authHeader,
                         'Content-Type': 'multipart/form-data'
-                    },[{name: 'description', data: objectDescription},
+                    },[{name: 'title', data: objectTitle},
                         {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                        {name: 'detailed_description', data: detailedDescription},
                         {name: 'file', filename: 'found_object.jpg',
                             data: String(image.base64)}]);
             setLoading(false);
@@ -120,8 +120,9 @@ const UploadObject = () => {
             }
         } catch (error) {
             console.error(error);
-            setLoading(false);
             setResponseOk(false);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -192,13 +193,28 @@ const UploadObject = () => {
                             fontSize: 16,
                             fontWeight: '500',
                             fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Escribe una descripción corta:</Text>
+                        }}>Titulo de la publicación: </Text>
                         <TextInput
                             maxLength={30}
                             style={styles.textArea}
-                            placeholder="Escribe una descripción"
+                            placeholder="Escribe un título"
                             multiline
-                            onChangeText={(text) => setObjectDescription(text)}
+                            onChangeText={(text) => setObjectTitle(text)}
+                        />
+                    </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={{
+                            color: '#111818',
+                            fontSize: 16,
+                            fontWeight: '500',
+                            fontFamily: 'PlusJakartaSans-Regular'
+                        }}>Descripción detallada (opcional): </Text>
+                        <TextInput
+                            maxLength={250}
+                            style={[styles.textArea, {minHeight: 200}]}
+                            placeholder="Agrega una descripción"
+                            multiline
+                            onChangeText={(text) => setDetailedDescription(text)}
                         />
                     </View>
                     <EurekappDateComponent labelText={"Fecha de encuentro del objeto: "}

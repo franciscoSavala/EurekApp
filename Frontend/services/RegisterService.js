@@ -2,8 +2,8 @@ import Constants from "expo-constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-export default function login({ username, password }) {
-    return fetch(`${BACK_URL}/login`, {
+export default function register({ username, password }) {
+    return fetch(`${BACK_URL}/signup`, {
         method: 'POST',
         headers: {
             Accept: 'application/json',

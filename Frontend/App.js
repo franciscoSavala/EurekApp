@@ -18,6 +18,8 @@ import {createDrawerNavigator, DrawerContentScrollView, DrawerItem, DrawerItemLi
 import LostObjectReturn from "./screens/lostObjectReturnStack/LostObjectReturn";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ReturnObjectForm from "./screens/lostObjectReturnStack/ReturnObjectForm";
+import RegistrationScreen from "./screens/login/RegistrationScreen";
+import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
 
 
 const FindObjectStack = createNativeStackNavigator();
@@ -48,6 +50,11 @@ const AuthStackScreen = () => {
             <AuthStack.Screen
                 name="LoginScreen"
                 component={LoginScreen}
+                options={{ headerShown: false }}
+            />
+            <AuthStack.Screen
+                name="RegistrationScreen"
+                component={RegistrationScreen}
                 options={{ headerShown: false }}
             />
         </AuthStack.Navigator>
@@ -147,7 +154,13 @@ const EurekappTab = () => {
                         drawerIcon: returnIcon
                     }} component={ReturnObjectStackScreen}/>
                 </>
-                : null
+                : <>
+                    <Drawer.Screen name="OrganizationSignupForm" options={{
+                        title: 'Solicitar Cuenta',
+                        headerTitleAlign: 'center',
+                        drawerIcon: uploadIcon
+                    }} component={OrganizationSignupForm} />
+                </>
             }
         </Drawer.Navigator>
     );

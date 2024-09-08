@@ -62,7 +62,7 @@ public class LostObjectService {
     }
 
     public void findSimilarLostObject(
-            List<Float> embeddings, Long organizationId, String description, byte[] imageBytes, String foundId) {
+            List<Float> embeddings, Long organizationId, String description, String foundId) {
         LostObjectStructVector structVector = LostObjectStructVector.builder()
                 .embeddings(embeddings)
                 .build();

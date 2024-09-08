@@ -12,8 +12,9 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class UploadFoundObjectCommand {
-    private String description;
+    private String title;
     private MultipartFile image;
     private LocalDateTime foundDate;
+    private String detailedDescription;
     private Long organizationId;
 }

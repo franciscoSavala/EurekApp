@@ -4,7 +4,6 @@ import com.google.protobuf.Struct;
 import com.google.protobuf.Value;
 import io.pinecone.proto.Vector;
 import io.pinecone.unsigned_indices_model.ScoredVectorWithUnsignedIndices;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,8 +35,9 @@ public class FoundObjectVectorFactory implements StructVectorFactory {
                 .embeddings(values)
                 .id(id)
                 .score(score)
-                .text(metadata.getFieldsOrThrow("text").getStringValue())
-                .humanDescription(metadata.getFieldsOrDefault("human_description", defaultStringValue).getStringValue())
+                .aiDescription(metadata.getFieldsOrThrow("ai_description").getStringValue())
+                .title(metadata.getFieldsOrDefault("title", defaultStringValue).getStringValue())
+                .detailedDescription(metadata.getFieldsOrDefault("human_description", defaultStringValue).getStringValue())
                 .organization(metadata.getFieldsOrDefault("organization_id", defaultStringValue).getStringValue())
                 .foundDate(LocalDateTime.parse(date))
                 .wasReturned(wasReturned)

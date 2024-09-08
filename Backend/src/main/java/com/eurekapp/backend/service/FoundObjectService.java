@@ -4,6 +4,7 @@ import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.exception.ValidationError;
@@ -21,6 +22,7 @@ import com.google.protobuf.Value;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,9 @@ import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.function.Predicate;
 
 @Service
@@ -43,6 +48,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final IOrganizationRepository organizationRepository;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
+    private final ExecutorService executorService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -50,7 +56,8 @@ public class FoundObjectService implements IFoundObjectService {
                               VectorStorage<FoundObjectStructVector> foundObjectVectorStorage,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
-                              LostObjectService lostObjectService) {
+                              LostObjectService lostObjectService,
+                              ExecutorService executorService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -58,6 +65,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
+        this.executorService = executorService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -77,7 +85,7 @@ public class FoundObjectService implements IFoundObjectService {
 
         /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la concatenación de la
         descripción textual que nos dio la otra API, y de la descripción provista por el humano. */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation + command.getDescription()) ;
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation + command.getDetailedDescription());
 
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
@@ -86,30 +94,33 @@ public class FoundObjectService implements IFoundObjectService {
         *   Esto es necesario para poder meterlo en la BD Pinecone. */
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
-                .text(textRepresentation)
+                .aiDescription(textRepresentation)
                 .embeddings(embeddings)
-                .humanDescription(command.getDescription())
+                .title(command.getTitle())
                 .organization(String.valueOf(command.getOrganizationId()))
                 .foundDate(command.getFoundDate())
                 .wasReturned(false)
+                .detailedDescription(command.getDetailedDescription())
                 .build();
-        // TODO: VER COMO HACERLO ASYNC
 
-        // Hacemos el upsert en la BD Pinecone.
-        foundObjectVectorStorage.upsertVector(foundObjectVector);
 
-        // Subimos la foto provista por el usuario a la BD Amazon S3.
-        s3Service.putObject(imageBytes, foundObjectId);
-
-        lostObjectService.findSimilarLostObject(
-                embeddings, command.getOrganizationId(), command.getDescription(), imageBytes, foundObjectId);
-
+        Future<Void> upsertFuture = (Future<Void>) executorService.submit(() -> foundObjectVectorStorage.upsertVector(foundObjectVector));
+        Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
+        try {
+            upsertFuture.get();
+            uploadImageFuture.get();
+        } catch (ExecutionException | InterruptedException e){
+            log.error(e.toString());
+            throw new ApiException("upload_error", "There was an error uploading your object", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        executorService.execute(() -> lostObjectService.findSimilarLostObject(
+                embeddings, command.getOrganizationId(), command.getTitle(), foundObjectId));
         // Asentamos la operación en el log.
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
 
         return FoundObjectUploadedResponseDto.builder()
                 .textEncoding(textRepresentation)
-                .description(command.getDescription())
+                .description(command.getTitle())
                 .id(foundObjectId)
                 .build();
     }
@@ -126,7 +137,7 @@ public class FoundObjectService implements IFoundObjectService {
 
         //TODO: Hacer una implementación de StructVector pero que solo se use para buscar, es decir que solo tenga embeddings
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
-                .text(command.getQuery())
+                .aiDescription(command.getQuery())
                 .embeddings(embeddings)
                 .build();
         Struct.Builder filter = Struct.newBuilder();
@@ -137,7 +148,7 @@ public class FoundObjectService implements IFoundObjectService {
         }
         List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(foundObjectVector, 5, filter.build());
 
-        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
+        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.parallelStream()
                 .filter(isFoundDateAfterLostDate(command))
                 .filter(v -> v.getScore() >= MIN_SCORE)
                 .map(this::foundObjectToDto)
@@ -166,7 +177,7 @@ public class FoundObjectService implements IFoundObjectService {
                 null;
         return FoundObjectDto.builder()
                 .id(foundObjectVector.getId())
-                .description(foundObjectVector.getHumanDescription())
+                .title(foundObjectVector.getTitle())
                 .b64Json(Base64.getEncoder().encodeToString(imageBytes))
                 .score(foundObjectVector.getScore())
                 .organization(organizationDto)
@@ -185,7 +196,7 @@ public class FoundObjectService implements IFoundObjectService {
         * */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(" ");
         FoundObjectStructVector vector = FoundObjectStructVector.builder()
-                .text(" ")
+                .aiDescription(" ")
                 .embeddings(embeddings)
                 .build();
 

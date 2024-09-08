@@ -22,7 +22,7 @@ const FoundObjects = ({ route, navigation }) => {
                     source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
                     style={styles.image}
                 />
-                <Text style={styles.description}>{item.description}</Text>
+                <Text style={styles.description}>{item.title}</Text>
             </Pressable>
         );
     };

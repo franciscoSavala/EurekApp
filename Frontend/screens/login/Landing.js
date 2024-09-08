@@ -48,6 +48,7 @@ const LandingScreen = ({ navigation }) => {
                                 color: 'white',
                                 fontFamily: 'PlusJakartaSans-Regular'
                             }}
+                            onPress={() => navigation.navigate('RegistrationScreen')}
                             title="Registrate"
                             type="outline"
                         />
