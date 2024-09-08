@@ -9,6 +9,7 @@ import com.eurekapp.backend.model.LostObjectVectorFactory;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.SimpleEmailContentBuilder;
 import com.eurekapp.backend.repository.IOrganizationRepository;
+import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.repository.VectorStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -22,7 +23,7 @@ import java.util.UUID;
 @Service
 public class LostObjectService {
 
-    private static final double MIN_SCORE = 0.4;
+    private static final double MIN_SCORE = 0.6;
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;
@@ -30,18 +31,21 @@ public class LostObjectService {
     private final SimpleEmailContentBuilder simpleEmailContentBuilder;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
+    private final ObjectStorage objectStorage;
 
     public LostObjectService(
             EmbeddingService embeddingService,
             VectorStorage<LostObjectStructVector> lostObjectVectorStorage,
             SimpleEmailContentBuilder simpleEmailContentBuilder,
             NotificationService notificationService,
-            IOrganizationRepository organizationRepository) {
+            IOrganizationRepository organizationRepository,
+            ObjectStorage objectStorage) {
         this.embeddingService = embeddingService;
         this.lostObjectVectorStorage = lostObjectVectorStorage;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
+        this.objectStorage = objectStorage;
     }
 
     public LostObjectResponseDto reportLostObject(ReportLostObjectCommand command) {
@@ -60,7 +64,7 @@ public class LostObjectService {
     }
 
     public void findSimilarLostObject(
-            List<Float> embeddings, Long organizationId, String description, byte[] imageBytes) {
+            List<Float> embeddings, Long organizationId, String description, byte[] imageBytes, String foundId) {
         LostObjectStructVector structVector = LostObjectStructVector.builder()
                 .embeddings(embeddings)
                 .build();
@@ -74,9 +78,10 @@ public class LostObjectService {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ApiException("should_exists_organization", "No sense", HttpStatus.INTERNAL_SERVER_ERROR));
 
+        String imageUrl = objectStorage.getObjectUrl(foundId);
         String message = simpleEmailContentBuilder.buildEmailContent(
-                organization.getName(), organization.getContactData(), description);
+                organization.getName(), organization.getContactData(), description, imageUrl);
 
-        notificationService.sendNotification(message, imageBytes);
+        notificationService.sendNotification(message);
     }
 }

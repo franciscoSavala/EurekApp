@@ -101,7 +101,8 @@ public class FoundObjectService implements IFoundObjectService {
         // Subimos la foto provista por el usuario a la BD Amazon S3.
         s3Service.putObject(imageBytes, foundObjectId);
 
-        lostObjectService.findSimilarLostObject(embeddings, command.getOrganizationId(), command.getDescription(), imageBytes);
+        lostObjectService.findSimilarLostObject(
+                embeddings, command.getOrganizationId(), command.getDescription(), imageBytes, foundObjectId);
 
         // Asentamos la operación en el log.
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
@@ -155,7 +156,8 @@ public class FoundObjectService implements IFoundObjectService {
 
     private FoundObjectDto foundObjectToDto(FoundObjectStructVector foundObjectVector) {
         byte[] imageBytes = s3Service.getObjectBytes(foundObjectVector.getId());
-        log.info("[api_method:GET] [service:S3] Bytes processed: {}", imageBytes.length);
+        log.info("[api_method:GET] [service:S3] Retriving {}, Bytes processed: {}",
+                foundObjectVector.getId(), imageBytes.length);
         Long objectOrganizationId = Long.parseLong(foundObjectVector.getOrganization());
         Organization organization = organizationRepository.findById(objectOrganizationId)
                 .orElse(null);
@@ -199,10 +201,10 @@ public class FoundObjectService implements IFoundObjectService {
 
         // Hacemos la query a Pinecone con el vector y el filtro anteriores.
         List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(vector,
-                10000, filter.build());
+                10000, filter.build()); //TODO: paginado...
 
         // A partir de la response, acá se elabora la lista que el método devolverá.
-        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
+        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.parallelStream()
                 .map(this::foundObjectToDto)
                 .toList();
 

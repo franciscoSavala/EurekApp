@@ -46,11 +46,13 @@ public class S3Service implements ObjectStorage {
 
     S3AsyncClient s3AsyncClient;
 
+    Region region = Region.SA_EAST_1;
+
     @PostConstruct
     private void constructClient(){
         s3AsyncClient = S3AsyncClient.builder()
                 .credentialsProvider(EnvironmentVariableCredentialsProvider.create())
-                .region(Region.SA_EAST_1)
+                .region(region)
                 .build();
     }
 
@@ -118,5 +120,10 @@ public class S3Service implements ObjectStorage {
             System.err.println(e.getMessage());
             System.exit(1);
         }
+    }
+
+    @Override
+    public String getObjectUrl(String objectKey) {
+        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region.toString(), objectKey);
     }
 }

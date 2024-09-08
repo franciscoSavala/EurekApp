@@ -46,7 +46,7 @@ public class EmailService implements NotificationService {
     }
 
     @Override
-    public void sendNotification(String notification, byte[] image) {
+    public void sendNotification(String notification) {
         Session session = Session.getInstance(this.properties, new Authenticator() {
             @Override
             protected PasswordAuthentication getPasswordAuthentication() {
@@ -59,18 +59,12 @@ public class EmailService implements NotificationService {
             message.setFrom(new InternetAddress("mailtrap@demomailtrap.com"));
             message.setRecipients(Message.RecipientType.TO,
                     InternetAddress.parse("franciscosavala01@gmail.com"));
-            message.setSubject("POR FAVOR AHORA SI");
+            message.setSubject("Hemos encontrado tu objeto!");
             MimeBodyPart mimeBodyPart = new MimeBodyPart();
             mimeBodyPart.setContent(notification, "text/html; charset=utf-8");
 
-            Multipart multipart = new MimeMultipart("related");
+            Multipart multipart = new MimeMultipart();
             multipart.addBodyPart(mimeBodyPart);
-
-            MimeBodyPart imageBodyPart = new MimeBodyPart();
-            DataSource dataSource = new ByteArrayDataSource(image, "image/jpeg");
-
-            imageBodyPart.setDataHandler(new DataHandler(dataSource));
-            imageBodyPart.setHeader("Content-ID", "<image>");
 
             message.setContent(multipart);
 

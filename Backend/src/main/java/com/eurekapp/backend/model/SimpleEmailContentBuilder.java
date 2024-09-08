@@ -7,19 +7,19 @@ import java.util.Base64;
 public class SimpleEmailContentBuilder {
 
     public String buildEmailContent(
-            String organizationName, String organizationContactData, String description) {
+            String organizationName, String organizationContactData, String description, String imageUrl) {
         String message = """
         <html>
           <body>
             <div style="text-align: center;">
               <h1>%s</h1>
               <p style="font-size: 16px;">Encontrado en %s</p>
-              <p style="font-size: 16px;"> %s</p>
-              <img src="cid:image" alt="Lost object" style="display: block; margin: 0 auto; max-width: 100%%; height: auto;" />
+              <p style="font-size: 16px;">%s</p>
+              <img src="%s" alt="Lost object" style="display: block; margin: 0 auto; max-width: 100%%; max-height: 600px;" />
             </div>
           </body>
         </html>
-        """.formatted(description, organizationName, organizationContactData);
+        """.formatted(description, organizationName, organizationContactData, imageUrl);
 
 
         return message;
