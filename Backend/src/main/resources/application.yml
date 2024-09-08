@@ -13,6 +13,10 @@ application:
     api-key: ${OPENAI_SECRET_KEY}
   pinecone:
     api-key: ${PINECONE_SECRET_KEY}
-    namespace: 'image-description'
   jwt:
     sign-key: ${JWT_SIGN_KEY}
+  mailtrap:
+    host: 'live.smtp.mailtrap.io'
+    user: 'api'
+    password: ${MAILTRAP_KEY}
+    port: '587'

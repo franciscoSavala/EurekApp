@@ -1,7 +1,6 @@
 package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.exception.NotFoundException;
-import com.eurekapp.backend.model.FoundObjectStructVector;
 import com.eurekapp.backend.model.StructVector;
 import com.eurekapp.backend.model.StructVectorFactory;
 import com.google.protobuf.Struct;
@@ -10,34 +9,27 @@ import io.pinecone.proto.FetchResponse;
 import io.pinecone.proto.UpsertResponse;
 import io.pinecone.proto.Vector;
 import io.pinecone.unsigned_indices_model.QueryResponseWithUnsignedIndices;
-import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-@Service
-public class TextPineconeRepository<T extends StructVector> implements VectorStorage<T>{
-    private static final Logger log = LoggerFactory.getLogger(TextPineconeRepository.class);
+
+public class PineconeVectorStorage<T extends StructVector> implements VectorStorage<T>{
+    private static final Logger log = LoggerFactory.getLogger(PineconeVectorStorage.class);
     private final Index client;
-    @Value("${application.pinecone.namespace}")
     private String namespace;
     private StructVectorFactory factory;
 
 
-    public TextPineconeRepository(Index client,
-                                  @Qualifier("foundObjectVectorFactory") StructVectorFactory factory) {
+    public PineconeVectorStorage(Index client,
+                                 StructVectorFactory factory) {
         this.client = client;
         this.factory = factory;
+        this.namespace = factory.getNamespace();
     }
 
     /* Upsert = Operación de BD que implica intentar hacer un "INSERT", y si el registro ya existe, entonces hacer un
@@ -47,7 +39,7 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
     public void upsertVector(T vector){
         Struct struct = vector.toStruct();
         UpsertResponse upsertResponse = client.upsert(vector.getId(), vector.getEmbeddings(), null, null, struct, namespace);
-        log.info("[api_method:GET] [api_call:pinecone] Request={} Response={}", struct, upsertResponse);
+        log.info("[api_method:POST] [api_call:pinecone] Request={} Response={}", struct, upsertResponse);
     }
 
     public T fetchVector(String id){
@@ -64,7 +56,7 @@ public class TextPineconeRepository<T extends StructVector> implements VectorSto
     }
 
     public List<T> queryVector(T vector) {
-        return queryVector(vector, 3, null);
+        return queryVector(vector, 1, null);
     }
 
     public List<T> queryVector(T vector, Integer topK, Struct filter){
