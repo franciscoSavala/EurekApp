@@ -1,27 +1,35 @@
 import {FlatList, Image, StyleSheet, Text, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
+import UploadLostObjectModal from "./UploadLostObjectModal";
+import {useState} from "react";
 
 
-const NotFoundObjects = () => {
+const NotFoundObjects = ({route, navigation}) => {
+    const { query } = route.params;
+    const [modalVisible, setModalVisible] = useState(false);
 
     return (
         <View style={styles.container}>
             <View style={styles.coincidencesContainer}>
-                <Text style={styles.headerText}>No se encontraron coincidencias en el establecimiento.</Text>
+                <Text style={styles.headerText}>No se encontraron coincidencias con tu búsqueda.</Text>
                 <View style={styles.prettyNotFoundContainer}>
                     <View style={styles.prettyCardNotFound}>
                         <View style={styles.magnifyingIcon}>
                             <Icon name={'magnifying-glass'} size={24} color={'#111818'} />
                         </View>
                         <View style={styles.labelPrettyNotFound}>
-                            <Text style={styles.prettyTitleNotFound} numberOfLines={1}>Puede que tu objeto no haya sido encontrado todavía.</Text>
+                            <Text style={styles.prettyTitleNotFound} >Puede que tu objeto no haya sido encontrado todavía.
+                            </Text>
                             <Text style={styles.prettyDescriptionNotFound}>Revisa de nuevo otro día.</Text>
                         </View>
                     </View>
                 </View>
             </View>
-            <EurekappButton text="Reportar objeto perdido" />
+            <EurekappButton onPress={() => setModalVisible(true)} text="Reportar objeto perdido" />
+            <UploadLostObjectModal modalVisible={modalVisible}
+                                   setModalVisible={setModalVisible}
+                                   query={query} />
         </View>
     );
 }

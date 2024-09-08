@@ -48,7 +48,7 @@ public class LostObjectService {
         this.objectStorage = objectStorage;
     }
 
-    public LostObjectResponseDto reportLostObject(ReportLostObjectCommand command) {
+    public void reportLostObject(ReportLostObjectCommand command) {
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getDescription());
         String id = UUID.randomUUID().toString();
         LostObjectStructVector lostObjectStructVector = LostObjectStructVector.builder()
@@ -59,8 +59,6 @@ public class LostObjectService {
                 .build();
 
         lostObjectVectorStorage.upsertVector(lostObjectStructVector);
-
-        return LostObjectResponseDto.builder().build();
     }
 
     public void findSimilarLostObject(

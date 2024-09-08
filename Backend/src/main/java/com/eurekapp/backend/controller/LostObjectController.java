@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/lost-object")
+@RequestMapping("/lost-objects")
 @CrossOrigin("*")
 public class LostObjectController {
 
@@ -20,7 +20,8 @@ public class LostObjectController {
     private LostObjectService lostObjectService;
 
     @PostMapping
-    public ResponseEntity<LostObjectResponseDto> reportLostObject(@RequestBody ReportLostObjectCommand command) {
-        return ResponseEntity.ok(lostObjectService.reportLostObject(command));
+    public ResponseEntity<Void> reportLostObject(@RequestBody ReportLostObjectCommand command) {
+        lostObjectService.reportLostObject(command);
+        return ResponseEntity.ok().build();
     }
 }

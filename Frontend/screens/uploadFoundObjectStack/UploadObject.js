@@ -13,9 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
-import InstitutePicker from "../components/InstitutePicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
-import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";

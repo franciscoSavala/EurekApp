@@ -3,12 +3,14 @@ import React, {useState} from "react";
 import {FlatList, Image, Modal, Pressable, StyleSheet, Text, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
+import UploadLostObjectModal from "./UploadLostObjectModal";
 
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound } = route.params;
+    const { objectsFound, query } = route.params;
     const [objectSelectedId, setObjectSelectedId] = useState("");
-    const [modalVisible, setModalVisible] = useState(false);
+    const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
+    const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const renderItem = ({ item }) => {
@@ -38,21 +40,23 @@ const FoundObjects = ({ route, navigation }) => {
                 />
             </View>
             <View style={styles.buttonContainer}>
-                <EurekappButton onPress={() => setModalVisible(true)}
+                <EurekappButton onPress={() => setOrganizationInformationModal(true)}
                                 backgroundColor={'#f0f4f4'}
                                 textColor={'#111818'}
                                 text="Este es mi objeto" />
-                <EurekappButton onPress={() => navigation.goBack()}
+                <EurekappButton onPress={() => setUploadLostObjectModal(true)}
                                 backgroundColor={'#fff'}
                                 textColor={'#111818'}
                                 text="No encontré mi objeto" />
             </View>
-
+            <UploadLostObjectModal modalVisible={uploadLostObjectModal}
+                                   setModalVisible={setUploadLostObjectModal}
+                                   query={query} />
             <Modal
                 animationType="none"
                 transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(!modalVisible)}>
+                visible={organizationInformationModal}
+                onRequestClose={() => setOrganizationInformationModal(!organizationInformationModal)}>
                 <View style={styles.centeredView}>
                     <View style={styles.modalView}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
@@ -61,7 +65,8 @@ const FoundObjects = ({ route, navigation }) => {
                             foundObjectsMap.get(objectSelectedId).organization.contactData :
                             null}
                         </Text>
-                        <EurekappButton text='Cerrar' onPress={() => setModalVisible(false)}/>
+                        <EurekappButton text='Cerrar'
+                                        onPress={() => setOrganizationInformationModal(false)}/>
                     </View>
                 </View>
             </Modal>
@@ -161,7 +166,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     infoIcon: {
-        marginBottom: 15,
+        marginBottom: 50,
     },
 })
 export default FoundObjects;

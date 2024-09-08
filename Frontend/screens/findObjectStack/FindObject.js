@@ -51,11 +51,14 @@ const FindObject = ({ navigation }) => {
                 config );
             let jsonData = res.data;
             if(jsonData.found_objects.length === 0) {
-                navigation.navigate('NotFoundObjects');
+                navigation.navigate('NotFoundObjects', {
+                    query: queryObjects,
+                });
             }else{
                 navigation.navigate('FoundObjects',
                     {
-                        objectsFound: jsonData.found_objects
+                        objectsFound: jsonData.found_objects,
+                        query: queryObjects,
                     });
             }
 

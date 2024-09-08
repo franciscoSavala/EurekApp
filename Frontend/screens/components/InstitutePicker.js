@@ -44,9 +44,8 @@ const InstitutePicker = ({ setSelected }) => {
                 onFocus={() => setPickerFocused(true)}
                 onBlur={() => setPickerFocused(false)}
             >
-                <Picker.Item label="Selecciona el establecimiento"
-                             value=""
-                             enabled={!pickerFocused}/>
+                <Picker.Item label="No lo recuerdo"
+                             value="" />
                 {institutionList.map((org) => (
                     <Picker.Item label={org.name} value={org.id} key={org.id} />
                 ))}
