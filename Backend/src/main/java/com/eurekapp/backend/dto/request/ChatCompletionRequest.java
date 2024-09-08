@@ -59,7 +59,10 @@ public class ChatCompletionRequest {
 
     @Getter
     static class TextContent extends Content{
-        private final String text = "¿Qué es lo principal que hay acá? en un párrafo, directo al grano";
+        private final String text = "Describe esta imagen. Sé lo más descriptivo posible. " +
+                "MINIMIZA la cantidad de palabras usadas, o sea, evita palabras de relleno." +
+                "No empieces con \"La imagen muestra etc.\"," +
+                "simplemente dí \"[objeto] [adjetivo]\", por dar un ejemplo.";
         public TextContent(){
             this.type = "text";
         }

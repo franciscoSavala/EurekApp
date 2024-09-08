@@ -72,14 +72,14 @@ public class FoundObjectService implements IFoundObjectService {
         // Solicitamos a la API "OpenAI Chat Completion" una descripción textual de la foto.
         String textRepresentation = descriptionService.getImageTextRepresentation(bytes);
 
-        /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la descripción textual que nos dio
-        *   la otra API. */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation);
+        /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la concatenación de la
+        descripción textual que nos dio la otra API, y de la descripción provista por el humano. */
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation + command.getDescription()) ;
 
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
 
-        /* Pasmos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
+        /* Pasamos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
         *   Esto es necesario para poder meterlo en la BD Pinecone. */
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
