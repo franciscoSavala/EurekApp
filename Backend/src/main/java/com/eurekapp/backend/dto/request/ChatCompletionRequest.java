@@ -37,7 +37,6 @@ public class ChatCompletionRequest {
     @Getter
     static class SystemMessage extends Message{
         private final String content = "";
-        //private final String content = "Eres una persona describiendo un objeto";
         public SystemMessage(){
             this.role = "system";
         }
@@ -60,8 +59,8 @@ public class ChatCompletionRequest {
 
     @Getter
     static class TextContent extends Content{
-        private final String text = "Describe esta imagen. Sé lo más descriptivo posible. " +
-                "MINIMIZA la cantidad de palabras usadas, o sea, evita palabras de relleno." +
+        private final String text = "Describe el objeto que está en esta imagen con el mayor detalle. " +
+                "Sé lo más descriptivo posible, evita palabras de relleno." +
                 "No empieces con \"La imagen muestra etc.\"," +
                 "simplemente dí \"[objeto] [adjetivo]\", por dar un ejemplo.";
         public TextContent(){

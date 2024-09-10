@@ -25,7 +25,7 @@ const LostObjectReturn = ({ navigation }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const fetchFoundObjectsFromOrganization = async () => {
+    const fetchFoundObjectsFromOrganization = async (institute) => {
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let config = {
@@ -33,8 +33,9 @@ const LostObjectReturn = ({ navigation }) => {
                     'Authorization': authHeader
                 }
             }
+            console.log(selectedInstitute);
             let res = await axios.get(
-                `${BACK_URL}/found-objects/organizations/all/${selectedInstitute.id}`,
+                `${BACK_URL}/found-objects/organizations/all/${institute.id}`,
                 config );
             let jsonData = res.data;
             setInstitutesObject(jsonData.found_objects);
@@ -47,7 +48,7 @@ const LostObjectReturn = ({ navigation }) => {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchFoundObjectsFromOrganization();
+        await fetchFoundObjectsFromOrganization(selectedInstitute);
         setRefreshing(false);
     }
 
@@ -57,9 +58,8 @@ const LostObjectReturn = ({ navigation }) => {
                 id: await AsyncStorage.getItem('org.id'),
                 name: await AsyncStorage.getItem('org.name')
             };
-            if(institute.id == null || institute.name == null) return;
             setSelectedInstitute( institute );
-            await fetchFoundObjectsFromOrganization();
+            await fetchFoundObjectsFromOrganization(institute);
         }
         getContextInstitute();
     }, []);
@@ -67,13 +67,12 @@ const LostObjectReturn = ({ navigation }) => {
     const renderItem = ({item}) => {
         const isSelected = item.id === objectSelectedId;
         const date = new Date(item.found_date);
-        console.log(date);
         return (
             <Pressable style={[styles.item, isSelected && styles.highlightedOrganizationObject]}
                        onPress={() => setObjectSelectedId(item.id)}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
-                        {item.description}
+                        {item.title}
                     </Text>
                     <Text style={styles.itemText}>
                         Encontrado: {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}

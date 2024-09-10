@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {StyleSheet, Text, View} from "react-native";
+import {LogBox, StyleSheet, Text, View} from "react-native";
 import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
@@ -169,6 +169,7 @@ const EurekappTab = () => {
 
 
 const App = () => {
+    LogBox.ignoreAllLogs();
     const [user, setUser] = useState('');
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),

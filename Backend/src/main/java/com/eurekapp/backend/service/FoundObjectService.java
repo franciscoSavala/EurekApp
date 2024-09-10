@@ -37,7 +37,7 @@ import java.util.function.Predicate;
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
-    private static final double MIN_SCORE = 0.6;
+    private static final double MIN_SCORE = 0.7;
     private static final int GRACE_HOURS = 6;
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
@@ -146,9 +146,11 @@ public class FoundObjectService implements IFoundObjectService {
                     Value.newBuilder().setStringValue(
                             String.valueOf(command.getOrganizationId())).build());
         }
+        filter.putFields("was_returned", Value.newBuilder().setBoolValue(Boolean.valueOf(false)).build());
+
         List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(foundObjectVector, 5, filter.build());
 
-        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.parallelStream()
+        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
                 .filter(isFoundDateAfterLostDate(command))
                 .filter(v -> v.getScore() >= MIN_SCORE)
                 .map(this::foundObjectToDto)

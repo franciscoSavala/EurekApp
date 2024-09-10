@@ -31,7 +31,7 @@ public class FoundObjectController {
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("title") @Length(max = 30, message = "Max description size is 150") String title,
+            @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
             @RequestParam(value = "found_date") LocalDateTime foundDate,
             @PathVariable(value = "organizationId", required = false) Long organizationId){
@@ -40,7 +40,7 @@ public class FoundObjectController {
                 .title(title)
                 .foundDate(foundDate)
                 .organizationId(organizationId)
-                .detailedDescription(detailedDescription)
+                .detailedDescription(detailedDescription != null ? detailedDescription : "")
                 .build();
         return ResponseEntity.ok(service.uploadFoundObject(command));
     }

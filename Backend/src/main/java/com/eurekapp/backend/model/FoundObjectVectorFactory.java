@@ -35,7 +35,7 @@ public class FoundObjectVectorFactory implements StructVectorFactory {
                 .embeddings(values)
                 .id(id)
                 .score(score)
-                .aiDescription(metadata.getFieldsOrThrow("ai_description").getStringValue())
+                .aiDescription(metadata.getFieldsOrThrow("text").getStringValue())
                 .title(metadata.getFieldsOrDefault("title", defaultStringValue).getStringValue())
                 .detailedDescription(metadata.getFieldsOrDefault("human_description", defaultStringValue).getStringValue())
                 .organization(metadata.getFieldsOrDefault("organization_id", defaultStringValue).getStringValue())

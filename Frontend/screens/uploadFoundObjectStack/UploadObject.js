@@ -68,8 +68,8 @@ const UploadObject = () => {
     };
 
     const takePhoto = async () => {
-        let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
-        handleImagePicked(result);
+        //let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
+        //handleImagePicked(result);
     };
 
     const validateConstraints = () => {
@@ -87,10 +87,6 @@ const UploadObject = () => {
         }
         if(imageByte.length / 1024 / 1024 > 10){
             alert('Por favor sube una imagen de menos de 10MB');
-            return false;
-        }
-        if(image.mimeType !== 'image/jpeg' && image.mimeType !== 'image/png'){
-            alert('Por favor sube una imagen en formato jpg o png');
             return false;
         }
         return true;
@@ -163,7 +159,7 @@ const UploadObject = () => {
                             source={{ uri: image.uri }}
                             style={styles.viewImage}
                             imageStyle={styles.onlyImage} >
-                            <Pressable style={{margin: 10}} onPress={deleteImage}>
+                            <Pressable style={styles.iconContainer} onPress={deleteImage}>
                                 <Icon name={'trash-can'} size={24} color={'#000000'}/>
                             </Pressable>
                         </ImageBackground>
@@ -208,7 +204,7 @@ const UploadObject = () => {
                             fontSize: 16,
                             fontWeight: '500',
                             fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Descripción detallada (opcional): </Text>
+                        }}>Información relevante (opcional): </Text>
                         <TextInput
                             maxLength={250}
                             style={[styles.textArea, {minHeight: 200}]}
@@ -254,7 +250,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     viewImage: {
-        maxHeight: 300,
+        height: 'auto',
         overflow: 'hidden',
         width: '100%',
         aspectRatio: 1,
@@ -318,6 +314,13 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
+    iconContainer: {
+        margin: 10,
+        backgroundColor: '#f0f4f4',
+        padding: 8,
+        borderRadius: 24
+
+    }
 
 });
 
