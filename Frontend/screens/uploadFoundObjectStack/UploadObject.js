@@ -149,11 +149,6 @@ const UploadObject = () => {
         <View style={{flex: 1, backgroundColor: '#fff'}}>
             <View style={styles.container}>
                 <ScrollView contentContainerStyle={styles.formContainer}>
-                    {selectedInstitute != null ?
-                        <View style={styles.headerContainer}>
-                            <Text style={styles.headerText}>{selectedInstitute.name}</Text>
-                        </View> : null
-                    }
                     { imageUploaded ? (
                         <ImageBackground
                             source={{ uri: image.uri }}

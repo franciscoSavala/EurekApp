@@ -1,5 +1,5 @@
 import React, {createContext, useContext, useEffect, useState} from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import {CommonActions, NavigationContainer, StackActions, useNavigation} from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
@@ -80,8 +80,8 @@ const ReturnObjectStackScreen = () => {
 
 const CustomDrawerContent = (props) => {
     const [userName, setUserName] = useState('');
+    const navigation = useNavigation();
     const { logout } = useUser();
-
     useEffect(() => {
         const fetchUserName = async () => {
             let user = await AsyncStorage.getItem('org.name');
@@ -93,8 +93,11 @@ const CustomDrawerContent = (props) => {
         fetchUserName();
     }, []);
 
-    const handleLogout = (props) => {
-
+    const handleLogout = async () => {
+        // Limpiar los datos del usuario
+        await AsyncStorage.removeItem('org.name');
+        await AsyncStorage.removeItem('username');
+        logout();
     }
 
     return (
@@ -112,7 +115,7 @@ const CustomDrawerContent = (props) => {
             </View>
             <DrawerItem
                 label="Logout"
-                onPress={handleLogout(props)}
+                onPress={handleLogout}
             />
         </DrawerContentScrollView>
 

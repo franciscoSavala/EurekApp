@@ -101,12 +101,11 @@ const LostObjectReturn = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <View style={styles.organizationObjectsContainer}>
-                {selectedInstitute != null
-                    ? <Text style={styles.organizationHeader}>Objetos de {selectedInstitute.name}</Text>
-                    : null
-                }
-                { loading ? <ActivityIndicator size="large" color="#111818" /> :
-                    <FlatList
+                { loading ?
+                    <View style={{flex: 1, justifyContent: 'center'}}>
+                        <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
+                    </View>
+                    : <FlatList
                         data={institutesObject}
                         keyExtractor={(item) => item.id}
                         renderItem={renderItem}

@@ -23,6 +23,7 @@ export default function useUser(callback, deps) {
             await AsyncStorage.removeItem('jwt');
             await AsyncStorage.removeItem('username');
             setState({loading: true, error: false, logged: false});
+            setUser(null);
         } catch (error) {
             console.error('Error al hacer logout:', error);
             setState({loading: false, error: true, logged: true});
