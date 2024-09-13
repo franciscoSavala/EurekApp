@@ -16,7 +16,7 @@ import java.util.List;
 public class Handler {
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiError> valiadtionException(ConstraintViolationException e){
+    public ResponseEntity<ApiError> valiadtionException(ConstraintViolationException e) {
         List<String> messages = e.getConstraintViolations().stream()
                 .map(ConstraintViolation::getMessage)
                 .toList();
@@ -25,19 +25,19 @@ public class Handler {
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ApiError> maxUploadSizeException(Exception e){
+    public ResponseEntity<ApiError> maxUploadSizeException(Exception e) {
         ApiError apiError = new ApiError("file_too_large", e.getMessage(), HttpStatus.PAYLOAD_TOO_LARGE.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 
     @ExceptionHandler(JwtException.class)
-    public ResponseEntity<ApiError> jwtNotValid(Exception e){
+    public ResponseEntity<ApiError> jwtNotValid(Exception e) {
         ApiError apiError = new ApiError("invalid_jwt", e.getMessage(), HttpStatus.FORBIDDEN.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiError> apiException(ApiException e){
+    public ResponseEntity<ApiError> apiException(ApiException e) {
         ApiError apiError = new ApiError(e.getError(), e.getMessage(), e.getStatusCode().value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
@@ -46,6 +46,12 @@ public class Handler {
     public ResponseEntity<ApiError> missingParameter(MissingServletRequestParameterException parameter) {
         String message = String.format("Parameter %s missing", parameter.getParameterName());
         ApiError apiError = new ApiError("missing_parameter", message, HttpStatus.BAD_REQUEST.value());
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<ApiError> handleBadRequestException(BadRequestException e) {
+        ApiError apiError = new ApiError(e.getError(), e.getMessage(), HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 }
