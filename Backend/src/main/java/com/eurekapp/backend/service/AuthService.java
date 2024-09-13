@@ -76,6 +76,17 @@ public class AuthService {
     }
 
     public JwtTokenDto register(UserDto user){
+        // Validación del username
+        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
+            throw new BadRequestException("invalid_username", "El nombre de usuario no puede estar vacío.");
+        }
+
+        // Si el username es válido, validamos el password
+        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
+            throw new BadRequestException("invalid_password", "La contraseña no puede estar vacía.");
+        }
+
+
         if(userRepository.findByUsername(user.getUsername())
                 .isPresent())
             throw new ForbbidenException("repeated_user","Ya existe un usuario con ese nombre de usuario");
