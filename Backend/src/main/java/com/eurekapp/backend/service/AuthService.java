@@ -5,6 +5,7 @@ import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.exception.Constants;
 import com.eurekapp.backend.exception.ForbbidenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Organization;
@@ -38,30 +39,35 @@ public class AuthService {
     public JwtTokenDto login(UserDto user) {
         // Validación del username
         if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new BadRequestException("invalid_username", "El nombre de usuario no puede estar vacío.");
+            throw new BadRequestException(Constants.CODE_INVALID_USERNAME, Constants.ERROR_INVALID_USERNAME);
         }
 
         // Si el username es válido, validamos el password
         if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-            throw new BadRequestException("invalid_password", "La contraseña no puede estar vacía.");
+            throw new BadRequestException(Constants.CODE_INVALID_PASSWORD, Constants.ERROR_INVALID_PASSWORD);
         }
 
-        // Si ambas validaciones pasan, autenticamos al usuario
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        user.getUsername(),
-                        user.getPassword()
-                )
-        );
+        try {
+            // Si ambas validaciones pasan, autenticamos al usuario
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            user.getUsername(),
+                            user.getPassword()
+                    )
+            );
+        } catch (Exception e) {
+            // Capturamos cualquier excepción de autenticación y lanzamos un error genérico
+            throw new BadRequestException(Constants.CODE_INVALID_CREDENTIALS, Constants.ERROR_INVALID_CREDENTIALS);
+        }
 
         UserEurekapp userEurekapp = userRepository.findByUsername(user.getUsername())
                 .orElseThrow(
                         () -> new NotFoundException(
                                 "user_not_found",
-                                String.format("No se encontró el usuario con el username %s",
-                                        user.getUsername())
+                                String.format("No se encontró el usuario con el username %s", user.getUsername())
                         ));
         log.info("[action:login] User {} logged", user.getUsername());
+
         String jwt = jwtService.generateToken(userEurekapp);
         Organization organization = userEurekapp.getOrganization();
         if (organization != null) {
