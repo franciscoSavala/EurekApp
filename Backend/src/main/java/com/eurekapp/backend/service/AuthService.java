@@ -91,7 +91,7 @@ public class AuthService {
         return JwtTokenDto.builder().token(jwtToken).build();
     }
 
-    // Método auxiliar para crear la respuesta del token JWT
+    // Metodo auxiliar para crear la respuesta del token JWT
     private JwtTokenDto createJwtTokenResponse(UserEurekapp user, String jwt) {
         Organization organization = user.getOrganization();
         if (organization != null) {
