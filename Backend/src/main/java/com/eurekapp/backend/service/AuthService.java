@@ -2,12 +2,12 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.configuration.security.JwtService;
 import com.eurekapp.backend.dto.OrganizationDto;
+import com.eurekapp.backend.dto.request.LoginDto;
 import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
 import com.eurekapp.backend.exception.BadRequestException;
-import com.eurekapp.backend.exception.Constants;
 import com.eurekapp.backend.exception.ForbbidenException;
-import com.eurekapp.backend.exception.NotFoundException;
+import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -36,40 +38,62 @@ public class AuthService {
         this.authenticationManager = authenticationManager;
     }
 
-    public JwtTokenDto login(UserDto user) {
-        // Validación del username
-        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new BadRequestException(Constants.CODE_INVALID_USERNAME, Constants.ERROR_INVALID_USERNAME);
-        }
 
-        // Si el username es válido, validamos el password
-        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-            throw new BadRequestException(Constants.CODE_INVALID_PASSWORD, Constants.ERROR_INVALID_PASSWORD);
-        }
-
+    public JwtTokenDto login(LoginDto user) {
         try {
-            // Si ambas validaciones pasan, autenticamos al usuario
-            authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            user.getUsername(),
-                            user.getPassword()
-                    )
+            // Autenticación del usuario
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
             );
-        } catch (Exception e) {
-            // Capturamos cualquier excepción de autenticación y lanzamos un error genérico
-            throw new BadRequestException(Constants.CODE_INVALID_CREDENTIALS, Constants.ERROR_INVALID_CREDENTIALS);
+
+            // Si la autenticación fue exitosa, recuperamos el usuario
+            UserEurekapp userEurekapp = (UserEurekapp) authentication.getPrincipal();
+
+            log.info("[action:login] Usuario {} autenticado exitosamente", user.getEmail());
+
+            // Generamos el token JWT
+            String jwt = jwtService.generateToken(userEurekapp);
+
+            // Devolver el token y la organización si está presente
+            return createJwtTokenResponse(userEurekapp, jwt);
+
+        } catch (AuthenticationException e) {
+            log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getEmail());
+            // Si la autenticación falla, lanzamos un error de credenciales inválidas
+            throw new BadRequestException(ValidationError.INVALID_CREDENTIALS.getCode(), ValidationError.INVALID_CREDENTIALS.getError());
+        }
+    }
+
+    public JwtTokenDto register(UserDto user) {
+        // Verificar si el usuario ya está registrado
+        if (userRepository.findByUsername(user.getEmail()).isPresent()) {
+            log.warn("[action:register] Usuario con correo {} ya registrado", user.getEmail());
+            throw new ForbbidenException(ValidationError.REPEATED_EMAIL.getCode(), ValidationError.REPEATED_EMAIL.getError());
         }
 
-        UserEurekapp userEurekapp = userRepository.findByUsername(user.getUsername())
-                .orElseThrow(
-                        () -> new NotFoundException(
-                                "user_not_found",
-                                String.format("No se encontró el usuario con el username %s", user.getUsername())
-                        ));
-        log.info("[action:login] User {} logged", user.getUsername());
+        // Creación del usuario
+        UserEurekapp userDetails = UserEurekapp.builder()
+                .role(Role.USER)
+                .password(passwordEncoder.encode(user.getPassword()))
+                .username(user.getEmail())
+                .active(true)
+                .build();
 
-        String jwt = jwtService.generateToken(userEurekapp);
-        Organization organization = userEurekapp.getOrganization();
+        // Guardar usuario en el repositorio
+        userRepository.save(userDetails);
+
+        log.info("[action:register] Usuario {} registrado exitosamente", user.getEmail());
+
+        // Generar el token JWT para el usuario registrado
+        String jwtToken = jwtService.generateToken(userDetails);
+
+        // Devolver el token JWT
+        return JwtTokenDto.builder().token(jwtToken).build();
+    }
+
+    // Método auxiliar para crear la respuesta del token JWT
+    private JwtTokenDto createJwtTokenResponse(UserEurekapp user, String jwt) {
+        Organization organization = user.getOrganization();
         if (organization != null) {
             OrganizationDto organizationDto = OrganizationDto.builder()
                     .id(organization.getId())
@@ -79,35 +103,5 @@ public class AuthService {
             return JwtTokenDto.builder().organization(organizationDto).token(jwt).build();
         }
         return JwtTokenDto.builder().token(jwt).build();
-    }
-
-    public JwtTokenDto register(UserDto user){
-        // Validación del username
-        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new BadRequestException("invalid_username", "El nombre de usuario no puede estar vacío.");
-        }
-
-        // Si el username es válido, validamos el password
-        if (user.getPassword() == null || user.getPassword().trim().isEmpty()) {
-            throw new BadRequestException("invalid_password", "La contraseña no puede estar vacía.");
-        }
-
-
-        if(userRepository.findByUsername(user.getUsername())
-                .isPresent())
-            throw new ForbbidenException("repeated_user","Ya existe un usuario con ese nombre de usuario");
-
-        UserEurekapp userDetails = UserEurekapp.builder()
-                .role(Role.USER)
-                .password(passwordEncoder.encode(user.getPassword()))
-                .username(user.getUsername())
-                .active(true)
-                .build();
-
-        userRepository.save(userDetails);
-
-        String jwtToken = jwtService.generateToken(userDetails);
-
-        return JwtTokenDto.builder().token(jwtToken).build();
     }
 }
