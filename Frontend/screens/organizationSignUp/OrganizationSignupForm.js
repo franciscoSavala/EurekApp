@@ -2,7 +2,7 @@ import {Controller, useForm} from "react-hook-form";
 import React, {useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
-import {ActivityIndicator, StyleSheet, View} from "react-native";
+import {ActivityIndicator, StyleSheet, TextInput, View} from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Input, Text} from "react-native-elements";
 import EurekappButton from "../components/Button";
@@ -70,18 +70,18 @@ const OrganizationSignupForm = () => {
         );
     }
 
-    const InputForm = ({text, valueName, value, inputStyle}) => {
+    const InputForm = ({text, valueName, value, autoComplete = 'off',
+                           keyboardType = 'default', extraStyle = {}}) => {
         return (
-            <Input
+            <TextInput
                 placeholder={text}
                 placeholderTextColor={'#638888'}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
-                multiline={true}
-                style={inputStyle}
-                inputContainerStyle={styles.textArea}
-                labelStyle={{color: '#000'}}
+                style={[styles.textArea, extraStyle]}
                 renderErrorMessage={false}
+                autoComplete={autoComplete}
+                keyboardType={keyboardType}
             />
         );
     }
@@ -90,13 +90,17 @@ const OrganizationSignupForm = () => {
         <View style={styles.container}>
             <View style={{marginHorizontal: 10, flex: 1}}>
                 <View style={styles.formContainer}>
+                    <Text style={styles.label}>Email</Text>
                     <Controller
                         control={control}
                         render={({onChange, value}) => (
                             <InputForm
-                                text='Email de contacto'
+                                text='Escribe tu email'
                                 valueName='OrganizationEmail'
-                                value={value} />
+                                value={value}
+                                autoComplete={'email'}
+                                keyboardType={'email-address'}
+                                />
                         )}
                         name='OrganizationEmail'
                         rules={{
@@ -108,18 +112,19 @@ const OrganizationSignupForm = () => {
                         ? errors.OrganizationEmail.message
                         : " "
                     }</Text>
+                    <Text style={styles.label}>Motivo</Text>
                     <Controller
                         control={control}
                         render={({onChange, value}) => (
                             <InputForm
-                                text='Solicitud'
+                                text='Escribe un motivo para tu solicitud'
                                 valueName='RequestData'
                                 value={value}
-                                inputStyle={{height: 200, textAlignVertical: 'top', paddingTop: 10}}/>
+                                extraStyle={{height: 200, textAlignVertical: 'top', paddingTop: 10}}/>
                         )}
                         name='RequestData'
                         rules={{
-                            required: { value: true, message: 'Se requiere ingresar texto' },
+                            required: { value: true, message: 'Se requiere ingresar un motivo' },
                         }}
                         defaultValue='' />
                     <Text style={styles.textError}>{errors.RequestData ? errors.RequestData.message : " "}</Text>
@@ -146,12 +151,14 @@ const styles = StyleSheet.create({
     },
     textError: {
         color: '#000',
-        marginBottom: 10,
     },
     input: {
         textAlignVertical: 'top',
     },
     textArea: {
+        resize: 'none',
+        overflow: 'hidden',
+        alignSelf: 'stretch',
         borderRadius: 12,
         color: '#111818',
         backgroundColor: '#f0f4f4',
@@ -160,8 +167,17 @@ const styles = StyleSheet.create({
         placeholderTextColor: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
         paddingVertical: 10,
-        paddingHorizontal: 10,
+        paddingHorizontal: 20,
         borderBottomWidth: 0,
-    }
+        marginHorizontal: 10,
+    },
+    label: {
+        alignSelf: 'flex-start',
+        marginLeft: 10,
+        color: '#111818',
+        fontSize: 16,
+        fontWeight: '500',
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
 });
 export default OrganizationSignupForm;

@@ -1,6 +1,7 @@
 import {Pressable, Text, View} from "react-native";
 import RNDateTimePicker from "@react-native-community/datetimepicker";
 import React, {useState} from "react";
+import Icon from "react-native-vector-icons/FontAwesome6";
 
 const EurekappDateComponent = ({labelText, date, setDate}) => {
     const [openCalendar, setOpenCalendar] = useState(false);
@@ -15,22 +16,25 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                     fontFamily: 'PlusJakartaSans-Regular'
                 }}>{labelText}</Text>
             </View>
-            <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center'}}>
-                <Text>El</Text>
+            <View style={{
+                alignSelf: 'stretch',
+                flexDirection: 'row',
+                justifyContent: 'center'}}>
                 <Pressable
                     onPress={() => setOpenCalendar(true)}
                 >
                     <View style={styles.calendarButtonContainer}>
+                        <Icon style={{marginRight: 10}} name={'calendar'} size={20} color={'#000000'}/>
                         <Text style={styles.calendarButtonText}>
                             {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                         </Text>
                     </View>
                 </Pressable>
-                <Text>a las</Text>
                 <Pressable
                     onPress={() => setOpenTime(true)}
                 >
                     <View style={styles.calendarButtonContainer}>
+                        <Icon style={{marginRight: 10}} name={'clock'} size={20} color={'#000000'}/>
                         <Text style={styles.calendarButtonText}>
                             {date.toLocaleTimeString()}
                         </Text>
@@ -62,6 +66,8 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
 
 const styles = {
     calendarButtonContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginHorizontal: 5,
         padding: 10,
         backgroundColor: '#f0f4f4',
@@ -69,6 +75,9 @@ const styles = {
     },
     calendarButtonText: {
         fontFamily: 'PlusJakartaSans-Regular',
+        justifySelf: 'center',
+        fontSize: 16,
+        paddingBottom: 2,
     },
     dateContainer: {
         alignSelf: 'stretch',

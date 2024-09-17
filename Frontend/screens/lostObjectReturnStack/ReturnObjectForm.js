@@ -1,4 +1,4 @@
-import {ActivityIndicator, FlatList, StyleSheet, View} from "react-native";
+import {ActivityIndicator, FlatList, StyleSheet, TextInput, View} from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import {Input, Text} from "react-native-elements";
 import React, {useState} from "react";
@@ -78,16 +78,17 @@ const ReturnObjectForm = ({ route, navigation}) => {
         );
     }
 
-    const InputForm = ({text, valueName, value }) => {
+    const InputForm = ({text, valueName, value , autoComplete = 'off', keyboardType = 'default'}) => {
         return (
-            <Input
+            <TextInput
                 placeholder={text}
                 placeholderTextColor={'#638888'}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
-                inputContainerStyle={styles.textArea}
-                labelStyle={{color: '#000'}}
+                style={styles.textArea}
                 renderErrorMessage={false}
+                autoComplete={autoComplete}
+                keyboardType={keyboardType}
             />
         );
     }
@@ -95,13 +96,23 @@ const ReturnObjectForm = ({ route, navigation}) => {
     return (
         <View style={styles.container}>
             <View style={styles.formContainer}>
+                <View style={styles.explanatoryTextContainer}>
+                    <Text style={[styles.label, {
+                        fontSize: 18,
+                        textAlign: 'center',
+                        color: '#939393',
+                        marginBottom: 10,
+                    }]}>Necesitamos información de la persona que está reclamando el objeto</Text>
+                </View>
+                <Text style={styles.label}>Nombre de usuario</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Nombre de usuario de dueño'
+                            text='Escribe un usuario'
                             valueName='ObjectOwnerUsername'
-                            value={value} />
+                            value={value}
+                            autoComplete={'username'} />
                     )}
                     name='ObjectOwnerUsername'
                     rules={{
@@ -112,13 +123,15 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     ? errors.ObjectOwnerUsername.message
                     : " "
                 }</Text>
+                <Text style={styles.label}>DNI</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='DNI'
+                            text='Escribe el documento'
                             valueName='Dni'
-                            value={value} />
+                            value={value}
+                            keyboardType={'numeric'} />
                     )}
                     name='Dni'
                     rules={{
@@ -127,13 +140,16 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
+                <Text style={styles.label}>Teléfono</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Teléfono'
+                            text='Escribe el número de teléfono'
                             valueName='Phone'
-                            value={value} />
+                            value={value}
+                            autoComplete={'tel'}
+                            keyboardType={'phone-pad'}/>
                     )}
                     name='Phone'
                     rules={{pattern: { value: /\d+/, message: 'No es un número de teléfono'}}}
@@ -162,11 +178,13 @@ const styles = StyleSheet.create({
     },
     textError: {
         color: '#000',
-        marginBottom: 10,
+        alignSelf: 'flex-end',
+        marginRight: 10,
     },
     textArea: {
         resize: 'none',
         overflow: 'hidden',
+        alignSelf: 'stretch',
         borderRadius: 12,
         color: '#111818',
         backgroundColor: '#f0f4f4',
@@ -177,6 +195,18 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 20,
         borderBottomWidth: 0,
+        marginHorizontal: 10,
+    },
+    label: {
+        alignSelf: 'flex-start',
+        marginLeft: 10,
+        color: '#111818',
+        fontSize: 16,
+        fontWeight: '500',
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
+    explanatoryTextContainer: {
+        justifyContent: 'center',
     }
 });
 
