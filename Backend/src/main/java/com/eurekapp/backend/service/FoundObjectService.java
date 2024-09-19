@@ -73,6 +73,7 @@ public class FoundObjectService implements IFoundObjectService {
     @SneakyThrows
     public FoundObjectUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
         // Convertimos el archivo de imagen en bytes, para poder enviarlo en una request.
+        //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
         byte[] imageBytes = command.getImage().getBytes();
         // Antes de seguir, chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() == null
