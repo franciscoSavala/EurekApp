@@ -23,7 +23,7 @@ public class UserDto {
 
     @NotBlank(message = "El correo electrónico es obligatorio")
     @Email(message = "Debe ser un correo electrónico válido")
-    private String email;
+    private String username;
 
     @NotBlank(message = "La contraseña es obligatoria")
     @Size(min = 8, max = 16, message = "La contraseña debe tener entre 8 y 16 caracteres")

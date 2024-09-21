@@ -7,6 +7,7 @@ import com.eurekapp.backend.dto.request.UserDto;
 import com.eurekapp.backend.dto.response.JwtTokenDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
@@ -42,14 +43,19 @@ public class AuthService {
     public JwtTokenDto login(LoginDto user) {
         try {
             // Autenticación del usuario
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getUsername(), user.getPassword())
             );
 
             // Si la autenticación fue exitosa, recuperamos el usuario
-            UserEurekapp userEurekapp = (UserEurekapp) authentication.getPrincipal();
+            UserEurekapp userEurekapp = userRepository.findByUsername(user.getUsername())
+                    .orElseThrow(
+                            () -> new NotFoundException(
+                                    "user_not_found",
+                                    String.format("No se encontró el usuario con el username %s", user.getUsername())
+                            ));
 
-            log.info("[action:login] Usuario {} autenticado exitosamente", user.getEmail());
+            log.info("[action:login] Usuario {} autenticado exitosamente", user.getUsername());
 
             // Generamos el token JWT
             String jwt = jwtService.generateToken(userEurekapp);
@@ -58,16 +64,16 @@ public class AuthService {
             return createJwtTokenResponse(userEurekapp, jwt);
 
         } catch (AuthenticationException e) {
-            log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getEmail());
+            log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getUsername());
             // Si la autenticación falla, lanzamos un error de credenciales inválidas
-            throw new BadRequestException(ValidationError.INVALID_CREDENTIALS.getCode(), ValidationError.INVALID_CREDENTIALS.getError());
+            throw new BadRequestException(ValidationError.INVALID_CREDENTIALS);
         }
     }
 
     public JwtTokenDto register(UserDto user) {
         // Verificar si el usuario ya está registrado
-        if (userRepository.findByUsername(user.getEmail()).isPresent()) {
-            log.warn("[action:register] Usuario con correo {} ya registrado", user.getEmail());
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            log.warn("[action:register] Usuario con correo {} ya registrado", user.getUsername());
             throw new ForbbidenException(ValidationError.REPEATED_EMAIL.getCode(), ValidationError.REPEATED_EMAIL.getError());
         }
 
@@ -75,14 +81,14 @@ public class AuthService {
         UserEurekapp userDetails = UserEurekapp.builder()
                 .role(Role.USER)
                 .password(passwordEncoder.encode(user.getPassword()))
-                .username(user.getEmail())
+                .username(user.getUsername())
                 .active(true)
                 .build();
 
         // Guardar usuario en el repositorio
         userRepository.save(userDetails);
 
-        log.info("[action:register] Usuario {} registrado exitosamente", user.getEmail());
+        log.info("[action:register] Usuario {} registrado exitosamente", user.getUsername());
 
         // Generar el token JWT para el usuario registrado
         String jwtToken = jwtService.generateToken(userDetails);
