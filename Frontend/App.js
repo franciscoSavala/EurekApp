@@ -140,26 +140,26 @@ const EurekappTab = () => {
     return (
         <Drawer.Navigator drawerContent={(props) => <CustomDrawerContent {...props} />}>
             <Drawer.Screen name="FindObjectStackScreen" options={{
-                title: 'Encontrar Objeto',
+                title: 'Buscar un objeto',
                 headerTitleAlign: 'center',
                 drawerIcon: searchIcon
             }} component={FindObjectStackScreen} />
             {isOrgAdmin ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
-                        title: 'Subir objeto',
+                        title: 'Receptar un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: uploadIcon
                     }} component={UploadObject} />
                     <Drawer.Screen name="LostObjectReturnStackScreen" options={{
-                        title: 'Devolver Objeto',
+                        title: 'Devolver un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: returnIcon
                     }} component={ReturnObjectStackScreen}/>
                 </>
                 : <>
                     <Drawer.Screen name="OrganizationSignupForm" options={{
-                        title: 'Solicitar Cuenta',
+                        title: 'Solicitar alta de organización',
                         headerTitleAlign: 'center',
                         drawerIcon: uploadIcon
                     }} component={OrganizationSignupForm} />

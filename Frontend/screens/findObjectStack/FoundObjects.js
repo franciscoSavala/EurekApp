@@ -61,9 +61,11 @@ const FoundObjects = ({ route, navigation }) => {
                     <View style={styles.modalView}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                         <Text style={styles.modalText}>
-                            Info de contacto: {foundObjectsMap.has(objectSelectedId) ?
+                            Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}{foundObjectsMap.has(objectSelectedId) ?
                             foundObjectsMap.get(objectSelectedId).organization.contactData :
                             null}
+                            {"\n"}{"\n"}
+                            Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto.
                         </Text>
                         <EurekappButton text='Cerrar'
                                         onPress={() => setOrganizationInformationModal(false)}/>
@@ -156,7 +158,7 @@ const styles = StyleSheet.create({
     },
     modalText: {
         marginBottom: 15,
-        textAlign: 'center',
+        textAlign: 'left',
         fontFamily: 'PlusJakartaSans-Regular',
     },
     modalButton: {

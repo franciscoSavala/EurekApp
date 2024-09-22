@@ -68,10 +68,10 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
                 <View style={styles.modalView}>
                     <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                     <Text style={styles.modalText}>
-                        ¿Quieres guardar tu búsqueda? Te avisaremos cuando encontremos un objeto similar
+                        ¿Quieres guardar tu búsqueda? Te avisaremos cuando encontremos un objeto similar.
                     </Text>
                     <StatusComponent />
-                    <EurekappButton text='Guardar Búsqueda' onPress={uploadLostObject} />
+                    <EurekappButton text='Guardar búsqueda' onPress={uploadLostObject} />
                     <EurekappButton text='Cerrar'
                                     backgroundColor={'#f0f4f4'}
                                     textColor={'#111818'}

@@ -94,7 +94,7 @@ const LostObjectReturn = ({ navigation }) => {
                 <Text style={{
                     fontFamily: 'PlusJakartaSans-Regular',
                     fontSize: 20
-                }}>Tu organización no tiene objetos!</Text>
+                }}>¡Tu organización no tiene objetos!</Text>
             </View>
         );
     }
@@ -118,7 +118,7 @@ const LostObjectReturn = ({ navigation }) => {
                 }
 
             </View>
-            <EurekappButton text='Marcar como encontrado'
+            <EurekappButton text='Devolver este objeto'
                             onPress={() => navigation.navigate('ReturnObjectForm', {
                                 objectId: objectSelectedId
                             })}/>

@@ -12,7 +12,7 @@ const NotFoundObjects = ({route, navigation}) => {
     return (
         <View style={styles.container}>
             <View style={styles.coincidencesContainer}>
-                <Text style={styles.headerText}>No se encontraron coincidencias con tu búsqueda.</Text>
+                <Text style={styles.headerText}>No se encontraron coincidencias para tu búsqueda.</Text>
                 <View style={styles.prettyNotFoundContainer}>
                     <View style={styles.prettyCardNotFound}>
                         <View style={styles.magnifyingIcon}>
@@ -26,7 +26,7 @@ const NotFoundObjects = ({route, navigation}) => {
                     </View>
                 </View>
             </View>
-            <EurekappButton onPress={() => setModalVisible(true)} text="Reportar objeto perdido" />
+            <EurekappButton onPress={() => setModalVisible(true)} text="Guardar búsqueda" />
             <UploadLostObjectModal modalVisible={modalVisible}
                                    setModalVisible={setModalVisible}
                                    query={query} />

@@ -98,11 +98,12 @@ const ReturnObjectForm = ({ route, navigation}) => {
             <View style={styles.formContainer}>
                 <View style={styles.explanatoryTextContainer}>
                     <Text style={[styles.label, {
-                        fontSize: 18,
-                        textAlign: 'center',
+                        fontSize: 13,
+                        textAlign: 'left',
                         color: '#939393',
                         marginBottom: 10,
-                    }]}>Necesitamos información de la persona que está reclamando el objeto</Text>
+                    }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
+                    </Text>
                 </View>
                 <Text style={styles.label}>Nombre de usuario</Text>
                 <Controller
@@ -145,20 +146,20 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe el número de teléfono'
+                            text='Ingresa un número de teléfono'
                             valueName='Phone'
                             value={value}
                             autoComplete={'tel'}
                             keyboardType={'phone-pad'}/>
                     )}
                     name='Phone'
-                    rules={{pattern: { value: /\d+/, message: 'No es un número de teléfono'}}}
+                    rules={{pattern: { value: /\d+/, message: 'No es un número de teléfono.'}}}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Phone ? errors.Phone.message : " "}</Text>
                 <StatusComponent />
 
             </View>
-            <EurekappButton text={'Registrar encuentro'} onPress={handleSubmit(onSubmit)}/>
+            <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
         </View>
     );
 }

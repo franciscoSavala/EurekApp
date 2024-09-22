@@ -23,7 +23,7 @@ import java.util.UUID;
 @Service
 public class LostObjectService {
 
-    private static final double MIN_SCORE = 0.6;
+    private static final double MIN_SCORE = 0.0;
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;

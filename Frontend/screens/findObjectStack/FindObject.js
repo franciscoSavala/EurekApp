@@ -73,22 +73,22 @@ const FindObject = ({ navigation }) => {
         <View style={styles.container}>
             <View style={{flex: 1, marginHorizontal: 10, justifyContent: 'space-between'}}>
                 <View style={styles.formContainer}>
-                    <Text style={styles.labelText}>Descripción del objeto</Text>
+                    <Text style={styles.labelText}>Descripción del objeto:</Text>
                     <TextInput
                         style={styles.textArea}
-                        placeholder="Escribe una descripción"
+                        placeholder="Proporciona detalles que ayuden a identificarlo"
                         multiline
                         onChangeText={(text) => setQueryObjects(text)}
                     />
                     <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
-                    <EurekappDateComponent labelText={'Fecha de pérdida de objeto: '}
+                    <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
                                            date={lostDate} setDate={setLostDate}/>
                 </View>
                 {buttonWasPressed ? (
                     loading ? <ActivityIndicator size="large" color="#111818" /> : null
                 ) : null
                 }
-                <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
+                <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
             </View>
         </View>
     );

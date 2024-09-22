@@ -37,7 +37,7 @@ import java.util.function.Predicate;
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
-    private static final double MIN_SCORE = 0.7;
+    private static final double MIN_SCORE = 0.0;
     private static final int GRACE_HOURS = 6;
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);

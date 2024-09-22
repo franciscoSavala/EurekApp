@@ -208,11 +208,11 @@ const UploadObject = () => {
                             onChangeText={(text) => setDetailedDescription(text)}
                         />
                     </View>
-                    <EurekappDateComponent labelText={"Fecha de encuentro del objeto: "}
+                    <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
                                            setDate={setFoundDate} date={foundDate}/>
                     <StatusComponent />
                 </ScrollView>
-                <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
+                <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
             </View>
         </View>
     );
