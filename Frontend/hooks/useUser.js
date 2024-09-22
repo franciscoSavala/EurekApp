@@ -38,6 +38,7 @@ export default function useUser(callback, deps) {
                         const organization = userContext.organization;
                         await AsyncStorage.setItem('jwt', userContext.token);
                         await AsyncStorage.setItem('username', username);
+                        await AsyncStorage.setItem('user.first_name', userContext.user.firstName.toString());
                         if(organization != null) {
                             await AsyncStorage.setItem('org.id', organization.id.toString());
                             await AsyncStorage.setItem('org.name', organization.name);

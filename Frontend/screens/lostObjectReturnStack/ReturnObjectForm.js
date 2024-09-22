@@ -105,39 +105,48 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
                     </Text>
                 </View>
-                <Text style={styles.label}>Nombre de usuario</Text>
+                <Text style={styles.label}>Usuario de Eurekapp (email, opcional):</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe un usuario'
+                            text='Ingresa el email del usuario'
                             valueName='ObjectOwnerUsername'
                             value={value}
-                            autoComplete={'username'} />
+                             />
                     )}
                     name='ObjectOwnerUsername'
                     rules={{
-                        required: {value: true, message: 'Se requiere el nombre del usuario'}
+                        required: {value: false, message: ''}
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.ObjectOwnerUsername
                     ? errors.ObjectOwnerUsername.message
                     : " "
                 }</Text>
+
+
+                <Text style={[styles.label, {
+                    fontSize: 13,
+                    textAlign: 'left',
+                    color: '#939393',
+                    marginBottom: 10,
+                    }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad.
+                </Text>
                 <Text style={styles.label}>DNI</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe el documento'
+                            text='Ingresa el número de documento'
                             valueName='Dni'
                             value={value}
                             keyboardType={'numeric'} />
                     )}
                     name='Dni'
                     rules={{
-                        required: { value: true, message: 'Se requiere el documento' },
-                        pattern: { value: /\d{7,8}/, message: 'Número de documento no válido'}
+                        required: { value: true, message: 'Dato obligatorio.' },
+                        pattern: { value: /\d{7,8}/, message: 'Número de documento no válido.'}
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
@@ -146,7 +155,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Ingresa un número de teléfono'
+                            text='Ingresa un teléfono de contacto'
                             valueName='Phone'
                             value={value}
                             autoComplete={'tel'}

@@ -28,7 +28,7 @@ public class UserEurekapp implements UserDetails {
     private Long id;
 
     @NotNull
-    @Size(min = 3, max = 50, message = "El nombre de usuario debe tener entre 3 y 50 caracteres.")
+    @Size(min = 3, max = 50, message = "La dirección de correo electrónico debe tener entre 6 y 50 caracteres.")
     @Column(name = "username", nullable = false, length = 50, unique = true)
     private String username;
 
@@ -39,6 +39,16 @@ public class UserEurekapp implements UserDetails {
 
     @Column(name = "active")
     private boolean active;
+
+    @NotNull
+    @Size(min = 1, max = 50, message = "El nombre debe tener entre 1 y 50 caracteres.")
+    @Column(name = "first_name", nullable = false, length = 50)
+    private String firstName;
+
+    @NotNull
+    @Size(min = 1, max = 50, message = "El apellido debe tener entre 1 y 50 caracteres.")
+    @Column(name = "last_name", nullable = false, length = 50)
+    private String lastName;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)

@@ -19,9 +19,9 @@ public class ReturnFoundObject {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Usuario de la persona que se lleva el objeto consigo.
+    // Usuario de la persona que se lleva el objeto consigo. Puede ser null, si la persona que lo devuelve no usa la app.
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)
     private UserEurekapp userEurekapp;
 
     /* Es String porque no lo usaremos para hacer operaciones matemáticas, y para no tener que lidiar

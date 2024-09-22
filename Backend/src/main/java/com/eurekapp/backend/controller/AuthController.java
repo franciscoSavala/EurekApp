@@ -1,8 +1,8 @@
 package com.eurekapp.backend.controller;
 
-import com.eurekapp.backend.dto.request.LoginDto;
-import com.eurekapp.backend.dto.request.UserDto;
-import com.eurekapp.backend.dto.response.JwtTokenDto;
+import com.eurekapp.backend.dto.request.LoginRequestDto;
+import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
+import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
@@ -22,13 +22,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<JwtTokenDto> login(@Valid @RequestBody LoginDto loginDto) {
-        JwtTokenDto jwtToken = authService.login(loginDto);
-        return ResponseEntity.ok(jwtToken);
+    public ResponseEntity<LoginResponseDto> login(@Valid @RequestBody LoginRequestDto loginRequestDto) {
+        LoginResponseDto loginResponseDto = authService.login(loginRequestDto);
+        return ResponseEntity.ok(loginResponseDto);
     }
-
+    
     @PostMapping("/signup")
-    public ResponseEntity<JwtTokenDto> register(@Valid @RequestBody UserDto userDto) {
-        return ResponseEntity.ok(authService.register(userDto));
+    public ResponseEntity<LoginResponseDto> register(@Valid @RequestBody UserRegistrationRequestDto userRegistrationRequestDto) {
+        return ResponseEntity.ok(authService.register(userRegistrationRequestDto));
     }
 }

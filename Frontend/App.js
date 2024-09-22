@@ -80,6 +80,7 @@ const ReturnObjectStackScreen = () => {
 
 const CustomDrawerContent = (props) => {
     const [userName, setUserName] = useState('');
+    const [userFirstName, setUserFirstName] = useState('');
     const navigation = useNavigation();
     const { logout } = useUser();
     useEffect(() => {
@@ -93,10 +94,19 @@ const CustomDrawerContent = (props) => {
         fetchUserName();
     }, []);
 
+    useEffect(() => {
+        const fetchUserFirstName = async () => {
+            let user = await AsyncStorage.getItem('user.first_name');
+            setUserFirstName(user);
+        }
+        fetchUserFirstName();
+    }, []);
+
     const handleLogout = async () => {
         // Limpiar los datos del usuario
         await AsyncStorage.removeItem('org.name');
         await AsyncStorage.removeItem('username');
+        await AsyncStorage.removeItem('user.first_name');
         logout();
     }
 
@@ -104,7 +114,7 @@ const CustomDrawerContent = (props) => {
         <DrawerContentScrollView {...props} contentContainerStyle={{flex: 1}}>
             <View style={{flex: 1}}>
                 <View style={styles.drawerHeader}>
-                    <Text style={styles.headerText}>Bienvenido, {userName}!</Text>
+                    <Text style={styles.headerText}>Bienvenido, {userFirstName}!</Text>
                 </View>
                 <DrawerItemList {...props} />
 
