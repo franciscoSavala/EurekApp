@@ -6,16 +6,31 @@ import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
+import {useFocusEffect} from "@react-navigation/native";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const FindObject = ({ navigation }) => {
+const FindObject = ({ navigation, route }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [lostDate, setLostDate] = useState(new Date());
+
+    // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
+    useFocusEffect(
+        React.useCallback(() => {
+            if (route.params?.reset) {
+                // Reseteamos todos los estados al recibir el parámetro 'reset'
+                setSelectedInstitution(null);
+                setQueryObjects("");
+                setLoading(false);
+                setButtonWasPressed(false);
+                setLostDate(new Date());
+            }
+        }, [route.params?.reset]) // Dependencia en el parámetro 'reset'
+    );
 
     const validateInputConstraints = () => {
         if(!queryObjects){

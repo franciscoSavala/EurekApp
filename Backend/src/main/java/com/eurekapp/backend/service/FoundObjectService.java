@@ -74,7 +74,8 @@ public class FoundObjectService implements IFoundObjectService {
     public FoundObjectUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
         // Convertimos el archivo de imagen en bytes, para poder enviarlo en una request.
         //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
-        byte[] imageBytes = command.getImage().getBytes();
+        final byte[] imageBytes = command.getImage().getBytes();
+
         // Antes de seguir, chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() == null
                 || !organizationRepository.existsById(command.getOrganizationId()))
@@ -85,8 +86,8 @@ public class FoundObjectService implements IFoundObjectService {
         String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
 
         /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la concatenación de la
-        descripción textual que nos dio la otra API, y de la descripción provista por el humano. */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation + command.getDetailedDescription());
+        descripción textual que nos dio la otra API, y de la descripción y título provistos por el humano. */
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
 
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();

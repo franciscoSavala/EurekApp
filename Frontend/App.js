@@ -153,19 +153,22 @@ const EurekappTab = () => {
                 title: 'Buscar un objeto',
                 headerTitleAlign: 'center',
                 drawerIcon: searchIcon
-            }} component={FindObjectStackScreen} />
+            }} component={FindObjectStackScreen}
+            />
             {isOrgAdmin ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
                         title: 'Receptar un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: uploadIcon
-                    }} component={UploadObject} />
+                    }} component={UploadObject}
+                    />
                     <Drawer.Screen name="LostObjectReturnStackScreen" options={{
                         title: 'Devolver un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: returnIcon
-                    }} component={ReturnObjectStackScreen}/>
+                    }} component={ReturnObjectStackScreen}
+                    />
                 </>
                 : <>
                     <Drawer.Screen name="OrganizationSignupForm" options={{
@@ -178,8 +181,6 @@ const EurekappTab = () => {
         </Drawer.Navigator>
     );
 }
-
-
 
 const App = () => {
     LogBox.ignoreAllLogs();
