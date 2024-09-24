@@ -54,7 +54,7 @@ public class UserEurekapp implements UserDetails {
     @Column(name = "role", nullable = false)
     private Role role;
 
-    @OneToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @ManyToOne(fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JoinColumn(name = "organization_id")
     private Organization organization;
 

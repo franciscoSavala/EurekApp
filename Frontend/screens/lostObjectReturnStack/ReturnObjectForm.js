@@ -146,10 +146,18 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     name='Dni'
                     rules={{
                         required: { value: true, message: 'Dato obligatorio.' },
-                        pattern: { value: /\d{7,8}/, message: 'Número de documento no válido.'}
+                        pattern: { value: /\d{7,8}/, message: 'Número de documento inválido.'}
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
+
+                <Text style={[styles.label, {
+                    fontSize: 13,
+                    textAlign: 'left',
+                    color: '#939393',
+                    marginBottom: 10,
+                }]}>{"\n"}Corrobora que el teléfono dictado por la persona sea real.
+                </Text>
                 <Text style={styles.label}>Teléfono</Text>
                 <Controller
                     control={control}
@@ -162,7 +170,10 @@ const ReturnObjectForm = ({ route, navigation}) => {
                             keyboardType={'phone-pad'}/>
                     )}
                     name='Phone'
-                    rules={{pattern: { value: /\d+/, message: 'No es un número de teléfono.'}}}
+                    rules={{
+                        required: { value: true, message: 'Dato obligatorio.' },
+                        pattern: { value: /\d+/, message: 'Número de teléfono inválido.'}
+                    }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Phone ? errors.Phone.message : " "}</Text>
                 <StatusComponent />
