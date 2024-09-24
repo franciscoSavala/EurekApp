@@ -8,7 +8,8 @@ import {
     Pressable,
     ActivityIndicator,
     ImageBackground,
-    ScrollView
+    ScrollView,
+    Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -33,7 +34,11 @@ const UploadObject = () => {
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed ] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
-    const [foundDate, setFoundDate] = useState(new Date());
+    const [foundDate, setFoundDate] = useState(() => {
+        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+        curDate.setMinutes(0,0,0);
+        return curDate;
+    });
 
     useEffect(() => {
         const getContextInstitute = async () => {
@@ -68,8 +73,29 @@ const UploadObject = () => {
     };
 
     const takePhoto = async () => {
-        //let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
-        //handleImagePicked(result);
+        if (Platform.OS === 'web') {
+            // Para web, usamos input file con capture
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment'; // Intenta abrir la cámara trasera si está disponible
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64String = reader.result.split(',')[1];
+                    setImage({ uri: URL.createObjectURL(file), base64: base64String });
+                    setImageByte(Buffer.from(base64String, "base64"));
+                    setImageUploaded(true);
+                };
+                reader.readAsDataURL(file);
+            };
+            input.click();
+        } else {
+            // En móviles, seguimos usando ImagePicker
+            let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
+            handleImagePicked(result);
+        }
     };
 
     const validateConstraints = () => {
@@ -95,24 +121,49 @@ const UploadObject = () => {
         if(!validateConstraints()) return;
         setLoading(true);
         setButtonWasPressed(true);
+
         try {
+
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
 
-            let response =
-                await ReactNativeBlobUtil.fetch('POST',
-                    `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
+            if (Platform.OS === 'web') {
+                // Enviar datos como JSON en la web
+                const formData = new FormData();
+                formData.append('title', objectTitle);
+                formData.append('found_date', foundDate.toISOString().split('.')[0]);
+                formData.append('detailed_description', detailedDescription);
+                formData.append("file", new Blob([imageByte]));
+                let response = await fetch(`${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`, {
+                    method: 'POST',
+                    headers: {
                         'Authorization': authHeader,
-                        'Content-Type': 'multipart/form-data'
-                    },[{name: 'title', data: objectTitle},
-                        {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
-                        {name: 'detailed_description', data: detailedDescription},
-                        {name: 'file', filename: 'found_object.jpg',
-                            data: String(image.base64)}]);
-            setLoading(false);
-            if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
-                setResponseOk(true);
-            }else{
-                setResponseOk(false);
+                    },
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    setResponseOk(true);
+                } else {
+                    setResponseOk(false);
+                }
+            } else {
+                // Enviar datos usando react-native-blob-util en móviles
+                let response =
+                    await ReactNativeBlobUtil.fetch('POST',
+                        `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
+                            'Authorization': authHeader,
+                            'Content-Type': 'multipart/form-data'
+                        },[{name: 'title', data: objectTitle},
+                            {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                            {name: 'detailed_description', data: detailedDescription},
+                            {name: 'file', filename: 'found_object.jpg',
+                                data: String(image.base64)}]);
+                setLoading(false);
+                if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
+                    setResponseOk(true);
+                }else{
+                    setResponseOk(false);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -147,73 +198,71 @@ const UploadObject = () => {
     }
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>
-            <View style={styles.container}>
-                <ScrollView contentContainerStyle={styles.formContainer}>
-                    { imageUploaded ? (
-                        <ImageBackground
-                            source={{ uri: image.uri }}
-                            style={styles.viewImage}
-                            imageStyle={styles.onlyImage} >
-                            <Pressable style={styles.iconContainer} onPress={deleteImage}>
-                                <Icon name={'trash-can'} size={24} color={'#000000'}/>
-                            </Pressable>
-                        </ImageBackground>
-                    ) : (
-                        <Image
-                            source={require('../../assets/defaultImage.png')}
-                            style={styles.image}
-                        />
-                    )
-                    }
-                    <View style={styles.imageLoadContainer}>
-                        <Pressable onPress={pickImage}
-                                   style={styles.imageLoadPressable}>
-                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+            <ScrollView contentContainerStyle={styles.formContainer}>
+                { imageUploaded ? (
+                    <ImageBackground
+                        source={{ uri: image.uri }}
+                        style={styles.viewImage}
+                        imageStyle={styles.onlyImage} >
+                        <Pressable style={styles.iconContainer} onPress={deleteImage}>
+                            <Icon name={'trash-can'} size={24} color={'#000000'}/>
                         </Pressable>
-                        <View style={{width: 10}}></View>
-                        <Pressable onPress={takePhoto}
-                                   style={styles.imageLoadPressable}>
-                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                        </Pressable>
-                    </View>
-                    <View style={styles.textAreaContainer}>
-                        <Text style={{
-                            color: '#111818',
-                            fontSize: 16,
-                            fontWeight: '500',
-                            fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Titulo de la publicación: </Text>
-                        <TextInput
-                            maxLength={30}
-                            style={styles.textArea}
-                            placeholder="Escribe un título"
-                            multiline
-                            onChangeText={(text) => setObjectTitle(text)}
-                        />
-                    </View>
-                    <View style={styles.textAreaContainer}>
-                        <Text style={{
-                            color: '#111818',
-                            fontSize: 16,
-                            fontWeight: '500',
-                            fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Información relevante (opcional): </Text>
-                        <TextInput
-                            maxLength={250}
-                            style={[styles.textArea, {minHeight: 200}]}
-                            placeholder="Agrega una descripción"
-                            multiline
-                            onChangeText={(text) => setDetailedDescription(text)}
-                        />
-                    </View>
-                    <EurekappDateComponent labelText={"Fecha de encuentro del objeto: "}
-                                           setDate={setFoundDate} date={foundDate}/>
-                    <StatusComponent />
-                </ScrollView>
-                <EurekappButton text="Reportar objeto encontrado" onPress={submitData} />
-            </View>
+                    </ImageBackground>
+                ) : (
+                    <Image
+                        source={require('../../assets/defaultImage.png')}
+                        style={styles.image}
+                    />
+                )
+                }
+                <View style={styles.imageLoadContainer}>
+                    <Pressable onPress={pickImage}
+                               style={styles.imageLoadPressable}>
+                        <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                        <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                    </Pressable>
+                    <View style={{width: 10}}></View>
+                    <Pressable onPress={takePhoto}
+                               style={styles.imageLoadPressable}>
+                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                        <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                    </Pressable>
+                </View>
+                <View style={styles.textAreaContainer}>
+                    <Text style={{
+                        color: '#111818',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        fontFamily: 'PlusJakartaSans-Regular'
+                    }}>Titulo de la publicación: </Text>
+                    <TextInput
+                        maxLength={30}
+                        style={styles.textArea}
+                        placeholder="Escribe un título"
+                        multiline
+                        onChangeText={(text) => setObjectTitle(text)}
+                    />
+                </View>
+                <View style={styles.textAreaContainer}>
+                    <Text style={{
+                        color: '#111818',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        fontFamily: 'PlusJakartaSans-Regular'
+                    }}>Información relevante (opcional): </Text>
+                    <TextInput
+                        maxLength={250}
+                        style={[styles.textArea, {minHeight: 200}]}
+                        placeholder="Agrega una descripción"
+                        multiline
+                        onChangeText={(text) => setDetailedDescription(text)}
+                    />
+                </View>
+                <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
+                                       setDate={setFoundDate} date={foundDate}/>
+                <StatusComponent />
+            </ScrollView>
+            <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
         </View>
     );
 };
@@ -225,7 +274,6 @@ const styles = StyleSheet.create({
     },
     formContainer: {
         flexGrow: 1,
-        width: '100%',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -237,6 +285,8 @@ const styles = StyleSheet.create({
     image: {
         height: 'auto',
         width: '100%',
+        maxWidth: 500,
+        maxHeight: 500,
         aspectRatio: 1,
         borderRadius: 16,
         marginBottom: 10,
@@ -245,9 +295,9 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     viewImage: {
-        height: 'auto',
+        maxWidth: 500,
+        maxHeight: 500,
         overflow: 'hidden',
-        width: '100%',
         aspectRatio: 1,
         justifyContent: 'flex-end',
         alignItems: 'flex-end',
@@ -259,6 +309,7 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         marginBottom: 10,
+        maxWidth: 500,
     },
     imageLoadPressable: {
         flex: 1,

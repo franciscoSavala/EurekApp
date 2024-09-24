@@ -5,6 +5,8 @@ import React, {useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
+import {CommonActions, useNavigation} from '@react-navigation/native';
+
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -12,10 +14,11 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
+    const navigation = useNavigation(); // Obtén el objeto navigation
 
     const uploadLostObject = async () => {
         setLoading(true);
-        setButtonWasPressed(true);
+        setButtonWasPressed(true); // Aquí ocultamos el botón después de presionarlo
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let username = await AsyncStorage.getItem('username');
@@ -57,7 +60,15 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
             </View>
         );
     }
-
+    const handleClose = () => {
+        // Reiniciar la pantalla inicial de la stack y enviar el parámetro 'reset' para que borre el contenido.
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: 'FindObject', params: { reset: true } }] // Enviamos el parámetro 'reset'
+            })
+        );
+    };
     return (
         <Modal
             animationType="none"
@@ -68,14 +79,16 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
                 <View style={styles.modalView}>
                     <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                     <Text style={styles.modalText}>
-                        ¿Quieres guardar tu búsqueda? Te avisaremos cuando encontremos un objeto similar
+                        ¿Quieres guardar tu búsqueda? Te avisaremos cuando encontremos un objeto similar.
                     </Text>
                     <StatusComponent />
-                    <EurekappButton text='Guardar Búsqueda' onPress={uploadLostObject} />
+                    {!buttonWasPressed && ( // El botón solo se muestra si aún no ha sido presionado
+                        <EurekappButton text='Guardar búsqueda' onPress={uploadLostObject} />
+                    )}
                     <EurekappButton text='Cerrar'
                                     backgroundColor={'#f0f4f4'}
                                     textColor={'#111818'}
-                                    onPress={() => setModalVisible(false)}/>
+                                    onPress={() => {setModalVisible(false); handleClose()}}/>
                 </View>
             </View>
         </Modal>

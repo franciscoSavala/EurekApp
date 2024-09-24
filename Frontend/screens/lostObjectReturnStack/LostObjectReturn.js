@@ -83,6 +83,7 @@ const LostObjectReturn = ({ navigation }) => {
                             ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
                             : require('../../assets/defaultImage.png') }
                     style={styles.image}
+                    resizeMode="cover"
                 />
             </Pressable>
         );
@@ -94,7 +95,7 @@ const LostObjectReturn = ({ navigation }) => {
                 <Text style={{
                     fontFamily: 'PlusJakartaSans-Regular',
                     fontSize: 20
-                }}>Tu organización no tiene objetos!</Text>
+                }}>¡Tu organización no tiene objetos!</Text>
             </View>
         );
     }
@@ -118,7 +119,7 @@ const LostObjectReturn = ({ navigation }) => {
                 }
 
             </View>
-            <EurekappButton text='Marcar como encontrado'
+            <EurekappButton text='Devolver este objeto'
                             onPress={() => navigation.navigate('ReturnObjectForm', {
                                 objectId: objectSelectedId
                             })}/>
@@ -152,9 +153,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#19e6e6',
     },
     image: {
-        aspectRatio: 1,
+        width: '100%',     // La imagen ocupará el 100% del ancho del contenedor
+        height: undefined, // Mantiene el ratio de aspecto
+        aspectRatio: 1,    // Asegura que la imagen mantenga su proporción (cuadrada)
+        maxWidth: 120,     // Limita el ancho máximo de la imagen
+        maxHeight: 120,    // Limita la altura máxima de la imagen
         borderRadius: 16,
-        flex: 1,
+        overflow: 'hidden', // Evita que cualquier contenido fuera del borde del contenedor sea visible
     },
     itemTextContainer: {
         flex: 2,

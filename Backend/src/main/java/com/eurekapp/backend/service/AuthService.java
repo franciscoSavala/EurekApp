@@ -2,9 +2,10 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.configuration.security.JwtService;
 import com.eurekapp.backend.dto.OrganizationDto;
-import com.eurekapp.backend.dto.request.LoginDto;
-import com.eurekapp.backend.dto.request.UserDto;
-import com.eurekapp.backend.dto.response.JwtTokenDto;
+import com.eurekapp.backend.dto.UserDto;
+import com.eurekapp.backend.dto.request.LoginRequestDto;
+import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
+import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbbidenException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -17,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -40,7 +40,7 @@ public class AuthService {
     }
 
 
-    public JwtTokenDto login(LoginDto user) {
+    public LoginResponseDto login(LoginRequestDto user) {
         try {
             // Autenticación del usuario
             authenticationManager.authenticate(
@@ -60,8 +60,8 @@ public class AuthService {
             // Generamos el token JWT
             String jwt = jwtService.generateToken(userEurekapp);
 
-            // Devolver el token y la organización si está presente
-            return createJwtTokenResponse(userEurekapp, jwt);
+            // Devolver el token, datos del usuario, y la organización si está presente.
+            return createLoginResponse(userEurekapp, jwt);
 
         } catch (AuthenticationException e) {
             log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getUsername());
@@ -70,7 +70,7 @@ public class AuthService {
         }
     }
 
-    public JwtTokenDto register(UserDto user) {
+    public LoginResponseDto register(UserRegistrationRequestDto user) {
         // Verificar si el usuario ya está registrado
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             log.warn("[action:register] Usuario con correo {} ya registrado", user.getUsername());
@@ -82,6 +82,8 @@ public class AuthService {
                 .role(Role.USER)
                 .password(passwordEncoder.encode(user.getPassword()))
                 .username(user.getUsername())
+                .firstName(user.getNombre())
+                .lastName(user.getApellido())
                 .active(true)
                 .build();
 
@@ -94,11 +96,17 @@ public class AuthService {
         String jwtToken = jwtService.generateToken(userDetails);
 
         // Devolver el token JWT
-        return JwtTokenDto.builder().token(jwtToken).build();
+        return LoginResponseDto.builder().token(jwtToken).build();
     }
 
     // Metodo auxiliar para crear la respuesta del token JWT
-    private JwtTokenDto createJwtTokenResponse(UserEurekapp user, String jwt) {
+    private LoginResponseDto createLoginResponse(UserEurekapp user, String jwt) {
+        UserDto userDto = UserDto.builder()
+                .username(user.getUsername())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .build();
+
         Organization organization = user.getOrganization();
         if (organization != null) {
             OrganizationDto organizationDto = OrganizationDto.builder()
@@ -106,8 +114,9 @@ public class AuthService {
                     .name(organization.getName())
                     .contactData(organization.getContactData())
                     .build();
-            return JwtTokenDto.builder().organization(organizationDto).token(jwt).build();
+            return LoginResponseDto.builder().organization(organizationDto).user(userDto).token(jwt).build();
         }
-        return JwtTokenDto.builder().token(jwt).build();
+
+        return LoginResponseDto.builder().user(userDto).token(jwt).build();
     }
 }

@@ -98,67 +98,88 @@ const ReturnObjectForm = ({ route, navigation}) => {
             <View style={styles.formContainer}>
                 <View style={styles.explanatoryTextContainer}>
                     <Text style={[styles.label, {
-                        fontSize: 18,
-                        textAlign: 'center',
+                        fontSize: 13,
+                        textAlign: 'left',
                         color: '#939393',
                         marginBottom: 10,
-                    }]}>Necesitamos información de la persona que está reclamando el objeto</Text>
+                    }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
+                    </Text>
                 </View>
-                <Text style={styles.label}>Nombre de usuario</Text>
+                <Text style={styles.label}>Usuario de Eurekapp (email, opcional):</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe un usuario'
+                            text='Ingresa el email del usuario'
                             valueName='ObjectOwnerUsername'
                             value={value}
-                            autoComplete={'username'} />
+                             />
                     )}
                     name='ObjectOwnerUsername'
                     rules={{
-                        required: {value: true, message: 'Se requiere el nombre del usuario'}
+                        required: {value: false, message: ''}
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.ObjectOwnerUsername
                     ? errors.ObjectOwnerUsername.message
                     : " "
                 }</Text>
+
+
+                <Text style={[styles.label, {
+                    fontSize: 13,
+                    textAlign: 'left',
+                    color: '#939393',
+                    marginBottom: 10,
+                    }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad.
+                </Text>
                 <Text style={styles.label}>DNI</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe el documento'
+                            text='Ingresa el número de documento'
                             valueName='Dni'
                             value={value}
                             keyboardType={'numeric'} />
                     )}
                     name='Dni'
                     rules={{
-                        required: { value: true, message: 'Se requiere el documento' },
-                        pattern: { value: /\d{7,8}/, message: 'Número de documento no válido'}
+                        required: { value: true, message: 'Dato obligatorio.' },
+                        pattern: { value: /\d{7,8}/, message: 'Número de documento inválido.'}
                     }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
+
+                <Text style={[styles.label, {
+                    fontSize: 13,
+                    textAlign: 'left',
+                    color: '#939393',
+                    marginBottom: 10,
+                }]}>{"\n"}Corrobora que el teléfono dictado por la persona sea real.
+                </Text>
                 <Text style={styles.label}>Teléfono</Text>
                 <Controller
                     control={control}
                     render={({onChange, value}) => (
                         <InputForm
-                            text='Escribe el número de teléfono'
+                            text='Ingresa un teléfono de contacto'
                             valueName='Phone'
                             value={value}
                             autoComplete={'tel'}
                             keyboardType={'phone-pad'}/>
                     )}
                     name='Phone'
-                    rules={{pattern: { value: /\d+/, message: 'No es un número de teléfono'}}}
+                    rules={{
+                        required: { value: true, message: 'Dato obligatorio.' },
+                        pattern: { value: /\d+/, message: 'Número de teléfono inválido.'}
+                    }}
                     defaultValue='' />
                 <Text style={styles.textError}>{errors.Phone ? errors.Phone.message : " "}</Text>
                 <StatusComponent />
 
             </View>
-            <EurekappButton text={'Registrar encuentro'} onPress={handleSubmit(onSubmit)}/>
+            <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
         </View>
     );
 }

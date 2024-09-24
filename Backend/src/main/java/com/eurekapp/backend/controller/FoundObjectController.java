@@ -8,6 +8,7 @@ import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.ReturnFoundObjectService;
+import jakarta.validation.constraints.Past;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -74,9 +75,11 @@ public class FoundObjectController {
     // con la descripción textual provista.
     @GetMapping
     public ResponseEntity<FoundObjectsListDto> getFoundObjectsByTextDescription(
-            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query){
+            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
+            @RequestParam(name = "lost_date", required = false) @Past LocalDateTime lostDate){
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
+                .lostDate(lostDate)
                 .build();
         return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
     }

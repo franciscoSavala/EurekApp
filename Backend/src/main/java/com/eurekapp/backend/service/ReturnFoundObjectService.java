@@ -38,28 +38,40 @@ public class ReturnFoundObjectService {
     @SneakyThrows
     public ReturnFoundObjectResponseDto returnFoundObject(ReturnFoundObjectCommand command)
     {
-        if(command.getOrganizationId() == null
-                || !organizationRepository.existsById(command.getOrganizationId()))
+        // Verificar si la organización existe
+        if (command.getOrganizationId() == null || !organizationRepository.existsById(command.getOrganizationId())) {
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
-        if(command.getUsername() == null
-                || !userRepository.existsByUsername(command.getUsername()))
-            throw new NotFoundException("user_not_found", String.format("User with username '%s' not found", command.getUsername()));
+        }
 
-        /* Actualizamos el vector de Pinecone correspondiente al objeto encontrado, para marcarlo como "devuelto",
-            es decir, cambiamos "was_returned" a "true". */
+        // Verificar si el usuario existe
+        if (command.getUsername() == null || !userRepository.existsByUsername(command.getUsername())) {
+            throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
+        }
+
+        // Obtener el usuario
+        UserEurekapp user = userRepository.findByUsername(command.getUsername()).orElseThrow(() ->
+                new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()))
+        );
+
+        // Verificar si el objeto encontrado existe
         FoundObjectStructVector vector = textPineconeRepository.fetchVector(command.getFoundObjectUUID());
+        if (vector == null) {
+            throw new NotFoundException("found_object_not_found", String.format("Found object with UUID '%s' not found", command.getFoundObjectUUID()));
+        }
+
+        // Actualizar el vector de Pinecone
         vector.setWasReturned(true);
         textPineconeRepository.upsertVector(vector);
 
-
-        // Creamos y persistimos la instancia de ReturnFoundObject (= devolución de objeto perdido).
-        UserEurekapp user = userRepository.findByUsername(command.getUsername()).get();
+        // Crear y persistir la instancia de ReturnFoundObject
         ReturnFoundObject rfo = new ReturnFoundObject();
         rfo.setIdFoundObject(command.getFoundObjectUUID());
         rfo.setDatetimeOfReturn(LocalDateTime.now());
         rfo.setUserEurekapp(user);
         rfo.setDNI(command.getDNI());
         rfo.setPhoneNumber(command.getPhoneNumber());
+
+        // Guardar el objeto devuelto
         returnFoundObjectRepository.save(rfo);
 
         return ReturnFoundObjectResponseDto.builder()

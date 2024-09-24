@@ -6,16 +6,35 @@ import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
+import {useFocusEffect} from "@react-navigation/native";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const FindObject = ({ navigation }) => {
+const FindObject = ({ navigation, route }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
-    const [lostDate, setLostDate] = useState(new Date());
+    const [lostDate, setLostDate] = useState(() => {
+        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+        curDate.setMinutes(0,0,0);
+        return curDate;
+    });
+
+    // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
+    useFocusEffect(
+        React.useCallback(() => {
+            if (route.params?.reset) {
+                // Reseteamos todos los estados al recibir el parámetro 'reset'
+                setSelectedInstitution(null);
+                setQueryObjects("");
+                setLoading(false);
+                setButtonWasPressed(false);
+                setLostDate(new Date());
+            }
+        }, [route.params?.reset]) // Dependencia en el parámetro 'reset'
+    );
 
     const validateInputConstraints = () => {
         if(!queryObjects){
@@ -73,22 +92,22 @@ const FindObject = ({ navigation }) => {
         <View style={styles.container}>
             <View style={{flex: 1, marginHorizontal: 10, justifyContent: 'space-between'}}>
                 <View style={styles.formContainer}>
-                    <Text style={styles.labelText}>Descripción del objeto</Text>
+                    <Text style={styles.labelText}>Descripción del objeto:</Text>
                     <TextInput
                         style={styles.textArea}
-                        placeholder="Escribe una descripción"
+                        placeholder="Proporciona detalles que ayuden a identificarlo"
                         multiline
                         onChangeText={(text) => setQueryObjects(text)}
                     />
                     <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
-                    <EurekappDateComponent labelText={'Fecha de pérdida de objeto: '}
+                    <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
                                            date={lostDate} setDate={setLostDate}/>
                 </View>
                 {buttonWasPressed ? (
                     loading ? <ActivityIndicator size="large" color="#111818" /> : null
                 ) : null
                 }
-                <EurekappButton text="Buscar Objeto" onPress={queryLostObject} />
+                <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
             </View>
         </View>
     );

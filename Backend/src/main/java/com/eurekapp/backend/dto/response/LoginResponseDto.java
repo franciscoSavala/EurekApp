@@ -1,6 +1,7 @@
 package com.eurekapp.backend.dto.response;
 
 import com.eurekapp.backend.dto.OrganizationDto;
+import com.eurekapp.backend.dto.UserDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -10,7 +11,8 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class JwtTokenDto {
+public class LoginResponseDto {
     private String token;
+    private UserDto user;
     private OrganizationDto organization;
 }

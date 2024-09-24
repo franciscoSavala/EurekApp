@@ -80,6 +80,7 @@ const ReturnObjectStackScreen = () => {
 
 const CustomDrawerContent = (props) => {
     const [userName, setUserName] = useState('');
+    const [userFirstName, setUserFirstName] = useState('');
     const navigation = useNavigation();
     const { logout } = useUser();
     useEffect(() => {
@@ -93,10 +94,19 @@ const CustomDrawerContent = (props) => {
         fetchUserName();
     }, []);
 
+    useEffect(() => {
+        const fetchUserFirstName = async () => {
+            let user = await AsyncStorage.getItem('user.first_name');
+            setUserFirstName(user);
+        }
+        fetchUserFirstName();
+    }, []);
+
     const handleLogout = async () => {
         // Limpiar los datos del usuario
         await AsyncStorage.removeItem('org.name');
         await AsyncStorage.removeItem('username');
+        await AsyncStorage.removeItem('user.first_name');
         logout();
     }
 
@@ -104,7 +114,7 @@ const CustomDrawerContent = (props) => {
         <DrawerContentScrollView {...props} contentContainerStyle={{flex: 1}}>
             <View style={{flex: 1}}>
                 <View style={styles.drawerHeader}>
-                    <Text style={styles.headerText}>Bienvenido, {userName}!</Text>
+                    <Text style={styles.headerText}>Bienvenido, {userFirstName}!</Text>
                 </View>
                 <DrawerItemList {...props} />
 
@@ -140,26 +150,29 @@ const EurekappTab = () => {
     return (
         <Drawer.Navigator drawerContent={(props) => <CustomDrawerContent {...props} />}>
             <Drawer.Screen name="FindObjectStackScreen" options={{
-                title: 'Encontrar Objeto',
+                title: 'Buscar un objeto',
                 headerTitleAlign: 'center',
                 drawerIcon: searchIcon
-            }} component={FindObjectStackScreen} />
+            }} component={FindObjectStackScreen}
+            />
             {isOrgAdmin ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
-                        title: 'Subir objeto',
+                        title: 'Receptar un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: uploadIcon
-                    }} component={UploadObject} />
+                    }} component={UploadObject}
+                    />
                     <Drawer.Screen name="LostObjectReturnStackScreen" options={{
-                        title: 'Devolver Objeto',
+                        title: 'Devolver un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: returnIcon
-                    }} component={ReturnObjectStackScreen}/>
+                    }} component={ReturnObjectStackScreen}
+                    />
                 </>
                 : <>
                     <Drawer.Screen name="OrganizationSignupForm" options={{
-                        title: 'Solicitar Cuenta',
+                        title: 'Solicitar alta de organización',
                         headerTitleAlign: 'center',
                         drawerIcon: uploadIcon
                     }} component={OrganizationSignupForm} />
@@ -168,8 +181,6 @@ const EurekappTab = () => {
         </Drawer.Navigator>
     );
 }
-
-
 
 const App = () => {
     LogBox.ignoreAllLogs();
