@@ -46,10 +46,13 @@ const EurekappButton = ({ onPress, text = 'Buscar mi objeto',
 
 const styles = StyleSheet.create({
     container: {
-        alignSelf: 'stretch',
         marginVertical: 10,
+        maxWidth: 600,
+        alignSelf: 'center',
+        width: '100%',
     },
     button: {
+        alignSelf: 100,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',

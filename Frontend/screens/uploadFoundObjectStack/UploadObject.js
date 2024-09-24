@@ -194,73 +194,71 @@ const UploadObject = () => {
     }
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>
-            <View style={styles.container}>
-                <ScrollView contentContainerStyle={styles.formContainer}>
-                    { imageUploaded ? (
-                        <ImageBackground
-                            source={{ uri: image.uri }}
-                            style={styles.viewImage}
-                            imageStyle={styles.onlyImage} >
-                            <Pressable style={styles.iconContainer} onPress={deleteImage}>
-                                <Icon name={'trash-can'} size={24} color={'#000000'}/>
-                            </Pressable>
-                        </ImageBackground>
-                    ) : (
-                        <Image
-                            source={require('../../assets/defaultImage.png')}
-                            style={styles.image}
-                        />
-                    )
-                    }
-                    <View style={styles.imageLoadContainer}>
-                        <Pressable onPress={pickImage}
-                                   style={styles.imageLoadPressable}>
-                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+            <ScrollView contentContainerStyle={styles.formContainer}>
+                { imageUploaded ? (
+                    <ImageBackground
+                        source={{ uri: image.uri }}
+                        style={styles.viewImage}
+                        imageStyle={styles.onlyImage} >
+                        <Pressable style={styles.iconContainer} onPress={deleteImage}>
+                            <Icon name={'trash-can'} size={24} color={'#000000'}/>
                         </Pressable>
-                        <View style={{width: 10}}></View>
-                        <Pressable onPress={takePhoto}
-                                   style={styles.imageLoadPressable}>
-                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                        </Pressable>
-                    </View>
-                    <View style={styles.textAreaContainer}>
-                        <Text style={{
-                            color: '#111818',
-                            fontSize: 16,
-                            fontWeight: '500',
-                            fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Titulo de la publicación: </Text>
-                        <TextInput
-                            maxLength={30}
-                            style={styles.textArea}
-                            placeholder="Escribe un título"
-                            multiline
-                            onChangeText={(text) => setObjectTitle(text)}
-                        />
-                    </View>
-                    <View style={styles.textAreaContainer}>
-                        <Text style={{
-                            color: '#111818',
-                            fontSize: 16,
-                            fontWeight: '500',
-                            fontFamily: 'PlusJakartaSans-Regular'
-                        }}>Información relevante (opcional): </Text>
-                        <TextInput
-                            maxLength={250}
-                            style={[styles.textArea, {minHeight: 200}]}
-                            placeholder="Agrega una descripción"
-                            multiline
-                            onChangeText={(text) => setDetailedDescription(text)}
-                        />
-                    </View>
-                    <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
-                                           setDate={setFoundDate} date={foundDate}/>
-                    <StatusComponent />
-                </ScrollView>
-                <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
-            </View>
+                    </ImageBackground>
+                ) : (
+                    <Image
+                        source={require('../../assets/defaultImage.png')}
+                        style={styles.image}
+                    />
+                )
+                }
+                <View style={styles.imageLoadContainer}>
+                    <Pressable onPress={pickImage}
+                               style={styles.imageLoadPressable}>
+                        <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                        <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                    </Pressable>
+                    <View style={{width: 10}}></View>
+                    <Pressable onPress={takePhoto}
+                               style={styles.imageLoadPressable}>
+                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                        <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                    </Pressable>
+                </View>
+                <View style={styles.textAreaContainer}>
+                    <Text style={{
+                        color: '#111818',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        fontFamily: 'PlusJakartaSans-Regular'
+                    }}>Titulo de la publicación: </Text>
+                    <TextInput
+                        maxLength={30}
+                        style={styles.textArea}
+                        placeholder="Escribe un título"
+                        multiline
+                        onChangeText={(text) => setObjectTitle(text)}
+                    />
+                </View>
+                <View style={styles.textAreaContainer}>
+                    <Text style={{
+                        color: '#111818',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        fontFamily: 'PlusJakartaSans-Regular'
+                    }}>Información relevante (opcional): </Text>
+                    <TextInput
+                        maxLength={250}
+                        style={[styles.textArea, {minHeight: 200}]}
+                        placeholder="Agrega una descripción"
+                        multiline
+                        onChangeText={(text) => setDetailedDescription(text)}
+                    />
+                </View>
+                <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
+                                       setDate={setFoundDate} date={foundDate}/>
+                <StatusComponent />
+            </ScrollView>
+            <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
         </View>
     );
 };
@@ -272,7 +270,6 @@ const styles = StyleSheet.create({
     },
     formContainer: {
         flexGrow: 1,
-        alignSelf: "stretch",
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -284,6 +281,8 @@ const styles = StyleSheet.create({
     image: {
         height: 'auto',
         width: '100%',
+        maxWidth: 500,
+        maxHeight: 500,
         aspectRatio: 1,
         borderRadius: 16,
         marginBottom: 10,
@@ -292,9 +291,9 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     viewImage: {
-        height: 'auto',
+        maxWidth: 500,
+        maxHeight: 500,
         overflow: 'hidden',
-        width: '100%',
         aspectRatio: 1,
         justifyContent: 'flex-end',
         alignItems: 'flex-end',
@@ -306,6 +305,7 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         marginBottom: 10,
+        maxWidth: 500,
     },
     imageLoadPressable: {
         flex: 1,

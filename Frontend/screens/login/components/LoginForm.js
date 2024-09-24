@@ -1,7 +1,7 @@
 import React from 'react';
 import {
     View,
-    StyleSheet
+    StyleSheet, TextInput
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { Input, Icon, Text, Item, Button } from 'react-native-elements';
@@ -15,20 +15,27 @@ export default function LoginForm(props) {
         setValue,
         getValues } = useForm();
 
-    const InputLogin = ({text, valueName, value, secure = true}) => {
+    const InputLogin = ({text, valueName, value, secure = true,
+                            autoComplete = 'off', keyboardType = 'default'}) => {
         return (
-            <Input
+            <TextInput
                 placeholder={text}
                 placeholderTextColor={'rgba(255,255,255,0.6)'}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
                 secureTextEntry={secure}
-                inputContainerStyle={{
+                autoComplete={autoComplete}
+                keyboardType={keyboardType}
+                style={{
+                    color: 'white',
                     borderBottomWidth: 1,
                     borderBottomColor: 'white',
-                }}
-                style={{
-                    color: 'white'
+                    maxWidth: 300,
+                    fontSize: 16,
+                    paddingHorizontal: 5,
+                    paddingVertical: 10,
+                    marginHorizontal: 10,
+                    width: '80%',
                 }}
             />
         );
@@ -49,6 +56,8 @@ export default function LoginForm(props) {
                     <InputLogin text='Email'
                                 valueName='Username'
                                 value={value}
+                                autoComplete={'email'}
+                                keyboardType={'email-address'}
                                 secure={false}/>
                 )}
                 name='Username'

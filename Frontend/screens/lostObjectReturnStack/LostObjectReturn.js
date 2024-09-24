@@ -83,7 +83,7 @@ const LostObjectReturn = ({ navigation }) => {
                             ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
                             : require('../../assets/defaultImage.png') }
                     style={styles.image}
-                    resizeMode="contain"
+                    resizeMode="cover"
                 />
             </Pressable>
         );
@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
         width: '100%',     // La imagen ocupará el 100% del ancho del contenedor
         height: undefined, // Mantiene el ratio de aspecto
         aspectRatio: 1,    // Asegura que la imagen mantenga su proporción (cuadrada)
-        maxWidth: 100,     // Limita el ancho máximo de la imagen
-        maxHeight: 100,    // Limita la altura máxima de la imagen
+        maxWidth: 120,     // Limita el ancho máximo de la imagen
+        maxHeight: 120,    // Limita la altura máxima de la imagen
         borderRadius: 16,
         overflow: 'hidden', // Evita que cualquier contenido fuera del borde del contenedor sea visible
     },
