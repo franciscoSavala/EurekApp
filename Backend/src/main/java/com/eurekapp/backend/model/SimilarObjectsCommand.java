@@ -1,5 +1,6 @@
 package com.eurekapp.backend.model;
 
+import jakarta.validation.constraints.AssertTrue;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;

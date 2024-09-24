@@ -16,7 +16,11 @@ const FindObject = ({ navigation, route }) => {
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
-    const [lostDate, setLostDate] = useState(new Date());
+    const [lostDate, setLostDate] = useState(() => {
+        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+        curDate.setMinutes(0,0,0);
+        return curDate;
+    });
 
     // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
     useFocusEffect(

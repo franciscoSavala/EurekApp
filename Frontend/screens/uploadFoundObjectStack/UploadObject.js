@@ -34,7 +34,11 @@ const UploadObject = () => {
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed ] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
-    const [foundDate, setFoundDate] = useState(new Date());
+    const [foundDate, setFoundDate] = useState(() => {
+        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+        curDate.setMinutes(0,0,0);
+        return curDate;
+    });
 
     useEffect(() => {
         const getContextInstitute = async () => {

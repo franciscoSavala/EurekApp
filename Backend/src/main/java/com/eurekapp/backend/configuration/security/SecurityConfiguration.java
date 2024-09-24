@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.FilterSecurityInterceptor;
+import org.springframework.security.web.authentication.AuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
@@ -25,7 +26,8 @@ public class SecurityConfiguration {
 
     public SecurityConfiguration(JwtAuthenticationFilter authenticationFilter,
                                  OrganizationAuthorizationFilter organizationAuthorizationFilter,
-                                 AuthenticationProvider authenticationProvider, FilterChainExceptionHandler filterChainExceptionHandler) {
+                                 AuthenticationProvider authenticationProvider,
+                                 FilterChainExceptionHandler filterChainExceptionHandler) {
         this.authenticationFilter = authenticationFilter;
         this.organizationAuthorizationFilter = organizationAuthorizationFilter;
         this.authenticationProvider = authenticationProvider;
@@ -42,8 +44,8 @@ public class SecurityConfiguration {
                 .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(organizationAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(filterChainExceptionHandler, OrganizationAuthorizationFilter.class);
+                .addFilterBefore(filterChainExceptionHandler, JwtAuthenticationFilter.class)
+                .addFilterAfter(organizationAuthorizationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

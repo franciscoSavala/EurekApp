@@ -52,7 +52,6 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     button: {
-        alignSelf: 100,
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
