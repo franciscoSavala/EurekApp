@@ -22,6 +22,7 @@ import com.google.protobuf.Value;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -52,7 +53,7 @@ public class FoundObjectService implements IFoundObjectService {
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
-                              EmbeddingService embeddingService,
+                              @Qualifier("clipModelEmbeddingService") EmbeddingService embeddingService,
                               VectorStorage<FoundObjectStructVector> foundObjectVectorStorage,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
@@ -82,12 +83,10 @@ public class FoundObjectService implements IFoundObjectService {
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
-        // Solicitamos a la API "OpenAI Chat Completion" una descripción textual de la foto.
-        String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
 
         /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la concatenación de la
         descripción textual que nos dio la otra API, y de la descripción y título provistos por el humano. */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
+        List<Float> embeddings = embeddingService.getImageVectoRepresentation(imageBytes);
 
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
@@ -96,7 +95,7 @@ public class FoundObjectService implements IFoundObjectService {
         *   Esto es necesario para poder meterlo en la BD Pinecone. */
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
-                .aiDescription(textRepresentation)
+                .aiDescription("TEST")
                 .embeddings(embeddings)
                 .title(command.getTitle())
                 .organization(String.valueOf(command.getOrganizationId()))
@@ -121,7 +120,7 @@ public class FoundObjectService implements IFoundObjectService {
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
 
         return FoundObjectUploadedResponseDto.builder()
-                .textEncoding(textRepresentation)
+                .textEncoding("TEST")
                 .description(command.getTitle())
                 .id(foundObjectId)
                 .build();

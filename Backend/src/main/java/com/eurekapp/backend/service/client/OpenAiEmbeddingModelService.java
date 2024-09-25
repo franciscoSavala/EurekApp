@@ -59,4 +59,10 @@ public class OpenAiEmbeddingModelService implements EmbeddingService {
         //  parámetro inicialmente.
         return embeddingResponse.getBody().getData().getFirst().getEmbedding();
     }
+
+    @Override
+    public List<Float> getImageVectoRepresentation(byte[] image) {
+        log.error("This method is not allowed!");
+        return List.of();
+    }
 }

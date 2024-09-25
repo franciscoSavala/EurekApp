@@ -31,3 +31,5 @@ application:
     user: 'api'
     password: ${MAILTRAP_KEY}
     port: '587'
+  clip:
+    url: 'http://localhost:8000/'

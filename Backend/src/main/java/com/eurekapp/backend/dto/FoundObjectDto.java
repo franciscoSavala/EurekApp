@@ -15,6 +15,7 @@ import java.util.Date;
 @Builder
 public class FoundObjectDto {
     private String title;
+    @JsonIgnore
     private String b64Json;
     private Float score;
     private String id;

@@ -28,6 +28,26 @@ public class RestClientConfiguration {
     }
 
     @Bean
+    @Qualifier("clipImageClient")
+    public RestClient clipImageClient(
+            @Value("${application.clip.url}") String url
+    ) {
+        return RestClient.builder()
+                .baseUrl(url + "embed/image")
+                .build();
+    }
+
+    @Bean
+    @Qualifier("clipTextClient")
+    public RestClient clipTextClient(
+            @Value("${application.clip.url}") String url
+    ) {
+        return RestClient.builder()
+                .baseUrl(url + "embed/text")
+                .build();
+    }
+
+    @Bean
     @Qualifier("completionClient")
     public RestClient completionClient(
             @Value("${application.openai.api-key}") String apiKey,
@@ -48,6 +68,6 @@ public class RestClientConfiguration {
 
     @Bean
     public Index lostObjectIndex(Pinecone pinecone){
-        return pinecone.getIndexConnection("eurekapp");
+        return pinecone.getIndexConnection("clip-poc");
     }
 }

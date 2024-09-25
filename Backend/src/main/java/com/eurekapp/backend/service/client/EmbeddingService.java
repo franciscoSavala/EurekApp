@@ -4,4 +4,5 @@ import java.util.List;
 
 public interface EmbeddingService {
     List<Float> getTextVectorRepresentation(String text);
+    List<Float> getImageVectoRepresentation(byte[] image);
 }

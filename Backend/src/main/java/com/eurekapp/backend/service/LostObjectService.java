@@ -15,6 +15,7 @@ import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -34,7 +35,7 @@ public class LostObjectService {
     private final ObjectStorage objectStorage;
 
     public LostObjectService(
-            EmbeddingService embeddingService,
+            @Qualifier("clipModelEmbeddingService") EmbeddingService embeddingService,
             VectorStorage<LostObjectStructVector> lostObjectVectorStorage,
             SimpleEmailContentBuilder simpleEmailContentBuilder,
             NotificationService notificationService,
