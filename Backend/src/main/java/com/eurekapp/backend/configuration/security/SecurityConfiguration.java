@@ -44,8 +44,8 @@ public class SecurityConfiguration {
                 .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(filterChainExceptionHandler, JwtAuthenticationFilter.class)
-                .addFilterAfter(organizationAuthorizationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterAfter(organizationAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(filterChainExceptionHandler, OrganizationAuthorizationFilter.class);
 
         return http.build();
     }

@@ -46,8 +46,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
                     .orElse(null);
 
             if (role == null || !role.startsWith(Role.ORGANIZATION_OWNER.name())) {
-                filterChain.doFilter(request, response);
-                return;
+                throw new ForbbidenException("not_valid_credentials", "User is not an organization owner");
             }
 
             // Extract organization ID from the URL
