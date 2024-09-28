@@ -295,6 +295,8 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     viewImage: {
+        height: 'auto',
+        width: '100%',
         maxWidth: 500,
         maxHeight: 500,
         overflow: 'hidden',
