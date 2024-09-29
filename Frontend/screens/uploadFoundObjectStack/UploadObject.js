@@ -19,27 +19,45 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
+import MapView, {Marker} from "react-native-maps";
+import alert from "react-native-web/src/exports/Alert";
+import * as Location from 'expo-location';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
 const UploadObject = () => {
+    //object data
     const [objectTitle, setObjectTitle] = useState('');
     const [detailedDescription, setDetailedDescription] = useState('');
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [imageUploaded, setImageUploaded ] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [buttonWasPressed, setButtonWasPressed ] = useState(false);
-    const [responseOk, setResponseOk] = useState(false);
     const [foundDate, setFoundDate] = useState(() => {
         let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
         curDate.setMinutes(0,0,0);
         return curDate;
     });
+    //form loading state
+    const [loading, setLoading] = useState(false);
+    const [buttonWasPressed, setButtonWasPressed ] = useState(false);
+    const [responseOk, setResponseOk] = useState(false);
 
+    //map data
+    const [mapRegion, setMapRegion] = useState({
+        latitude: -31.4124,
+        longitude: -64.1867,
+        latitudeDelta: 0.0822,
+        longitudeDelta: 0.0321
+    })
+    const [objectMarker, setObjectMarker] = useState({
+        latitude: -31.4124,
+        longitude: -64.1867,
+    })
+    const [textLocation, setTextLocation] = useState("");
+    const [typingTimeout, setTypingTimeout] = useState(null);
     useEffect(() => {
         const getContextInstitute = async () => {
             const institute = {
@@ -49,8 +67,46 @@ const UploadObject = () => {
             if(institute.id == null || institute.name == null) return;
             setSelectedInstitute( institute );
         }
+        const getUserLocation = async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                alert('Permission to access location was denied');
+                return;
+            }
+            let location = await Location.getCurrentPositionAsync({});
+            setMapRegion({...mapRegion,
+                longitude: location.coords.longitude,
+                latitude: location.coords.latitude
+            })
+            setObjectMarker({...objectMarker,
+                longitude: location.coords.longitude,
+                latitude: location.coords.latitude
+            })
+        }
         getContextInstitute();
+        //getUserLocation(); TODO: HABILITAR PARA OBTENER LA UBICACION DEL USUARIO
     }, []);
+
+    useEffect(() => {
+        if (typingTimeout) {
+            clearTimeout(typingTimeout);
+        }
+
+        // Iniciar un nuevo temporizador de 5 segundos
+        const timeout = setTimeout(async () => {
+            if (textLocation) {
+                const geocodedLocation = await Location.geocodeAsync(textLocation);
+                const location = geocodedLocation.pop();
+                setObjectMarker({latitude: location.latitude, longitude: location.longitude})
+            }
+        }, 5000);
+
+        // Guardar el temporizador en el estado
+        setTypingTimeout(timeout);
+
+        // Limpiar el temporizador cuando el componente se desmonte
+        return () => clearTimeout(timeout);
+    }, [textLocation]);
 
     const imagePickerConfig = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -228,6 +284,26 @@ const UploadObject = () => {
                         <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
                     </Pressable>
                 </View>
+                <View style={styles.mapContainer}>
+                    <Text style={{
+                        color: '#111818',
+                        fontSize: 16,
+                        fontWeight: '500',
+                        fontFamily: 'PlusJakartaSans-Regular'
+                    }}>Ubicación donde lo perdiste: </Text>
+                    <MapView style={styles.map} initialRegion={mapRegion}>
+                        <Marker draggable
+                                onDragEnd={(direction) =>
+                                    setObjectMarker(direction.nativeEvent.coordinate)}
+                                description={'Tu objeto'}
+                                coordinate={objectMarker} />
+                    </MapView>
+                    <TextInput
+                        style={styles.textArea}
+                        placeholder="Escribe la ubicación"
+                        onChangeText={(e) => setTextLocation(e)}/>
+                </View>
+
                 <View style={styles.textAreaContainer}>
                     <Text style={{
                         color: '#111818',
@@ -291,6 +367,10 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: 10,
     },
+    imageAndMapsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
     onlyImage: {
         borderRadius: 16,
     },
@@ -337,7 +417,7 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch'
     },
     textArea: {
-        minHeight: 80,
+        minHeight: 30,
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
@@ -367,7 +447,15 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f4f4',
         padding: 8,
         borderRadius: 24
-
+    },
+    map: {
+        flex: 1,
+        marginVertical: 10,
+        borderRadius: 16,
+    },
+    mapContainer: {
+        height: 300,
+        width: '100%',
     }
 
 });
