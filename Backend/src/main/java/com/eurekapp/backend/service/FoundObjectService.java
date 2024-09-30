@@ -8,10 +8,8 @@ import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.exception.ValidationError;
-import com.eurekapp.backend.model.FoundObjectStructVector;
-import com.eurekapp.backend.model.Organization;
-import com.eurekapp.backend.model.SimilarObjectsCommand;
-import com.eurekapp.backend.model.UploadFoundObjectCommand;
+import com.eurekapp.backend.model.*;
+import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.repository.VectorStorage;
@@ -25,15 +23,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+
 import java.time.LocalDateTime;
-import java.util.Base64;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
@@ -49,6 +47,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
+    private final FoundObjectRepository foundObjectRepository;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -57,7 +56,7 @@ public class FoundObjectService implements IFoundObjectService {
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
-                              ExecutorService executorService) {
+                              ExecutorService executorService, FoundObjectRepository foundObjectRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -66,6 +65,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
         this.executorService = executorService;
+        this.foundObjectRepository = foundObjectRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -92,8 +92,24 @@ public class FoundObjectService implements IFoundObjectService {
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
         String foundObjectId = UUID.randomUUID().toString();
 
+
+        FoundObject foundObject = FoundObject.builder()
+                .uuid(foundObjectId)
+                .title(command.getTitle())
+                .humanDescription(command.getDetailedDescription())
+                .aiDescription(textRepresentation)
+                .embeddings(embeddings)
+                .organizationId(String.valueOf(command.getOrganizationId()))
+                .foundDate(command.getFoundDate())
+                .location(FoundObject.GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
+                .wasReturned(false)
+                .build();
+        foundObjectRepository.add(foundObject);
+
         /* Pasamos el vector generado y los demás datos a este método que los usará para construir un objeto "Struct".
         *   Esto es necesario para poder meterlo en la BD Pinecone. */
+
+        /*
         FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
                 .id(foundObjectId)
                 .aiDescription(textRepresentation)
@@ -106,10 +122,10 @@ public class FoundObjectService implements IFoundObjectService {
                 .build();
 
 
-        Future<Void> upsertFuture = (Future<Void>) executorService.submit(() -> foundObjectVectorStorage.upsertVector(foundObjectVector));
+        Future<Void> upsertFuture = (Future<Void>) executorService.submit(() -> foundObjectVectorStorage.upsertVector(foundObjectVector));*/
         Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
         try {
-            upsertFuture.get();
+            //upsertFuture.get();
             uploadImageFuture.get();
         } catch (ExecutionException | InterruptedException e){
             log.error(e.toString());
@@ -137,30 +153,56 @@ public class FoundObjectService implements IFoundObjectService {
     public FoundObjectsListDto getFoundObjectByTextDescription(SimilarObjectsCommand command){
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
 
+
         //TODO: Hacer una implementación de StructVector pero que solo se use para buscar, es decir que solo tenga embeddings
-        FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
-                .aiDescription(command.getQuery())
-                .embeddings(embeddings)
-                .build();
-        Struct.Builder filter = Struct.newBuilder();
-        if(command.getOrganizationId() != null){
-            filter.putFields("organization_id",
-                    Value.newBuilder().setStringValue(
-                            String.valueOf(command.getOrganizationId())).build());
-        }
-        filter.putFields("was_returned", Value.newBuilder().setBoolValue(Boolean.valueOf(false)).build());
 
-        List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(foundObjectVector, 5, filter.build());
+        // Le pedimos a FoundObjectRepository que nos devuelva los objetos FoundObject cercanos al vector, con fecha
+        // posterior a la provista, y opcionalmente con id de organización igual al provisto, si fue provisto.
+        String orgId = null;
+        if(command.getOrganizationId() != null){ orgId = command.getOrganizationId().toString();}
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
+                                                                    orgId,
+                                                                    command.getLostDate(),
+                                                        false);
 
-        List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
-                .filter(isFoundDateAfterLostDate(command))
-                .filter(v -> v.getScore() >= MIN_SCORE)
+        List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
                 .toList();
 
+        /*
+        FoundObjectStructVector foundObjectVector = FoundObjectStructVector.builder()
+                .aiDescription(command.getQuery())
+                .embeddings(embeddings)
+                .build();
+        Struct.Builder filter = Struct.newBuilder();*/
+
+        // Filtro por organización, si fue provista
+        /*if(command.getOrganizationId() != null){
+            filter.putFields("organization_id",
+                    Value.newBuilder().setStringValue(
+                            String.valueOf(command.getOrganizationId())).build());
+        }*/
+
+
+        //Filtro para traer sólo objetos no devueltos
+        /*filter.putFields("was_returned", Value.newBuilder().setBoolValue(Boolean.valueOf(false)).build());*/
+
+        // Hacemos la query a la BD vectorial
+        /*List<FoundObjectStructVector> foundObjectVectors = foundObjectVectorStorage.queryVector(foundObjectVector, 5, filter.build());*/
+
+        // Generamos el DTO a partir del resultado
+
+
+        /*List<FoundObjectDto> foundObjectDtos = foundObjectVectors.stream()
+                .filter(isFoundDateAfterLostDate(command))
+                .filter(v -> v.getScore() >= MIN_SCORE)
+                .map(this::foundObjectToDto)
+                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
+                .toList();*/
+
         return FoundObjectsListDto.builder()
-                .foundObjects(foundObjectDtos)
+                .foundObjects(result)
                 .build();
     }
 
@@ -186,6 +228,26 @@ public class FoundObjectService implements IFoundObjectService {
                 .score(foundObjectVector.getScore())
                 .organization(organizationDto)
                 .foundDate(foundObjectVector.getFoundDate())
+                .build();
+    }
+
+    private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
+        byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
+        log.info("[api_method:GET] [service:S3] Retriving {}, Bytes processed: {}",
+                foundObject.getUuid(), imageBytes.length);
+        Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
+        Organization organization = organizationRepository.findById(objectOrganizationId)
+                .orElse(null);
+        OrganizationDto organizationDto = organization != null ?
+                organizationService.organizationToDto(organization) :
+                null;
+        return FoundObjectDto.builder()
+                .id(foundObject.getUuid())
+                .title(foundObject.getTitle())
+                .b64Json(Base64.getEncoder().encodeToString(imageBytes))
+                .score(foundObject.getScore())
+                .organization(organizationDto)
+                .foundDate(foundObject.getFoundDate())
                 .build();
     }
 

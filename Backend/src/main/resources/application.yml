@@ -31,3 +31,6 @@ application:
     user: 'api'
     password: ${MAILTRAP_KEY}
     port: '587'
+  weaviate:
+    url: 'localhost:8081'
+    schema: 'http'
