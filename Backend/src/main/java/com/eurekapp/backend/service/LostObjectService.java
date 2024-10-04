@@ -4,10 +4,7 @@ import com.eurekapp.backend.dto.LostObjectResponseDto;
 import com.eurekapp.backend.dto.ReportLostObjectCommand;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.NotFoundException;
-import com.eurekapp.backend.model.LostObjectStructVector;
-import com.eurekapp.backend.model.LostObjectVectorFactory;
-import com.eurekapp.backend.model.Organization;
-import com.eurekapp.backend.model.SimpleEmailContentBuilder;
+import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.repository.VectorStorage;
@@ -51,6 +48,17 @@ public class LostObjectService {
     public void reportLostObject(ReportLostObjectCommand command) {
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getDescription());
         String id = UUID.randomUUID().toString();
+
+        LostObject lostObject = LostObject.builder()
+                .id(id)
+                .username(command.getUsername())
+                .embeddings(embeddings)
+                .description(command.getDescription())
+                .build();
+
+        
+
+
         LostObjectStructVector lostObjectStructVector = LostObjectStructVector.builder()
                 .id(id)
                 .description(command.getDescription())
@@ -61,6 +69,9 @@ public class LostObjectService {
         lostObjectVectorStorage.upsertVector(lostObjectStructVector);
     }
 
+    /*** Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
+        coincidencia con un objeto encontrado, cuyos datos relevantes son pasados como parámetros.
+        El grado mínimo de coincidencia viene dado por MIN_SCORE.***/
     public void findSimilarLostObject(
             List<Float> embeddings, Long organizationId, String description, String foundId) {
         LostObjectStructVector structVector = LostObjectStructVector.builder()

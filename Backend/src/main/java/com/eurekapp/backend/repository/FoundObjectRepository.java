@@ -2,6 +2,7 @@ package com.eurekapp.backend.repository;
 
 
 import com.eurekapp.backend.model.FoundObject;
+import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.service.client.WeaviateService;
 
 import io.weaviate.client.v1.data.model.WeaviateObject;
@@ -56,12 +57,9 @@ public class FoundObjectRepository {
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
 
-        // Agregar filtro para was_returned
-        filters.add(WhereFilter.builder()
-                .path("was_returned")
-                .operator(Operator.Equal)
-                .valueBoolean(wasReturned)
-                .build());
+        /* No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter.
+            Si el vector es null, lo manejará WeaviateService. */
+
 
         // Agregar filtro opcional para organization_id
         if (orgId != null) {
@@ -83,6 +81,13 @@ public class FoundObjectRepository {
                     .valueDate(castedLostDate)
                     .build());
         }
+
+        // Agregar filtro para was_returned
+        filters.add(WhereFilter.builder()
+                .path("was_returned")
+                .operator(Operator.Equal)
+                .valueBoolean(wasReturned)
+                .build());
 
         // Construir el filtro compuesto (And)
         WhereFilter filter = WhereFilter.builder()
@@ -115,19 +120,29 @@ public class FoundObjectRepository {
     private FoundObject convertToFoundObject(WeaviateObject weaviateObject) {
         Map<String, Object> properties = weaviateObject.getProperties(); // Asegúrate de que esta función obtenga las propiedades correctamente.
 
-        // Extraer los valores necesarios del WeaviateObject
-        return FoundObject.builder()
-                .uuid(weaviateObject.getId()) // Ajusta si el id es diferente de uuid
-                .embeddings((List<Float>) properties.get("embeddings"))
-                .foundDate(convertToLocalDateTime((String) properties.get("found_date"))) // Asegúrate de que este campo sea una cadena
+        Float certainty = null;
+        if(weaviateObject.getAdditional().get("certainty") != null) {
+            certainty = ((Double) weaviateObject.getAdditional().get("certainty")).floatValue();
+        }
+
+        GeoCoordinates location = null;
+        if( properties.get("coordinates") != null ){
+            location = convertToGeoCoordinates((Map<String, Object>) properties.get("coordinates"));
+        }
+
+        FoundObject foundObject = FoundObject.builder()
+                .uuid(weaviateObject.getId())
                 .title((String) properties.get("title"))
                 .humanDescription((String) properties.get("human_description"))
                 .aiDescription((String) properties.get("ai_description"))
-                .organizationId((String) properties.get("organization_id"))
-                .location(convertToGeoCoordinates((Map<String, Object>) properties.get("location")))
+                .foundDate(convertToLocalDateTime((String) properties.get("found_date")))
                 .wasReturned((Boolean) properties.get("was_returned"))
-                .score((Float) weaviateObject.getAdditional().get("certainty"))
+                .location(location)
+                .organizationId((String) properties.get("organization_id"))
+                .score(certainty)
                 .build();
+
+       return foundObject;
     }
 
     private LocalDateTime convertToLocalDateTime(String dateString) {
@@ -138,16 +153,16 @@ public class FoundObjectRepository {
         return null; // O lanza una excepción, dependiendo de cómo quieras manejar los valores nulos.
     }
 
-    private FoundObject.GeoCoordinates convertToGeoCoordinates(Map<String, Object> locationData) {
+    private GeoCoordinates convertToGeoCoordinates(Map<String, Object> locationData) {
         if (locationData != null) {
             double latitude = (Double) locationData.get("latitude");
             double longitude = (Double) locationData.get("longitude");
-            return FoundObject.GeoCoordinates.builder()
+            return GeoCoordinates.builder()
                     .latitude(latitude)
                     .longitude(longitude)
                     .build();
         }
-        return null; // O lanza una excepción si el campo location es obligatorio.
+        return null;
     }
 }
 

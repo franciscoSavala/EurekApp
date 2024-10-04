@@ -62,7 +62,6 @@ public class WeaviateService {
         StringBuilder queryBuilder = new StringBuilder();
 
         queryBuilder.append("{ Get ");
-        //queryBuilder.append("{ \"query\": \"{ Get ");
         queryBuilder.append("{ ")
                 .append(className).append(" ( ");
 
@@ -86,38 +85,41 @@ public class WeaviateService {
             queryBuilder.append("{ latitude longitude }");}
         }
 
-        queryBuilder.append("_additional { certainty } ");
+        // 5- Sin importar para qué clase estamos haciendo una query vectorial, siempre querremos saber el id y la
+        //  certeza de cad resultado.
+        queryBuilder.append("_additional { id certainty } ");
         queryBuilder.append("}");
 
         // 5- Cerrar la query
         queryBuilder.append("}}");
-        //queryBuilder.append("}}\" }");
 
-        log.info(queryBuilder.toString());
+        //log.info(queryBuilder.toString());
 
 
         // Ejecutar la consulta GraphQL
         Result<GraphQLResponse> response = weaviateClient.graphQL().raw().withQuery(queryBuilder.toString()).run();
-        log.info(response.toString());
+        //log.info(response.toString());
         /// Verificar si hay errores en la respuesta
         if (response.hasErrors()) {
             throw new RuntimeException("Error en la consulta GraphQL: " + response.getError());
         }
 
-        // Crear la lista de WeaviateObject a partir de la respuesta
+        // Declaramos la lista que contendrá los WeaviateObjects
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
-        // Extraer datos de la respuesta
+        // Extraemos los datos de la respuesta
         GraphQLResponse graphQLResponse = response.getResult();
-        // Asegurarse de que los datos sean un Map
+        // Nos aseguramos de que los datos sean un Map
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData(); // Hacer cast seguro
-            // Verificar y extraer los objetos de la clase correspondiente
-            if (dataMap.containsKey(className)) {
-                List<Map<String, Object>> objectsData = (List<Map<String, Object>>) dataMap.get(className);
-                for (Map<String, Object> objectData : objectsData) {
-                    WeaviateObject weaviateObject = convertToWeaviateObject(objectData);
-                    weaviateObjects.add(weaviateObject);
-                }
+
+            // Obtenemos un map con una única key: el nombre de la clase
+            Map<String, Object> objectsMap = (Map<String, Object>) dataMap.get("Get");
+
+            // Elaboramos una lista donde cada componente es un resultado de la query
+            List<Map<String,Object>> objectsList = (List<Map<String,Object>>) objectsMap.get(className);
+            for (Map<String, Object> objectData : objectsList) {
+                WeaviateObject weaviateObject = convertToWeaviateObject(objectData);
+                weaviateObjects.add(weaviateObject);
             }
         } else {
             throw new RuntimeException("El formato de los datos en la respuesta no es válido.");
@@ -157,8 +159,6 @@ public class WeaviateService {
                 //stringBuilder.append("\\\"").append(operand.getValueDate().toInstant().toString()).append("\\\"");
                 stringBuilder.append("\"").append(operand.getValueDate().toInstant().toString()).append("\"");
             }
-            // Agrega otros tipos de valores según sea necesario
-
             stringBuilder.append(" }, ");
         }
 
@@ -172,13 +172,18 @@ public class WeaviateService {
         return stringBuilder.toString();
     }
 
+    // Implementa la lógica para convertir el mapa de datos en un objeto WeaviateObject
     private WeaviateObject convertToWeaviateObject(Map<String, Object> objectData) {
-        // Implementa la lógica para convertir el mapa de datos en un objeto WeaviateObject
         WeaviateObject weaviateObject = WeaviateObject.builder().build();
-        // Establece las propiedades de WeaviateObject basándote en objectData
-        // Por ejemplo:
-        // weaviateObject.setId((String) objectData.get("id"));
-        // Otros mapeos según las propiedades de WeaviateObject
+        // "objectData" es un map. La primera key es otro map "_additional" que contiene el id y el score ("certainty").
+        weaviateObject.setId((String) (  (Map<String,Object>)objectData.get("_additional")).remove("id")  );
+
+        // Removemos la kay "_additional" para que las keys restantes sean solo "properties" (o sea, atributos del objeto)
+        weaviateObject.setAdditional( (Map<String,Object>)objectData.remove("_additional") );
+
+        // Llegado este punto, las únicas keys que contiene "objectData" corresponden a atributos del objeto.
+        weaviateObject.setProperties(objectData);
+
         return weaviateObject;
     }
 

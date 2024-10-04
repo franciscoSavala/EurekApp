@@ -1,4 +1,5 @@
 package com.eurekapp.backend.model;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -19,12 +20,4 @@ public class FoundObject {
     private GeoCoordinates location;
     private Boolean wasReturned;
     private Float score;
-
-    @Data
-    @Builder
-    public static class GeoCoordinates {
-        private double latitude;
-        private double longitude;
-    }
-
 }
