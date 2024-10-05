@@ -5,9 +5,7 @@ import com.eurekapp.backend.dto.ReportLostObjectCommand;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
-import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.repository.ObjectStorage;
-import com.eurekapp.backend.repository.VectorStorage;
+import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.slf4j.Logger;
@@ -29,6 +27,7 @@ public class LostObjectService {
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
     private final ObjectStorage objectStorage;
+    private final LostObjectRepository lostObjectRepository;
 
     public LostObjectService(
             EmbeddingService embeddingService,
@@ -36,29 +35,35 @@ public class LostObjectService {
             SimpleEmailContentBuilder simpleEmailContentBuilder,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
-            ObjectStorage objectStorage) {
+            ObjectStorage objectStorage,
+            LostObjectRepository lostObjectRepository) {
         this.embeddingService = embeddingService;
         this.lostObjectVectorStorage = lostObjectVectorStorage;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
         this.objectStorage = objectStorage;
+        this.lostObjectRepository = lostObjectRepository;
     }
 
+    // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
+    // similar a la publicación.
     public void reportLostObject(ReportLostObjectCommand command) {
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getDescription());
         String id = UUID.randomUUID().toString();
 
+        // TODO: Agregar atributos faltantes. Chequear que estén siendo enviados desde el front.
         LostObject lostObject = LostObject.builder()
-                .id(id)
+                .uuid(id)
                 .username(command.getUsername())
                 .embeddings(embeddings)
+                .coordinates(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
                 .description(command.getDescription())
                 .build();
 
-        
+        lostObjectRepository.add(lostObject);
 
-
+        /*
         LostObjectStructVector lostObjectStructVector = LostObjectStructVector.builder()
                 .id(id)
                 .description(command.getDescription())
@@ -66,28 +71,45 @@ public class LostObjectService {
                 .embeddings(embeddings)
                 .build();
 
-        lostObjectVectorStorage.upsertVector(lostObjectStructVector);
+        lostObjectVectorStorage.upsertVector(lostObjectStructVector);*/
     }
 
     /*** Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
         coincidencia con un objeto encontrado, cuyos datos relevantes son pasados como parámetros.
         El grado mínimo de coincidencia viene dado por MIN_SCORE.***/
+    // TODO: Agregar a los argumentos la ubicación y la fecha en la que fue encontrado.
     public void findSimilarLostObject(
             List<Float> embeddings, Long organizationId, String description, String foundId) {
-        LostObjectStructVector structVector = LostObjectStructVector.builder()
+
+
+        // Construimos un struct vector de objeto perdido a partir del vector del objeto encontrado
+        /*LostObjectStructVector structVector = LostObjectStructVector.builder()
                 .embeddings(embeddings)
                 .build();
 
+        // Buscaremos LostObjects similares al LostObject sintético que acabamos de fabricar.
         List<LostObjectStructVector> lostObjects = lostObjectVectorStorage.queryVector(structVector);
 
+        // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
         if(lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) return;
 
-        log.info("[action:similar_lost_object] Found={}", lostObjects.getFirst());
+        log.info("[action:similar_lost_object] Found={}", lostObjects.getFirst());*/
 
+
+        // TODO: Agregar las coordenadas del FoundObject a la query, para que sólo busque coincidencias dentro de cierto
+        //      radio.
+
+        // Buscamos publicaciones de LostObject que tengan un cierto grado de coincidencia.
+        List<LostObject> result = lostObjectRepository.query(embeddings,null, null, null);
+
+        // Obtenemos la organización que está reteniendo actualmente el objeto encontrado.
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ApiException("should_exists_organization", "No sense", HttpStatus.INTERNAL_SERVER_ERROR));
 
+        // Obtenemos la imagen del objeto encontrado
         String imageUrl = objectStorage.getObjectUrl(foundId);
+
+        // Elaboramos la notificación que enviaremos
         String message = simpleEmailContentBuilder.buildEmailContent(
                 organization.getName(), organization.getContactData(), description, imageUrl);
 

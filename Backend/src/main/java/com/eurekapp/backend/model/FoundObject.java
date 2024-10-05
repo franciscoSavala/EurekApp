@@ -17,7 +17,7 @@ public class FoundObject {
     private String humanDescription;
     private String aiDescription;
     private String organizationId;
-    private GeoCoordinates location;
+    private GeoCoordinates coordinates;
     private Boolean wasReturned;
     private Float score;
 }

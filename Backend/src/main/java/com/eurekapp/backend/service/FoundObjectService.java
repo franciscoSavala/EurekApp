@@ -96,7 +96,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .embeddings(embeddings)
                 .organizationId(String.valueOf(command.getOrganizationId()))
                 .foundDate(command.getFoundDate())
-                .location(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
+                .coordinates(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
                 .wasReturned(false)
                 .build();
 

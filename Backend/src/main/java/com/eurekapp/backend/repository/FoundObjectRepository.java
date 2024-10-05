@@ -3,7 +3,9 @@ package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.GeoCoordinates;
+import com.eurekapp.backend.service.CommonFunctions;
 import com.eurekapp.backend.service.client.WeaviateService;
+import com.eurekapp.backend.service.CommonFunctions.*;
 
 import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.filters.WhereFilter;
@@ -39,9 +41,9 @@ public class FoundObjectRepository {
                         "ai_description", foundObject.getAiDescription(),
                         "organization_id", foundObject.getOrganizationId(),
                         "was_returned", foundObject.getWasReturned(),
-                        "coordinates", Map.of(                            // Si coordinates es un campo de tipo geoespacial
-                                "latitude", foundObject.getLocation().getLatitude(),                      // Coordenadas reales
-                                "longitude", foundObject.getLocation().getLongitude()
+                        "coordinates", Map.of(
+                                "latitude", foundObject.getCoordinates().getLatitude(),
+                                "longitude", foundObject.getCoordinates().getLongitude()
                         )
                 ))
                 .vector(foundObject.getEmbeddings().toArray(new Float[0]))
@@ -51,15 +53,16 @@ public class FoundObjectRepository {
 
     public List<FoundObject> query(List<Float> vector,
                                    String orgId,
-                                   LocalDateTime lostDate,
+                                   LocalDateTime foundDate,
                                    boolean wasReturned){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
 
         /* No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter.
-            Si el vector es null, lo manejará WeaviateService. */
+            Si el vector es null, WeaviateService decidirá cómo lidiar con eso. */
 
+        // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
 
         // Agregar filtro opcional para organization_id
         if (orgId != null) {
@@ -70,9 +73,9 @@ public class FoundObjectRepository {
                     .build());
         }
 
-        // Agregar filtro opcional para lostDate
-        if (lostDate != null) {
-            ZonedDateTime zonedDateTime = lostDate.atZone(ZoneId.of("GMT"));
+        // Agregar filtro opcional para foundDate
+        if (foundDate != null) {
+            ZonedDateTime zonedDateTime = foundDate.atZone(ZoneId.of("GMT"));
             Date castedLostDate = Date.from(zonedDateTime.toInstant());
 
             filters.add(WhereFilter.builder()
@@ -127,7 +130,7 @@ public class FoundObjectRepository {
 
         GeoCoordinates location = null;
         if( properties.get("coordinates") != null ){
-            location = convertToGeoCoordinates((Map<String, Object>) properties.get("coordinates"));
+            location = CommonFunctions.convertToGeoCoordinates((Map<String, Object>) properties.get("coordinates"));
         }
 
         FoundObject foundObject = FoundObject.builder()
@@ -135,9 +138,9 @@ public class FoundObjectRepository {
                 .title((String) properties.get("title"))
                 .humanDescription((String) properties.get("human_description"))
                 .aiDescription((String) properties.get("ai_description"))
-                .foundDate(convertToLocalDateTime((String) properties.get("found_date")))
+                .foundDate(CommonFunctions.convertToLocalDateTime((String) properties.get("found_date")))
                 .wasReturned((Boolean) properties.get("was_returned"))
-                .location(location)
+                .coordinates(location)
                 .organizationId((String) properties.get("organization_id"))
                 .score(certainty)
                 .build();
