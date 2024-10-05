@@ -170,8 +170,8 @@ const UploadObject = () => {
                         },[{name: 'title', data: objectTitle},
                             {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
                             {name: 'detailed_description', data: detailedDescription},
-                            {name: 'latitude', data: mapRegion.latitude.toString()},
-                            {name: 'longitude', data: mapRegion.longitude.toString()},
+                            {name: 'latitude', data: objectMarker.latitude.toString()},
+                            {name: 'longitude', data: objectMarker.longitude.toString()},
                             {name: 'file', filename: 'found_object.jpg',
                                 data: String(image.base64)}]);
                 setLoading(false);

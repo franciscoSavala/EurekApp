@@ -103,8 +103,9 @@ public class FoundObjectService implements IFoundObjectService {
                 .foundDate(command.getFoundDate())
                 .wasReturned(false)
                 .detailedDescription(command.getDetailedDescription())
+                .latitude(command.getLocation().getLatitude())
+                .longitude(command.getLocation().getLongitude())
                 .build();
-
 
         Future<Void> upsertFuture = (Future<Void>) executorService.submit(() -> foundObjectVectorStorage.upsertVector(foundObjectVector));
         Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));

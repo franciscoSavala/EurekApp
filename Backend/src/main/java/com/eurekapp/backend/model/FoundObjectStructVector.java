@@ -24,6 +24,8 @@ public class FoundObjectStructVector implements StructVector {
     private LocalDateTime foundDate;
     private Boolean wasReturned;
     private String detailedDescription;
+    private Double latitude;
+    private Double longitude;
 
     @Override
     public Struct toStruct() {
@@ -34,6 +36,8 @@ public class FoundObjectStructVector implements StructVector {
                 .putFields("found_date", Value.newBuilder().setStringValue(foundDate.toString()).build())
                 .putFields("was_returned", Value.newBuilder().setBoolValue(wasReturned).build())
                 .putFields("human_description", Value.newBuilder().setStringValue(detailedDescription).build())
+                .putFields("latitude", Value.newBuilder().setNumberValue(latitude).build())
+                .putFields("longitude", Value.newBuilder().setNumberValue(longitude).build())
                 .build();
     }
 }
