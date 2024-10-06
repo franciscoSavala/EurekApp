@@ -12,3 +12,7 @@ Make sure you have a local MySql DB running, set database related variables to y
 - JWT_SIGN_KEY: Some random string to sign jwt tokens
 - OPENAI_SECRET_KEY: Secret key from OpenAi
 - PINECONE_SECRET_KEY: Secret key from Pinecone
+
+
+# Frontend
+There was a problem with google maps keys in react native running on android, the solution is in this [issue](https://github.com/react-native-maps/react-native-maps/issues/4393)

@@ -3,6 +3,7 @@ package com.eurekapp.backend.controller;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.dto.ReturnFoundObjectResponseDto;
+import com.eurekapp.backend.model.Location;
 import com.eurekapp.backend.model.ReturnFoundObjectCommand;
 import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
@@ -35,12 +36,15 @@ public class FoundObjectController {
             @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
             @RequestParam(value = "found_date") LocalDateTime foundDate,
+            @RequestParam(value = "latitude") Double latitude,
+            @RequestParam(value = "longitude") Double longitude,
             @PathVariable(value = "organizationId", required = false) Long organizationId){
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .image(file)
                 .title(title)
                 .foundDate(foundDate)
                 .organizationId(organizationId)
+                .location(Location.builder().latitude(latitude).longitude(longitude).build())
                 .detailedDescription(detailedDescription != null ? detailedDescription : "")
                 .build();
         return ResponseEntity.ok(service.uploadFoundObject(command));

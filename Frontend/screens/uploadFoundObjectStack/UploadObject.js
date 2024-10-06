@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,7 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform
+    Platform, KeyboardAvoidingView
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -19,25 +19,35 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
+import alert from "react-native-web/src/exports/Alert";
+import MapViewComponent from "../components/MapViewComponent";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
 const UploadObject = () => {
+    //object data
     const [objectTitle, setObjectTitle] = useState('');
     const [detailedDescription, setDetailedDescription] = useState('');
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [imageUploaded, setImageUploaded ] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [buttonWasPressed, setButtonWasPressed ] = useState(false);
-    const [responseOk, setResponseOk] = useState(false);
     const [foundDate, setFoundDate] = useState(() => {
         let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
         curDate.setMinutes(0,0,0);
         return curDate;
+    });
+    //form loading state
+    const [loading, setLoading] = useState(false);
+    const [buttonWasPressed, setButtonWasPressed ] = useState(false);
+    const [responseOk, setResponseOk] = useState(false);
+
+    //map data
+    const [objectMarker, setObjectMarker] = useState({
+        latitude: Number.MAX_VALUE,
+        longitude: Number.MAX_VALUE,
     });
 
     useEffect(() => {
@@ -58,6 +68,8 @@ const UploadObject = () => {
         aspect: [1,1],
         quality: 1,
     };
+
+
 
     const handleImagePicked = (result) => {
         if (!result.canceled) {
@@ -132,6 +144,8 @@ const UploadObject = () => {
                 formData.append('title', objectTitle);
                 formData.append('found_date', foundDate.toISOString().split('.')[0]);
                 formData.append('detailed_description', detailedDescription);
+                formData.append('latitude', mapRegion.latitude.toString());
+                formData.append('longitude', mapRegion.longitude.toString());
                 formData.append("file", new Blob([imageByte]));
                 let response = await fetch(`${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`, {
                     method: 'POST',
@@ -156,6 +170,8 @@ const UploadObject = () => {
                         },[{name: 'title', data: objectTitle},
                             {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
                             {name: 'detailed_description', data: detailedDescription},
+                            {name: 'latitude', data: objectMarker.latitude.toString()},
+                            {name: 'longitude', data: objectMarker.longitude.toString()},
                             {name: 'file', filename: 'found_object.jpg',
                                 data: String(image.base64)}]);
                 setLoading(false);
@@ -199,22 +215,37 @@ const UploadObject = () => {
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>
             <ScrollView contentContainerStyle={styles.formContainer}>
-                { imageUploaded ? (
-                    <ImageBackground
-                        source={{ uri: image.uri }}
-                        style={styles.viewImage}
-                        imageStyle={styles.onlyImage} >
-                        <Pressable style={styles.iconContainer} onPress={deleteImage}>
-                            <Icon name={'trash-can'} size={24} color={'#000000'}/>
-                        </Pressable>
-                    </ImageBackground>
-                ) : (
-                    <Image
-                        source={require('../../assets/defaultImage.png')}
-                        style={styles.image}
+                <View style={styles.textAreaContainer}>
+                    <Text style={styles.label}>Titulo de la publicación: </Text>
+                    <TextInput
+                        maxLength={30}
+                        style={styles.textArea}
+                        placeholder="Escribe un título"
+                        multiline
+                        onChangeText={(text) => setObjectTitle(text)}
                     />
-                )
-                }
+                </View>
+                <View>
+                    <Text style={styles.label}>
+                        Imagen del objeto encontrado:
+                    </Text>
+                    { imageUploaded ? (
+                        <ImageBackground
+                            source={{ uri: image.uri }}
+                            style={styles.viewImage}
+                            imageStyle={styles.onlyImage} >
+                            <Pressable style={styles.iconContainer} onPress={deleteImage}>
+                                <Icon name={'trash-can'} size={24} color={'#000000'}/>
+                            </Pressable>
+                        </ImageBackground>
+                    ) : (
+                        <Image
+                            source={require('../../assets/defaultImage.png')}
+                            style={styles.image}
+                        />
+                    )
+                    }
+                </View>
                 <View style={styles.imageLoadContainer}>
                     <Pressable onPress={pickImage}
                                style={styles.imageLoadPressable}>
@@ -228,28 +259,16 @@ const UploadObject = () => {
                         <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
                     </Pressable>
                 </View>
+                <MapViewComponent
+                    objectMarker={objectMarker}
+                    setObjectMarker={setObjectMarker}
+                    labelText={"Ubicación donde lo encontraste:"} />
+                <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
+                                       setDate={setFoundDate} date={foundDate}/>
                 <View style={styles.textAreaContainer}>
-                    <Text style={{
-                        color: '#111818',
-                        fontSize: 16,
-                        fontWeight: '500',
-                        fontFamily: 'PlusJakartaSans-Regular'
-                    }}>Titulo de la publicación: </Text>
-                    <TextInput
-                        maxLength={30}
-                        style={styles.textArea}
-                        placeholder="Escribe un título"
-                        multiline
-                        onChangeText={(text) => setObjectTitle(text)}
-                    />
-                </View>
-                <View style={styles.textAreaContainer}>
-                    <Text style={{
-                        color: '#111818',
-                        fontSize: 16,
-                        fontWeight: '500',
-                        fontFamily: 'PlusJakartaSans-Regular'
-                    }}>Información relevante (opcional): </Text>
+                    <Text style={styles.label}>
+                        Información relevante (opcional):
+                    </Text>
                     <TextInput
                         maxLength={250}
                         style={[styles.textArea, {minHeight: 200}]}
@@ -258,8 +277,6 @@ const UploadObject = () => {
                         onChangeText={(text) => setDetailedDescription(text)}
                     />
                 </View>
-                <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
-                                       setDate={setFoundDate} date={foundDate}/>
                 <StatusComponent />
             </ScrollView>
             <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
@@ -291,10 +308,16 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: 10,
     },
+    imageAndMapsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+    },
     onlyImage: {
         borderRadius: 16,
     },
     viewImage: {
+        height: 'auto',
+        width: '100%',
         maxWidth: 500,
         maxHeight: 500,
         overflow: 'hidden',
@@ -335,7 +358,7 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch'
     },
     textArea: {
-        minHeight: 80,
+        minHeight: 30,
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
@@ -365,9 +388,13 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f4f4',
         padding: 8,
         borderRadius: 24
-
+    },
+    label: {
+        color: '#111818',
+        fontSize: 16,
+        fontWeight: '500',
+        fontFamily: 'PlusJakartaSans-Regular'
     }
-
 });
 
 export default UploadObject;

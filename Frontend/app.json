@@ -5,10 +5,17 @@
     "version": "1.0.0",
     "plugins": [
       [
-      "expo-font",
-      {
-        "fonts": ["node_modules/@expo-google-fonts/inter/Inter_100Thin.ttf"]
-      }]
+        "expo-font",
+          {
+            "fonts": ["node_modules/@expo-google-fonts/inter/Inter_100Thin.ttf"]
+          }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permites que Eurekapp conozca tu ubicación?"
+        }
+      ]
     ],
     "platforms": [
       "ios",

@@ -1,5 +1,15 @@
 import React, {useEffect, useState} from "react";
-import {ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
+} from 'react-native';
 import axios from "axios";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
@@ -7,6 +17,7 @@ import InstitutePicker from "../components/InstitutePicker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import {useFocusEffect} from "@react-navigation/native";
+import MapViewComponent from "../components/MapViewComponent";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -20,6 +31,10 @@ const FindObject = ({ navigation, route }) => {
         let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
         curDate.setMinutes(0,0,0);
         return curDate;
+    });
+    const [objectMarker, setObjectMarker] = useState({
+        latitude: Number.MAX_VALUE,
+        longitude: Number.MAX_VALUE,
     });
 
     // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
@@ -90,8 +105,8 @@ const FindObject = ({ navigation, route }) => {
 
     return (
         <View style={styles.container}>
-            <View style={{flex: 1, marginHorizontal: 10, justifyContent: 'space-between'}}>
-                <View style={styles.formContainer}>
+            <ScrollView contentContainerStyle={styles.formContainer}>
+                <View style={styles.textDescriptionContainer}>
                     <Text style={styles.labelText}>Descripción del objeto:</Text>
                     <TextInput
                         style={styles.textArea}
@@ -99,16 +114,23 @@ const FindObject = ({ navigation, route }) => {
                         multiline
                         onChangeText={(text) => setQueryObjects(text)}
                     />
-                    <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
-                    <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
-                                           date={lostDate} setDate={setLostDate}/>
                 </View>
+                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
+                {selectedInstitute === null ? (
+                    <MapViewComponent
+                        objectMarker={objectMarker}
+                        setObjectMarker={setObjectMarker}
+                        labelText={"Ubicación donde crees que podría estar"} />
+                    ) : null
+                }
+                <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
+                                       date={lostDate} setDate={setLostDate}/>
                 {buttonWasPressed ? (
                     loading ? <ActivityIndicator size="large" color="#111818" /> : null
                 ) : null
                 }
-                <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
-            </View>
+            </ScrollView>
+            <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
         </View>
     );
 }
@@ -119,10 +141,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
     },
     formContainer: {
-        flex: 1,
+        flexGrow: 1,
         flexDirection: 'column',
-        alignContent: 'center',
+        alignItems: 'center',
         justifyContent: 'flex-start',
+        paddingHorizontal: 10,
     },
     input: {
         width: '100%',
@@ -160,6 +183,10 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         marginBottom: 10,
     },
+    textDescriptionContainer: {
+        justifyContent: 'flex-start',
+        alignSelf: 'stretch',
+    }
 });
 
 export default FindObject;
