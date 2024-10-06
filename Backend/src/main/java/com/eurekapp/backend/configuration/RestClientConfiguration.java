@@ -1,7 +1,5 @@
 package com.eurekapp.backend.configuration;
 
-import io.pinecone.clients.Index;
-import io.pinecone.clients.Pinecone;
 import io.weaviate.client.Config;
 import io.weaviate.client.WeaviateClient;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,21 +54,5 @@ public class RestClientConfiguration {
         WeaviateClient client = new WeaviateClient(config);
         return client;
     }
-
-    @Bean
-    public Pinecone pinecone(
-            @Value("${application.pinecone.api-key}") String apiKey
-    ){
-        return new Pinecone.Builder(apiKey).build();
-    }
-
-
-    @Bean
-    public Index lostObjectIndex(Pinecone pinecone){
-        return pinecone.getIndexConnection("eurekapp");
-    }
-
-
-
 
 }

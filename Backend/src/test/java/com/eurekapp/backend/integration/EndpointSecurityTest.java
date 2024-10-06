@@ -2,13 +2,10 @@ package com.eurekapp.backend.integration;
 
 import com.eurekapp.backend.BackendApplication;
 import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
-import com.eurekapp.backend.model.FoundObjectStructVector;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
-import com.eurekapp.backend.repository.VectorStorage;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
-import io.pinecone.clients.Index;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,11 +46,11 @@ public class EndpointSecurityTest {
     @MockBean
     ImageDescriptionService imageDescriptionService;
 
-    @MockBean
+    /*@MockBean
     VectorStorage<FoundObjectStructVector> vectorStorage;
 
     @MockBean
-    Index index;
+    Index index;*/
 
     @Test
     void whenUserNotAuthenticated_NotAllowToAccessAnyEndpoint() throws Exception {

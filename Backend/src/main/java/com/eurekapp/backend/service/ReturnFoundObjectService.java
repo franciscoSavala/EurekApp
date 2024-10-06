@@ -2,14 +2,8 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.ReturnFoundObjectResponseDto;
 import com.eurekapp.backend.exception.NotFoundException;
-import com.eurekapp.backend.model.FoundObjectStructVector;
-import com.eurekapp.backend.model.ReturnFoundObject;
-import com.eurekapp.backend.model.ReturnFoundObjectCommand;
-import com.eurekapp.backend.model.UserEurekapp;
-import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
-import com.eurekapp.backend.repository.IUserRepository;
-import com.eurekapp.backend.repository.VectorStorage;
+import com.eurekapp.backend.model.*;
+import com.eurekapp.backend.repository.*;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Service;
 
@@ -18,19 +12,19 @@ import java.time.LocalDateTime;
 @Service
 public class ReturnFoundObjectService {
 
-    private final VectorStorage<FoundObjectStructVector> textPineconeRepository;
     private final IOrganizationRepository organizationRepository;
     private final IUserRepository userRepository;
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
+    private final FoundObjectRepository foundObjectRepository;
 
-    public ReturnFoundObjectService(VectorStorage<FoundObjectStructVector> textPineconeRepository,
-                                    IOrganizationRepository organizationRepository,
+    public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
-                                    IReturnFoundObjectRepository returnFoundObjectRepository){
-        this.textPineconeRepository = textPineconeRepository;
+                                    IReturnFoundObjectRepository returnFoundObjectRepository,
+                                    FoundObjectRepository foundObjectRepository){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
+        this.foundObjectRepository = foundObjectRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -53,15 +47,18 @@ public class ReturnFoundObjectService {
                 new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()))
         );
 
+
         // Verificar si el objeto encontrado existe
-        FoundObjectStructVector vector = textPineconeRepository.fetchVector(command.getFoundObjectUUID());
-        if (vector == null) {
+        FoundObject foundObject = foundObjectRepository.getByUuid(command.getFoundObjectUUID());
+        if (foundObject == null) {
             throw new NotFoundException("found_object_not_found", String.format("Found object with UUID '%s' not found", command.getFoundObjectUUID()));
         }
 
-        // Actualizar el vector de Pinecone
-        vector.setWasReturned(true);
-        textPineconeRepository.upsertVector(vector);
+
+        // Actualizar el objeto en la BD vectorial para marcarlo como devuelto.
+        foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
+
+        // TODO: Des-comentar lo que hay abajo al terminar.
 
         // Crear y persistir la instancia de ReturnFoundObject
         ReturnFoundObject rfo = new ReturnFoundObject();
@@ -74,11 +71,12 @@ public class ReturnFoundObjectService {
         // Guardar el objeto devuelto
         returnFoundObjectRepository.save(rfo);
 
+
         return ReturnFoundObjectResponseDto.builder()
                 .id(String.valueOf(rfo.getId()))
                 .username(command.getUsername())
                 .DNI(command.getDNI())
-                .foundObjectId(vector.getId())
+                .foundObjectId(foundObject.getUuid())
                 .returnDateTime(rfo.getDatetimeOfReturn().toString())
                 .phoneNumber(command.getPhoneNumber())
                 .build();

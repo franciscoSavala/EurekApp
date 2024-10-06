@@ -14,10 +14,7 @@ import io.weaviate.client.v1.filters.Operator;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class FoundObjectRepository {
@@ -120,11 +117,22 @@ public class FoundObjectRepository {
         return foundObjects;
     }
 
+    public FoundObject getByUuid(String uuid){
+        WeaviateObject result = weaviateService.getObjectByUuid("FoundObject", uuid);
+        if(result == null){return null;}
+        return convertToFoundObject(result);
+    }
+
+    public void markAsReturned(String uuid){
+        Map<String,Object> properties = Map.of("was_returned", true);
+        weaviateService.update("FoundObject", uuid, null, properties);
+    }
+
     private FoundObject convertToFoundObject(WeaviateObject weaviateObject) {
         Map<String, Object> properties = weaviateObject.getProperties(); // Asegúrate de que esta función obtenga las propiedades correctamente.
 
         Float certainty = null;
-        if(weaviateObject.getAdditional().get("certainty") != null) {
+        if(weaviateObject.getAdditional() != null && weaviateObject.getAdditional().get("certainty") != null) {
             certainty = ((Double) weaviateObject.getAdditional().get("certainty")).floatValue();
         }
 

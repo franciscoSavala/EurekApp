@@ -22,7 +22,6 @@ public class LostObjectService {
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;
-    private final VectorStorage<LostObjectStructVector> lostObjectVectorStorage;
     private final SimpleEmailContentBuilder simpleEmailContentBuilder;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
@@ -31,14 +30,12 @@ public class LostObjectService {
 
     public LostObjectService(
             EmbeddingService embeddingService,
-            VectorStorage<LostObjectStructVector> lostObjectVectorStorage,
             SimpleEmailContentBuilder simpleEmailContentBuilder,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
             ObjectStorage objectStorage,
             LostObjectRepository lostObjectRepository) {
         this.embeddingService = embeddingService;
-        this.lostObjectVectorStorage = lostObjectVectorStorage;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
@@ -62,16 +59,6 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
-
-        /*
-        LostObjectStructVector lostObjectStructVector = LostObjectStructVector.builder()
-                .id(id)
-                .description(command.getDescription())
-                .username(command.getUsername())
-                .embeddings(embeddings)
-                .build();
-
-        lostObjectVectorStorage.upsertVector(lostObjectStructVector);*/
     }
 
     /*** Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
@@ -82,25 +69,17 @@ public class LostObjectService {
             List<Float> embeddings, Long organizationId, String description, String foundId) {
 
 
-        // Construimos un struct vector de objeto perdido a partir del vector del objeto encontrado
-        /*LostObjectStructVector structVector = LostObjectStructVector.builder()
-                .embeddings(embeddings)
-                .build();
-
-        // Buscaremos LostObjects similares al LostObject sintético que acabamos de fabricar.
-        List<LostObjectStructVector> lostObjects = lostObjectVectorStorage.queryVector(structVector);
-
-        // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
-        if(lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) return;
-
-        log.info("[action:similar_lost_object] Found={}", lostObjects.getFirst());*/
-
-
         // TODO: Agregar las coordenadas del FoundObject a la query, para que sólo busque coincidencias dentro de cierto
         //      radio.
 
         // Buscamos publicaciones de LostObject que tengan un cierto grado de coincidencia.
-        List<LostObject> result = lostObjectRepository.query(embeddings,null, null, null);
+        List<LostObject> lostObjects = lostObjectRepository.query(embeddings,null, null, null);
+
+        // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
+        if(lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) {
+            log.info("LostObjectService: Couldn't find any LostObjects similar to the uploaded FoundObject. ");
+            return;
+        }
 
         // Obtenemos la organización que está reteniendo actualmente el objeto encontrado.
         Organization organization = organizationRepository.findById(organizationId)

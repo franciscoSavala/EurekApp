@@ -12,7 +12,6 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
-import com.eurekapp.backend.repository.VectorStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
 import lombok.SneakyThrows;
@@ -38,7 +37,6 @@ public class FoundObjectService implements IFoundObjectService {
     private final ObjectStorage s3Service;
     private final ImageDescriptionService descriptionService;
     private final EmbeddingService embeddingService;
-    private final VectorStorage<FoundObjectStructVector> foundObjectVectorStorage;
     private final IOrganizationRepository organizationRepository;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
@@ -48,7 +46,6 @@ public class FoundObjectService implements IFoundObjectService {
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
                               EmbeddingService embeddingService,
-                              VectorStorage<FoundObjectStructVector> foundObjectVectorStorage,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
@@ -56,7 +53,6 @@ public class FoundObjectService implements IFoundObjectService {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
-        this.foundObjectVectorStorage = foundObjectVectorStorage;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;

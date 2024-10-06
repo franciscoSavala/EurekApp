@@ -9,7 +9,7 @@ import java.time.ZoneOffset;
 import java.util.Map;
 
 /***
- *      El propósito de esta clases es agrupar métodos que pueden ser usados por varias clases service para
+ *      El propósito de esta clase es agrupar métodos que pueden ser usados por varias clases service para
  *      implementarlos una sola vez.
  *
  * ***/
@@ -43,4 +43,31 @@ public class CommonFunctions {
         return null;
     }
 
+
+    /***
+     *      Método que, dados dos pares de coordenadas, devuelve la distancia en línea recta en metros entre ambos puntos.
+     *      Este método usa la fórmula de Haversine, que presenta un cierto error por asumir que la Tierra es esférica.
+     *      Como siempre calcularemos distancias menores a 100 km, este error es de unos pocos metros, y es aceptable.
+     * ***/
+    public static double calculateGeoDistance(GeoCoordinates point1, GeoCoordinates point2) {
+        // Radius of the Earth in meters
+        final double EARTH_RADIUS_METERS = 6371000;
+
+        // Convert latitude and longitude from degrees to radians
+        double latitude1InRadians = Math.toRadians(point1.getLatitude());
+        double latitude2InRadians = Math.toRadians(point2.getLatitude());
+        double deltaLatitudeInRadians = Math.toRadians(point2.getLatitude() - point1.getLatitude());
+        double deltaLongitudeInRadians = Math.toRadians(point2.getLongitude() - point1.getLongitude());
+
+        // Haversine formula
+        double a = Math.sin(deltaLatitudeInRadians / 2) * Math.sin(deltaLatitudeInRadians / 2) +
+                Math.cos(latitude1InRadians) * Math.cos(latitude2InRadians) *
+                        Math.sin(deltaLongitudeInRadians / 2) * Math.sin(deltaLongitudeInRadians / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Calculate the distance
+        double distanceInMeters = EARTH_RADIUS_METERS * c;
+
+        return distanceInMeters; // Distance in meters
+    }
 }

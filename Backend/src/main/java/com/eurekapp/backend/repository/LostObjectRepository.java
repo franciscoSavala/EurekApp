@@ -82,11 +82,14 @@ public class LostObjectRepository {
 
         // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
 
-        // Construir el filtro compuesto (And)
-        WhereFilter filter = WhereFilter.builder()
+        // Construir el filtro compuesto (And), si es que efectivamente hay filtros.
+        WhereFilter filter = null;
+        if(!filters.isEmpty()) {
+        filter = WhereFilter.builder()
                 .operator(Operator.And)
                 .operands(filters.toArray(new WhereFilter[0])) // Convierte la lista en array
                 .build();
+        }
 
         List<WeaviateObject> result = weaviateService.queryObjects("LostObject",
                 vector,

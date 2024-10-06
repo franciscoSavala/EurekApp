@@ -1,10 +1,6 @@
 package com.eurekapp.backend.service.client;
 
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.weaviate.client.v1.graphql.model.GraphQLQuery;
+import io.weaviate.client.v1.data.api.ObjectUpdater;
 import io.weaviate.client.v1.graphql.model.GraphQLResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,16 +25,16 @@ public class WeaviateService {
 
     private final WeaviateClient weaviateClient;
 
-    private final String urlSchema = "/schema";
-    private final String urlInsert = "/objects";
-    private final String urlQuery = "/graphql";
-
     public WeaviateService(
             @Qualifier("weaviateClient") WeaviateClient weaviateClient
     ) {
         this.weaviateClient = weaviateClient;
     }
 
+    /***
+     *      Este método implementa un insert genérico para crear un objeto nuevo en Weaviate. Este método puede ser
+     *      usado por el repositorio de cualquier clase.
+     * ***/
     public void createObject(WeaviateObject object) {
         Result<WeaviateObject> result = weaviateClient.data().creator()
                 .withClassName(object.getClassName())
@@ -49,9 +45,42 @@ public class WeaviateService {
         if (result.hasErrors()) {
             System.out.println(result.getError());
         }
-        //System.out.println(result.getResult());
     }
 
+    /***
+     *      Este método implementa un update genérico para un objeto almacenado en Weaviate. Este método puede ser usado
+     *      por el repositorio de cualquier clase.
+     * ***/
+    public void update(String className, String id, List<Float> vector, Map<String,Object> properties){
+
+        // Creamos un ObjectUpdater y comenzamos metiendo el nombre de clase y el id, que siempre deben ser provistos.
+        ObjectUpdater updater = weaviateClient.data().updater()
+                .withMerge()
+                .withClassName(className)
+                .withID(id);
+
+        // Actualizar el vector solo si un vector fue provisto
+        if(vector != null && !vector.isEmpty())   {updater.withVector(vector.toArray( new Float[vector.size()]));}
+
+        // Actualizar los atributos ("properties") sólo si se recibió alguno por parámetro.
+        if(properties != null && !properties.isEmpty()) {updater.withProperties(properties);}
+
+        // Finalmente, ejecutar la actualización del objeto:
+        Result response = updater.run();
+
+        // Comprobar si la actualización fue exitosa
+        if (response.hasErrors()) {
+            // Manejo de errores
+            System.err.println("WeaviateService: Error updating object: " + response.getError().getMessages());
+        }
+
+        System.out.println("WeaviateService: Object updated successfully.");
+    }
+
+    /***
+     *      Este método implementa una query genérica a Weaviate. Este método puede ser usado por los repositorios de
+     *      cualquier clase.
+     * ***/
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
                                                      WhereFilter filter,
@@ -68,7 +97,7 @@ public class WeaviateService {
         // 2- Agregar el filtro where, si se proporciona
         if (filter != null) {
             queryBuilder.append("where: { ")
-                    .append(WeaviateService.toGraphQLString(filter))
+                    .append(toGraphQLString(filter))
                     .append("} ");}
 
         // 3- Agregar el vector, si se proporciona
@@ -108,6 +137,7 @@ public class WeaviateService {
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         // Extraemos los datos de la respuesta
         GraphQLResponse graphQLResponse = response.getResult();
+
         // Nos aseguramos de que los datos sean un Map
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData(); // Hacer cast seguro
@@ -125,10 +155,40 @@ public class WeaviateService {
             throw new RuntimeException("El formato de los datos en la respuesta no es válido.");
         }
 
-
         return weaviateObjects;
     }
 
+
+    /***
+     *      Dado el nombre de la clase y un UUID, devuelve el objeto correspondiente.
+     * ***/
+    public WeaviateObject getObjectByUuid(String className, String uuid){
+        // Pedimosa WeaviateCliente que traiga el objeto en cuestión.
+        Result<List<WeaviateObject>> response = weaviateClient.data().objectsGetter()
+                .withClassName(className)
+                .withID(uuid)
+                .run();
+
+        // Si hubo errores, retornar null.
+        if (response.hasErrors()) {
+            // Manejo de errores
+            System.err.println("Error retrieving object: " + response.getError().getMessages());
+            return null;
+        }
+
+        // Sacamos el objeto WeaviateObject de su envoltorio.
+        List<WeaviateObject> objects = response.getResult();
+        if (objects != null && !objects.isEmpty()) {
+            return objects.get(0);
+        }
+
+        return null;
+    }
+
+    /***
+     *      Toma un objeto WhereFilter y a partir del mismo genera el string correspondiente para poder hacer la
+     *      consulta GraphQL.
+     * ***/
     private static String toGraphQLString(WhereFilter filter) {
         StringBuilder stringBuilder = new StringBuilder();
 
@@ -172,7 +232,9 @@ public class WeaviateService {
         return stringBuilder.toString();
     }
 
-    // Implementa la lógica para convertir el mapa de datos en un objeto WeaviateObject
+    /***
+     *  Implementa la lógica para convertir un objeto "Map" en un objeto "WeaviateObject".
+     ***/
     private WeaviateObject convertToWeaviateObject(Map<String, Object> objectData) {
         WeaviateObject weaviateObject = WeaviateObject.builder().build();
         // "objectData" es un map. La primera key es otro map "_additional" que contiene el id y el score ("certainty").
