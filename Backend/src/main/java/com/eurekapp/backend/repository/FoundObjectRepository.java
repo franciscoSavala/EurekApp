@@ -11,6 +11,8 @@ import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.filters.WhereFilter;
 import io.weaviate.client.v1.filters.Operator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -19,6 +21,7 @@ import java.util.*;
 @Component
 public class FoundObjectRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(FoundObjectRepository.class);
     private final WeaviateService weaviateService;
 
     public FoundObjectRepository(
@@ -45,6 +48,7 @@ public class FoundObjectRepository {
                 ))
                 .vector(foundObject.getEmbeddings().toArray(new Float[0]))
                 .build();
+        log.info("Uplading vector: {}", object);
         weaviateService.createObject(object);
     }
 

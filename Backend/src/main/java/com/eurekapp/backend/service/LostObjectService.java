@@ -61,14 +61,18 @@ public class LostObjectService {
         lostObjectRepository.add(lostObject);
     }
 
-    /*** Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
-        coincidencia con un objeto encontrado, cuyos datos relevantes son pasados como parámetros.
-        El grado mínimo de coincidencia viene dado por MIN_SCORE.***/
     // TODO: Agregar a los argumentos la ubicación y la fecha en la que fue encontrado.
+    /**
+     * Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
+     *         coincidencia con un objeto encontrado, cuyos datos relevantes son pasados como parámetros.
+     *         El grado mínimo de coincidencia viene dado por MIN_SCORE.
+     * @param embeddings
+     * @param organizationId
+     * @param description
+     * @param foundId
+     */
     public void findSimilarLostObject(
             List<Float> embeddings, Long organizationId, String description, String foundId) {
-
-
         // TODO: Agregar las coordenadas del FoundObject a la query, para que sólo busque coincidencias dentro de cierto
         //      radio.
 

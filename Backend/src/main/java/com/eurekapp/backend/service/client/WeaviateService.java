@@ -1,10 +1,18 @@
 package com.eurekapp.backend.service.client;
 
+
+import com.eurekapp.backend.exception.ApiException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.weaviate.client.base.WeaviateErrorMessage;
+import io.weaviate.client.v1.graphql.model.GraphQLQuery;
 import io.weaviate.client.v1.data.api.ObjectUpdater;
 import io.weaviate.client.v1.graphql.model.GraphQLResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 
@@ -16,6 +24,7 @@ import io.weaviate.client.v1.filters.WhereFilter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -43,7 +52,12 @@ public class WeaviateService {
                 .withVector(object.getVector())
                 .run();
         if (result.hasErrors()) {
-            System.out.println(result.getError());
+            log.error(result.getError().toString());
+            throw new ApiException("database_error",
+                    result.getError().getMessages().stream()
+                            .map(WeaviateErrorMessage::toString)
+                            .collect(Collectors.joining(", ")),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -137,7 +151,6 @@ public class WeaviateService {
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         // Extraemos los datos de la respuesta
         GraphQLResponse graphQLResponse = response.getResult();
-
         // Nos aseguramos de que los datos sean un Map
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData(); // Hacer cast seguro

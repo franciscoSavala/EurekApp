@@ -5,7 +5,7 @@ import UploadLostObjectModal from "./UploadLostObjectModal";
 import {useState} from "react";
 
 
-const NotFoundObjects = ({route, navigation}) => {
+const NotFoundObjects = ({route}) => {
     const { query } = route.params;
     const [modalVisible, setModalVisible] = useState(false);
 
