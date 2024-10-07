@@ -10,7 +10,7 @@ import {CommonActions, useNavigation} from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
+const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate, coordinates }) => {
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
@@ -30,7 +30,9 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query }) => {
             let res = await axios.post(`${BACK_URL}/lost-objects`, //esto es inseguro pero ok...
                 {
                     description: query,
-                    username: username
+                    username: username,
+                    lost_date: lostDate,
+                    coordinates: coordinates,
                 },
                 config );
             setResponseOk(true);

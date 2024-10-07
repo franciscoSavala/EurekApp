@@ -38,7 +38,7 @@ public class LostObjectRepository {
                 .className("LostObject")
                 .properties(Map.of(
                         "username", lostObject.getUsername(),
-                        //"lost_date", lostObject.getLostDate().toString()+":00Z",
+                        "lost_date", lostObject.getLostDate().toString()+":00Z",
                         "description", lostObject.getDescription(),
                         //"organization_id", lostObject.getOrganizationId(),
                         "coordinates", Map.of(

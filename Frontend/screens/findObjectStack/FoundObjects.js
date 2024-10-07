@@ -7,7 +7,7 @@ import UploadLostObjectModal from "./UploadLostObjectModal";
 
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound, query } = route.params;
+    const { objectsFound, query, lostDate, coordinates } = route.params;
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
     const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
@@ -51,7 +51,9 @@ const FoundObjects = ({ route, navigation }) => {
             </View>
             <UploadLostObjectModal modalVisible={uploadLostObjectModal}
                                    setModalVisible={setUploadLostObjectModal}
-                                   query={query} />
+                                   query={query}
+                                   lostDate={lostDate}
+                                   coordinates={coordinates}/>
             <Modal
                 animationType="none"
                 transparent={true}

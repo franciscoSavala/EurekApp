@@ -56,6 +56,7 @@ public class LostObjectService {
                 .embeddings(embeddings)
                 .coordinates(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
                 .description(command.getDescription())
+                .lostDate(command.getLostDate())
                 .build();
 
         lostObjectRepository.add(lostObject);

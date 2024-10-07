@@ -6,7 +6,7 @@ import {useState} from "react";
 
 
 const NotFoundObjects = ({route}) => {
-    const { query } = route.params;
+    const { query, lostDate, coordinates } = route.params;
     const [modalVisible, setModalVisible] = useState(false);
 
     return (
@@ -29,7 +29,9 @@ const NotFoundObjects = ({route}) => {
             <EurekappButton onPress={() => setModalVisible(true)} text="Guardar búsqueda" />
             <UploadLostObjectModal modalVisible={modalVisible}
                                    setModalVisible={setModalVisible}
-                                   query={query} />
+                                   query={query}
+                                   lostDate={lostDate}
+                                   coordinates={coordinates}/>
         </View>
     );
 }

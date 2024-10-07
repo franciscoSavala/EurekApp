@@ -84,16 +84,20 @@ const FindObject = ({ navigation, route }) => {
             let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
+            const routeParams = {
+                objectsFound: jsonData.found_objects,
+                query: queryObjects,
+                lostDate: lostDate,
+                coordinates: {
+                    latitude: objectMarker.latitude,
+                    longitude: objectMarker.longitude
+                }
+            }
+
             if(jsonData.found_objects.length === 0) {
-                navigation.navigate('NotFoundObjects', {
-                    query: queryObjects,
-                });
+                navigation.navigate('NotFoundObjects', routeParams);
             }else{
-                navigation.navigate('FoundObjects',
-                    {
-                        objectsFound: jsonData.found_objects,
-                        query: queryObjects,
-                    });
+                navigation.navigate('FoundObjects', routeParams);
             }
 
         } catch (error) {
