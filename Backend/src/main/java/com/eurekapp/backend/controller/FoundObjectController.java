@@ -3,7 +3,7 @@ package com.eurekapp.backend.controller;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.dto.ReturnFoundObjectResponseDto;
-import com.eurekapp.backend.model.Location;
+import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.ReturnFoundObjectCommand;
 import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
@@ -44,7 +44,7 @@ public class FoundObjectController {
                 .title(title)
                 .foundDate(foundDate)
                 .organizationId(organizationId)
-                .location(Location.builder().latitude(latitude).longitude(longitude).build())
+                .coordinates(GeoCoordinates.builder().latitude(latitude).longitude(longitude).build())
                 .detailedDescription(detailedDescription != null ? detailedDescription : "")
                 .build();
         return ResponseEntity.ok(service.uploadFoundObject(command));

@@ -17,5 +17,5 @@ public class UploadFoundObjectCommand {
     private LocalDateTime foundDate;
     private String detailedDescription;
     private Long organizationId;
-    private GeoCoordinates location;
+    private GeoCoordinates coordinates;
 }
