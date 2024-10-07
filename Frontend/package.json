@@ -45,6 +45,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "node react-native-map-web-fix.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
