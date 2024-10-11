@@ -4,9 +4,10 @@ import React, {useEffect, useRef, useState} from "react";
 import { MapContainer, TileLayer, Marker as LeafletMarker } from 'react-leaflet';
 import * as Location from "expo-location";
 import alert from "react-native-web/src/exports/Alert";
+import "leaflet/dist/leaflet.css";
+import L from 'leaflet';
 
-
-const MapViewComponent = ({objectMarker, setObjectMarker, labelText}) => {
+const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => {
     const [mapRegion, setMapRegion] = useState({
         latitude: -31.4124,
         longitude: -64.1867,
@@ -34,7 +35,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText}) => {
                 latitude: location.coords.latitude
             })
         }
-        //getUserLocation(); TODO: HABILITAR PARA OBTENER LA UBICACION DEL USUARIO
+        getUserLocation(); //TODO: HABILITAR PARA OBTENER LA UBICACION DEL USUARIO
     }, []);
 
     useEffect(() => {
@@ -68,8 +69,18 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText}) => {
             }
         }
     }
+
+    const customMarkerIcon = L.icon({
+        iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+
     return(
-        <View style={styles.mapContainer}>
+        <View style={[styles.mapContainer, style]}>
             <Text style={{
                 color: '#111818',
                 fontSize: 16,
@@ -78,19 +89,18 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText}) => {
             }}>{labelText}</Text>
             <View style={styles.mapRounded}>
                 {Platform.OS === 'web' ? (
-                    // Mapa alternativo para web (usando react-leaflet en este ejemplo)
+                    // Mapa alternativo para web
                     <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={13} >
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                        {objectMarker.longitude !== Number.MAX_VALUE ? (null) :(
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+                        {objectMarker.longitude === Number.MAX_VALUE ? null :(
                             <LeafletMarker
                                 position={[objectMarker.latitude, objectMarker.longitude]}
-                                draggable
+                                icon={customMarkerIcon}
+                                draggable={true}
                                 eventHandlers={{
                                     dragend: (event) => {
                                         const { lat, lng } = event.target.getLatLng();
-                                        setObjectMarker({ latitude: lat, longitude: lng }); }, }}/>
-                        )
-                        }
+                                        setObjectMarker({ latitude: lat, longitude: lng }); }, }}/> ) }
                     </MapContainer>
                 ) : (
                     // Mapa para mobile
@@ -123,7 +133,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     mapContainer: {
-        height: 300,
+        height: 400,
         width: '100%',
         marginVertical: 10,
     },

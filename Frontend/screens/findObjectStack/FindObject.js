@@ -33,9 +33,14 @@ const FindObject = ({ navigation, route }) => {
         return curDate;
     });
     const [objectMarker, setObjectMarker] = useState({
-        latitude: Number.MAX_VALUE,
-        longitude: Number.MAX_VALUE,
+        // Si no seteamos un valor por defecto, en web nunca se cargará el marcador porque latitude siempre tendrá un
+        // valor inicial igual a Number.MAX_VALUE.
+        latitude: -31.4124,
+        longitude: -64.1867
+    /*latitude: Number.MAX_VALUE,
+        longitude: Number.MAX_VALUE,*/
     });
+    const [isMapVisible, setIsMapVisible] = useState(true);
 
     // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
     useFocusEffect(
@@ -47,6 +52,7 @@ const FindObject = ({ navigation, route }) => {
                 setLoading(false);
                 setButtonWasPressed(false);
                 setLostDate(new Date());
+                setIsMapVisible(false);
             }
         }, [route.params?.reset]) // Dependencia en el parámetro 'reset'
     );
@@ -74,7 +80,9 @@ const FindObject = ({ navigation, route }) => {
             let config = {
                 params: {
                     query: queryObjects,
-                    'lost_date': lostDate.toISOString().split('.')[0]
+                    'lost_date': lostDate.toISOString().split('.')[0],
+                    'latitude': objectMarker.latitude,  // Incluye latitud
+                    'longitude': objectMarker.longitude  // Incluye longitud
                 },
                 headers: {
                     'Authorization': authHeader
@@ -114,23 +122,22 @@ const FindObject = ({ navigation, route }) => {
                     <Text style={styles.labelText}>Descripción del objeto:</Text>
                     <TextInput
                         style={styles.textArea}
-                        placeholder="Proporciona detalles que ayuden a identificarlo"
+                        placeholder="Proporciona detalles que ayuden a identificarlo:"
                         multiline
                         onChangeText={(text) => setQueryObjects(text)}
                     />
                 </View>
-                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
-                {selectedInstitute === null ? (
+                <InstitutePicker setSelected={(institution) => {setSelectedInstitution(institution);
+                                                                        setIsMapVisible(institution === undefined);} } />
                     <MapViewComponent
                         objectMarker={objectMarker}
                         setObjectMarker={setObjectMarker}
-                        labelText={"Ubicación donde crees que podría estar"} />
-                    ) : null
-                }
+                        labelText={"Ingresa la ubicación donde crees haberlo perdido: "}
+                        style={{ display: isMapVisible ? 'flex' : 'none' }} />
                 <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
                                        date={lostDate} setDate={setLostDate}/>
                 {buttonWasPressed ? (
-                    loading ? <ActivityIndicator size="large" color="#111818" /> : null
+                    loading ? <ActivityIndicator size="large" color="#111818" />: null
                 ) : null
                 }
             </ScrollView>
