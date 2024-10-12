@@ -3,6 +3,11 @@
     "name": "Frontend",
     "slug": "Frontend",
     "version": "1.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "bf014b26-8192-47a4-8741-4dfa3fc8b588"
+      }
+    },
     "plugins": [
       [
         "expo-font",

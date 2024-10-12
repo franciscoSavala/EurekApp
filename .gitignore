@@ -1,4 +1,5 @@
 /.idea/
 /Frontend/android/
+/Frontend/.env.development
 /Frontend/%ProgramData%/
 /data
