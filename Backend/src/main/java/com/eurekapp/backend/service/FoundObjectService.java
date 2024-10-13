@@ -64,21 +64,44 @@ public class FoundObjectService implements IFoundObjectService {
     *   una descripción textual provista por el usuario, y el ID del establecimiento en el que se encontró, */
     @SneakyThrows
     public FoundObjectUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
-        // Convertimos el archivo de imagen en bytes, para poder enviarlo en una request.
-        //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
-        final byte[] imageBytes = command.getImage().getBytes();
 
-        // Antes de seguir, chequeamos que el ID de organización provisto corresponda a una organización que existe.
+        // Chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() == null
                 || !organizationRepository.existsById(command.getOrganizationId()))
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
-        // Solicitamos a la API "OpenAI Chat Completion" una descripción textual de la foto.
+
+        /*
+        *  Coordenadas:
+        *   -Si se ingresaron coordenadas, se usan esas.
+        *   -Si no se ingresaron coordenadas, se usan las coordenadas de la organización, porque eso significa que el
+        *       objeto fue encontrado dentro del establecimiento.
+        * */
+        Double objectLatitude = null;
+        Double objectLongitude = null;
+        if (command.getLatitude() != null && command.getLongitude() != null){
+            objectLatitude = command.getLatitude();
+            objectLongitude = command.getLongitude();
+        } else {
+            // Llegados a esta instancia, la organización si o sí existe.
+            Organization org = organizationRepository.findById(command.getOrganizationId()).get();
+            objectLatitude = org.getCoordinates().getLatitude();
+            objectLongitude = org.getCoordinates().getLongitude();
+        }
+
+        // Convertimos la foto en bytes, para poder enviarla en una request.
+        final byte[] imageBytes = command.getImage().getBytes();
+        //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
+
+        // Ahora solicitamos a "OpenAI Chat Completion" una descripción textual de la foto.
         String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
 
-        /* Solicitamos a la API "OpenAI Embeddings" una representación vectorial de la concatenación de la
-        descripción textual que nos dio la otra API, y de la descripción y título provistos por el humano. */
+        /*
+        *   Solicitamos a "OpenAI Embeddings" una representación vectorial de la concatenación de la
+        *   descripción textual que nos dio "OpenAiChat Completion", y de la descripción y título provistos por el
+        *   usuario.
+        */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
 
         // Generamos de forma aleatoria un ID para el post de objeto encontrado.
@@ -92,9 +115,10 @@ public class FoundObjectService implements IFoundObjectService {
                 .embeddings(embeddings)
                 .organizationId(String.valueOf(command.getOrganizationId()))
                 .foundDate(command.getFoundDate())
-                .coordinates(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
+                .coordinates(GeoCoordinates.builder().latitude(objectLatitude).longitude(objectLongitude).build())
                 .wasReturned(false)
                 .build();
+
 
         Future<Void> addFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.add(foundObject));
         Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
@@ -105,8 +129,14 @@ public class FoundObjectService implements IFoundObjectService {
             log.error(e.toString());
             throw new ApiException("upload_error", "There was an error uploading your object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
+
+        /*
+        *   Comparamos el objeto cargado con las publicaciones existentes de objetos perdidos.
+        * */
         executorService.execute(() -> lostObjectService.findSimilarLostObject(
                 embeddings, command.getOrganizationId(), command.getTitle(), foundObjectId));
+
         // Asentamos la operación en el log.
         log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
 
@@ -118,24 +148,85 @@ public class FoundObjectService implements IFoundObjectService {
     }
 
     /**
-     * Busca los objetos encontrados que tengan cierto puntaje mínimo
-     * y que estén en cierta fecha
+     *  Ese método es llamado cuando el usuario desea buscar su objeto perdido entre los objetos que están en custodia
+     *  de las organizaciones.
      * @param command Objeto que tiene todos los parámetros para que el método haga algo...
-     * @return
+     * @return Lista que contiene los objetos encontrados, ordenados por el grado de coincidencia con la búsqueda.
      */
     @SneakyThrows
     public FoundObjectsListDto getFoundObjectByTextDescription(SimilarObjectsCommand command){
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
-        //TODO: Hacer una implementación de StructVector pero que solo se use para buscar, es decir que solo tenga embeddings
 
-        // Le pedimos a FoundObjectRepository que nos devuelva los objetos FoundObject cercanos al vector, con fecha
-        // posterior a la provista, y opcionalmente con id de organización igual al provisto, si fue provisto.
+        /*
+        *  En base a la descripción provista por el usuario, generamos un vector que la represente.
+        * */
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
+        //List<Float> embeddings = Collections.nCopies(1536, 0.0f);
+
+        /*
+        *   La intención detrás de inicializar la organización y las coordenadas como null es que siempre le hagamos el
+        *   mismo pedido a foundObjectRepository, independientemente de si la búsqueda es en una organización o por
+        *   coordenadas.
+        *
+        *   Si el user está haciendo una búsqueda dentro de una organización, el command tendrá valores null para
+        *   la latitud y para la longitud, y tendrá un valor válido para el id de la organización.
+        *
+        *   Si el user está haciendo una búsqueda por coordenadas, el command tendrá un valor null para el id de
+        *   organización, y valores válidos de latitud y de longitud.
+        * */
+
+        // Validamos que o se haya provisto una organización, o se hayan provisto coordenadas.
+        if(command.getOrganizationId() == null && (command.getLatitude() == null || command.getLongitude() == null))
+            throw new ApiException("Api error:", "Invalid parameters", HttpStatus.BAD_REQUEST);
+
+        // Inicializamos la organización como null, y si el usuario proveyó una, usaremos el valor que viene en el
+        // command.
         String orgId = null;
         if(command.getOrganizationId() != null){ orgId = command.getOrganizationId().toString();}
+
+        /*
+        *   Inicializamos las coordenadas como null. Serán usadas para calcular el score geográfico.
+        *   -Si el usuario proveyó coordenadas, usaremos la latitud y longitud que vienen en el command.
+        *   -Si el usuario proveyó una organización, usaremos la latitud y longitud de la organización.
+        */
+        GeoCoordinates queryCoordinates = null;
+        if(orgId != null && organizationRepository.existsById(command.getOrganizationId()) ){
+            queryCoordinates = organizationRepository.findById(command.getOrganizationId())
+                .get()
+                .getCoordinates();
+        }else{
+            queryCoordinates = GeoCoordinates.builder()
+                    .latitude(command.getLatitude())
+                    .longitude(command.getLongitude())
+                    .build();
+        }
+
+
+        /* Le pedimos a FoundObjectRepository que nos devuelva los objetos FoundObject similares al vector, con fecha
+        *  posterior a la provista, y que no hayan sido devueltos.
+        *  Dependiendo de si la búsqueda es por organización o por coordenadas, u "orgId" o "coordinates" valdrán null.
+        * */
         List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
                                                                     orgId,
+                                                                    queryCoordinates,
                                                                     command.getLostDate(),
-                                                        false);
+                                                                    false);
+
+        /*
+        *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
+        *  y tiempo, y conocemos la distancia coseno entre cada uno de estos objetos y la búsqueda.
+        *  Para obtener el puntaje total en base al cual ordenaremos los resultados, calcularemos un puntaje
+        *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
+        */
+        for(FoundObject fo: foundObjects){
+            Double cosDistance = fo.getScore().doubleValue();
+            Double geoScore = CommonFunctions.calculateGeoScore(fo.getCoordinates(), queryCoordinates);
+            Double totalScore = 0.7*cosDistance + 0.3*geoScore;
+            log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
+
+            // Inicialmente "score" tenía almacenada la distancia coseno. Ahora, la reemplazaremos por el score total.
+            fo.setScore(totalScore.floatValue());
+        }
+
 
         // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
         List<FoundObjectDto> result = foundObjects.stream()
@@ -178,6 +269,7 @@ public class FoundObjectService implements IFoundObjectService {
         else{ throw new IllegalArgumentException("ERROR: Se debe proveer un ID de organización."); }
         List<FoundObject> foundObjects = foundObjectRepository.query(null,
                 orgId,
+                null,
                 null,
                 false);
 

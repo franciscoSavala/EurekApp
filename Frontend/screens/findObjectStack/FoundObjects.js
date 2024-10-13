@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, StyleSheet, Text, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -29,7 +29,7 @@ const FoundObjects = ({ route, navigation }) => {
 
     return (
         <View style={styles.container}>
-            <View style={styles.coincidencesContainer}>
+            <ScrollView contentContainerStyle={styles.coincidencesContainer}>
                 <Text style={styles.headerText}>Coincidencias encontradas</Text>
                 <FlatList
                     data={objectsFound}
@@ -38,7 +38,7 @@ const FoundObjects = ({ route, navigation }) => {
                     contentContainerStyle={styles.contentContainer}
                     extraData={objectSelectedId}
                 />
-            </View>
+            </ScrollView>
             <View style={styles.buttonContainer}>
                 <EurekappButton onPress={() => setOrganizationInformationModal(true)}
                                 backgroundColor={'#f0f4f4'}
@@ -86,9 +86,14 @@ const styles = StyleSheet.create({
     },
     coincidencesContainer: {
         flexDirection: 'column',
-        flex: 1,
+        /*flex: 1,*/
         width: '100%',
         justifyContent: 'flex-start',
+        maxWidth:'1000px',
+        alignSelf:"center",
+
+        flexGrow: 1,
+        paddingHorizontal: 10,
     },
     contentContainer: {
         padding: 10,

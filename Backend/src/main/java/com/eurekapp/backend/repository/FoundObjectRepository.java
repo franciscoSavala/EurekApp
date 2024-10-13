@@ -13,6 +13,7 @@ import io.weaviate.client.v1.filters.Operator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -21,6 +22,8 @@ import java.util.*;
 @Component
 public class FoundObjectRepository {
 
+    // Radio al que se circunscribirán las búsquedas, expresado en metros.
+    private static final Double maxRadius = 50000.0;
     private static final Logger log = LoggerFactory.getLogger(FoundObjectRepository.class);
     private final WeaviateService weaviateService;
 
@@ -54,18 +57,41 @@ public class FoundObjectRepository {
 
     public List<FoundObject> query(List<Float> vector,
                                    String orgId,
+                                   GeoCoordinates coordinates,
                                    LocalDateTime foundDate,
                                    boolean wasReturned){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
 
-        /* No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter.
-            Si el vector es null, WeaviateService decidirá cómo lidiar con eso. */
+        /*
+        *   No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter, sino que es pasado
+        *  de forma directa a Weaviate.
+        *  WeaviateService decidirá qué hacer si el vector recibido es null.
+        * */
 
-        // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
+        // Agregamos un filtro opcional para las coordenadas.
+        if(coordinates != null){
+            /*
+             * Definimos el radio al cual vamos a circunscribir la búsqueda.
+            *  Esta definición es una regla de negocio.
+            *  Esta distancia será igual a 50 km. Está expresada en metros.
+            * */
+            Float maxDistance = (maxRadius).floatValue();
+            filters.add(WhereFilter.builder()
+                    .path("coordinates")
+                    .operator(Operator.WithinGeoRange)
+                    .valueGeoRange(WhereFilter.GeoRange.builder()
+                            .geoCoordinates(WhereFilter.GeoCoordinates.builder()
+                                            .latitude(coordinates.getLatitude().floatValue())
+                                            .longitude(coordinates.getLongitude().floatValue())
+                                            .build())
+                            .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
+                            .build())
+                    .build());
+        }
 
-        // Agregar filtro opcional para organization_id
+        // Agregamos un filtro opcional para la organización.
         if (orgId != null) {
             filters.add(WhereFilter.builder()
                     .path("organization_id")
@@ -74,7 +100,7 @@ public class FoundObjectRepository {
                     .build());
         }
 
-        // Agregar filtro opcional para foundDate
+        // Agregamos un filtro opcional para foundDate.
         if (foundDate != null) {
             ZonedDateTime zonedDateTime = foundDate.atZone(ZoneId.of("GMT"));
             Date castedLostDate = Date.from(zonedDateTime.toInstant());
@@ -86,14 +112,14 @@ public class FoundObjectRepository {
                     .build());
         }
 
-        // Agregar filtro para was_returned
+        // Agregamos el filtro para was_returned.
         filters.add(WhereFilter.builder()
                 .path("was_returned")
                 .operator(Operator.Equal)
                 .valueBoolean(wasReturned)
                 .build());
 
-        // Construir el filtro compuesto (And)
+        // Construimos el filtro compuesto (And).
         WhereFilter filter = WhereFilter.builder()
                 .operator(Operator.And)
                 .operands(filters.toArray(new WhereFilter[0])) // Convierte la lista en array

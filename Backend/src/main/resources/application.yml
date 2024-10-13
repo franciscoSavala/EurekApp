@@ -34,3 +34,5 @@ application:
   weaviate:
     url: 'localhost:8081'
     schema: 'http'
+search:
+  max-radius: 50000

@@ -81,12 +81,15 @@ const FindObject = ({ navigation, route }) => {
                 params: {
                     query: queryObjects,
                     'lost_date': lostDate.toISOString().split('.')[0],
-                    'latitude': objectMarker.latitude,  // Incluye latitud
-                    'longitude': objectMarker.longitude  // Incluye longitud
                 },
                 headers: {
                     'Authorization': authHeader
                 }
+            }
+            // Incluimos las coordenadas solo si se seleccionó una organización.
+            if (!selectedInstitute) {
+                config.params.latitude = objectMarker.latitude;  // Incluye latitud
+                config.params.longitude = objectMarker.longitude; // Incluye longitud
             }
             let endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
             let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
@@ -122,7 +125,7 @@ const FindObject = ({ navigation, route }) => {
                     <Text style={styles.labelText}>Descripción del objeto:</Text>
                     <TextInput
                         style={styles.textArea}
-                        placeholder="Proporciona detalles que ayuden a identificarlo:"
+                        placeholder="Proporciona detalles que ayuden a identificarlo"
                         multiline
                         onChangeText={(text) => setQueryObjects(text)}
                     />
@@ -157,6 +160,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'flex-start',
         paddingHorizontal: 10,
+        maxWidth:'1000px',
+        width: '100%',
+        alignSelf:"center"
     },
     input: {
         width: '100%',

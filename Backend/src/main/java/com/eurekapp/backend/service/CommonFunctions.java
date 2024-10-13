@@ -2,6 +2,7 @@ package com.eurekapp.backend.service;
 
 
 import com.eurekapp.backend.model.GeoCoordinates;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -14,6 +15,9 @@ import java.util.Map;
  *
  * ***/
 public class CommonFunctions {
+
+    @Value("${search.max-radius}")
+    private double maxRadius;
 
     // Constant for date format
     public static final String DATE_FORMAT = "yyyy-MM-dd";
@@ -33,8 +37,8 @@ public class CommonFunctions {
 
     public static GeoCoordinates convertToGeoCoordinates(Map<String, Object> locationData) {
         if (locationData != null) {
-            double latitude = (Double) locationData.get("latitude");
-            double longitude = (Double) locationData.get("longitude");
+            Double latitude = (Double) locationData.get("latitude");
+            Double longitude = (Double) locationData.get("longitude");
             return GeoCoordinates.builder()
                     .latitude(latitude)
                     .longitude(longitude)
@@ -49,7 +53,7 @@ public class CommonFunctions {
      *      Este método usa la fórmula de Haversine, que presenta un cierto error por asumir que la Tierra es esférica.
      *      Como siempre calcularemos distancias menores a 100 km, este error es de unos pocos metros, y es aceptable.
      * ***/
-    public static double calculateGeoDistance(GeoCoordinates point1, GeoCoordinates point2) {
+    public static Double calculateGeoDistance(GeoCoordinates point1, GeoCoordinates point2) {
         // Radius of the Earth in meters
         final double EARTH_RADIUS_METERS = 6371000;
 
@@ -66,8 +70,33 @@ public class CommonFunctions {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         // Calculate the distance
-        double distanceInMeters = EARTH_RADIUS_METERS * c;
+        Double distanceInMeters = EARTH_RADIUS_METERS * c;
 
         return distanceInMeters; // Distance in meters
+    }
+
+    public static Double calculateGeoDistance(Double latitude1, Double longitude1, Double latitude2, Double longitude2) {
+        GeoCoordinates point1 = GeoCoordinates.builder()
+                .latitude(latitude1)
+                .longitude(longitude1)
+                .build();
+        GeoCoordinates point2 = GeoCoordinates.builder()
+                .latitude(latitude2)
+                .longitude(longitude2)
+                .build();
+        return calculateGeoDistance(point1, point2); // Distance in meters
+    }
+
+    public static Double calculateGeoScore(GeoCoordinates point1, GeoCoordinates point2){
+        // 1- Calculamos la distancia entre ambos puntos
+        Double distance = calculateGeoDistance(point1, point2);
+
+        /* 2- Con la siguiente función, calculamos el score geográfico:
+            score = e**(-k*d)
+            donde k es una constante y d es la distancia en metros.
+            Definimos "k" igual a 0.000102586589, para que el score de una distancia de 500 metros sea igual a 0.95.
+         */
+        final Double k = 0.000102586589;
+        return Math.exp(-k * distance);
     }
 }

@@ -89,7 +89,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
             }}>{labelText}</Text>
             <View style={styles.mapRounded}>
                 {Platform.OS === 'web' ? (
-                    // Mapa alternativo para web
+                    // Mapa para web
                     <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={13} >
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                         {objectMarker.longitude === Number.MAX_VALUE ? null :(
@@ -133,9 +133,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     mapContainer: {
-        height: 400,
+        minHeight: 400,
         width: '100%',
         marginVertical: 10,
+        aspectRatio: 1.778
     },
     mapRounded: {
         flex: 1,

@@ -27,36 +27,43 @@ public class FoundObjectController {
     @Autowired
     private ReturnFoundObjectService returnFoundObjectService;
 
-    /* Esta clase nuclea a los endpoints correspondientes a los posteos de objetos encontrados. */
-
-    // Endpoint usado para postear un objeto encontrado, con foto y descripción textual.
+    /***
+     *  Endpoint usado en la pantalla "Receptar un objeto", para cargar un objeto encontrado y que sea inventariado
+     *  por la organización que lo retendrá.
+     * ***/
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
             @RequestParam("file") MultipartFile file,
             @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
             @RequestParam(value = "found_date") LocalDateTime foundDate,
-            @RequestParam(value = "latitude") Double latitude,
-            @RequestParam(value = "longitude") Double longitude,
+            @RequestParam(value = "latitude", required = false) Double latitude,
+            @RequestParam(value = "longitude", required = false) Double longitude,
             @PathVariable(value = "organizationId", required = false) Long organizationId){
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .image(file)
                 .title(title)
                 .foundDate(foundDate)
                 .organizationId(organizationId)
-                .coordinates(GeoCoordinates.builder().latitude(latitude).longitude(longitude).build())
+                .latitude(latitude)
+                .longitude(longitude)
                 .detailedDescription(detailedDescription != null ? detailedDescription : "")
                 .build();
         return ResponseEntity.ok(service.uploadFoundObject(command));
     }
 
-    // Endpoint que devuelve los objetos perdidos en una organización en particular que tengan el mayor grado de
-    // coincidencia con la descripción textual provista.
+    /***
+     *  Este endpoint es usado en la pantalla "Buscar un objeto", cuando los datos provistos son descripción,
+     *  organización en la que el usuario cree haber perdido el objeto, y fecha-hora en la que cree haberlo perdido.
+     * ***/
     @GetMapping("/organizations/{organizationId}")
-    public ResponseEntity<FoundObjectsListDto> getFoundObjectsByTextDescriptionAndOrganization(
+    public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByOrganization(
             @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
             @PathVariable(name = "organizationId", required = false) Long organizationId,
             @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate){
+
+        // Si bien el frontend siempre nos enviará coordenadas (porque las mismas tienen un valor por defecto),
+        // cuando el usuario haya seleccionado una organización las ignoraremos a la hora de construir el objeto command.
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
                 .organizationId(organizationId)
@@ -65,7 +72,29 @@ public class FoundObjectController {
         return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
     }
 
-    // Endpoint que devuelve todos los objetos encontrados que una organización tiene en su poder actualmente.
+    /***
+     *  Este endpoint es usado en la pantalla "Buscar un objeto", cuando los datos provistos son descripción,
+     *  coordenadas del lugar en el que el usuario cree haberlo perdido, y fecha-hora en la que cree haberlo perdido.
+     * ***/
+    @GetMapping
+    public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByCoordinates(
+            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
+            @RequestParam(name = "lost_date", required = false) @Past LocalDateTime lostDate,
+            @RequestParam(name="latitude", required = true) Double latitude,
+            @RequestParam(name="longitude", required = true) Double longitude){
+        SimilarObjectsCommand command = SimilarObjectsCommand.builder()
+                .query(query)
+                .lostDate(lostDate)
+                .latitude(latitude)
+                .longitude(longitude)
+                .build();
+        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
+    }
+
+    /***
+     *  Endpoint usado para que un usuario de organización pueda ver todos los objetos que la organización actualmente
+     *  tiene en su poder.
+     * ***/
     @GetMapping("/organizations/all/{organizationId}")
     public ResponseEntity<FoundObjectsListDto> getAllUnreturnedFoundObjectsByOrganization(
             @PathVariable(name = "organizationId", required = false) Long organizationId){
@@ -75,19 +104,9 @@ public class FoundObjectController {
         return ResponseEntity.ok(service.getAllUnreturnedFoundObjectsByOrganization(command));
     }
 
-    // Endpoint que devuelve los objetos perdidos en todas las organizaciones que tengan el mayor grado de coincidencia
-    // con la descripción textual provista.
-    @GetMapping
-    public ResponseEntity<FoundObjectsListDto> getFoundObjectsByTextDescription(
-            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
-            @RequestParam(name = "lost_date", required = false) @Past LocalDateTime lostDate){
-        SimilarObjectsCommand command = SimilarObjectsCommand.builder()
-                .query(query)
-                .lostDate(lostDate)
-                .build();
-        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
-    }
-
+    /***
+     *  Endpoint usado en la pantalla "Devolver un objeto", para asentar la devolución.
+     * ***/
     @PostMapping("/return/{organizationId}")
     public ResponseEntity<ReturnFoundObjectResponseDto> returnLostObject(
             @RequestBody ReturnFoundObjectCommand command,

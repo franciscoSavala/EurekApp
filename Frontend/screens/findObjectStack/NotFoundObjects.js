@@ -90,6 +90,8 @@ const styles = StyleSheet.create({
         width: '100%',
         justifyContent: 'flex-start',
         alignItems: 'flex-start',
+        maxWidth:'1000px',
+        alignSelf:"center"
     },
     headerText: {
         color: '#111818', // equivalent to text-[#111818]

@@ -12,6 +12,7 @@ import io.weaviate.client.v1.graphql.model.GraphQLResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +32,6 @@ import java.util.stream.Collectors;
 public class WeaviateService {
 
     private static final Logger log = LoggerFactory.getLogger(WeaviateService.class);
-
     private final WeaviateClient weaviateClient;
 
     public WeaviateService(
@@ -231,6 +231,17 @@ public class WeaviateService {
                 stringBuilder.append("valueDate: ");
                 //stringBuilder.append("\\\"").append(operand.getValueDate().toInstant().toString()).append("\\\"");
                 stringBuilder.append("\"").append(operand.getValueDate().toInstant().toString()).append("\"");
+            } else if (operand.getValueGeoRange() != null) {
+                stringBuilder.append("valueGeoRange: {");
+
+                stringBuilder.append(" geoCoordinates: {");
+                stringBuilder.append(" latitude: " + operand.getValueGeoRange().getGeoCoordinates().getLatitude().toString());
+                stringBuilder.append(" longitude: " + operand.getValueGeoRange().getGeoCoordinates().getLongitude().toString());
+                stringBuilder.append("} ");
+
+                stringBuilder.append( "distance: { max: " + operand.getValueGeoRange().getDistance().getMax().toString() + " }");
+
+                stringBuilder.append(" }");
             }
             stringBuilder.append(" }, ");
         }

@@ -196,6 +196,9 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'flex-start',
         alignItems: 'center',
+        maxWidth:'1200px',
+        width: '100%',
+        alignSelf:"center"
     },
     textError: {
         color: '#000',

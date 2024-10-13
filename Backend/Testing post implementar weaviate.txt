@@ -1,0 +1,22 @@
+Buscar objeto
+-Validación de campos (que no deje buscar si no se ingresó texto o si se ingresó una fecha futura) ---> PASS
+-Buscar "Billetera" teniendo una billetera cargada, encontrada el 21/09, poniendo fechas anteriores y posteriores al 21/09 y validar que aparezca/no aparezca entre los resultados acordemente y por encima de los demás objetos cargados ---> PASS
+-Buscar "Botella", organización "2", día 30/09, teniendo una botella cargada, encontrada el 02/10  en la organización "1" (no debe aparecer entre los resultados) ---> PASS
+-Buscar "Botella", organización "1", día 30/09, teniendo una botella cargada, encontrada el 02/10 en la organización "1" (sí debe aparecer entre los resultados) ---> PASS
+-Buscar "Botella", sin organización, día 30/09, teniendo una botella cargada, encontrada el 02/10  en la organización "1" (sí debe aparecer entre los resultados) ---> PASS
+-Guardar la búsqueda y que se guarde correctamente en la BD ---> PASS
+
+Cargar un objeto
+-Cargar objeto con foto, título y fecha válidos, y sin descripción (se guarda correctamente en la BD y aparece en la lista de objetos de la organización) ---> PASS
+-Cargar objeto con foto, título y fecha válidos, y CON descripción (se guarda correctamente en la BD y aparece en la lista de objetos de la organización) ---> PASS
+-Intentar cargar un objeto sin imagen (cargar demás campos con info válida) (debe exigir que cargue un imagen) ---> PASS
+-Intentar cargar un objeto sin título (cargar demás campos con info válida) (debe exigir que ingrese un título) ---> PASS
+-Intentar cargar un objeto con fecha > a la actual (cargar demás campos con info válida) (debe exigir que ingrese fecha válida) ---> Maso, el back respondió que ingrese una fecha válida pero el front sólo mostró un ícono de cruz roja.
+
+Devolver un objeto
+-Validación de campos (que no deje asentar la devolución si no se ingresó un DNI o un teléfono) ---> PASS
+-Validación de usuario (que detecte cuando se ignresa un user que no existe) ---> PASs
+-Cargar una devolución con todos datos válidos y que se guarde correctamente en la BD ---> PASS
+-Luego de marcar un objeto como devuelto, ya no aparece en la pantalla de "Devolver un objeto" ---> PASS
+
+
