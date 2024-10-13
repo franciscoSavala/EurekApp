@@ -59,10 +59,10 @@ public class ChatCompletionRequest {
 
     @Getter
     static class TextContent extends Content{
-        private final String text = "Describe el objeto que está en esta imagen con el mayor detalle. " +
-                "Sé lo más descriptivo posible, evita palabras de relleno." +
-                "No empieces con \"La imagen muestra etc.\"," +
-                "simplemente dí \"[objeto] [adjetivo]\", por dar un ejemplo.";
+        private final String text = "Describe las 3 cualidades principales del objeto" +
+                " que ves en la imagen con mucho detalle. Evita palabras de relleno." +
+                " No empieces con \"La imagen muestra etc.\", simplemente dí \"[objeto] [adjetivo]\"," +
+                " por dar un ejemplo. No describas nada que no sea el objeto principal que se ve en la foto.";
         public TextContent(){
             this.type = "text";
         }

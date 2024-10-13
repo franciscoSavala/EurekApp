@@ -160,7 +160,7 @@ public class FoundObjectService implements IFoundObjectService {
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
         * */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
-        //List<Float> embeddings = Collections.nCopies(1536, 0.0f);
+        //embeddings = embeddings.stream().map(e->(e*(-1))).toList();
 
         /*
         *   La intención detrás de inicializar la organización y las coordenadas como null es que siempre le hagamos el
@@ -219,8 +219,10 @@ public class FoundObjectService implements IFoundObjectService {
         */
         for(FoundObject fo: foundObjects){
             Double cosDistance = fo.getScore().doubleValue();
+            cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
+
             Double geoScore = CommonFunctions.calculateGeoScore(fo.getCoordinates(), queryCoordinates);
-            Double totalScore = 0.7*cosDistance + 0.3*geoScore;
+            Double totalScore = 0.95*cosDistance + 0.05*geoScore;
             log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
 
             // Inicialmente "score" tenía almacenada la distancia coseno. Ahora, la reemplazaremos por el score total.
