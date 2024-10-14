@@ -36,7 +36,6 @@ const FindObject = ({ navigation, route }) => {
         latitude: -31.4124,
         longitude: -64.1867
     });
-    const [isMapVisible, setIsMapVisible] = useState(true);
 
     // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
     useFocusEffect(
@@ -48,7 +47,6 @@ const FindObject = ({ navigation, route }) => {
                 setLoading(false);
                 setButtonWasPressed(false);
                 setLostDate(new Date());
-                setIsMapVisible(false);
             }
         }, [route.params?.reset]) // Dependencia en el parámetro 'reset'
     );
@@ -126,13 +124,11 @@ const FindObject = ({ navigation, route }) => {
                         onChangeText={(text) => setQueryObjects(text)}
                     />
                 </View>
-                <InstitutePicker setSelected={(institution) => {setSelectedInstitution(institution);
-                                                                        setIsMapVisible(institution === undefined);} } />
-                { isMapVisible ? <MapViewComponent
+                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
+                { selectedInstitute == null ? <MapViewComponent
                     objectMarker={objectMarker}
                     setObjectMarker={setObjectMarker}
-                    labelText={"Ingresa la ubicación donde crees haberlo perdido: "}
-                    style={{ display: isMapVisible ? 'flex' : 'none' }} />
+                    labelText={"Ingresa la ubicación donde crees haberlo perdido: "}/>
                     :
                     null
                 }
