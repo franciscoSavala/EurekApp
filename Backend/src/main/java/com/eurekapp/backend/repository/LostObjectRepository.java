@@ -1,8 +1,10 @@
 package com.eurekapp.backend.repository;
 
 
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.LostObject;
+import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.service.CommonFunctions;
 import com.eurekapp.backend.service.client.WeaviateService;
 import com.eurekapp.backend.service.CommonFunctions.*;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.*;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -23,16 +26,27 @@ import java.util.Map;
 public class LostObjectRepository {
 
     private final WeaviateService weaviateService;
+    private final IOrganizationRepository organizationRepository;
 
     public LostObjectRepository(
-            WeaviateService weaviateService){
+            WeaviateService weaviateService,
+            IOrganizationRepository organizationRepository){
         this.weaviateService = weaviateService;
+        this.organizationRepository = organizationRepository;
     }
 
 
     public void add(LostObject lostObject) {
         // TODO: Preguntar a Fran por qué el command viene sin lost_date
-        // TODO: Definir properties antes de declarar a "object" para manejar casos en los que orgId = null, y similares.
+        HashMap<String, Double> coordinatesMap = new HashMap<>();
+        if(lostObject.getCoordinates() == null) {
+            Organization organization = organizationRepository.findById(Long.valueOf(lostObject.getOrganizationId()))
+                    .orElseThrow(() -> new BadRequestException("should_have_organization",
+                    "Lost Object should have organization or coordinates"));
+            coordinatesMap.put("longitude", organization.getCoordinates().getLongitude());
+            coordinatesMap.put("latitude", organization.getCoordinates().getLatitude());
+        }
+
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
                 .className("LostObject")
@@ -40,10 +54,8 @@ public class LostObjectRepository {
                         "username", lostObject.getUsername(),
                         "lost_date", lostObject.getLostDate().toString()+":00Z",
                         "description", lostObject.getDescription(),
-                        //"organization_id", lostObject.getOrganizationId(),
-                        "coordinates", Map.of(
-                                "latitude", lostObject.getCoordinates().getLatitude(),
-                                "longitude", lostObject.getCoordinates().getLongitude())
+                        "organization_id", lostObject.getOrganizationId(),
+                        "coordinates", coordinatesMap
                 ))
                 .vector(lostObject.getEmbeddings().toArray(new Float[0]))
                 .build();

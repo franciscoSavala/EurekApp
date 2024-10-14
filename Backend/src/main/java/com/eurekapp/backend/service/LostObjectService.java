@@ -54,7 +54,8 @@ public class LostObjectService {
                 .uuid(id)
                 .username(command.getUsername())
                 .embeddings(embeddings)
-                .coordinates(GeoCoordinates.builder().latitude(0.5).longitude(0.9).build())
+                .coordinates(command.getGeoCoordinates())
+                .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
                 .lostDate(command.getLostDate())
                 .build();

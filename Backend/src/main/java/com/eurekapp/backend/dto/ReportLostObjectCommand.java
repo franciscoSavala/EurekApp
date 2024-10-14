@@ -21,4 +21,6 @@ public class ReportLostObjectCommand {
     private LocalDateTime lostDate;
     @JsonProperty("coordinates")
     private GeoCoordinates geoCoordinates;
+    @JsonProperty("organization_id")
+    private String organizationId;
 }

@@ -33,12 +33,8 @@ const FindObject = ({ navigation, route }) => {
         return curDate;
     });
     const [objectMarker, setObjectMarker] = useState({
-        // Si no seteamos un valor por defecto, en web nunca se cargará el marcador porque latitude siempre tendrá un
-        // valor inicial igual a Number.MAX_VALUE.
         latitude: -31.4124,
         longitude: -64.1867
-    /*latitude: Number.MAX_VALUE,
-        longitude: Number.MAX_VALUE,*/
     });
     const [isMapVisible, setIsMapVisible] = useState(true);
 
@@ -86,24 +82,24 @@ const FindObject = ({ navigation, route }) => {
                     'Authorization': authHeader
                 }
             }
+            const routeParams = {
+                query: queryObjects,
+                lostDate: lostDate,
+                organizationId: selectedInstitute ? selectedInstitute.id : null
+            }
             // Incluimos las coordenadas solo si se seleccionó una organización.
             if (!selectedInstitute) {
                 config.params.latitude = objectMarker.latitude;  // Incluye latitud
                 config.params.longitude = objectMarker.longitude; // Incluye longitud
+                routeParams.longitude = objectMarker.longitude;
+                routeParams.latitude = objectMarker.latitude;
             }
             let endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
             let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
-            const routeParams = {
-                objectsFound: jsonData.found_objects,
-                query: queryObjects,
-                lostDate: lostDate,
-                coordinates: {
-                    latitude: objectMarker.latitude,
-                    longitude: objectMarker.longitude
-                }
-            }
+            routeParams.objectsFound = jsonData.found_objects;
+
 
             if(jsonData.found_objects.length === 0) {
                 navigation.navigate('NotFoundObjects', routeParams);
@@ -132,11 +128,14 @@ const FindObject = ({ navigation, route }) => {
                 </View>
                 <InstitutePicker setSelected={(institution) => {setSelectedInstitution(institution);
                                                                         setIsMapVisible(institution === undefined);} } />
-                    <MapViewComponent
-                        objectMarker={objectMarker}
-                        setObjectMarker={setObjectMarker}
-                        labelText={"Ingresa la ubicación donde crees haberlo perdido: "}
-                        style={{ display: isMapVisible ? 'flex' : 'none' }} />
+                { isMapVisible ? <MapViewComponent
+                    objectMarker={objectMarker}
+                    setObjectMarker={setObjectMarker}
+                    labelText={"Ingresa la ubicación donde crees haberlo perdido: "}
+                    style={{ display: isMapVisible ? 'flex' : 'none' }} />
+                    :
+                    null
+                }
                 <EurekappDateComponent labelText={'Fecha y hora en la que crees haberlo perdido: '}
                                        date={lostDate} setDate={setLostDate}/>
                 {buttonWasPressed ? (

@@ -151,7 +151,7 @@ const submitData = async () => {
             formData.append('detailed_description', detailedDescription);
             if (useCoordinates){
                 formData.append('latitude', objectMarker.latitude.toString());
-            formData.append('longitude', objectMarker.longitude.toString());
+                formData.append('longitude', objectMarker.longitude.toString());
             }
             formData.append("file", new Blob([imageByte]));
             let response = await fetch(`${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`, {
@@ -169,18 +169,24 @@ const submitData = async () => {
             }
         } else {
             // Enviar datos usando react-native-blob-util en móviles
+            let body = [{name: 'title', data: objectTitle},
+                {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                {name: 'detailed_description', data: detailedDescription},
+                {name: 'file', filename: 'found_object.jpg',
+                    data: String(image.base64)}];
+
+            if(useCoordinates) {
+                body.push(
+                    {name: 'latitude', data: objectMarker.latitude.toString()},
+                    {name: 'longitude', data: objectMarker.longitude.toString()}
+                );
+            }
             let response =
                 await ReactNativeBlobUtil.fetch('POST',
                     `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
                         'Authorization': authHeader,
                         'Content-Type': 'multipart/form-data'
-                    },[{name: 'title', data: objectTitle},
-                        {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
-                        {name: 'detailed_description', data: detailedDescription},
-                        {name: 'latitude', data: objectMarker.latitude.toString()},
-                        {name: 'longitude', data: objectMarker.longitude.toString()},
-                        {name: 'file', filename: 'found_object.jpg',
-                            data: String(image.base64)}]);
+                    }, body);
             setLoading(false);
             if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
                 setResponseOk(true);
@@ -270,13 +276,22 @@ return (
                     value={useCoordinates}
                     onValueChange={toggleSwitch}
                 />
-                <Text style={styles.label}>El objeto fue encontrado fuera del establecimiento</Text>
+                <Text style={{
+                    color: '#111818',
+                    fontSize: 16,
+                    fontWeight: '500',
+                    flexShrink: 1,
+                    fontFamily: 'PlusJakartaSans-Regular'
+                }}>El objeto fue encontrado fuera del establecimiento</Text>
             </View>
-            <MapViewComponent
+            { useCoordinates ? <MapViewComponent
                 objectMarker={objectMarker}
                 setObjectMarker={setObjectMarker}
                 labelText={"Ubicación donde fue encontrado:"}
                 style={{ display: useCoordinates ? 'flex' : 'none' }} />
+                :
+                null
+            }
             <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
                                    setDate={setFoundDate} date={foundDate}/>
             <View style={styles.textAreaContainer}>
@@ -415,7 +430,7 @@ label: {
 switchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20
+    marginTop: 10,
 },
 switch: {
     marginRight: 10,

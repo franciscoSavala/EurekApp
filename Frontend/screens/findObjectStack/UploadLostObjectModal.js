@@ -10,7 +10,7 @@ import {CommonActions, useNavigation} from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate, coordinates }) => {
+const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate, coordinates, organizationId }) => {
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
@@ -33,6 +33,7 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
                     username: username,
                     lost_date: lostDate,
                     coordinates: coordinates,
+                    organization_id: organizationId
                 },
                 config );
             setResponseOk(true);

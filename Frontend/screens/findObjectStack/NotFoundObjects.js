@@ -6,7 +6,7 @@ import {useState} from "react";
 
 
 const NotFoundObjects = ({route}) => {
-    const { query, lostDate, coordinates } = route.params;
+    const { query, lostDate, coordinates, organizationId } = route.params;
     const [modalVisible, setModalVisible] = useState(false);
 
     return (
@@ -31,6 +31,7 @@ const NotFoundObjects = ({route}) => {
                                    setModalVisible={setModalVisible}
                                    query={query}
                                    lostDate={lostDate}
+                                   organizationId={organizationId}
                                    coordinates={coordinates}/>
         </View>
     );
