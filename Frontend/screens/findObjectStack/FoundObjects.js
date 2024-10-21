@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -14,6 +14,7 @@ const FoundObjects = ({ route, navigation }) => {
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const renderItem = ({ item }) => {
+        {/*
         const isSelected = item.id === objectSelectedId;
         return (
             <Pressable style={[styles.item, isSelected && styles.highlightedObjectFound]}
@@ -23,6 +24,31 @@ const FoundObjects = ({ route, navigation }) => {
                     style={styles.image}
                 />
                 <Text style={styles.description}>{item.title}</Text>
+            </Pressable>
+        );*/}
+        const isSelected = item.id === objectSelectedId;
+        const date = new Date(item.found_date);
+        return (
+            <Pressable style={[styles.item, isSelected && styles.highlightedOrganizationObject]}
+                       onPress={() => setObjectSelectedId(item.id)}>
+                <View style={styles.itemTextContainer}>
+                    <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
+                        {item.title}
+                    </Text>
+                    <Text style={styles.itemText}>
+                        Encontrado: {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}
+                    </Text>
+                    <Text style={styles.itemText}>
+                        Puntaje: {(item.score * 100).toFixed(2)}%
+                    </Text>
+                </View>
+                <Image
+                    source={ item.b64Json
+                        ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
+                        : require('../../assets/defaultImage.png') }
+                    style={styles.image}
+                    resizeMode="cover"
+                />
             </Pressable>
         );
     };
@@ -107,10 +133,20 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     item: {
-        borderRadius: 16,
-        padding: 10,
-        marginBottom: 10,
+        height: 150,
         backgroundColor: '#f0f4f4',
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        marginHorizontal: 10,
+        marginVertical: 5,
+        borderRadius: 16,
+    },
+    itemTextContainer: {
+        flex: 2,
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        alignItems: 'flex-start',
     },
     separator: {
         width: 10,
@@ -121,8 +157,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     image: {
-        aspectRatio: 1,
+        width: '100%',     // La imagen ocupará el 100% del ancho del contenedor
+        height: undefined, // Mantiene el ratio de aspecto
+        aspectRatio: 1,    // Asegura que la imagen mantenga su proporción (cuadrada)
+        maxWidth: 120,     // Limita el ancho máximo de la imagen
+        maxHeight: 120,    // Limita la altura máxima de la imagen
         borderRadius: 16,
+        overflow: 'hidden', // Evita que cualquier contenido fuera del borde del contenedor sea visible
     },
     description: {
         color: '#111818',

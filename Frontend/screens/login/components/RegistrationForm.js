@@ -35,14 +35,50 @@ export default function RegistrationForm(props) {
     }
 
     const onSubmit = async (data) => {
+        const firstname = getValues('FirstName');
+        const lastname = getValues('LastName');
         const username = getValues('Username');
         const password = getValues('Password');
 
-        register({ username, password });
+        register({ firstname, lastname, username, password });
     };
 
     return (
         <View style={styles.loginContainer}>
+            <Controller
+                control={control}
+                render={({ onChange, onBlur, value }) => (
+                    <InputLogin text='Nombre'
+                                valueName='FirstName'
+                                value={value}
+                                secure={false}/>
+                )}
+                name='FirstName'
+                rules={{
+                    required: { value: true, message: 'El nombre es obligatorio.' },
+                }}
+                defaultValue=""
+            />
+            {errors.FirstName && (
+                <Text style={styles.textError}>{errors.FirstName.message}</Text>
+            )}
+            <Controller
+                control={control}
+                render={({ onChange, onBlur, value }) => (
+                    <InputLogin text='Apellido'
+                                valueName='LastName'
+                                value={value}
+                                secure={false}/>
+                )}
+                name='LastName'
+                rules={{
+                    required: { value: true, message: 'El apellido es obligatorio.' },
+                }}
+                defaultValue=""
+            />
+            {errors.LastName && (
+                <Text style={styles.textError}>{errors.LastName.message}</Text>
+            )}
             <Controller
                 control={control}
                 render={({ onChange, onBlur, value }) => (
@@ -53,7 +89,7 @@ export default function RegistrationForm(props) {
                 )}
                 name='Username'
                 rules={{
-                    required: { value: true, message: 'Usuario requerido' },
+                    required: { value: true, message: 'La dirección de email es obligatoria.' },
                 }}
                 defaultValue=""
             />
@@ -67,7 +103,7 @@ export default function RegistrationForm(props) {
                     <InputLogin text='Contraseña' valueName='Password' value={value}/>
                 )}
                 name='Password'
-                rules={{ required: { value: true, message: 'Contraseña requerida' } }}
+                rules={{ required: { value: true, message: 'La contraseña es obligatoria.' } }}
                 defaultValue=''
             />
             {errors.Password && (

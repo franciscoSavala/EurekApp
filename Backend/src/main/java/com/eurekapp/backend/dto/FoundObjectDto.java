@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @Builder
 public class FoundObjectDto {
     private String title;
+    private String humanDescription;
+    private String aiDescription;
     private String b64Json;
     private Float score;
     private String id;

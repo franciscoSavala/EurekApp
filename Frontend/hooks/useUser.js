@@ -61,8 +61,8 @@ export default function useUser(callback, deps) {
     );
 
     const register = useCallback(
-        ({ username, password }) => {
-            registerService({ username, password })
+        ({ firstname, lastname, username, password }) => {
+            registerService({ firstname, lastname, username, password })
                 .then(async (userContext) => {
                     try {
                         const organization = userContext.organization;

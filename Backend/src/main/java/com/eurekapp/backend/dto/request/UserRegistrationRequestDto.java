@@ -15,21 +15,21 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserRegistrationRequestDto {
 
-    @NotBlank(message = "El nombre es obligatorio")
-    private String nombre;
+    @NotBlank(message = "El nombre es obligatorio.")
+    private String firstname;
 
-    @NotBlank(message = "El apellido es obligatorio")
-    private String apellido;
+    @NotBlank(message = "El apellido es obligatorio.")
+    private String lastname;
 
-    @NotBlank(message = "El correo electrónico es obligatorio")
-    @Email(message = "Debe ser un correo electrónico válido")
+    @NotBlank(message = "El correo electrónico es obligatorio.")
+    @Email(message = "Debe ser un correo electrónico válido.")
     private String username;
 
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 8, max = 16, message = "La contraseña debe tener entre 8 y 16 caracteres")
+    @NotBlank(message = "La contraseña es obligatoria.")
+    @Size(min = 8, max = 16, message = "La contraseña debe tener entre 8 y 16 caracteres.")
     @Pattern(
             regexp = "^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[@#$%^&+=!]).*$",
-            message = "La contraseña debe ser alfanumérica y contener al menos un carácter especial"
+            message = "La contraseña debe ser alfanumérica y contener al menos un carácter especial."
     )
     private String password;
 }

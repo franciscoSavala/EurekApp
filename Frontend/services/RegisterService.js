@@ -2,14 +2,14 @@ import Constants from "expo-constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-export default function register({ username, password }) {
+export default function register({ firstname, lastname, username, password }) {
     return fetch(`${BACK_URL}/signup`, {
         method: 'POST',
         headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username: username, password: password }),
+        body: JSON.stringify({ firstname: firstname, lastname: lastname, username: username, password: password }),
         redirect: 'follow',
     })
         .then((res) => {

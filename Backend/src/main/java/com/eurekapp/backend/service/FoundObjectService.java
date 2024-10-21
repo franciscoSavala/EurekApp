@@ -254,6 +254,8 @@ public class FoundObjectService implements IFoundObjectService {
         return FoundObjectDto.builder()
                 .id(foundObject.getUuid())
                 .title(foundObject.getTitle())
+                .humanDescription(foundObject.getHumanDescription())
+                .aiDescription((foundObject.getAiDescription()))
                 .b64Json(Base64.getEncoder().encodeToString(imageBytes))
                 .score(foundObject.getScore())
                 .organization(organizationDto)
