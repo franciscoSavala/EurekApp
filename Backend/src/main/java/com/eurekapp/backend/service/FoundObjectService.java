@@ -243,7 +243,7 @@ public class FoundObjectService implements IFoundObjectService {
 
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
         byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
-        log.info("[api_method:GET] [service:S3] Retriving {}, Bytes processed: {}",
+        log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",
                 foundObject.getUuid(), imageBytes.length);
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)

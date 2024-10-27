@@ -242,6 +242,7 @@ public class WeaviateService {
                 stringBuilder.append( "distance: { max: " + operand.getValueGeoRange().getDistance().getMax().toString() + " }");
 
                 stringBuilder.append(" }");
+                // Esto está comentado porque hay un bug de Weaviate en las consultas con distancia.
             }
             stringBuilder.append(" }, ");
         }

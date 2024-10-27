@@ -20,6 +20,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import ReturnObjectForm from "./screens/lostObjectReturnStack/ReturnObjectForm";
 import RegistrationScreen from "./screens/login/RegistrationScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
+import Profile from "./screens/profileStack/Profile";
+import Organization from "./screens/organizationStack/Organization";
 
 
 const FindObjectStack = createNativeStackNavigator();
@@ -78,6 +80,32 @@ const ReturnObjectStackScreen = () => {
     );
 }
 
+const ProfileStack = createStackNavigator();
+
+const ProfileStackScreen = () => {
+    return (
+        <ProfileStack.Navigator>
+            <ProfileStack.Screen
+                name='Profile'
+                component={Profile}
+                options={{headerShown: false}} />
+        </ProfileStack.Navigator>
+    );
+}
+
+const OrganizationStack = createStackNavigator();
+
+const OrganizationStackScreen = () => {
+    return (
+        <OrganizationStack.Navigator>
+            <OrganizationStack.Screen
+                name='Organization'
+                component={Organization}
+                options={{headerShown: false}} />
+        </OrganizationStack.Navigator>
+    );
+}
+
 const CustomDrawerContent = (props) => {
     const [userName, setUserName] = useState('');
     const [userFirstName, setUserFirstName] = useState('');
@@ -107,6 +135,10 @@ const CustomDrawerContent = (props) => {
         await AsyncStorage.removeItem('org.name');
         await AsyncStorage.removeItem('username');
         await AsyncStorage.removeItem('user.first_name');
+        await AsyncStorage.removeItem('user');
+        await AsyncStorage.removeItem('org.id');
+        await AsyncStorage.removeItem('org.name');
+        await AsyncStorage.removeItem('organization');
         logout();
     }
 
@@ -114,7 +146,7 @@ const CustomDrawerContent = (props) => {
         <DrawerContentScrollView {...props} contentContainerStyle={{flex: 1}}>
             <View style={{flex: 1}}>
                 <View style={styles.drawerHeader}>
-                    <Text style={styles.headerText}>Bienvenido, {userFirstName}!</Text>
+                    <Text style={styles.headerText}>¡Bienvenido, {userFirstName}!</Text>
                 </View>
                 <DrawerItemList {...props} />
 
@@ -138,14 +170,17 @@ const EurekappTab = () => {
     const uploadIcon = () => <Icon name={'upload'} size={20} />
     const searchIcon = () => <Icon name={'magnifying-glass'} size={20} />
     const returnIcon = () => <Icon name={'retweet'} size={20} />
+    const userIcon = () => <Icon name={'user'} size={20}/>
+    const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
 
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
+    const [ userRole, setUserRole ] = useState('');
     useEffect(() => {
-        const fetchUserType = async () => {
-            const orgId = await AsyncStorage.getItem('org.id');
-            setIsOrgAdmin(orgId != null);
+        const fetchUserRole = async () => {
+            const user = JSON.parse(await AsyncStorage.getItem('user'));
+            setUserRole(user.role);
         }
-        fetchUserType();
+        fetchUserRole();
     }, []);
     return (
         <Drawer.Navigator drawerContent={(props) => <CustomDrawerContent {...props} />}>
@@ -155,7 +190,7 @@ const EurekappTab = () => {
                 drawerIcon: searchIcon
             }} component={FindObjectStackScreen}
             />
-            {isOrgAdmin ?
+            {userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
                         title: 'Receptar un objeto',
@@ -170,14 +205,35 @@ const EurekappTab = () => {
                     }} component={ReturnObjectStackScreen}
                     />
                 </>
-                : <>
-                    <Drawer.Screen name="OrganizationSignupForm" options={{
-                        title: 'Solicitar alta de organización',
-                        headerTitleAlign: 'center',
-                        drawerIcon: uploadIcon
-                    }} component={OrganizationSignupForm} />
-                </>
+                : null
             }
+
+            {userRole === 'USER' ?
+            <>
+                <Drawer.Screen name="OrganizationSignupForm" options={{
+                    title: 'Solicitar alta de organización',
+                    headerTitleAlign: 'center',
+                    drawerIcon: uploadIcon
+                }} component={OrganizationSignupForm} />
+            </>: null
+            }
+
+            <Drawer.Screen name="ProfileStackScreen" options={{
+                title: 'Mi perfil',
+                headerTitleAlign: 'center',
+                drawerIcon: userIcon
+            }} component={ProfileStackScreen}
+            />
+
+            {userRole === 'ORGANIZATION_OWNER' ?
+                <>
+                    <Drawer.Screen name="OrganizationStackScreen" options={{
+                        title: 'Mi organización',
+                        headerTitleAlign: 'center',
+                        drawerIcon: organizationIcon
+                    }} component={OrganizationStackScreen}
+                    />
+                </>: null}
         </Drawer.Navigator>
     );
 }

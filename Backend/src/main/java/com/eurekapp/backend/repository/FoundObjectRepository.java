@@ -78,7 +78,9 @@ public class FoundObjectRepository {
             *  Esta distancia será igual a 50 km. Está expresada en metros.
             * */
             Float maxDistance = (maxRadius).floatValue();
-            filters.add(WhereFilter.builder()
+
+            //El siguiente código está comentado temporalmente, hasta que solucionemos el bug de Weaviate con "WithinGeoRange".
+            /*filters.add(WhereFilter.builder()
                     .path("coordinates")
                     .operator(Operator.WithinGeoRange)
                     .valueGeoRange(WhereFilter.GeoRange.builder()
@@ -88,7 +90,7 @@ public class FoundObjectRepository {
                                             .build())
                             .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
                             .build())
-                    .build());
+                    .build());*/
         }
 
         // Agregamos un filtro opcional para la organización.

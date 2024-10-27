@@ -29,7 +29,7 @@ const FoundObjects = ({ route, navigation }) => {
         const isSelected = item.id === objectSelectedId;
         const date = new Date(item.found_date);
         return (
-            <Pressable style={[styles.item, isSelected && styles.highlightedOrganizationObject]}
+            <Pressable style={[styles.item, isSelected && styles.highlightedObjectFound]}
                        onPress={() => setObjectSelectedId(item.id)}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
@@ -90,11 +90,16 @@ const FoundObjects = ({ route, navigation }) => {
                     <View style={styles.modalView}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                         <Text style={styles.modalText}>
-                            Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}{foundObjectsMap.has(objectSelectedId) ?
-                            foundObjectsMap.get(objectSelectedId).organization.contactData :
-                            null}
+                            Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}
+                            {foundObjectsMap.has(objectSelectedId) ?
+                                (
+                                <>
+                                    {foundObjectsMap.get(objectSelectedId).organization.name}{"\n"}
+                                    {foundObjectsMap.get(objectSelectedId).organization.contactData}
+                                </>
+                                ) : null}
                             {"\n"}{"\n"}
-                            Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto.
+                            Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto, y te tomarán una foto.
                         </Text>
                         <EurekappButton text='Cerrar'
                                         onPress={() => setOrganizationInformationModal(false)}/>

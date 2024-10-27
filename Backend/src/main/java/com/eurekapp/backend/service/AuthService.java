@@ -105,6 +105,7 @@ public class AuthService {
                 .username(user.getUsername())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .role(user.getRole().toString())
                 .build();
 
         Organization organization = user.getOrganization();
