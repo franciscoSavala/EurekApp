@@ -1,5 +1,11 @@
-import React, {createContext, useContext, useEffect, useState} from 'react';
-import {CommonActions, NavigationContainer, StackActions, useNavigation} from '@react-navigation/native';
+import React, {createContext, useCallback, useContext, useEffect, useState} from 'react';
+import {
+    CommonActions,
+    NavigationContainer,
+    StackActions,
+    useFocusEffect,
+    useNavigation
+} from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
@@ -23,22 +29,6 @@ import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSig
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 
-
-const FindObjectStack = createNativeStackNavigator();
-
-const FindObjectStackScreen = () => {
-    return (
-        <FindObjectStack.Navigator>
-            <FindObjectStack.Screen options={{ headerShown: false }}
-                                    name="FindObject" component={FindObject} />
-            <FindObjectStack.Screen options={{ headerShown: false }}
-                                    name="FoundObjects" component={FoundObjects} />
-            <FindObjectStack.Screen options={{ headerShown: false }}
-                                    name="NotFoundObjects" component={NotFoundObjects} />
-        </FindObjectStack.Navigator>
-    );
-}
-
 const AuthStack = createStackNavigator();
 
 const AuthStackScreen = () => {
@@ -60,6 +50,21 @@ const AuthStackScreen = () => {
                 options={{ headerShown: false }}
             />
         </AuthStack.Navigator>
+    );
+}
+
+const FindObjectStack = createNativeStackNavigator();
+
+const FindObjectStackScreen = () => {
+    return (
+        <FindObjectStack.Navigator>
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="FindObject" component={FindObject} />
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="FoundObjects" component={FoundObjects} />
+            <FindObjectStack.Screen options={{ headerShown: false }}
+                                    name="NotFoundObjects" component={NotFoundObjects} />
+        </FindObjectStack.Navigator>
     );
 }
 
@@ -172,22 +177,45 @@ const EurekappTab = () => {
     const returnIcon = () => <Icon name={'retweet'} size={20} />
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
-
+    const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const [ userRole, setUserRole ] = useState('');
+
     useEffect(() => {
-        const fetchUserRole = async () => {
-            const user = JSON.parse(await AsyncStorage.getItem('user'));
-            setUserRole(user.role);
-        }
         fetchUserRole();
     }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            console.log("useFocusEffect fue ejecutado");
+            fetchUserRole();
+        }, [])
+    );
+
+    const fetchUserRole = async () => {
+        const user = JSON.parse(await AsyncStorage.getItem('user'));
+        setUserRole(user.role);
+        console.log("fetchUserRole fue ejecutado");
+    }
+
+    const resetAndNavigate = (navigation, screenName) => {
+        navigation.dispatch(
+            CommonActions.reset({
+                index: 0,
+                routes: [{ name: screenName }],
+            })
+        );
+    };
+
     return (
-        <Drawer.Navigator drawerContent={(props) => <CustomDrawerContent {...props} />}>
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawerContent {...props} />} >
             <Drawer.Screen name="FindObjectStackScreen" options={{
                 title: 'Buscar un objeto',
                 headerTitleAlign: 'center',
                 drawerIcon: searchIcon
+            }} listeners={{
+                drawerItemPress: () => resetAndNavigate(navigation, "FindObject")
             }} component={FindObjectStackScreen}
             />
             {userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' ?
@@ -202,6 +230,8 @@ const EurekappTab = () => {
                         title: 'Devolver un objeto',
                         headerTitleAlign: 'center',
                         drawerIcon: returnIcon
+                    }} listeners={{
+                        drawerItemPress: () => resetAndNavigate(navigation,"ReturnObjectList")
                     }} component={ReturnObjectStackScreen}
                     />
                 </>
@@ -281,4 +311,5 @@ const styles = StyleSheet.create({
 });
 
 export default App;
+
 

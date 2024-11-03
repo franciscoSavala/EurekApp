@@ -78,7 +78,7 @@ public class AuthService {
         }
 
         // Creación del usuario
-        UserEurekapp userDetails = UserEurekapp.builder()
+        UserEurekapp newUser = UserEurekapp.builder()
                 .role(Role.USER)
                 .password(passwordEncoder.encode(user.getPassword()))
                 .username(user.getUsername())
@@ -88,15 +88,14 @@ public class AuthService {
                 .build();
 
         // Guardar usuario en el repositorio
-        userRepository.save(userDetails);
+        userRepository.save(newUser);
 
         log.info("[action:register] Usuario {} registrado exitosamente", user.getUsername());
 
         // Generar el token JWT para el usuario registrado
-        String jwtToken = jwtService.generateToken(userDetails);
+        String jwtToken = jwtService.generateToken(newUser);
 
-        // Devolver el token JWT
-        return LoginResponseDto.builder().token(jwtToken).build();
+        return createLoginResponse(newUser, jwtToken);
     }
 
     // Metodo auxiliar para crear la respuesta del token JWT

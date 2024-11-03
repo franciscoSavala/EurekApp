@@ -5,6 +5,7 @@ import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.OrganizationService;
 import com.eurekapp.backend.service.UserService;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +16,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/organizations")
 @CrossOrigin("*")
 public class OrganizationController {
+
     @Autowired
     private OrganizationService organizationService;
+
     @Autowired
     private UserService userService;
 
@@ -65,5 +68,33 @@ public class OrganizationController {
             return ResponseEntity.ok().build();
     }
 
+    /*
+    * Endpoint usado por un usuario regular para obtener todas las solicitudes de unión a una organización, que estén
+    * pendientes de tratamiento (o sea, sin aceptar ni rechazar)
+     */
+    @GetMapping("/getPendingAddEmployeeRequests")
+    public ResponseEntity<AddEmployeeRequestListResponseDto> getPendingAddEmployeeRequests(@AuthenticationPrincipal UserEurekapp user){
+        return ResponseEntity.ok(userService.getAllPendingAddEmployeeRequests(user));
+    }
+
+    /*
+    * Endpoint usado por un usuario regular para aceptar una solicitud de unión a una organización.
+    * */
+    @PostMapping("/acceptAddEmployeeRequest")
+    public ResponseEntity<Void> acceptAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
+                                                         @RequestBody(required = true) AddEmployeeRequestCommand command){
+        userService.acceptAddEmployeeRequest(user, command.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    /*
+     * Endpoint usado por un usuario regular para rechazar una solicitud de unión a una organización.
+     * */
+    @PostMapping("/declineAddEmployeeRequest")
+    public ResponseEntity<Void> declineAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
+                                                         @RequestBody(required = true) AddEmployeeRequestCommand command){
+        userService.declineAddEmployeeRequest(user, command.getId());
+        return ResponseEntity.ok().build();
+    }
 
 }

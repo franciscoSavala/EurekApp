@@ -16,4 +16,6 @@ public interface IAddEmployeeRequestRepository extends JpaRepository<AddEmployee
     List<AddEmployeeRequest> findByUserAndOrganizationAndStatus(UserEurekapp user,
                                                                 Organization organization,
                                                                 AddEmployeeRequestStatus status);
+    List<AddEmployeeRequest> findByUserAndStatus(UserEurekapp user,
+                                                 AddEmployeeRequestStatus status);
 }

@@ -21,7 +21,7 @@ export default function useUser(callback, deps) {
             await AsyncStorage.removeItem('org.name');
             await AsyncStorage.removeItem('org.id');
             await AsyncStorage.removeItem('jwt');
-            await AsyncStorage.removeItem('username');
+            //await AsyncStorage.removeItem('username');
             setState({loading: true, error: false, logged: false});
             setUser(null);
         } catch (error) {
@@ -71,12 +71,16 @@ export default function useUser(callback, deps) {
                         const organization = userContext.organization;
                         await AsyncStorage.setItem('jwt', userContext.token);
                         await AsyncStorage.setItem('username', username);
+                        await AsyncStorage.setItem('user.first_name', userContext.user.firstName.toString());
+                        await AsyncStorage.setItem('user', JSON.stringify(userContext.user));
                         if(organization != null) {
                             await AsyncStorage.setItem('org.id', organization.id.toString());
                             await AsyncStorage.setItem('org.name', organization.name);
+                            await AsyncStorage.setItem('organization', JSON.stringify(organization));
                         }else{
                             await AsyncStorage.removeItem('org.id');
                             await AsyncStorage.removeItem('org.name');
+                            await AsyncStorage.removeItem('organization');
                         }
                         setUser(userContext.token);
                         setState({ loading: true, error: false, logged: true });

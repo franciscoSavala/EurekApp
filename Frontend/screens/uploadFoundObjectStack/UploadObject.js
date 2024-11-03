@@ -9,7 +9,7 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform, KeyboardAvoidingView, Switch
+    Platform, KeyboardAvoidingView, Switch, Modal
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -21,6 +21,7 @@ import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import alert from "react-native-web/src/exports/Alert";
 import MapViewComponent from "../components/MapViewComponent";
+import {CommonActions, useNavigation} from "@react-navigation/native";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -54,6 +55,9 @@ const UploadObject = () => {
         latitude: -31.4124,
         longitude: -64.1867
 });
+
+    const [successModal, setSuccessModal] = useState(false);
+    const navigation = useNavigation();
 
 useEffect(() => {
     const getContextInstitute = async () => {
@@ -164,6 +168,7 @@ const submitData = async () => {
 
             if (response.ok) {
                 setResponseOk(true);
+                setSuccessModal(true);
             } else {
                 setResponseOk(false);
             }
@@ -190,6 +195,7 @@ const submitData = async () => {
             setLoading(false);
             if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
                 setResponseOk(true);
+                setSuccessModal(true);
             }else{
                 setResponseOk(false);
             }
@@ -201,6 +207,17 @@ const submitData = async () => {
         setLoading(false);
     }
 };
+
+const handleCloseSuccessModal = (navigation) => {
+    setSuccessModal(false);
+    navigation.dispatch(
+        CommonActions.reset({
+            index: 0,
+            routes: [{ name: "UploadObject" }],
+        })
+    );
+}
+
 
 const deleteImage = () => {
     setImage({});
@@ -309,6 +326,23 @@ return (
             <StatusComponent />
         </ScrollView>
         <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
+
+        <Modal
+            animationType="none"
+            transparent={true}
+            visible={successModal}
+            onRequestClose={() => setSuccessModal(!setSuccessModal)}>
+            <View style={styles.centeredView}>
+                <View style={styles.modalView}>
+                    <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
+                    <Text style={styles.modalText}>
+                        El objeto fue cargado al inventario con éxito.
+                    </Text>
+                    <EurekappButton text='Cerrar'
+                                    onPress={() => handleCloseSuccessModal(navigation)}/>
+                </View>
+            </View>
+        </Modal>
     </View>
 );
 };
@@ -317,6 +351,32 @@ const styles = StyleSheet.create({
 container: {
     flex: 1,
     alignItems: 'center',
+},
+centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+},
+modalView: {
+    margin: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 35,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+        width: 0,
+        height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+},
+modalText: {
+    marginBottom: 15,
+    textAlign: 'left',
+    fontFamily: 'PlusJakartaSans-Regular',
 },
 formContainer: {
     flexGrow: 1,
