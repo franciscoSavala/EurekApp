@@ -23,5 +23,6 @@ public class ReturnFoundObjectCommand {
     private String foundObjectUUID;
     @JsonIgnore
     private Long organizationId;
+    private MultipartFile image;
 }
 

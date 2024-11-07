@@ -241,6 +241,30 @@ public class FoundObjectService implements IFoundObjectService {
                 .build();
     }
 
+    /*
+    * Método usado para que un usuario organizacional pueda ver una lista de todos los objetos que su organización
+    * ya ha devuelto.
+    * */
+    public FoundObjectsListDto getAllReturnedFoundObjectsByOrganization(UserEurekapp user){
+
+        // Obtenemos la organización a partir del usuario.
+        Organization org = user.getOrganization();
+        String orgId = org.getId().toString();
+
+        // Obtenemos todos los objetos devueltos de la organización.
+        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, true);
+
+        // Creamos los DTOs y los metemos en una lista
+        List<FoundObjectDto> dtos = foundObjects.stream()
+                .map(this::foundObjectToDto)
+                .sorted(Comparator.comparing(FoundObjectDto::getFoundDate).reversed())
+                .toList();
+
+        return FoundObjectsListDto.builder()
+                .foundObjects(dtos)
+                .build();
+    }
+
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
         byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
         log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",

@@ -1,12 +1,9 @@
 package com.eurekapp.backend.controller;
 
-import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
-import com.eurekapp.backend.dto.ReturnFoundObjectResponseDto;
-import com.eurekapp.backend.model.GeoCoordinates;
-import com.eurekapp.backend.model.ReturnFoundObjectCommand;
-import com.eurekapp.backend.model.SimilarObjectsCommand;
-import com.eurekapp.backend.model.UploadFoundObjectCommand;
+import com.eurekapp.backend.dto.FoundObjectsListDto;
+import com.eurekapp.backend.dto.ReturnFoundObjectDto;
+import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.ReturnFoundObjectService;
 import jakarta.validation.constraints.Past;
@@ -14,6 +11,7 @@ import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
@@ -23,7 +21,7 @@ import java.time.LocalDateTime;
 @CrossOrigin("*")
 public class FoundObjectController {
     @Autowired
-    private IFoundObjectService service;
+    private IFoundObjectService foundObjectService;
     @Autowired
     private ReturnFoundObjectService returnFoundObjectService;
 
@@ -31,6 +29,16 @@ public class FoundObjectController {
      *  Endpoint usado en la pantalla "Receptar un objeto", para cargar un objeto encontrado y que sea inventariado
      *  por la organización que lo retendrá.
      * ***/
+    /*public ResponseEntity<Void> uploadFoundObject(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
+            @RequestParam(value = "detailed_description", required = false) String detailedDescription,
+            @RequestParam(value = "found_date") LocalDateTime foundDate,
+            @RequestParam(value = "latitude", required = false) Double latitude,
+            @RequestParam(value = "longitude", required = false) Double longitude,
+            @PathVariable(value = "organizationId", required = false) Long organizationId) {
+        return ResponseEntity.ok().build();
+    }*/
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
             @RequestParam("file") MultipartFile file,
@@ -49,7 +57,7 @@ public class FoundObjectController {
                 .longitude(longitude)
                 .detailedDescription(detailedDescription != null ? detailedDescription : "")
                 .build();
-        return ResponseEntity.ok(service.uploadFoundObject(command));
+        return ResponseEntity.ok(foundObjectService.uploadFoundObject(command));
     }
 
     /***
@@ -69,7 +77,7 @@ public class FoundObjectController {
                 .organizationId(organizationId)
                 .lostDate(lostDate)
                 .build();
-        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
+        return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }
 
     /***
@@ -88,7 +96,7 @@ public class FoundObjectController {
                 .latitude(latitude)
                 .longitude(longitude)
                 .build();
-        return ResponseEntity.ok(service.getFoundObjectByTextDescription(command));
+        return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }
 
     /***
@@ -101,17 +109,46 @@ public class FoundObjectController {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .organizationId(organizationId)
                 .build();
-        return ResponseEntity.ok(service.getAllUnreturnedFoundObjectsByOrganization(command));
+        return ResponseEntity.ok(foundObjectService.getAllUnreturnedFoundObjectsByOrganization(command));
     }
 
     /***
      *  Endpoint usado en la pantalla "Devolver un objeto", para asentar la devolución.
      * ***/
-    @PostMapping("/return/{organizationId}")
-    public ResponseEntity<ReturnFoundObjectResponseDto> returnLostObject(
-            @RequestBody ReturnFoundObjectCommand command,
+    @PostMapping(value= "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ReturnFoundObjectDto> returnLostObject(
+            @RequestParam(value = "username", required = false) String eurekappUser,
+            @RequestParam(value = "dni", required = true) String dni,
+            @RequestParam(value = "phoneNumber", required = true) String phoneNumber,
+            @RequestParam(value = "found_object_uuid", required = true) String uuid,
+            @RequestParam(value = "file", required = true) MultipartFile file,
             @PathVariable(name = "organizationId") Long organizationId) {
-        command.setOrganizationId(organizationId);
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .organizationId(organizationId)
+                .foundObjectUUID(uuid)
+                .DNI(dni)
+                .phoneNumber(phoneNumber)
+                .username(eurekappUser)
+                .image(file)
+                .build();
         return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command));
     }
+
+    /***
+     * Endpoint usado por un usuario organizacional para obtener todos los objetos que la organización haya devuelto
+     * */
+    @GetMapping("/getReturnedObjects")
+    public ResponseEntity<FoundObjectsListDto> getReturnedObjects(@AuthenticationPrincipal UserEurekapp user){
+        return ResponseEntity.ok(foundObjectService.getAllReturnedFoundObjectsByOrganization(user));
+    }
+
+    /***
+     * Endpoint usado por un usuario organizacional para obtener los detalles de una devolución de un objeto.
+     * */
+    @PostMapping("/getReturnedObject")
+    public ResponseEntity<ReturnFoundObjectDto> getReturnFoundObjectByFoundObjectId(@AuthenticationPrincipal UserEurekapp user,
+                                                                                @RequestBody(required = true) GetReturnFoundObjectCommand command){
+        return ResponseEntity.ok(returnFoundObjectService.getReturnFoundObject(user, command.getFoundObjectUUID()));
+    }
+
 }

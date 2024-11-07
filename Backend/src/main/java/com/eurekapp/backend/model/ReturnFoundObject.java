@@ -33,9 +33,13 @@ public class ReturnFoundObject {
     @Column(nullable = false, length = 20)
     private String phoneNumber;
 
-    // UUID del vector de Pinecone del objeto devuelto.
-    @Column(nullable = false)
-    private String idFoundObject;
+    // UUID del objeto devuelto.
+    @Column(nullable = false, unique = true)
+    private String foundObjectUUID;
+
+    // UUID de la foto de la persona que se llevó el objeto
+    @Column(name="person_photo_UUID", nullable=false)
+    private String personPhotoUUID;
 
     // Fecha y hora de la transacción.
     @Column(nullable = false)

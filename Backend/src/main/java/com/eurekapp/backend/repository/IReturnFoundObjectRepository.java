@@ -11,5 +11,6 @@ import java.util.List;
 public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundObject, Long> {
     @Query(value = "SELECT ret.id FROM return_found_objects ret", nativeQuery = true)
     List<Long> findAllId();
-
+    ReturnFoundObject getReferenceByFoundObjectUUID(String foundObjectUUID);
+    ReturnFoundObject findByFoundObjectUUID(String foundObjectUUID);
 }

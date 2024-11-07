@@ -28,6 +28,8 @@ import RegistrationScreen from "./screens/login/RegistrationScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
+import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
+import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 
 const AuthStack = createStackNavigator();
 
@@ -37,17 +39,17 @@ const AuthStackScreen = () => {
             <AuthStack.Screen
                 name="LandingScreen"
                 component={LandingScreen}
-                options={{ headerShown: false }}
+                options={{ headerShown: false, title: 'EurekApp - Inicio' }}
             />
             <AuthStack.Screen
                 name="LoginScreen"
                 component={LoginScreen}
-                options={{ headerShown: false }}
+                options={{ headerShown: false, title: 'EurekApp - Iniciar sesión' }}
             />
             <AuthStack.Screen
                 name="RegistrationScreen"
                 component={RegistrationScreen}
-                options={{ headerShown: false }}
+                options={{ headerShown: false , title: 'EurekApp - Registro'}}
             />
         </AuthStack.Navigator>
     );
@@ -58,13 +60,30 @@ const FindObjectStack = createNativeStackNavigator();
 const FindObjectStackScreen = () => {
     return (
         <FindObjectStack.Navigator>
-            <FindObjectStack.Screen options={{ headerShown: false }}
+            <FindObjectStack.Screen options={{ headerShown: false , title: 'EurekApp - Buscar un objeto'}}
                                     name="FindObject" component={FindObject} />
-            <FindObjectStack.Screen options={{ headerShown: false }}
+            <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Resultados de búsqueda' }}
                                     name="FoundObjects" component={FoundObjects} />
-            <FindObjectStack.Screen options={{ headerShown: false }}
+            <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Resultados de búsqueda' }}
                                     name="NotFoundObjects" component={NotFoundObjects} />
         </FindObjectStack.Navigator>
+    );
+}
+
+const ReturnedObjectsStack = createStackNavigator();
+
+const ReturnedObjectsStackScreen = () => {
+    return (
+        <ReturnedObjectsStack.Navigator>
+            <ReturnedObjectsStack.Screen
+                name="ReturnedObjects"
+                component = {ReturnedObjects}
+                options={{headerShown:false, title: 'EurekApp - Ver objetos devueltos'}} />
+            <ReturnedObjectsStack.Screen
+                name="ReturnedObjectDetail"
+                component = {ReturnedObjectDetail}
+                options={{headerShown:false, title: 'EurekApp - Ver devolución'}} />
+        </ReturnedObjectsStack.Navigator>
     );
 }
 
@@ -93,7 +112,7 @@ const ProfileStackScreen = () => {
             <ProfileStack.Screen
                 name='Profile'
                 component={Profile}
-                options={{headerShown: false}} />
+                options={{headerShown: false, title: 'EurekApp - Mi perfil'}} />
         </ProfileStack.Navigator>
     );
 }
@@ -106,7 +125,7 @@ const OrganizationStackScreen = () => {
             <OrganizationStack.Screen
                 name='Organization'
                 component={Organization}
-                options={{headerShown: false}} />
+                options={{headerShown: false, title: 'EurekApp - Mi organización'}} />
         </OrganizationStack.Navigator>
     );
 }
@@ -175,6 +194,8 @@ const EurekappTab = () => {
     const uploadIcon = () => <Icon name={'upload'} size={20} />
     const searchIcon = () => <Icon name={'magnifying-glass'} size={20} />
     const returnIcon = () => <Icon name={'retweet'} size={20} />
+    const historyIcon = () => <Icon name={'clock-rotate-left'} size={20} />
+    const boxesIcon = () => <Icon name={'boxes-stacked'} size={20} />
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const navigation = useNavigation();
@@ -227,12 +248,20 @@ const EurekappTab = () => {
                     }} component={UploadObject}
                     />
                     <Drawer.Screen name="LostObjectReturnStackScreen" options={{
-                        title: 'Devolver un objeto',
+                        title: 'Ver inventario',
                         headerTitleAlign: 'center',
-                        drawerIcon: returnIcon
+                        drawerIcon: boxesIcon
                     }} listeners={{
                         drawerItemPress: () => resetAndNavigate(navigation,"ReturnObjectList")
                     }} component={ReturnObjectStackScreen}
+                    />
+                    <Drawer.Screen name="ReturnedObjectsStackScreen" options={{
+                        title: 'Ver objetos devueltos',
+                        headerTitleAlign: 'center',
+                        drawerIcon: historyIcon
+                    }} listeners={{
+                        drawerItemPress: () => resetAndNavigate(navigation,"ReturnedObjects")
+                    }} component={ReturnedObjectsStackScreen}
                     />
                 </>
                 : null
