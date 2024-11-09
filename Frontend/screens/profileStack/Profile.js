@@ -14,11 +14,9 @@ import {
     View
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
-import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
-import {CommonActions} from "@react-navigation/native";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 

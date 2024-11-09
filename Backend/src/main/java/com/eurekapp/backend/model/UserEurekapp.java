@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -57,6 +58,16 @@ public class UserEurekapp implements UserDetails {
     @ManyToOne
     @JoinColumn(name = "organization_id")
     private Organization organization;
+
+    // Puntos acumulados por el usuario
+    @ColumnDefault("0")
+    @Column(name = "XP", nullable = false)
+    private Long XP = 0L;
+
+    // Cantidad de objetos ajenos devueltos (usado para obtener los logros)
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private Long returnedObjects = 0L;
 
     // Implementación de los métodos de la interfaz UserDetails
     @Override

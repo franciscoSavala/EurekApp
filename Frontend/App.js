@@ -30,6 +30,7 @@ import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
+import Achievements from "./screens/AchievementsStack/Achievements";
 
 const AuthStack = createStackNavigator();
 
@@ -101,6 +102,20 @@ const ReturnObjectStackScreen = () => {
                 component={ReturnObjectForm}
                 options={{headerShown: false}} />
         </ReturnStack.Navigator>
+    );
+}
+
+const AchievementsStack = createStackNavigator();
+
+const AchievementsStackScreen = () => {
+    return (
+        <AchievementsStack.Navigator>
+            <AchievementsStack.Screen
+                name='Achievements'
+                component={Achievements}
+                options={{headerShown:false, title: 'EurekApp - Logros'}} />
+        </AchievementsStack.Navigator>
+
     );
 }
 
@@ -191,11 +206,11 @@ const CustomDrawerContent = (props) => {
 const Drawer = createDrawerNavigator();
 
 const EurekappTab = () => {
-    const uploadIcon = () => <Icon name={'upload'} size={20} />
     const searchIcon = () => <Icon name={'magnifying-glass'} size={20} />
-    const returnIcon = () => <Icon name={'retweet'} size={20} />
+    const uploadIcon = () => <Icon name={'upload'} size={20} />
     const historyIcon = () => <Icon name={'clock-rotate-left'} size={20} />
     const boxesIcon = () => <Icon name={'boxes-stacked'} size={20} />
+    const trophyIcon = () => <Icon name={'trophy'} size={20} />
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const navigation = useNavigation();
@@ -276,6 +291,15 @@ const EurekappTab = () => {
                 }} component={OrganizationSignupForm} />
             </>: null
             }
+
+            <Drawer.Screen name="AchievementsStackScreen" options={{
+                title: 'Logros',
+                headerTitleAlign: 'center',
+                drawerIcon: trophyIcon
+            }} listeners={{
+                drawerItemPress: () => resetAndNavigate(navigation,"Achievements")
+            }}component={AchievementsStackScreen}
+            />
 
             <Drawer.Screen name="ProfileStackScreen" options={{
                 title: 'Mi perfil',
