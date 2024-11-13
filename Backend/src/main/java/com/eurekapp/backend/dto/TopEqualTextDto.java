@@ -1,5 +1,6 @@
 package com.eurekapp.backend.dto;
 
+import com.eurekapp.backend.dto.response.TextResponseDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

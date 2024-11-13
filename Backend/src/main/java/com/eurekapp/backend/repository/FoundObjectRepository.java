@@ -3,6 +3,7 @@ package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.GeoCoordinates;
+import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.CommonFunctions;
 import com.eurekapp.backend.service.client.WeaviateService;
 import com.eurekapp.backend.service.CommonFunctions.*;
@@ -26,10 +27,12 @@ public class FoundObjectRepository {
     private static final Double maxRadius = 50000.0;
     private static final Logger log = LoggerFactory.getLogger(FoundObjectRepository.class);
     private final WeaviateService weaviateService;
+    private final IUserRepository userRepository;
 
     public FoundObjectRepository(
-            WeaviateService weaviateService){
+            WeaviateService weaviateService, IUserRepository userRepository){
         this.weaviateService = weaviateService;
+        this.userRepository = userRepository;
     }
 
     public void add(FoundObject foundObject){
@@ -40,6 +43,7 @@ public class FoundObjectRepository {
                 .properties(Map.of(
                         "found_date", foundObject.getFoundDate().toString()+":00Z",
                             "title", foundObject.getTitle(),
+                        "object_finder_user_id", foundObject.getObjectFinderUser() != null? foundObject.getObjectFinderUser().getId().toString():"0",
                         "human_description", foundObject.getHumanDescription(),
                         "ai_description", foundObject.getAiDescription(),
                         "organization_id", foundObject.getOrganizationId(),
@@ -131,6 +135,7 @@ public class FoundObjectRepository {
                 vector,
                 filter,
                 List.of("title",
+                        "object_finder_user_id",
                         "human_description",
                         "ai_description",
                         "found_date",
@@ -163,6 +168,12 @@ public class FoundObjectRepository {
     private FoundObject convertToFoundObject(WeaviateObject weaviateObject) {
         Map<String, Object> properties = weaviateObject.getProperties(); // Asegúrate de que esta función obtenga las propiedades correctamente.
 
+        UserEurekapp objectFinderUser= null;
+        Long objectFinderUserId = Long.parseLong(properties.get("object_finder_user_id").toString());
+        if( objectFinderUserId != 0){
+            objectFinderUser = userRepository.getReferenceById( objectFinderUserId );
+        }
+
         Float certainty = null;
         if(weaviateObject.getAdditional() != null && weaviateObject.getAdditional().get("certainty") != null) {
             certainty = ((Double) weaviateObject.getAdditional().get("certainty")).floatValue();
@@ -176,6 +187,7 @@ public class FoundObjectRepository {
         FoundObject foundObject = FoundObject.builder()
                 .uuid(weaviateObject.getId())
                 .title((String) properties.get("title"))
+                .objectFinderUser(objectFinderUser)
                 .humanDescription((String) properties.get("human_description"))
                 .aiDescription((String) properties.get("ai_description"))
                 .foundDate(CommonFunctions.convertToLocalDateTime((String) properties.get("found_date")))

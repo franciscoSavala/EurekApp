@@ -1,20 +1,15 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.*;
-import com.eurekapp.backend.dto.response.LoginResponseDto;
-import com.eurekapp.backend.exception.ForbbidenException;
-import com.eurekapp.backend.exception.NotFoundException;
+import com.eurekapp.backend.dto.response.AchievementsResponseDto;
 import com.eurekapp.backend.model.*;
-import com.eurekapp.backend.repository.IAddEmployeeRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Service

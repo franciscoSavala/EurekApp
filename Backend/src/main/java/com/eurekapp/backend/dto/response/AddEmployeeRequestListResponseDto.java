@@ -1,5 +1,6 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.response;
 
+import com.eurekapp.backend.dto.AddEmployeeRequestDto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

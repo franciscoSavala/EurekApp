@@ -7,7 +7,7 @@ import {
     RefreshControl,
     ScrollView,
     StyleSheet,
-    Text,
+    Text, TouchableOpacity,
     View
 } from "react-native";
 import React, {useEffect, useState} from "react";
@@ -18,9 +18,8 @@ import Constants from "expo-constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const LostObjectReturn = ({ navigation }) => {
+const Inventory = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitute] = useState(null);
-    const [objectSelectedId, setObjectSelectedId] = useState("");
     const [institutesObject, setInstitutesObject] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -62,22 +61,36 @@ const LostObjectReturn = ({ navigation }) => {
             await fetchFoundObjectsFromOrganization(institute);
         }
         getContextInstitute();
+
     }, []);
 
     const renderItem = ({item}) => {
-        const isSelected = item.id === objectSelectedId;
         const date = new Date(item.found_date);
         return (
-            <Pressable style={[styles.item, isSelected && styles.highlightedOrganizationObject]}
-                       onPress={() => setObjectSelectedId(item.id)}>
+            <Pressable style={styles.item}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
                         {item.title}
                     </Text>
                     <Text style={styles.itemText}>
-                        Encontrado: {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}
+                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                     </Text>
+                    <View style={styles.buttonsContainer}>
+                        <TouchableOpacity style={styles.seeDetailsButton} onPress={() => {navigation.navigate('FoundObjectDetail', {
+                            foundObjectUUID: item.id
+                        })}}>
+                            <Text style={styles.buttonText}>Detalles</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.seeReturnButton} onPress={() => {navigation.navigate('ReturnObjectForm', {
+                            objectId: item.id
+                        })}}>
+                            <Text style={styles.buttonText}>Devolver</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
+
+                <View style={{width:5}}></View>
+
                 <Image
                     source={ item.b64Json
                             ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
@@ -119,10 +132,11 @@ const LostObjectReturn = ({ navigation }) => {
                 }
 
             </View>
+            {/*
             <EurekappButton text='Devolver este objeto'
                             onPress={() => navigation.navigate('ReturnObjectForm', {
                                 objectId: objectSelectedId
-                            })}/>
+                            })}/> */}
         </View>
     );
 
@@ -136,6 +150,9 @@ const styles = StyleSheet.create({
     },
     organizationObjectsContainer: {
         flex: 1,
+        maxWidth: 800,
+        width: '100%',
+        alignSelf:"center",
     },
     contentContainer: {
     },
@@ -178,8 +195,46 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
+    },
+    seeDetailsButton: {
+        backgroundColor: '#19e6e6',
+        paddingVertical: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        margin: 2,
+        width:"175px",
+        maxWidth:"40%"
+    },
+    seeReturnButton: {
+        backgroundColor: '#19e6e6',
+        paddingVertical: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        margin: 2,
+        width:"175px",
+        maxWidth:"59%"
+    },
+    buttonText: {
+        color: '#111818',
+        fontWeight: 'bold',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Bold',
+        textAlign: "center",
+    },
+    buttonsContainer: {
+        width: '100%',
+        justifyContent: 'center',
+        //paddingHorizontal: 20,
+        flexDirection: "row",
+        marginHorizontal: 2,
     }
 });
 
 
-export default LostObjectReturn;
+export default Inventory;

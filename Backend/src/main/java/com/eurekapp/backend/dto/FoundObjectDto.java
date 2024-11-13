@@ -21,4 +21,6 @@ public class FoundObjectDto {
     private OrganizationDto organization;
     @JsonProperty("found_date")
     private LocalDateTime foundDate;
+    private Float latitude;
+    private Float longitude;
 }

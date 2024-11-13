@@ -21,9 +21,9 @@ import LoginScreen from "./screens/login/LoginScreen";
 import useUser, {LoginContext} from "./hooks/useUser";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {createDrawerNavigator, DrawerContentScrollView, DrawerItem, DrawerItemList} from "@react-navigation/drawer";
-import LostObjectReturn from "./screens/lostObjectReturnStack/LostObjectReturn";
+import Inventory from "./screens/inventoryStack/Inventory";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import ReturnObjectForm from "./screens/lostObjectReturnStack/ReturnObjectForm";
+import ReturnObjectForm from "./screens/inventoryStack/ReturnObjectForm";
 import RegistrationScreen from "./screens/login/RegistrationScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
 import Profile from "./screens/profileStack/Profile";
@@ -31,6 +31,7 @@ import Organization from "./screens/organizationStack/Organization";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
+import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 
 const AuthStack = createStackNavigator();
 
@@ -88,20 +89,24 @@ const ReturnedObjectsStackScreen = () => {
     );
 }
 
-const ReturnStack = createStackNavigator();
+const InventoryStack = createStackNavigator();
 
-const ReturnObjectStackScreen = () => {
+const InventoryStackScreen = () => {
     return (
-        <ReturnStack.Navigator>
-            <ReturnStack.Screen
+        <InventoryStack.Navigator>
+            <InventoryStack.Screen
                 name='ReturnObjectList'
-                component={LostObjectReturn}
-                options={{headerShown: false}} />
-            <ReturnStack.Screen
+                component={Inventory}
+                options={{headerShown: false, title: 'EurekApp - Ver inventario'}} />
+            <InventoryStack.Screen
+                name='FoundObjectDetail'
+                component={FoundObjectDetail}
+                options={{headerShown: false, title: 'EurekApp - Ver objeto'}} />
+            <InventoryStack.Screen
                 name='ReturnObjectForm'
                 component={ReturnObjectForm}
-                options={{headerShown: false}} />
-        </ReturnStack.Navigator>
+                options={{headerShown: true, title: 'Devolver objeto'}} />
+        </InventoryStack.Navigator>
     );
 }
 
@@ -268,7 +273,7 @@ const EurekappTab = () => {
                         drawerIcon: boxesIcon
                     }} listeners={{
                         drawerItemPress: () => resetAndNavigate(navigation,"ReturnObjectList")
-                    }} component={ReturnObjectStackScreen}
+                    }} component={InventoryStackScreen}
                     />
                     <Drawer.Screen name="ReturnedObjectsStackScreen" options={{
                         title: 'Ver objetos devueltos',

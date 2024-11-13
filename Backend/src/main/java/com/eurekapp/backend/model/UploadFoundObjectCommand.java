@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Builder
 public class UploadFoundObjectCommand {
     private String title;
+    private String objectFinderUsername;
     private MultipartFile image;
     private LocalDateTime foundDate;
     private String detailedDescription;

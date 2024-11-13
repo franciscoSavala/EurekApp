@@ -1,7 +1,7 @@
 package com.eurekapp.backend.integration;
 
 import com.eurekapp.backend.BackendApplication;
-import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.client.EmbeddingService;

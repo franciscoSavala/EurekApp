@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import {Input, Text} from "react-native-elements";
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
@@ -45,6 +45,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
         }
         return true;
     }
+
 
     const onSubmit = async () => {
         if(!validatePhotoUploaded()) return;
@@ -211,147 +212,147 @@ const ReturnObjectForm = ({ route, navigation}) => {
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.container}>
-            <View style={styles.formContainer}>
-                <View style={styles.explanatoryTextContainer}>
+                <View style={styles.formContainer}>
+                    <View style={styles.explanatoryTextContainer}>
+                        <Text style={[styles.label, {
+                            fontSize: 13,
+                            textAlign: 'left',
+                            color: '#939393',
+                            marginBottom: 10,
+                        }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
+                        </Text>
+                    </View>
+
                     <Text style={[styles.label, {
                         fontSize: 13,
                         textAlign: 'left',
                         color: '#939393',
                         marginBottom: 10,
-                    }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
+                    }]}>{"\n"}Toma una foto de la persona a la que le entregarás el objeto. Es importante tener esto como evidencia.
                     </Text>
+                    <Text style={styles.label}>Foto de la persona que se llevará el objeto:</Text>
+                    <View style={{width: "65%"}}>
+                        { imageUploaded ? (
+                            <ImageBackground
+                                source={{ uri: image.uri }}
+                                style={styles.viewImage}
+                                imageStyle={styles.onlyImage} >
+                                <Pressable style={styles.iconContainer} onPress={deleteImage}>
+                                    <Icon name={'trash-can'} size={24} color={'#000000'}/>
+                                </Pressable>
+                            </ImageBackground>
+                        ) : (
+                            <Image
+                                source={require('../../assets/defaultImage.png')}
+                                style={styles.image}
+                            />
+                        )
+                        }
+                    </View>
+                    <View style={styles.imageLoadContainer}>
+                        <Pressable onPress={pickImage}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                        <View style={{width: 10}}></View>
+                        <Pressable onPress={takePhoto}
+                                   style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                    </View>
+                    <Text style={styles.textError}>{imageRequiredMessage}</Text>
+
+
+
+                    <Text style={[styles.label, {
+                        fontSize: 13,
+                        textAlign: 'left',
+                        color: '#939393',
+                        marginBottom: 10,
+                        }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad.
+                    </Text>
+                    <Text style={styles.label}>DNI</Text>
+                    <Controller
+                        control={control}
+                        //render={({onChange, value}) => (
+                        render={({ field: { onChange, value } }) => (
+                            <InputForm
+                                text='Ingresa el número de documento'
+                                valueName='Dni'
+                                value={value}
+                                onChange={onChange}
+                                keyboardType={'numeric'} />
+                        )}
+                        name='Dni'
+                        rules={{
+                            required: { value: true, message: 'Dato obligatorio.' },
+                            pattern: { value: /\d{7,8}/, message: 'Número de documento inválido.'}
+                        }}
+                        defaultValue='' />
+                    <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
+
+
+
+                    <Text style={[styles.label, {
+                        fontSize: 13,
+                        textAlign: 'left',
+                        color: '#939393',
+                        marginBottom: 10,
+                    }]}>{"\n"}Corrobora que el teléfono dictado por la persona sea real.
+                    </Text>
+                    <Text style={styles.label}>Teléfono</Text>
+                    <Controller
+                        control={control}
+                        //render={({onChange, value}) => (
+                        render={({ field: { onChange, value } }) => (
+                            <InputForm
+                                text='Ingresa un teléfono de contacto'
+                                valueName='Phone'
+                                value={value}
+                                onChange={onChange}
+                                autoComplete={'tel'}
+                                keyboardType={'phone-pad'}/>
+                        )}
+                        name='Phone'
+                        rules={{
+                            required: { value: true, message: 'Dato obligatorio.' },
+                            pattern: { value: /\d+/, message: 'Número de teléfono inválido.'}
+                        }}
+                        defaultValue='' />
+                    <Text style={styles.textError}>{errors.Phone ? errors.Phone.message : " "}</Text>
+
+
+
+                    <Text style={styles.label}>Usuario de Eurekapp (email, opcional):</Text>
+                    <Controller
+                        control={control}
+                        //render={({onChange, value}) => (
+                        render={({ field: { onChange, value } }) => (
+                            <InputForm
+                                text='Ingresa el email del usuario'
+                                valueName='ObjectOwnerUsername'
+                                value={value}
+                                onChange={onChange}
+                            />
+                        )}
+                        name='ObjectOwnerUsername'
+                        rules={{
+                            required: {value: false, message: ''}
+                        }}
+                        defaultValue='' />
+                    <Text style={styles.textError}>{errors.ObjectOwnerUsername
+                        ? errors.ObjectOwnerUsername.message
+                        : " "
+                    }</Text>
+
+                    <StatusComponent />
+                    <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
                 </View>
-
-                <Text style={[styles.label, {
-                    fontSize: 13,
-                    textAlign: 'left',
-                    color: '#939393',
-                    marginBottom: 10,
-                }]}>{"\n"}Toma una foto de la persona a la que le entregarás el objeto. Es importante tener esto como evidencia.
-                </Text>
-                <Text style={styles.label}>Foto de la persona que se llevará el objeto:</Text>
-                <View style={{width: "65%"}}>
-                    { imageUploaded ? (
-                        <ImageBackground
-                            source={{ uri: image.uri }}
-                            style={styles.viewImage}
-                            imageStyle={styles.onlyImage} >
-                            <Pressable style={styles.iconContainer} onPress={deleteImage}>
-                                <Icon name={'trash-can'} size={24} color={'#000000'}/>
-                            </Pressable>
-                        </ImageBackground>
-                    ) : (
-                        <Image
-                            source={require('../../assets/defaultImage.png')}
-                            style={styles.image}
-                        />
-                    )
-                    }
-                </View>
-                <View style={styles.imageLoadContainer}>
-                    <Pressable onPress={pickImage}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                        <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                    <View style={{width: 10}}></View>
-                    <Pressable onPress={takePhoto}
-                               style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                        <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                    </Pressable>
-                </View>
-                <Text style={styles.textError}>{imageRequiredMessage}</Text>
-
-
-
-                <Text style={[styles.label, {
-                    fontSize: 13,
-                    textAlign: 'left',
-                    color: '#939393',
-                    marginBottom: 10,
-                    }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad.
-                </Text>
-                <Text style={styles.label}>DNI</Text>
-                <Controller
-                    control={control}
-                    //render={({onChange, value}) => (
-                    render={({ field: { onChange, value } }) => (
-                        <InputForm
-                            text='Ingresa el número de documento'
-                            valueName='Dni'
-                            value={value}
-                            onChange={onChange}
-                            keyboardType={'numeric'} />
-                    )}
-                    name='Dni'
-                    rules={{
-                        required: { value: true, message: 'Dato obligatorio.' },
-                        pattern: { value: /\d{7,8}/, message: 'Número de documento inválido.'}
-                    }}
-                    defaultValue='' />
-                <Text style={styles.textError}>{errors.Dni ? errors.Dni.message : " "}</Text>
-
-
-
-                <Text style={[styles.label, {
-                    fontSize: 13,
-                    textAlign: 'left',
-                    color: '#939393',
-                    marginBottom: 10,
-                }]}>{"\n"}Corrobora que el teléfono dictado por la persona sea real.
-                </Text>
-                <Text style={styles.label}>Teléfono</Text>
-                <Controller
-                    control={control}
-                    //render={({onChange, value}) => (
-                    render={({ field: { onChange, value } }) => (
-                        <InputForm
-                            text='Ingresa un teléfono de contacto'
-                            valueName='Phone'
-                            value={value}
-                            onChange={onChange}
-                            autoComplete={'tel'}
-                            keyboardType={'phone-pad'}/>
-                    )}
-                    name='Phone'
-                    rules={{
-                        required: { value: true, message: 'Dato obligatorio.' },
-                        pattern: { value: /\d+/, message: 'Número de teléfono inválido.'}
-                    }}
-                    defaultValue='' />
-                <Text style={styles.textError}>{errors.Phone ? errors.Phone.message : " "}</Text>
-
-
-
-                <Text style={styles.label}>Usuario de Eurekapp (email, opcional):</Text>
-                <Controller
-                    control={control}
-                    //render={({onChange, value}) => (
-                    render={({ field: { onChange, value } }) => (
-                        <InputForm
-                            text='Ingresa el email del usuario'
-                            valueName='ObjectOwnerUsername'
-                            value={value}
-                            onChange={onChange}
-                        />
-                    )}
-                    name='ObjectOwnerUsername'
-                    rules={{
-                        required: {value: false, message: ''}
-                    }}
-                    defaultValue='' />
-                <Text style={styles.textError}>{errors.ObjectOwnerUsername
-                    ? errors.ObjectOwnerUsername.message
-                    : " "
-                }</Text>
-
-                <StatusComponent />
-
-            </View>
 
             </ScrollView>
-            <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
+
         </View>
     );
 }

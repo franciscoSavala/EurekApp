@@ -14,6 +14,7 @@ public class FoundObject {
     private List<Float> embeddings;
     private LocalDateTime foundDate;
     private String title;
+    private UserEurekapp objectFinderUser;
     private String humanDescription;
     private String aiDescription;
     private String organizationId;

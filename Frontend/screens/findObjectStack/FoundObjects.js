@@ -36,7 +36,7 @@ const FoundObjects = ({ route, navigation }) => {
                         {item.title}
                     </Text>
                     <Text style={styles.itemText}>
-                        Encontrado: {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}
+                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                     </Text>
                     <Text style={styles.itemText}>
                         Puntaje: {(item.score * 100).toFixed(2)}%

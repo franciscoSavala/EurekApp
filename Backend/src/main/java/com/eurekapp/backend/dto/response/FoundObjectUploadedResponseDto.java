@@ -1,4 +1,4 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

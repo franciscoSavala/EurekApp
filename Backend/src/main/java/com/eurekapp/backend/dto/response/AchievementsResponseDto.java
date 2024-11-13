@@ -1,7 +1,7 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.response;
 
-import com.eurekapp.backend.model.Level;
-import com.eurekapp.backend.model.ReturnedObjectsAchievement;
+import com.eurekapp.backend.dto.LevelDto;
+import com.eurekapp.backend.dto.ReturnedObjectsAchievementDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

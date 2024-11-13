@@ -3,7 +3,8 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
-import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.dto.command.FoundObjectDetailCommand;
+import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -11,6 +12,7 @@ import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
+import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
@@ -34,14 +36,17 @@ public class FoundObjectService implements IFoundObjectService {
     private static final int GRACE_HOURS = 6;
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
+
     private final ObjectStorage s3Service;
     private final ImageDescriptionService descriptionService;
     private final EmbeddingService embeddingService;
-    private final IOrganizationRepository organizationRepository;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
+
+    private final IOrganizationRepository organizationRepository;
     private final FoundObjectRepository foundObjectRepository;
+    private final IUserRepository userRepository;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -49,7 +54,7 @@ public class FoundObjectService implements IFoundObjectService {
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
-                              ExecutorService executorService, FoundObjectRepository foundObjectRepository) {
+                              ExecutorService executorService, FoundObjectRepository foundObjectRepository, IUserRepository userRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -58,6 +63,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.lostObjectService = lostObjectService;
         this.executorService = executorService;
         this.foundObjectRepository = foundObjectRepository;
+        this.userRepository = userRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -65,6 +71,12 @@ public class FoundObjectService implements IFoundObjectService {
     @SneakyThrows
     public FoundObjectUploadedResponseDto uploadFoundObject(UploadFoundObjectCommand command) {
 
+
+        // Antes de comenzar, generamos de forma aleatoria un ID para el post de objeto encontrado.
+        String foundObjectId = UUID.randomUUID().toString();
+
+
+                    // 1- ORGANIZACIÓN
         // Chequeamos que el ID de organización provisto corresponda a una organización que existe.
         if(command.getOrganizationId() == null
                 || !organizationRepository.existsById(command.getOrganizationId()))
@@ -72,6 +84,30 @@ public class FoundObjectService implements IFoundObjectService {
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
 
+
+                    //2- USUARIO QUE TRAJO EL OBJETO
+        // Primero inicializamos el usuario como "null", porque ingresar el usuario que encontró el objeto es opcional.
+        UserEurekapp objectFinderUser = null;
+        // Luego verificamos si un usuario fue provisto.
+        if(command.getObjectFinderUsername() != null && !command.getObjectFinderUsername().isEmpty() ){
+            // Si estamos aquí, es porque hay ALGO en el campo username del command.
+
+            // Ahora verificamos si el contenido de username corresponde al correo de un usuario existente.
+            if(userRepository.existsByUsername(command.getObjectFinderUsername())){
+                // Obtenemos el usuario
+                objectFinderUser = userRepository.getByUsername(command.getObjectFinderUsername());
+                // Sumamos 10 puntos al usuario que lo devolvió e incrementamos la cuenta de objetos devueltos
+                objectFinderUser.setXP( objectFinderUser.getXP()+10 );
+                objectFinderUser.setReturnedObjects( objectFinderUser.getReturnedObjects()+1 );
+            }else{
+                // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
+                throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getObjectFinderUsername()));
+            }
+        }
+
+
+
+                    // 3- PROCESAMIENTO DE LAS COORDENADAS
         /*
         *  Coordenadas:
         *   -Si se ingresaron coordenadas, se usan esas.
@@ -84,19 +120,26 @@ public class FoundObjectService implements IFoundObjectService {
             objectLatitude = command.getLatitude();
             objectLongitude = command.getLongitude();
         } else {
-            // Llegados a esta instancia, la organización si o sí existe.
+            // Llegados a esta instancia, la organización si o sí existe, así que no chequeamos que exista antes de obtenerla.
             Organization org = organizationRepository.findById(command.getOrganizationId()).get();
             objectLatitude = org.getCoordinates().getLatitude();
             objectLongitude = org.getCoordinates().getLongitude();
         }
 
+
+
+                    // 5- PROCESAMIENTO DE LA IMAGEN
         // Convertimos la foto en bytes, para poder enviarla en una request.
         final byte[] imageBytes = command.getImage().getBytes();
-        //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
-
+            //TODO: implementar alguna forma para disminuir la calidad de la imagen si es muy grande
+        // Guardamos la imagen en Amazon S3
+        Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
         // Ahora solicitamos a "OpenAI Chat Completion" una descripción textual de la foto.
         String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
 
+
+
+                    // 6- GENERACIÓN DEL VECTOR
         /*
         *   Solicitamos a "OpenAI Embeddings" una representación vectorial de la concatenación de la
         *   descripción textual que nos dio "OpenAiChat Completion", y de la descripción y título provistos por el
@@ -104,12 +147,12 @@ public class FoundObjectService implements IFoundObjectService {
         */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
 
-        // Generamos de forma aleatoria un ID para el post de objeto encontrado.
-        String foundObjectId = UUID.randomUUID().toString();
 
+                    // 7- CREACIÓN DEL FOUNDOBJECT Y PERSISTENCIA DEL MISMO
         FoundObject foundObject = FoundObject.builder()
                 .uuid(foundObjectId)
                 .title(command.getTitle())
+                .objectFinderUser(objectFinderUser)
                 .humanDescription(command.getDetailedDescription())
                 .aiDescription(textRepresentation)
                 .embeddings(embeddings)
@@ -118,27 +161,28 @@ public class FoundObjectService implements IFoundObjectService {
                 .coordinates(GeoCoordinates.builder().latitude(objectLatitude).longitude(objectLongitude).build())
                 .wasReturned(false)
                 .build();
-
-
         Future<Void> addFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.add(foundObject));
-        Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
+
+                    // 8- EJECUCIÓN DE TAREAS ASÍNCRONAS
         try {
             addFuture.get();
             uploadImageFuture.get();
+            if(objectFinderUser != null){ userRepository.saveAndFlush(objectFinderUser); }
+            // Asentamos la operación en el log.
+            log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
         } catch (ExecutionException | InterruptedException e){
             log.error(e.toString());
             throw new ApiException("upload_error", "There was an error uploading your object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
 
+                    // 9- NOTIFICACIONES
         /*
         *   Comparamos el objeto cargado con las publicaciones existentes de objetos perdidos.
         * */
         executorService.execute(() -> lostObjectService.findSimilarLostObject(
                 embeddings, command.getOrganizationId(), command.getTitle(), foundObjectId));
 
-        // Asentamos la operación en el log.
-        log.info("[api_method:POST] [service:S3] Bytes processed: {}", imageBytes.length);
 
         return FoundObjectUploadedResponseDto.builder()
                 .textEncoding(textRepresentation)
@@ -265,16 +309,25 @@ public class FoundObjectService implements IFoundObjectService {
                 .build();
     }
 
+    public FoundObjectDto getFoundObjectDetail(FoundObjectDetailCommand command){
+        String foundObjectUuid = command.getFoundObjectUUID();
+        FoundObject fo = foundObjectRepository.getByUuid(foundObjectUuid);
+        if(fo == null){ throw new BadRequestException("found_object_detail", String.format("Found object with uuid '%s' not found", foundObjectUuid)); }
+        return foundObjectToDto(fo);
+    }
+
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
         byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
         log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",
                 foundObject.getUuid(), imageBytes.length);
+
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)
                 .orElse(null);
         OrganizationDto organizationDto = organization != null ?
                 organizationService.organizationToDto(organization) :
                 null;
+
         return FoundObjectDto.builder()
                 .id(foundObject.getUuid())
                 .title(foundObject.getTitle())
@@ -284,6 +337,8 @@ public class FoundObjectService implements IFoundObjectService {
                 .score(foundObject.getScore())
                 .organization(organizationDto)
                 .foundDate(foundObject.getFoundDate())
+                .latitude(foundObject.getCoordinates().getLatitude().floatValue())
+                .longitude(foundObject.getCoordinates().getLongitude().floatValue())
                 .build();
     }
 

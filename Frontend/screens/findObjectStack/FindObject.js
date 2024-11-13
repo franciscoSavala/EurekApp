@@ -128,6 +128,7 @@ const FindObject = ({ navigation, route }) => {
                 { selectedInstitute == null ? <MapViewComponent
                     objectMarker={objectMarker}
                     setObjectMarker={setObjectMarker}
+                    markerIsDraggable={true}
                     labelText={"Ingresa la ubicación donde crees haberlo perdido: "}/>
                     :
                     null

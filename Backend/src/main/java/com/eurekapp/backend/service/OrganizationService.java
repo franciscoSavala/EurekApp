@@ -1,14 +1,13 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.OrganizationDto;
-import com.eurekapp.backend.dto.OrganizationListResponseDto;
-import com.eurekapp.backend.dto.SignUpOrganizationCommand;
+import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
+import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.OrganizationRequest;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

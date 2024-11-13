@@ -1,6 +1,8 @@
 package com.eurekapp.backend.controller;
 
-import com.eurekapp.backend.dto.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.dto.FoundObjectDto;
+import com.eurekapp.backend.dto.command.FoundObjectDetailCommand;
+import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.model.*;
@@ -41,16 +43,18 @@ public class FoundObjectController {
     }*/
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
-            @RequestParam("file") MultipartFile file,
             @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
+            @RequestParam("object_finder_username") String objectFinderUsername,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
             @RequestParam(value = "found_date") LocalDateTime foundDate,
             @RequestParam(value = "latitude", required = false) Double latitude,
             @RequestParam(value = "longitude", required = false) Double longitude,
             @PathVariable(value = "organizationId", required = false) Long organizationId){
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
-                .image(file)
                 .title(title)
+                .objectFinderUsername(objectFinderUsername)
+                .image(file)
                 .foundDate(foundDate)
                 .organizationId(organizationId)
                 .latitude(latitude)
@@ -133,6 +137,15 @@ public class FoundObjectController {
                 .build();
         return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command));
     }
+
+    /**
+     * Endpoint usado para obtener los detalles de un objeto encontrado (haya sido devuelto o no).
+     * */
+    @PostMapping("/getDetail")
+    public ResponseEntity<FoundObjectDto> getFoundObjectDetail(@RequestBody(required = true) FoundObjectDetailCommand command){
+        return ResponseEntity.ok(foundObjectService.getFoundObjectDetail(command) );
+    }
+
 
     /***
      * Endpoint usado por un usuario organizacional para obtener todos los objetos que la organización haya devuelto

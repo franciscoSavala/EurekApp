@@ -1,16 +1,18 @@
 import MapView, {Marker} from "react-native-maps";
 import {Text, TextInput, View, StyleSheet, Platform} from "react-native";
 import React, {useEffect, useRef, useState} from "react";
-import { MapContainer, TileLayer, Marker as LeafletMarker } from 'react-leaflet';
+import {MapContainer, TileLayer, Marker as LeafletMarker, useMap} from 'react-leaflet';
 import * as Location from "expo-location";
 import alert from "react-native-web/src/exports/Alert";
 import "leaflet/dist/leaflet.css";
 import L from 'leaflet';
 
-const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => {
+const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDraggable, style}) => {
     const [mapRegion, setMapRegion] = useState({
-        latitude: -31.4124,
-        longitude: -64.1867,
+        //latitude: -31.4124,
+        //longitude: -64.1867,
+        latitude: objectMarker.latitude,
+        longitude: objectMarker.longitude,
         latitudeDelta: 0.0422,
         longitudeDelta: 0.01521
     })
@@ -70,6 +72,18 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
         }
     }
 
+    useEffect(() => {
+        if (!markerIsDraggable && mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: objectMarker.latitude,
+                longitude: objectMarker.longitude,
+                latitudeDelta: 0.0922, // Puedes ajustar este valor según tus necesidades
+                longitudeDelta: 0.0421, // Puedes ajustar este valor según tus necesidades
+            }, 1000); // La animación tiene una duración de 1 segundo
+        }
+    }, [objectMarker, markerIsDraggable]);
+
+
     const customMarkerIcon = L.icon({
         iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
         shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
@@ -90,40 +104,47 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
             <View style={styles.mapRounded}>
                 {Platform.OS === 'web' ? (
                     // Mapa para web
-                    <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={13} >
+                    <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={15} >
                         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                         {objectMarker.longitude === Number.MAX_VALUE ? null :(
                             <LeafletMarker
                                 position={[objectMarker.latitude, objectMarker.longitude]}
                                 icon={customMarkerIcon}
-                                draggable={true}
+                                draggable={markerIsDraggable}
                                 eventHandlers={{
                                     dragend: (event) => {
                                         const { lat, lng } = event.target.getLatLng();
-                                        setObjectMarker({ latitude: lat, longitude: lng }); }, }}/> ) }
+                                        setObjectMarker({ latitude: lat, longitude: lng }); },
+                                }}
+                            /> )
+                        }
                     </MapContainer>
                 ) : (
-                    // Mapa para mobile
-                    <MapView style={styles.map} initialRegion={mapRegion} ref={mapRef}>
-                        { objectMarker.longitude === Number.MAX_VALUE ? (null) : (
-                            <Marker draggable
-                                    onDragEnd={(direction) =>
-                                        setObjectMarker(direction.nativeEvent.coordinate)}
-                                    description={'Tu objeto'}
-                                    coordinate={objectMarker} />
-                        )
-                        }
-                    </MapView>
+                    <>
+                        // Mapa para mobile
+                        <MapView style={styles.map} initialRegion={mapRegion} ref={mapRef}>
+                            { objectMarker.longitude === Number.MAX_VALUE ? (null) : (
+                                <Marker draggable
+                                        onDragEnd={(direction) =>
+                                            setObjectMarker(direction.nativeEvent.coordinate)}
+                                        description={'Tu objeto'}
+                                        coordinate={objectMarker} />
+                            )
+                            }
+                        </MapView>
+                        <TextInput
+                            style={styles.textArea}
+                            placeholder="Escribe la ubicación"
+                            onChangeText={(e) => setTextLocation(e)}
+                            onSubmitEditing={async (e) => {
+                                clearTimeout(typingTimeout);
+                                await getLocationFromText();
+                            }}
+                        />
+                    </>
                 )}
             </View>
-            <TextInput
-                style={styles.textArea}
-                placeholder="Escribe la ubicación"
-                onChangeText={(e) => setTextLocation(e)}
-                onSubmitEditing={async (e) => {
-                    clearTimeout(typingTimeout);
-                    await getLocationFromText();
-                }}/>
+
         </View>
     );
 }

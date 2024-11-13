@@ -22,6 +22,7 @@ import ReactNativeBlobUtil from "react-native-blob-util";
 import alert from "react-native-web/src/exports/Alert";
 import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useNavigation} from "@react-navigation/native";
+import {Controller, useForm} from "react-hook-form";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -29,6 +30,12 @@ const FormData = global.FormData;
 
 const UploadObject = () => {
     //object data
+    const { control,
+        handleSubmit,
+        formState: {errors},
+        setValue,
+        getValues ,
+        setError} = useForm();
     const [objectTitle, setObjectTitle] = useState('');
     const [detailedDescription, setDetailedDescription] = useState('');
     const [image, setImage] = useState({});
@@ -57,6 +64,7 @@ const UploadObject = () => {
 });
 
     const [successModal, setSuccessModal] = useState(false);
+    const [showSubmitButton, setShowSubmitButton] = useState(true);
     const navigation = useNavigation();
 
 useEffect(() => {
@@ -77,8 +85,6 @@ const imagePickerConfig = {
     aspect: [1,1],
     quality: 1,
 };
-
-
 
 const handleImagePicked = (result) => {
     if (!result.canceled) {
@@ -142,6 +148,8 @@ const submitData = async () => {
     if(!validateConstraints()) return;
     setLoading(true);
     setButtonWasPressed(true);
+    const objectFinderUsername = getValues('ObjectFinderUsername');
+    setShowSubmitButton(false);
 
     try {
 
@@ -150,6 +158,7 @@ const submitData = async () => {
         if (Platform.OS === 'web') {
             // Enviar datos como JSON en la web
             const formData = new FormData();
+            formData.append('object_finder_username', objectFinderUsername)
             formData.append('title', objectTitle);
             formData.append('found_date', foundDate.toISOString().split('.')[0]);
             formData.append('detailed_description', detailedDescription);
@@ -171,6 +180,12 @@ const submitData = async () => {
                 setSuccessModal(true);
             } else {
                 setResponseOk(false);
+                setShowSubmitButton(true);
+                const errorData = await response.json();
+                setError('ObjectFinderUsername', {
+                    type: 'manual',
+                    message: errorData.message
+                })
             }
         } else {
             // Enviar datos usando react-native-blob-util en móviles
@@ -242,6 +257,27 @@ const StatusComponent = () => {
         </View>
     );
 }
+
+const InputForm = ({text, valueName, value , onChange, autoComplete = 'off', keyboardType = 'default'}) => {
+
+    const handleTextChange = (input) => {
+        const numericValue = keyboardType === 'numeric' || keyboardType === 'phone-pad' ? input.replace(/[^0-9]/g, '') : input;
+        onChange(numericValue);
+    };
+    return (
+        <TextInput
+            placeholder={text}
+            placeholderTextColor={'#638888'}
+            onChangeText={handleTextChange}
+            value={value}
+            style={styles.textArea}
+            renderErrorMessage={false}
+            autoComplete={autoComplete}
+            keyboardType={keyboardType}
+        />
+    );
+    }
+
 return (
     <View style={{flex: 1, backgroundColor: '#fff'}}>
         <ScrollView contentContainerStyle={styles.formContainer}>
@@ -255,8 +291,32 @@ return (
                     onChangeText={(text) => setObjectTitle(text)}
                 />
             </View>
-            <View>
-                <Text style={styles.label}>Imagen del objeto encontrado:</Text>
+
+            <View style={styles.textAreaContainer}>
+                <Text style={styles.label}>{"\n"}Usuario de Eurekapp (email, opcional):</Text>
+                <Controller
+                    control={control}
+                    render={({ field: { onChange, value } }) => (
+                        <InputForm
+                            text='Ingresa el email del usuario'
+                            valueName='ObjectFinderUsername'
+                            value={value}
+                            onChange={onChange}
+                        />
+                    )}
+                    name='ObjectFinderUsername'
+                    rules={{
+                        required: {value: false, message: ''}
+                    }}
+                    defaultValue='' />
+                <Text style={styles.textError}>{errors.ObjectFinderUsername
+                    ? errors.ObjectFinderUsername.message
+                    : " "
+                }</Text>
+            </View>
+
+            <Text style={styles.label}>Imagen del objeto encontrado:</Text>
+            <View style={{width:"100%", alignItems:"center"}}>
                 { imageUploaded ? (
                     <ImageBackground
                         source={{ uri: image.uri }}
@@ -304,6 +364,7 @@ return (
             { useCoordinates ? <MapViewComponent
                 objectMarker={objectMarker}
                 setObjectMarker={setObjectMarker}
+                markerIsDraggable={true}
                 labelText={"Ubicación donde fue encontrado:"}
                 style={{ display: useCoordinates ? 'flex' : 'none' }} />
                 :
@@ -325,7 +386,9 @@ return (
             </View>
             <StatusComponent />
         </ScrollView>
-        <EurekappButton text="Receptar objeto encontrado" onPress={submitData} />
+        { showSubmitButton?
+        <EurekappButton text="Receptar objeto encontrado" onPress={submitData} /> : null
+        }
 
         <Modal
             animationType="none"
@@ -462,7 +525,7 @@ textArea: {
     placeholderTextColor: '#638888',
     fontFamily: 'PlusJakartaSans-Regular',
     textAlignVertical: 'top',
-    marginBottom: 10,
+    //marginBottom: 10,
 },
 headerContainer: {
     height: 50,

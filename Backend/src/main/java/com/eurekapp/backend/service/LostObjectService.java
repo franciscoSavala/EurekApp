@@ -1,9 +1,7 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.dto.LostObjectResponseDto;
-import com.eurekapp.backend.dto.ReportLostObjectCommand;
+import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.exception.ApiException;
-import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.client.EmbeddingService;

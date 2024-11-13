@@ -46,9 +46,9 @@ const Achievements = ({ route, navigation }) => {
     }, []);
 
     useEffect(() => {
-        console.log('Returned Objects:', returnedObjects);
-        console.log('Returned Objects Achievements:', returnedObjectsAchievements);
-        console.log('Next Returned Objects Achievement:', nextReturnedObjectsAchievement);
+        //console.log('Returned Objects:', returnedObjects);
+        //console.log('Returned Objects Achievements:', returnedObjectsAchievements);
+        //console.log('Next Returned Objects Achievement:', nextReturnedObjectsAchievement);
     }, [returnedObjects, returnedObjectsAchievements, nextReturnedObjectsAchievement]);
 
     const fetchUserAchievementsData = async () => {
@@ -98,6 +98,7 @@ const Achievements = ({ route, navigation }) => {
 
     return (
         <View style={styles.container}>
+            <ScrollView>
             <View style={styles.formContainer}>
 
 
@@ -123,7 +124,7 @@ const Achievements = ({ route, navigation }) => {
                 <View style={styles.sectionContainer}>
                     <Text style={styles.label}>Logros:</Text>
 
-                    <ScrollView>
+                    <View>
                         {nextReturnedObjectsAchievement?
                         <>
                             <View  style={[styles.item]} >
@@ -142,17 +143,20 @@ const Achievements = ({ route, navigation }) => {
                         </>
                             : null}
 
+
                         <FlatList
                             data={returnedObjectsAchievements}
                             keyExtractor={(item, index) => item.achievementName || index.toString()}
                             renderItem={renderItem}
+
                         />
-                    </ScrollView>
+                    </View>
 
                 </View>
 
 
             </View>
+            </ScrollView>
         </View>
     );
 }

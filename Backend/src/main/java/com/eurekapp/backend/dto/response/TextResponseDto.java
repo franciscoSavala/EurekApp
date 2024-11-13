@@ -1,14 +1,16 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 @Data
 @Builder
-public class TextRequestDto {
+public class TextResponseDto {
     private String text;
+    private String score;
+    private byte[] image;
 }

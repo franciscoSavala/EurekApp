@@ -1,4 +1,4 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.command;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Email;

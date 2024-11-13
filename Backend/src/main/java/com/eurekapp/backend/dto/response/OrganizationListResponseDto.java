@@ -1,5 +1,6 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.response;
 
+import com.eurekapp.backend.dto.OrganizationDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,6 +12,6 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class UserListResponseDto {
-    private List<UserDto> users;
+public class OrganizationListResponseDto {
+    private List<OrganizationDto> organizations;
 }

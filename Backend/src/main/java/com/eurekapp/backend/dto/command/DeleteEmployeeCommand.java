@@ -1,4 +1,4 @@
-package com.eurekapp.backend.dto;
+package com.eurekapp.backend.dto.command;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AddEmployeeCommand {
-    @JsonProperty("employeeUsername")
-    private String employeeUsername;
+public class DeleteEmployeeCommand {
+    @JsonProperty("userId")
+    private Long userId;
 }

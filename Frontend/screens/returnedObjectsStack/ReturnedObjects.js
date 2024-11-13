@@ -70,14 +70,22 @@ const ReturnedObjects = ({ navigation }) => {
                     <Text style={styles.itemText}>
                         Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                     </Text>
-                    <View style={styles.seeReturnButtonContainer}>
+                    <View style={styles.buttonsContainer}>
+                        <TouchableOpacity style={styles.seeDetailsButton} onPress={() => {navigation.navigate('FoundObjectDetail', {
+                            foundObjectUUID: item.id
+                        })}}>
+                            <Text style={styles.buttonText}>Detalles</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.seeReturnButton} onPress={() => {navigation.navigate('ReturnedObjectDetail', {
                             foundObjectUUID: item.id
                         })}}>
-                            <Text style={styles.seeReturnButtonText}>Ver devolución</Text>
+                            <Text style={styles.buttonText}>Ver devolución</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                <View style={{width:5}}></View>
+
                 <Image
                     source={ item.b64Json
                         ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
@@ -91,10 +99,11 @@ const ReturnedObjects = ({ navigation }) => {
 
     const NotFoundComponent = () => {
         return (
-            <View style={{height: 200, justifyContent: 'center', alignSelf: 'center'}}>
+            <View style={{height: 200, justifyContent: 'center', alignItems: 'center'}}>
                 <Text style={{
                     fontFamily: 'PlusJakartaSans-Regular',
-                    fontSize: 20
+                    fontSize: 20,
+                    alignSelf: "center",
                 }}>Tu organización no ha devuelto ningún objeto aún.</Text>
             </View>
         );
@@ -165,12 +174,16 @@ const styles = StyleSheet.create({
         maxHeight: 130,    // Limita la altura máxima de la imagen
         borderRadius: 16,
         overflow: 'hidden', // Evita que cualquier contenido fuera del borde del contenedor sea visible
+        marginHorizontal: 1,
+        flex:2,
     },
     itemTextContainer: {
-        flex: 2,
+        flex: 3,
         flexDirection: 'column',
         justifyContent: 'flex-start',
         alignItems: 'flex-start',
+        marginHorizontal: 1,
+
     },
     itemTitle: {
         color: '#111818',
@@ -190,28 +203,43 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
-    seeReturnButton: {
+    seeDetailsButton: {
         backgroundColor: '#19e6e6',
         paddingVertical: 8,
-        paddingHorizontal: 12,
+        paddingHorizontal: 5,
         borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
         alignSelf: 'center',
-        margin: 5,
-        width:"200px",
-        maxWidth: "100%"
+        margin: 2,
+        width:"175px",
+        maxWidth:"40%"
     },
-    seeReturnButtonText: {
+    seeReturnButton: {
+        backgroundColor: '#19e6e6',
+        paddingVertical: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        margin: 2,
+        width:"175px",
+        maxWidth:"59%"
+    },
+    buttonText: {
         color: '#111818',
         fontWeight: 'bold',
-        fontSize: 15,
-        fontFamily: 'PlusJakartaSans-Bold'
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Bold',
+        textAlign: "center",
     },
-    seeReturnButtonContainer: {
+    buttonsContainer: {
         width: '100%',
         justifyContent: 'center',
-        paddingHorizontal: 20,
+        //paddingHorizontal: 20,
+        flexDirection: "row",
+        marginHorizontal: 2,
     }
 });
 
