@@ -266,11 +266,15 @@ public class FoundObjectService implements IFoundObjectService {
             cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
 
             Double geoScore = CommonFunctions.calculateGeoScore(fo.getCoordinates(), queryCoordinates);
+            Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
             Double totalScore = 0.95*cosDistance + 0.05*geoScore;
-            log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
+            log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - distance: " + distance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
 
             // Inicialmente "score" tenía almacenada la distancia coseno. Ahora, la reemplazaremos por el score total.
             fo.setScore(totalScore.floatValue());
+            // Agregamos la distancia en metros entre el lugar ingresado por el usuario y el lugar donde se encontró
+            // el objeto.
+            fo.setDistance(distance.floatValue());
         }
 
 
@@ -335,6 +339,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .aiDescription((foundObject.getAiDescription()))
                 .b64Json(Base64.getEncoder().encodeToString(imageBytes))
                 .score(foundObject.getScore())
+                .distance(foundObject.getDistance())
                 .organization(organizationDto)
                 .foundDate(foundObject.getFoundDate())
                 .latitude(foundObject.getCoordinates().getLatitude().floatValue())

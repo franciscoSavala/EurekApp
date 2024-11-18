@@ -20,5 +20,8 @@ public class FoundObject {
     private String organizationId;
     private GeoCoordinates coordinates;
     private Boolean wasReturned;
+
+    //Estos dos atributos son usados sólo cuando se hace una búsqueda.
     private Float score;
+    private Float distance;
 }

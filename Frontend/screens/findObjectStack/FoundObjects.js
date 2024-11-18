@@ -35,11 +35,13 @@ const FoundObjects = ({ route, navigation }) => {
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
                         {item.title}
                     </Text>
-                    <Text style={styles.itemText}>
-                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
-                    </Text>
+
                     <Text style={styles.itemText}>
                         Puntaje: {(item.score * 100).toFixed(2)}%
+                    </Text>
+                    <Text></Text>
+                    <Text style={styles.itemText}>
+                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}, a {(item.distance / 1000).toFixed(2)} km
                     </Text>
                 </View>
                 <Image

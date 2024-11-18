@@ -85,6 +85,8 @@ public class AuthService {
                 .firstName(user.getFirstname())
                 .lastName(user.getLastname())
                 .active(true)
+                .XP(0L)
+                .returnedObjects(0L)
                 .build();
 
         // Guardar usuario en el repositorio

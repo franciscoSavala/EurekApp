@@ -23,4 +23,5 @@ public class FoundObjectDto {
     private LocalDateTime foundDate;
     private Float latitude;
     private Float longitude;
+    private Float distance;
 }

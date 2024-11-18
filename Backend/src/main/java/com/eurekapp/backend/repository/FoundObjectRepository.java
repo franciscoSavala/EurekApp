@@ -6,7 +6,6 @@ import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.CommonFunctions;
 import com.eurekapp.backend.service.client.WeaviateService;
-import com.eurekapp.backend.service.CommonFunctions.*;
 
 import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.filters.WhereFilter;
@@ -14,7 +13,6 @@ import io.weaviate.client.v1.filters.Operator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -63,7 +61,7 @@ public class FoundObjectRepository {
                                    String orgId,
                                    GeoCoordinates coordinates,
                                    LocalDateTime foundDate,
-                                   boolean wasReturned){
+                                   Boolean wasReturned){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
@@ -119,11 +117,13 @@ public class FoundObjectRepository {
         }
 
         // Agregamos el filtro para was_returned.
-        filters.add(WhereFilter.builder()
-                .path("was_returned")
-                .operator(Operator.Equal)
-                .valueBoolean(wasReturned)
-                .build());
+        if (wasReturned != null) {
+            filters.add(WhereFilter.builder()
+                    .path("was_returned")
+                    .operator(Operator.Equal)
+                    .valueBoolean(wasReturned)
+                    .build());
+        }
 
         // Construimos el filtro compuesto (And).
         WhereFilter filter = WhereFilter.builder()
