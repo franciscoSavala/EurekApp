@@ -253,6 +253,9 @@ const Profile = ({ route, navigation }) => {
                     }}
                     defaultValue=''
                 />
+                <TouchableOpacity style={styles.modifyButton} onPress={() => {}}>
+                    <Text style={styles.buttonText}>Modificar datos</Text>
+                </TouchableOpacity>
                 <View style={{flexDirection: "row", alignSelf: 'flex-start'}}>
                     <Text style={[styles.label, {maxWidth: '50%'}]}>{"\n"}Tipo de usuario: </Text>
                     <Text style={[styles.label, {fontWeight: 'bold', marginLeft:'0px' } ]}>{"\n"}{translateRole()}</Text>
@@ -355,6 +358,25 @@ const styles = StyleSheet.create({
     requestButtonText: {
         color: 'white',
         fontWeight: 'bold',
+    },
+    buttonText: {
+        color: '#111818',
+        fontWeight: 'bold',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Bold',
+        textAlign: "center",
+    },
+    modifyButton: {
+        backgroundColor: '#19e6e6',
+        paddingVertical: 8,
+        paddingHorizontal: 5,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        margin: 2,
+        width:"175px",
+        maxWidth:"59%"
     },
     textArea: {
         resize: 'none',

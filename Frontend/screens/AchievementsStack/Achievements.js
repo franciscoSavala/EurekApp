@@ -42,14 +42,11 @@ const Achievements = ({ route, navigation }) => {
 
     useEffect(() => {
         fetchUserAchievementsData();
-        setLoading(false);
     }, []);
 
+    /*
     useEffect(() => {
-        //console.log('Returned Objects:', returnedObjects);
-        //console.log('Returned Objects Achievements:', returnedObjectsAchievements);
-        //console.log('Next Returned Objects Achievement:', nextReturnedObjectsAchievement);
-    }, [returnedObjects, returnedObjectsAchievements, nextReturnedObjectsAchievement]);
+    }, [returnedObjects, returnedObjectsAchievements, nextReturnedObjectsAchievement]);*/
 
     const fetchUserAchievementsData = async () => {
         try {
@@ -70,6 +67,7 @@ const Achievements = ({ route, navigation }) => {
             setReturnedObjectsAchievements(jsonData.returnedObjectsAchievements);
             setNextReturnedObjectsAchievement(jsonData.nextReturnedObjectsAchievement);
             setXp(jsonData.xp);
+            setLoading(false);
         } catch (error) {
             console.error(error);
         }
@@ -101,58 +99,66 @@ const Achievements = ({ route, navigation }) => {
             <ScrollView>
             <View style={styles.formContainer}>
 
-
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.label}>Nivel {currentLevel.levelName} - <Text style={styles.labelXP}>{xp} XP</Text></Text>
-                    { nextLevel ?
-                        <>
-                    <AchievementBar xp={xp} currentLevelPoints={currentLevel.requiredXP} nextLevelPoints={nextLevel.requiredXP} color='#19e6e6' />
-                            {nextLevel.requiredXP - xp === 1 ?
-                                <Text style={styles.labelXP}>Te falta 1 punto para alcanzar el nivel {nextLevel.levelName}</Text>
-                                : <Text style={styles.labelXP}>Te faltan {nextLevel.requiredXP - xp} puntos para alcanzar el nivel {nextLevel.levelName}</Text>
-                            }
-                        </>
-                        :
-                        <>
-                        <AchievementBar xp={2} currentLevelPoints={0} nextLevelPoints={2} color='#19e6e6' />
-                        <Text style={styles.labelXP}>¡Alcanzaste la cima!</Text>
-                        </>
-                    }
-                </View>
-
-
-                <View style={styles.sectionContainer}>
-                    <Text style={styles.label}>Logros:</Text>
-
-                    <View>
-                        {nextReturnedObjectsAchievement?
-                        <>
-                            <View  style={[styles.item]} >
-                                <View style={styles.itemTextContainer}>
-                                    <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}> {nextReturnedObjectsAchievement.achievementName} </Text>
-                                    <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>{returnedObjects}/{nextReturnedObjectsAchievement.requiredReturnedObjects}</Text>
-                                    <AchievementBar xp={returnedObjects} currentLevelPoints={0} nextLevelPoints={nextReturnedObjectsAchievement.requiredReturnedObjects} color='#19e6e6' />
-                                    {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects === 1?
-                                        <Text style={styles.itemText}>Devuelve {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects} objeto más para obtener el logro "{nextReturnedObjectsAchievement.achievementName}". </Text>
-                                    :
-                                        <Text style={styles.itemText}>Devuelve {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects} objetos más para obtener el logro "{nextReturnedObjectsAchievement.achievementName}". </Text>
-                                    }
-
-                                </View>
-                            </View>
-                        </>
-                            : null}
-
-
-                        <FlatList
-                            data={returnedObjectsAchievements}
-                            keyExtractor={(item, index) => item.achievementName || index.toString()}
-                            renderItem={renderItem}
-
-                        />
+                { loading?
+                    <View style={{flex: 1, justifyContent: 'center'}}>
+                        <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
                     </View>
+                    :
+                    <>
+                        <View style={styles.sectionContainer}>
+                            <Text style={styles.label}>Nivel {currentLevel.levelName} - <Text style={styles.labelXP}>{xp} XP</Text></Text>
+                            { nextLevel ?
+                                <>
+                                    <AchievementBar xp={xp} currentLevelPoints={currentLevel.requiredXP} nextLevelPoints={nextLevel.requiredXP} color='#19e6e6' />
+                                    {nextLevel.requiredXP - xp === 1 ?
+                                        <Text style={styles.labelXP}>Te falta 1 punto para alcanzar el nivel {nextLevel.levelName}</Text>
+                                        : <Text style={styles.labelXP}>Te faltan {nextLevel.requiredXP - xp} puntos para alcanzar el nivel {nextLevel.levelName}</Text>
+                                    }
+                                </>
+                                :
+                                <>
+                                    <AchievementBar xp={2} currentLevelPoints={0} nextLevelPoints={2} color='#19e6e6' />
+                                    <Text style={styles.labelXP}>¡Alcanzaste la cima!</Text>
+                                </>
+                            }
+                        </View>
 
-                </View>
+
+                        <View style={styles.sectionContainer}>
+                            <Text style={styles.label}>Logros:</Text>
+
+                            <View>
+                                {nextReturnedObjectsAchievement?
+                                    <>
+                                        <View  style={[styles.item]} >
+                                            <View style={styles.itemTextContainer}>
+                                                <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}> {nextReturnedObjectsAchievement.achievementName} </Text>
+                                                <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>{returnedObjects}/{nextReturnedObjectsAchievement.requiredReturnedObjects}</Text>
+                                                <AchievementBar xp={returnedObjects} currentLevelPoints={0} nextLevelPoints={nextReturnedObjectsAchievement.requiredReturnedObjects} color='#19e6e6' />
+                                                {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects === 1?
+                                                    <Text style={styles.itemText}>Devuelve {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects} objeto más para obtener el logro "{nextReturnedObjectsAchievement.achievementName}". </Text>
+                                                    :
+                                                    <Text style={styles.itemText}>Devuelve {nextReturnedObjectsAchievement.requiredReturnedObjects - returnedObjects} objetos más para obtener el logro "{nextReturnedObjectsAchievement.achievementName}". </Text>
+                                                }
+
+                                            </View>
+                                        </View>
+                                    </>
+                                    : null}
+
+
+                                <FlatList
+                                    data={returnedObjectsAchievements}
+                                    keyExtractor={(item, index) => item.achievementName || index.toString()}
+                                    renderItem={renderItem}
+
+                                />
+                            </View>
+
+                        </View>
+                    </>
+                }
+
 
 
             </View>

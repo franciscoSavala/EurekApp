@@ -15,6 +15,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappButton from "../components/Button";
 import axios from "axios";
 import Constants from "expo-constants";
+import FoundObjectDetail from "../inventoryStack/FoundObjectDetail";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 

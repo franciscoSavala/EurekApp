@@ -82,6 +82,10 @@ const ReturnedObjectsStackScreen = () => {
                 component = {ReturnedObjects}
                 options={{headerShown:false, title: 'EurekApp - Ver objetos devueltos'}} />
             <ReturnedObjectsStack.Screen
+                name='FoundObjectDetail'
+                component={FoundObjectDetail}
+                options={{headerShown: false, title: 'EurekApp - Ver objeto'}} />
+            <ReturnedObjectsStack.Screen
                 name="ReturnedObjectDetail"
                 component = {ReturnedObjectDetail}
                 options={{headerShown:false, title: 'EurekApp - Ver devolución'}} />

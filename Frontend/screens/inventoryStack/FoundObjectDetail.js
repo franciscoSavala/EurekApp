@@ -42,7 +42,6 @@ const FoundObjectDetail = ({route}) => {
     const [successModal, setSuccessModal] = useState(false);
 
     useEffect(() => {
-        console.log(route.params.foundObjectUUID.toString());
         fetchData();
     }, []);
 
@@ -91,51 +90,52 @@ const FoundObjectDetail = ({route}) => {
                     <Text style={styles.title}>Datos del objeto</Text>
                 </View>
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Título: </Text>
-                    <Text style={styles.label}>{fo.title}</Text>
-                </View>
+                {isLoading?
+                    <View style={{flex: 1, justifyContent: 'center'}}>
+                        <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
+                    </View>
+                :
+                <>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Título: </Text>
+                        <Text style={styles.label}>{fo.title}</Text>
+                    </View>
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Foto: </Text>
-                </View>
-                <Image
-                    source={ fo.b64Json
-                        ? { uri: `data:image/jpeg;base64,${fo.b64Json}` }
-                        : require('../../assets/defaultImage.png') }
-                    style={styles.image}
-                    resizeMode="cover"
-                />
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Descripción: {fo.humanDescription}</Text>
-                    <Text style={styles.label}></Text>
-                </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Foto: </Text>
+                    </View>
+                    <Image
+                        source={ fo.b64Json
+                            ? { uri: `data:image/jpeg;base64,${fo.b64Json}` }
+                            : require('../../assets/defaultImage.png') }
+                        style={styles.image}
+                        resizeMode="cover"
+                    />
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Descripción: {fo.humanDescription}</Text>
+                        <Text style={styles.label}></Text>
+                    </View>
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Descripción provista por la IA: {fo.aiDescription}</Text>
-                    <Text style={styles.label}></Text>
-                </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Descripción provista por la IA: {fo.aiDescription}</Text>
+                        <Text style={styles.label}></Text>
+                    </View>
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Encontrado el {foundDateTime.getDate()}/{foundDateTime.getMonth() + 1}/{foundDateTime.getFullYear()} a las {foundDateTime.toLocaleTimeString()}</Text>
-                </View>
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Encontrado el {foundDateTime.getDate()}/{foundDateTime.getMonth() + 1}/{foundDateTime.getFullYear()} a las {foundDateTime.toLocaleTimeString()}</Text>
+                    </View>
 
-                <View style={styles.mapContainer}>
-                    <Text style={styles.label}>Lugar donde fue encontrado: </Text>
-                    {isLoading?
-                        <>
-                            <View style={{flex: 1, justifyContent: 'center'}}>
-                                <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
-                            </View>
-                        </>
-                        :
+                    <View style={styles.mapContainer}>
+                        <Text style={styles.label}>Lugar donde fue encontrado: </Text>
                         <MapViewComponent
                             objectMarker={objectMarker}
                             setObjectMarker={setObjectMarker}
                             markerIsDraggable={false}
                             labelText={""}/>
-                    }
-                </View>
+                    </View>
+                </>
+                }
+
 
             </ScrollView>
             <EurekappButton text="Volver" onPress={handleClose} />

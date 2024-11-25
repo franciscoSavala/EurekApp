@@ -30,6 +30,7 @@ const ReturnedObjectDetail = ({route}) => {
     // ReturnFoundObject data (rfo)
     const [rfo, setRfo] = useState('');
     const navigation = useNavigation();
+    const [loading, setLoading] = useState(true);
 
 
     const [successModal, setSuccessModal] = useState(false);
@@ -54,6 +55,7 @@ const ReturnedObjectDetail = ({route}) => {
 
                 if (response.status === 200) {
                     setRfo(response.data)
+                    setLoading(false);
                 } else {
                 }
             } else {
@@ -79,30 +81,40 @@ const ReturnedObjectDetail = ({route}) => {
                 <View style={styles.textAreaContainer}>
                     <Text style={styles.title}>Datos de la persona que se llevó el objeto</Text>
                 </View>
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Foto: </Text>
-                </View>
-                <Image
-                    source={ rfo.personPhoto_b64Json
-                        ? { uri: `data:image/jpeg;base64,${rfo.personPhoto_b64Json}` }
-                        : require('../../assets/defaultImage.png') }
-                    style={styles.image}
-                    resizeMode="cover"
-                />
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>DNI: </Text>
-                    <Text style={styles.label}>{rfo.dni}</Text>
-                </View>
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Teléfono de contacto: </Text>
-                    <Text style={styles.label}>{rfo.phoneNumber}</Text>
-                </View>
+                {loading?
+                    <View style={{flex: 1, justifyContent: 'center'}}>
+                        <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
+                    </View>
+                    :
+                    <>
+                        <View style={styles.textAreaContainer}>
+                            <Text style={styles.label}>Foto: </Text>
+                        </View>
+                        <Image
+                            source={ rfo.personPhoto_b64Json
+                                ? { uri: `data:image/jpeg;base64,${rfo.personPhoto_b64Json}` }
+                                : require('../../assets/defaultImage.png') }
+                            style={styles.image}
+                            resizeMode="cover"
+                        />
+                        <View style={styles.textAreaContainer}>
+                            <Text style={styles.label}>DNI: </Text>
+                            <Text style={styles.label}>{rfo.dni}</Text>
+                        </View>
+
+                        <View style={styles.textAreaContainer}>
+                            <Text style={styles.label}>Teléfono de contacto: </Text>
+                            <Text style={styles.label}>{rfo.phoneNumber}</Text>
+                        </View>
 
 
-                <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Devuelto el {returnDateTime.getDate()}/{returnDateTime.getMonth() + 1}/{returnDateTime.getFullYear()} a las {returnDateTime.toLocaleTimeString()}</Text>
-                </View>
+                        <View style={styles.textAreaContainer}>
+                            <Text style={styles.label}>Devuelto el {returnDateTime.getDate()}/{returnDateTime.getMonth() + 1}/{returnDateTime.getFullYear()} a las {returnDateTime.toLocaleTimeString()}</Text>
+                        </View>
+                    </>
+                }
+
 
             </ScrollView>
             <EurekappButton text="Volver" onPress={handleClose} />
