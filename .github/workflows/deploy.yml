@@ -1,0 +1,47 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Backend/**'
+
+jobs:
+  build-and-deploy:
+    name: Build JAR y Deploy a EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JAR (sin tests)
+        working-directory: Backend
+        run: ./mvnw package -DskipTests
+
+      - name: Configurar clave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Copiar JAR a EC2
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            Backend/target/Backend-0.0.1.jar \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/opt/eurekapp/backend.jar
+
+      - name: Reiniciar servicio en EC2
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo systemctl restart eurekapp && sudo systemctl is-active --quiet eurekapp && echo 'Servicio reiniciado OK'"

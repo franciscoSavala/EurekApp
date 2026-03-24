@@ -23,7 +23,7 @@ application:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}
   pinecone:
-    api-key: ${PINECONE_SECRET_KEY}
+    api-key: ${PINECONE_SECRET_KEY:unused}
   jwt:
     sign-key: ${JWT_SIGN_KEY}
   mailtrap:
@@ -32,7 +32,7 @@ application:
     password: ${MAILTRAP_KEY}
     port: '587'
   weaviate:
-    url: 'localhost:8081'
+    url: '${WEAVIATE_URL:localhost:8081}'
     schema: 'http'
 search:
   max-radius: 50000

@@ -1,0 +1,32 @@
+[Unit]
+Description=EurekApp Spring Boot Backend
+After=network.target docker.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/eurekapp
+
+# Cargar todos los secrets desde el archivo de entorno
+EnvironmentFile=/opt/eurekapp/.env.prod
+
+# Spring profile y conexiones (usan localhost porque MySQL/Weaviate
+# corren en Docker con puertos expuestos al host, no en el mismo container)
+Environment="SPRING_PROFILES_ACTIVE=prod"
+Environment="DATABASE_URL=jdbc:mysql://127.0.0.1:3306/eurekapp"
+Environment="WEAVIATE_URL=localhost:8081"
+
+ExecStart=/usr/bin/java \
+  -Dspring.profiles.active=prod \
+  -Xms256m -Xmx512m \
+  -jar /opt/eurekapp/backend.jar
+
+Restart=on-failure
+RestartSec=15s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=eurekapp
+
+[Install]
+WantedBy=multi-user.target

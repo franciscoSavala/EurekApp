@@ -136,6 +136,12 @@ const FindObject = ({ navigation, route }) => {
                 }
             </ScrollView>
             <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
+            <EurekappButton
+                text="Buscar por foto"
+                onPress={() => navigation.navigate('SearchByPhoto')}
+                backgroundColor={'#f0f4f4'}
+                textColor={'#111818'}
+            />
         </View>
     );
 }

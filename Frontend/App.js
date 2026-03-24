@@ -8,6 +8,8 @@ import {
 } from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
+import SearchByPhoto from './screens/findObjectStack/SearchByPhoto';
+import PhotoSearchResults from './screens/findObjectStack/PhotoSearchResults';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
 import {LogBox, StyleSheet, Text, View} from "react-native";
@@ -68,6 +70,12 @@ const FindObjectStackScreen = () => {
                                     name="FoundObjects" component={FoundObjects} />
             <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Resultados de búsqueda' }}
                                     name="NotFoundObjects" component={NotFoundObjects} />
+            <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Buscar por foto' }}
+                                    name="SearchByPhoto" component={SearchByPhoto} />
+            <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Resultados de búsqueda' }}
+                                    name="PhotoSearchResults" component={PhotoSearchResults} />
+            <FindObjectStack.Screen options={{ headerShown: false, title: 'EurekApp - Ver objeto' }}
+                                    name="FoundObjectDetail" component={FoundObjectDetail} />
         </FindObjectStack.Navigator>
     );
 }

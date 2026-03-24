@@ -34,6 +34,7 @@ build/
 
 ### Local secrets — never commit ###
 .env.local
+.env.prod
 
 ### Claude Code ###
 .claude/
