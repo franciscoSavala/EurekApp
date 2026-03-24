@@ -28,8 +28,9 @@ const Organization = ({ route, navigation }) => {
         handleSubmit,
         formState: {errors},
         setValue,
-        getValues ,
-        setError} = useForm();
+        getValues,
+        setError,
+        clearErrors} = useForm();
     const [enableModification, setEnableModification] = useState(false);
     const [user, setUser] = useState('');
     const [organization, setOrganization] = useState('');
@@ -46,7 +47,7 @@ const Organization = ({ route, navigation }) => {
     useEffect(() => {
         const fetchOrganizationData = async () => {
             const organization = await AsyncStorage.getItem('organization');
-            setOrganization(JSON.parse(organization));
+            if (organization) setOrganization(JSON.parse(organization));
         }
         fetchOrganizationData();
         queryEmployees();
@@ -77,8 +78,7 @@ const Organization = ({ route, navigation }) => {
 
     const renderItem = ({ item }) => {
         return (
-            <View  style={[styles.item]}
-                       onPress={() => setObjectSelectedId(item.id)}>
+            <View  style={[styles.item]}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
                         {item.firstName} {item.lastName}
@@ -116,7 +116,9 @@ const Organization = ({ route, navigation }) => {
         setAddEmployeeModal(false);
         setButtonWasPressed(false);
         setLoading(false);
-        errors.employeeUsername.message = "";
+        setResponseOk(false);
+        clearErrors('employeeUsername');
+        setValue('employeeUsername', '');
     };
 
     const onAddEmployeeFormSubmit = async () => {
@@ -149,7 +151,7 @@ const Organization = ({ route, navigation }) => {
             setResponseOk(false);
             setError('employeeUsername', {
                 type: 'manual',
-                message: error.response.data.message
+                message: error.response?.data?.message ?? 'Error al agregar empleado.'
             })
         } finally {
             setLoading(false);
@@ -252,7 +254,7 @@ const Organization = ({ route, navigation }) => {
                     render={({onChange, value}) => (
                         <InputForm
                             text={organization.contactData}
-                            valueName='Name'
+                            valueName='ContactData'
                             value={value}
                             editable={enableModification} // Pasamos la variable enableModification
                             style={{
@@ -261,9 +263,9 @@ const Organization = ({ route, navigation }) => {
                             }}
                         />
                     )}
-                    name='Name'
+                    name='ContactData'
                     rules={{
-                        required: { value: true, message: 'No puedes dejar el nombre vacío.' },
+                        required: { value: true, message: 'No puedes dejar este campo vacío.' },
                     }}
                     defaultValue=''
                 />
@@ -326,7 +328,7 @@ const Organization = ({ route, navigation }) => {
                         </Text>
                         <Controller
                             control={control}
-                            render={({onChange, value}) => (
+                            render={({ field: { value } }) => (
                                 <InputForm
                                     text='E-mail'
                                     valueName='employeeUsername'

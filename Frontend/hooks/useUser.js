@@ -11,8 +11,9 @@ export default function useUser(callback, deps) {
     const { setUser } = useContext(LoginContext);
     //Utilizamos el estado para poder saber si está o no cargando
     const [state, setState] = useState({
-        loading: true,
+        loading: false,
         error: false,
+        errorMessage: '',
         logged: true,
     });
 
@@ -22,7 +23,7 @@ export default function useUser(callback, deps) {
             await AsyncStorage.removeItem('org.id');
             await AsyncStorage.removeItem('jwt');
             //await AsyncStorage.removeItem('username');
-            setState({loading: true, error: false, logged: false});
+            setState({loading: false, error: false, logged: false});
             setUser(null);
         } catch (error) {
             console.error('Error al hacer logout:', error);
@@ -50,14 +51,13 @@ export default function useUser(callback, deps) {
                             await AsyncStorage.removeItem('organization');
                         }
                         setUser(userContext.token);
-                        setState({ loading: true, error: false, logged: true });
+                        setState({ loading: false, error: false, logged: true });
                     } catch (e) {
-                        alert('error');
+                        console.error('Error guardando sesión:', e);
                     }
                 })
                 .catch((err) => {
-                    setState({ loading: false, error: true, logged: false });
-                    alert(err);
+                    setState({ loading: false, error: true, errorMessage: err.message, logged: false });
                 });
         },
         [setUser, setState]
@@ -83,14 +83,13 @@ export default function useUser(callback, deps) {
                             await AsyncStorage.removeItem('organization');
                         }
                         setUser(userContext.token);
-                        setState({ loading: true, error: false, logged: true });
+                        setState({ loading: false, error: false, logged: true });
                     } catch (e) {
-                        alert('error');
+                        console.error('Error guardando sesión:', e);
                     }
                 })
                 .catch((err) => {
-                    setState({ loading: false, error: true, logged: false });
-                    alert(err);
+                    setState({ loading: false, error: true, errorMessage: err.message, logged: false });
                 });
         },
         [setUser, setState]
@@ -100,6 +99,7 @@ export default function useUser(callback, deps) {
         isLogged: state.logged,
         isLoginLoading: state.loading,
         hasLoginError: state.error,
+        loginErrorMessage: state.errorMessage,
         login,
         logout,
         register

@@ -37,9 +37,9 @@ public class StatsService {
         Long orgEmployeesUsers = 0L;
         Long regularUsers = 0L;
         for(UserEurekapp userEurekapp : usersList){
-            if(userEurekapp.getRole().name()=="ORGANIZATION_OWNER"){ orgOwnerUsers++; }
-            if(userEurekapp.getRole().name()=="ORGANIZATION_EMPLOYEE"){ orgEmployeesUsers++; }
-            if(userEurekapp.getRole().name()=="USER"){ regularUsers++; }
+            if(userEurekapp.getRole().name().equals("ORGANIZATION_OWNER")){ orgOwnerUsers++; }
+            if(userEurekapp.getRole().name().equals("ORGANIZATION_EMPLOYEE")){ orgEmployeesUsers++; }
+            if(userEurekapp.getRole().name().equals("USER")){ regularUsers++; }
         }
 
 

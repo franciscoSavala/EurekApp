@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { View, StyleSheet } from "react-native";
 
 function AchievementBar({ xp, currentLevelPoints, nextLevelPoints, color = "#76c7c0" }) {
     const [progress, setProgress] = useState(0);
@@ -18,31 +19,29 @@ function AchievementBar({ xp, currentLevelPoints, nextLevelPoints, color = "#76c
     }, [progress, targetProgress]);
 
     return (
-        <div style={styles.container}>
-            <div
-                style={{
-                    ...styles.progressBar,
-                    width: `${progress}%`,
-                    backgroundColor: color, // color de la barra
-                }}
+        <View style={styles.container}>
+            <View
+                style={[
+                    styles.progressBar,
+                    { width: `${progress}%`, backgroundColor: color },
+                ]}
             />
-        </div>
+        </View>
     );
 }
 
-const styles = {
+const styles = StyleSheet.create({
     container: {
-        margin: '0px',
         width: '100%',
         backgroundColor: '#e0e0df',
-        borderRadius: '15px', // borde redondeado del contenedor
+        borderRadius: 15,
         overflow: 'hidden',
+        marginVertical: 4,
     },
     progressBar: {
-        height: '20px',
-        transition: 'width 0.3s ease-in-out', // transición suave para el llenado
-        borderRadius: '15px', // borde redondeado de la barra
+        height: 20,
+        borderRadius: 15,
     },
-};
+});
 
 export default AchievementBar;

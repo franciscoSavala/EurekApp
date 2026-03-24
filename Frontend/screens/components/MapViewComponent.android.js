@@ -58,6 +58,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
             } catch (error) {
                 console.log(error);
             }
+            if (!geocodedLocation?.length) return;
             const location = geocodedLocation.pop();
             const newRegion = {
                 latitude: location.latitude,

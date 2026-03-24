@@ -41,7 +41,7 @@ const FoundObjects = ({ route, navigation }) => {
                     </Text>
                     <Text></Text>
                     <Text style={styles.itemText}>
-                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}, a {(item.distance / 1000).toFixed(2)} km
+                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}, a {(item.distance / 1000).toFixed(2)} km
                     </Text>
                 </View>
                 <Image

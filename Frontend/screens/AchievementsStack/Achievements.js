@@ -41,8 +41,7 @@ const Achievements = ({ route, navigation }) => {
 
 
     useEffect(() => {
-        fetchUserAchievementsData();
-        setLoading(false);
+        fetchUserAchievementsData().finally(() => setLoading(false));
     }, []);
 
     useEffect(() => {
@@ -82,7 +81,7 @@ const Achievements = ({ route, navigation }) => {
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>{item.achievementName}</Text>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>{item.requiredReturnedObjects}/{item.requiredReturnedObjects}</Text>
-                    <AchievementBar xp={1} currentLevelPoints={0} nextLevelPoints={1} color='#19e6e6' />
+                    <AchievementBar xp={item.requiredReturnedObjects} currentLevelPoints={0} nextLevelPoints={item.requiredReturnedObjects} color='#19e6e6' />
                     { item.requiredReturnedObjects === 1?
                         <Text style={styles.itemText}>Devolviste {item.requiredReturnedObjects} objeto. </Text>
                         :

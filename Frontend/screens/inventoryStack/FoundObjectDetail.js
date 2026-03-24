@@ -29,7 +29,7 @@ const FormData = global.FormData;
 
 const FoundObjectDetail = ({route}) => {
     // FoundObject data (fo)
-    const [fo, setFo] = useState('');
+    const [fo, setFo] = useState(null);
     const [objectMarker, setObjectMarker] = useState({
         latitude: -31.4124,
         longitude: -64.1867
@@ -73,16 +73,22 @@ const FoundObjectDetail = ({route}) => {
             }
         } catch (error) {
             console.log(error);
+            setIsLoading(false);
         }
     };
-
-    const formatDate = (date) => {
-
-    }
 
     const handleClose = () => {
         navigation.goBack();
     }
+
+    if (!fo) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#fff' }}>
+                <ActivityIndicator size="large" color="#111818" />
+            </View>
+        );
+    }
+
     const foundDateTime = new Date(fo.found_date);
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>

@@ -85,6 +85,10 @@ const ReturnedObjectsStackScreen = () => {
                 name="ReturnedObjectDetail"
                 component = {ReturnedObjectDetail}
                 options={{headerShown:false, title: 'EurekApp - Ver devolución'}} />
+            <ReturnedObjectsStack.Screen
+                name="FoundObjectDetail"
+                component = {FoundObjectDetail}
+                options={{headerShown:false, title: 'EurekApp - Ver objeto'}} />
         </ReturnedObjectsStack.Navigator>
     );
 }
@@ -181,7 +185,6 @@ const CustomDrawerContent = (props) => {
         await AsyncStorage.removeItem('user.first_name');
         await AsyncStorage.removeItem('user');
         await AsyncStorage.removeItem('org.id');
-        await AsyncStorage.removeItem('org.name');
         await AsyncStorage.removeItem('organization');
         logout();
     }
@@ -234,7 +237,9 @@ const EurekappTab = () => {
     );
 
     const fetchUserRole = async () => {
-        const user = JSON.parse(await AsyncStorage.getItem('user'));
+        const raw = await AsyncStorage.getItem('user');
+        if (!raw) return;
+        const user = JSON.parse(raw);
         setUserRole(user.role);
         console.log("fetchUserRole fue ejecutado");
     }
@@ -287,7 +292,7 @@ const EurekappTab = () => {
                 : null
             }
 
-            {userRole === 'USER' ?
+            {userRole === 'REGULAR_USER' ?
             <>
                 <Drawer.Screen name="OrganizationSignupForm" options={{
                     title: 'Solicitar alta de organización',
@@ -329,11 +334,22 @@ const EurekappTab = () => {
 const App = () => {
     LogBox.ignoreAllLogs();
     const [user, setUser] = useState('');
+    const [sessionLoading, setSessionLoading] = useState(true);
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
         'PlusJakartaSans-Regular': require('./assets/fonts/PlusJakartaSans-Regular.ttf')
     });
-    if(!fontsLoaded) return (<View></View>);
+
+    useEffect(() => {
+        const restoreSession = async () => {
+            const token = await AsyncStorage.getItem('jwt');
+            if (token) setUser(token);
+            setSessionLoading(false);
+        };
+        restoreSession();
+    }, []);
+
+    if (!fontsLoaded || sessionLoading) return (<View></View>);
 
     return (
         <NavigationContainer>
