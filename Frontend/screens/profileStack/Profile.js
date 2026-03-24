@@ -36,7 +36,9 @@ const Profile = ({ route, navigation }) => {
 
     useEffect(() => {
         const fetchUserData = async () => {
-            const user = JSON.parse(await AsyncStorage.getItem('user'));
+            const raw = await AsyncStorage.getItem('user');
+            if (!raw) return;
+            const user = JSON.parse(raw);
             setUser(user);
             if (user.role === 'ORGANIZATION_OWNER' || user.role === 'ORGANIZATION_EMPLOYEE') {
                 const organization = await AsyncStorage.getItem('organization');
@@ -80,14 +82,14 @@ const Profile = ({ route, navigation }) => {
             setLoading(false);
         } catch (error) {
             console.log(error)
+            setLoading(false);
         }
     }
 
 
     const renderItem = ({ item }) => {
         return (
-            <View  style={[styles.item]}
-                   onPress={() => setObjectSelectedId(item.id)}>
+            <View  style={[styles.item]}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, {fontFamily: 'PlusJakartaSans-Bold'}]}>
                         {item.organizationName}
@@ -247,7 +249,7 @@ const Profile = ({ route, navigation }) => {
                             }}
                         />
                     )}
-                    name='LastName'
+                    name='username'
                     rules={{
                         required: { value: true, message: 'EL email es obligatorio.' },
                     }}

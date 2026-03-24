@@ -1,14 +1,14 @@
 import React from 'react';
 import {
     View,
-    StyleSheet, TextInput
+    StyleSheet, TextInput, TouchableOpacity
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
 import { Input, Icon, Text, Item, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 
 export default function LoginForm(props) {
-    const { isLoginLoading, hasLoginError, login, isLogged } = useUser();
+    const { isLoginLoading, hasLoginError, loginErrorMessage, login, isLogged } = useUser();
     const { control,
         handleSubmit,
         formState: {errors},
@@ -41,11 +41,8 @@ export default function LoginForm(props) {
         );
     }
 
-    const onSubmit = async (data) => {
-        const username = getValues('Username');
-        const password = getValues('Password');
-
-        login({ username, password });
+    const onSubmit = (data) => {
+        login({ username: data.Username, password: data.Password });
     };
 
     return (
@@ -83,6 +80,12 @@ export default function LoginForm(props) {
                 <Text style={styles.textError}>{errors.Password.message}</Text>
             )}
 
+            {hasLoginError && (
+                <Text style={styles.textError}>
+                    {loginErrorMessage || 'No se pudo iniciar sesión. Intentá de nuevo.'}
+                </Text>
+            )}
+
             <View style={styles.button}>
                 <Button
                     buttonStyle={{
@@ -96,9 +99,19 @@ export default function LoginForm(props) {
                         fontFamily: 'PlusJakartaSans-Regular'
                     }}
                     title='Iniciar sesión'
+                    loading={isLoginLoading}
+                    disabled={isLoginLoading}
                     onPress={handleSubmit(onSubmit)}
                 />
             </View>
+
+            <TouchableOpacity style={styles.linkButton} onPress={() => props.nav.navigate('RegistrationScreen')}>
+                <Text style={styles.linkButtonText}>¿No tenés cuenta? Registrate</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.linkButton} onPress={() => props.nav.goBack()}>
+                <Text style={styles.linkButtonText}>Volver</Text>
+            </TouchableOpacity>
         </View>
     );
 }
@@ -113,5 +126,14 @@ const styles = StyleSheet.create({
     },
     textError: {
         color: 'white',
+    },
+    linkButton: {
+        marginTop: 16,
+    },
+    linkButtonText: {
+        color: 'white',
+        fontFamily: 'PlusJakartaSans-Regular',
+        textDecorationLine: 'underline',
+        fontSize: 14,
     },
 });

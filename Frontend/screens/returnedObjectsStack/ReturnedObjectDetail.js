@@ -28,7 +28,7 @@ const FormData = global.FormData;
 
 const ReturnedObjectDetail = ({route}) => {
     // ReturnFoundObject data (rfo)
-    const [rfo, setRfo] = useState('');
+    const [rfo, setRfo] = useState(null);
     const navigation = useNavigation();
 
 
@@ -65,13 +65,18 @@ const ReturnedObjectDetail = ({route}) => {
         }
     };
 
-    const formatDate = (date) => {
-
-    }
-
     const handleClose = () => {
         navigation.goBack();
     }
+
+    if (!rfo) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', backgroundColor: '#fff' }}>
+                <ActivityIndicator size="large" color="#111818" />
+            </View>
+        );
+    }
+
     const returnDateTime = new Date(rfo.returnDateTime);
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>

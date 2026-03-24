@@ -35,7 +35,7 @@ const LandingScreen = ({ navigation }) => {
                                 fontFamily: 'PlusJakartaSans-Regular'
                             }}
                             onPress={() => navigation.navigate('LoginScreen')}
-                            title="Login"
+                            title="Iniciar sesión"
                         />
                         <Button
                             buttonStyle={{

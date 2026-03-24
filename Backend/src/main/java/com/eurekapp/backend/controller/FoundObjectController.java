@@ -8,6 +8,9 @@ import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.ReturnFoundObjectService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Past;
 import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,27 +24,18 @@ import java.time.LocalDateTime;
 @RestController
 @RequestMapping("/found-objects")
 @CrossOrigin("*")
+@Tag(name = "Objetos Encontrados", description = "Carga, búsqueda y devolución de objetos encontrados")
+@SecurityRequirement(name = "bearerAuth")
 public class FoundObjectController {
+
     @Autowired
     private IFoundObjectService foundObjectService;
     @Autowired
     private ReturnFoundObjectService returnFoundObjectService;
 
-    /***
-     *  Endpoint usado en la pantalla "Receptar un objeto", para cargar un objeto encontrado y que sea inventariado
-     *  por la organización que lo retendrá.
-     * ***/
-    /*public ResponseEntity<Void> uploadFoundObject(
-            @RequestParam("file") MultipartFile file,
-            @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
-            @RequestParam(value = "detailed_description", required = false) String detailedDescription,
-            @RequestParam(value = "found_date") LocalDateTime foundDate,
-            @RequestParam(value = "latitude", required = false) Double latitude,
-            @RequestParam(value = "longitude", required = false) Double longitude,
-            @PathVariable(value = "organizationId", required = false) Long organizationId) {
-        return ResponseEntity.ok().build();
-    }*/
     @PostMapping(value = "/organizations/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Cargar objeto encontrado",
+            description = "Registra un objeto encontrado en el inventario de una organización. La imagen es analizada por IA para generar una descripción automática.")
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
             @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
             @RequestParam("object_finder_username") String objectFinderUsername,
@@ -50,7 +44,7 @@ public class FoundObjectController {
             @RequestParam(value = "found_date") LocalDateTime foundDate,
             @RequestParam(value = "latitude", required = false) Double latitude,
             @RequestParam(value = "longitude", required = false) Double longitude,
-            @PathVariable(value = "organizationId", required = false) Long organizationId){
+            @PathVariable(value = "organizationId", required = false) Long organizationId) {
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .title(title)
                 .objectFinderUsername(objectFinderUsername)
@@ -64,18 +58,13 @@ public class FoundObjectController {
         return ResponseEntity.ok(foundObjectService.uploadFoundObject(command));
     }
 
-    /***
-     *  Este endpoint es usado en la pantalla "Buscar un objeto", cuando los datos provistos son descripción,
-     *  organización en la que el usuario cree haber perdido el objeto, y fecha-hora en la que cree haberlo perdido.
-     * ***/
     @GetMapping("/organizations/{organizationId}")
+    @Operation(summary = "Buscar objetos por organización",
+            description = "Búsqueda semántica de objetos encontrados en una organización específica, a partir de una descripción textual y fecha aproximada de pérdida.")
     public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByOrganization(
             @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
             @PathVariable(name = "organizationId", required = false) Long organizationId,
-            @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate){
-
-        // Si bien el frontend siempre nos enviará coordenadas (porque las mismas tienen un valor por defecto),
-        // cuando el usuario haya seleccionado una organización las ignoraremos a la hora de construir el objeto command.
+            @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
                 .organizationId(organizationId)
@@ -84,16 +73,14 @@ public class FoundObjectController {
         return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }
 
-    /***
-     *  Este endpoint es usado en la pantalla "Buscar un objeto", cuando los datos provistos son descripción,
-     *  coordenadas del lugar en el que el usuario cree haberlo perdido, y fecha-hora en la que cree haberlo perdido.
-     * ***/
     @GetMapping
+    @Operation(summary = "Buscar objetos por coordenadas",
+            description = "Búsqueda semántica de objetos encontrados cercanos a unas coordenadas geográficas, a partir de una descripción y fecha aproximada.")
     public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByCoordinates(
             @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
             @RequestParam(name = "lost_date", required = false) @Past LocalDateTime lostDate,
-            @RequestParam(name="latitude", required = true) Double latitude,
-            @RequestParam(name="longitude", required = true) Double longitude){
+            @RequestParam(name = "latitude") Double latitude,
+            @RequestParam(name = "longitude") Double longitude) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
                 .lostDate(lostDate)
@@ -103,29 +90,26 @@ public class FoundObjectController {
         return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }
 
-    /***
-     *  Endpoint usado para que un usuario de organización pueda ver todos los objetos que la organización actualmente
-     *  tiene en su poder.
-     * ***/
     @GetMapping("/organizations/all/{organizationId}")
+    @Operation(summary = "Listar inventario de la organización",
+            description = "Devuelve todos los objetos encontrados que la organización tiene actualmente en su poder (no devueltos aún).")
     public ResponseEntity<FoundObjectsListDto> getAllUnreturnedFoundObjectsByOrganization(
-            @PathVariable(name = "organizationId", required = false) Long organizationId){
+            @PathVariable(name = "organizationId", required = false) Long organizationId) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .organizationId(organizationId)
                 .build();
         return ResponseEntity.ok(foundObjectService.getAllUnreturnedFoundObjectsByOrganization(command));
     }
 
-    /***
-     *  Endpoint usado en la pantalla "Devolver un objeto", para asentar la devolución.
-     * ***/
-    @PostMapping(value= "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Registrar devolución de objeto",
+            description = "Asienta la devolución de un objeto encontrado a su dueño, registrando DNI, teléfono y foto de la persona que lo retira.")
     public ResponseEntity<ReturnFoundObjectDto> returnLostObject(
             @RequestParam(value = "username", required = false) String eurekappUser,
-            @RequestParam(value = "dni", required = true) String dni,
-            @RequestParam(value = "phoneNumber", required = true) String phoneNumber,
-            @RequestParam(value = "found_object_uuid", required = true) String uuid,
-            @RequestParam(value = "file", required = true) MultipartFile file,
+            @RequestParam(value = "dni") String dni,
+            @RequestParam(value = "phoneNumber") String phoneNumber,
+            @RequestParam(value = "found_object_uuid") String uuid,
+            @RequestParam(value = "file") MultipartFile file,
             @PathVariable(name = "organizationId") Long organizationId) {
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
                 .organizationId(organizationId)
@@ -138,30 +122,26 @@ public class FoundObjectController {
         return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command));
     }
 
-    /**
-     * Endpoint usado para obtener los detalles de un objeto encontrado (haya sido devuelto o no).
-     * */
     @PostMapping("/getDetail")
-    public ResponseEntity<FoundObjectDto> getFoundObjectDetail(@RequestBody(required = true) FoundObjectDetailCommand command){
-        return ResponseEntity.ok(foundObjectService.getFoundObjectDetail(command) );
+    @Operation(summary = "Obtener detalle de un objeto encontrado",
+            description = "Devuelve todos los datos de un objeto encontrado (imagen incluida en base64), haya sido devuelto o no.")
+    public ResponseEntity<FoundObjectDto> getFoundObjectDetail(@RequestBody FoundObjectDetailCommand command) {
+        return ResponseEntity.ok(foundObjectService.getFoundObjectDetail(command));
     }
 
-
-    /***
-     * Endpoint usado por un usuario organizacional para obtener todos los objetos que la organización haya devuelto
-     * */
     @GetMapping("/getReturnedObjects")
-    public ResponseEntity<FoundObjectsListDto> getReturnedObjects(@AuthenticationPrincipal UserEurekapp user){
+    @Operation(summary = "Listar objetos ya devueltos",
+            description = "Devuelve todos los objetos que la organización del usuario autenticado ya devolvió a sus dueños.")
+    public ResponseEntity<FoundObjectsListDto> getReturnedObjects(@AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(foundObjectService.getAllReturnedFoundObjectsByOrganization(user));
     }
 
-    /***
-     * Endpoint usado por un usuario organizacional para obtener los detalles de una devolución de un objeto.
-     * */
     @PostMapping("/getReturnedObject")
-    public ResponseEntity<ReturnFoundObjectDto> getReturnFoundObjectByFoundObjectId(@AuthenticationPrincipal UserEurekapp user,
-                                                                                @RequestBody(required = true) GetReturnFoundObjectCommand command){
+    @Operation(summary = "Detalle de una devolución",
+            description = "Devuelve los datos completos del registro de devolución de un objeto encontrado específico.")
+    public ResponseEntity<ReturnFoundObjectDto> getReturnFoundObjectByFoundObjectId(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestBody GetReturnFoundObjectCommand command) {
         return ResponseEntity.ok(returnFoundObjectService.getReturnFoundObject(user, command.getFoundObjectUUID()));
     }
-
 }

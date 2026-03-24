@@ -3,3 +3,10 @@
 /Frontend/.env.development
 /Frontend/%ProgramData%/
 /data
+
+# Claude Code
+.claude/
+.claudeskills/
+
+# Dependencies
+node_modules/

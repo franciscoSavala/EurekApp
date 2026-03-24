@@ -45,6 +45,9 @@ public class LostObjectRepository {
                     "Lost Object should have organization or coordinates"));
             coordinatesMap.put("longitude", organization.getCoordinates().getLongitude());
             coordinatesMap.put("latitude", organization.getCoordinates().getLatitude());
+        } else {
+            coordinatesMap.put("longitude", lostObject.getCoordinates().getLongitude());
+            coordinatesMap.put("latitude", lostObject.getCoordinates().getLatitude());
         }
 
         WeaviateObject object = WeaviateObject.builder()
@@ -75,11 +78,11 @@ public class LostObjectRepository {
             Si el vector es null, WeaviateService decidirá cómo lidiar con eso. */
 
         // Agregar filtro opcional para username
-        if (orgId != null) {
+        if (username != null) {
             filters.add(WhereFilter.builder()
                     .path("username")
                     .operator(Operator.Equal)
-                    .valueText(orgId)
+                    .valueText(username)
                     .build());
         }
 

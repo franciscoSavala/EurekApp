@@ -169,7 +169,8 @@ public class FoundObjectRepository {
         Map<String, Object> properties = weaviateObject.getProperties(); // Asegúrate de que esta función obtenga las propiedades correctamente.
 
         UserEurekapp objectFinderUser= null;
-        Long objectFinderUserId = Long.parseLong(properties.get("object_finder_user_id").toString());
+        Object finderIdRaw = properties.get("object_finder_user_id");
+        Long objectFinderUserId = finderIdRaw != null ? Long.parseLong(finderIdRaw.toString()) : 0L;
         if( objectFinderUserId != 0){
             objectFinderUser = userRepository.getReferenceById( objectFinderUserId );
         }

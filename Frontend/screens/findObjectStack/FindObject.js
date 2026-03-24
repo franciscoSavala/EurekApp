@@ -52,11 +52,6 @@ const FindObject = ({ navigation, route }) => {
     );
 
     const validateInputConstraints = () => {
-        if(!queryObjects){
-            alert("No se ingresó una descripción del objeto");
-            console.log("No se ingresó una descripción del objeto");
-            return false;
-        }
         if (queryObjects.length > 255) {
             alert("La descripción del objeto es muy larga");
             console.log("La descripción del objeto es muy larga");
@@ -73,7 +68,7 @@ const FindObject = ({ navigation, route }) => {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let config = {
                 params: {
-                    query: queryObjects,
+                    ...(queryObjects ? { query: queryObjects } : {}),
                     'lost_date': lostDate.toISOString().split('.')[0],
                 },
                 headers: {
@@ -116,7 +111,7 @@ const FindObject = ({ navigation, route }) => {
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.formContainer}>
                 <View style={styles.textDescriptionContainer}>
-                    <Text style={styles.labelText}>Descripción del objeto:</Text>
+                    <Text style={styles.labelText}>Descripción del objeto (opcional):</Text>
                     <TextInput
                         style={styles.textArea}
                         placeholder="Proporciona detalles que ayuden a identificarlo"

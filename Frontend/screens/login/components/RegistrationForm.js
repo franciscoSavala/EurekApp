@@ -1,21 +1,22 @@
 import React from 'react';
 import {
     View,
-    StyleSheet
+    StyleSheet,
+    TouchableOpacity
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { Input, Icon, Text, Item, Button } from 'react-native-elements';
+import { Input, Text, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 
 export default function RegistrationForm(props) {
-    const { isLoginLoading, hasLoginError, register, isLogged } = useUser();
+    const { isLoginLoading, hasLoginError, loginErrorMessage, register } = useUser();
     const { control,
         handleSubmit,
         formState: {errors},
         setValue,
         getValues } = useForm();
 
-    const InputLogin = ({text, valueName, value, secure = true}) => {
+    const InputLogin = ({text, valueName, value, secure = false}) => {
         return (
             <Input
                 placeholder={text}
@@ -34,13 +35,13 @@ export default function RegistrationForm(props) {
         );
     }
 
-    const onSubmit = async (data) => {
-        const firstname = getValues('FirstName');
-        const lastname = getValues('LastName');
-        const username = getValues('Username');
-        const password = getValues('Password');
-
-        register({ firstname, lastname, username, password });
+    const onSubmit = (data) => {
+        register({
+            firstname: data.FirstName,
+            lastname: data.LastName,
+            username: data.Username,
+            password: data.Password,
+        });
     };
 
     return (
@@ -50,46 +51,51 @@ export default function RegistrationForm(props) {
                 render={({ onChange, onBlur, value }) => (
                     <InputLogin text='Nombre'
                                 valueName='FirstName'
-                                value={value}
-                                secure={false}/>
+                                value={value}/>
                 )}
                 name='FirstName'
                 rules={{
                     required: { value: true, message: 'El nombre es obligatorio.' },
+                    maxLength: { value: 50, message: 'El nombre es demasiado largo.' },
                 }}
                 defaultValue=""
             />
             {errors.FirstName && (
                 <Text style={styles.textError}>{errors.FirstName.message}</Text>
             )}
+
             <Controller
                 control={control}
                 render={({ onChange, onBlur, value }) => (
                     <InputLogin text='Apellido'
                                 valueName='LastName'
-                                value={value}
-                                secure={false}/>
+                                value={value}/>
                 )}
                 name='LastName'
                 rules={{
                     required: { value: true, message: 'El apellido es obligatorio.' },
+                    maxLength: { value: 50, message: 'El apellido es demasiado largo.' },
                 }}
                 defaultValue=""
             />
             {errors.LastName && (
                 <Text style={styles.textError}>{errors.LastName.message}</Text>
             )}
+
             <Controller
                 control={control}
                 render={({ onChange, onBlur, value }) => (
                     <InputLogin text='Email'
                                 valueName='Username'
-                                value={value}
-                                secure={false}/>
+                                value={value}/>
                 )}
                 name='Username'
                 rules={{
                     required: { value: true, message: 'La dirección de email es obligatoria.' },
+                    pattern: {
+                        value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                        message: 'Ingresá un email válido.',
+                    },
                 }}
                 defaultValue=""
             />
@@ -100,14 +106,23 @@ export default function RegistrationForm(props) {
             <Controller
                 control={control}
                 render={({ onChange, value }) => (
-                    <InputLogin text='Contraseña' valueName='Password' value={value}/>
+                    <InputLogin text='Contraseña' valueName='Password' value={value} secure={true}/>
                 )}
                 name='Password'
-                rules={{ required: { value: true, message: 'La contraseña es obligatoria.' } }}
+                rules={{
+                    required: { value: true, message: 'La contraseña es obligatoria.' },
+                    minLength: { value: 6, message: 'La contraseña debe tener al menos 6 caracteres.' },
+                }}
                 defaultValue=''
             />
             {errors.Password && (
                 <Text style={styles.textError}>{errors.Password.message}</Text>
+            )}
+
+            {hasLoginError && (
+                <Text style={styles.textError}>
+                    {loginErrorMessage || 'No se pudo crear la cuenta. Intentá de nuevo.'}
+                </Text>
             )}
 
             <View style={styles.button}>
@@ -123,9 +138,15 @@ export default function RegistrationForm(props) {
                         fontFamily: 'PlusJakartaSans-Regular'
                     }}
                     title='Registrate'
+                    loading={isLoginLoading}
+                    disabled={isLoginLoading}
                     onPress={handleSubmit(onSubmit)}
                 />
             </View>
+
+            <TouchableOpacity style={styles.backButton} onPress={() => props.nav.navigate('LoginScreen')}>
+                <Text style={styles.backButtonText}>Ya tengo cuenta. Iniciar sesión</Text>
+            </TouchableOpacity>
         </View>
     );
 }
@@ -140,5 +161,17 @@ const styles = StyleSheet.create({
     },
     textError: {
         color: 'white',
+    },
+    button: {
+        alignItems: 'center',
+    },
+    backButton: {
+        marginTop: 16,
+    },
+    backButtonText: {
+        color: 'white',
+        fontFamily: 'PlusJakartaSans-Regular',
+        textDecorationLine: 'underline',
+        fontSize: 14,
     },
 });

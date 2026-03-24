@@ -64,6 +64,9 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
         );
     }
     const handleClose = () => {
+        setButtonWasPressed(false);
+        setLoading(false);
+        setResponseOk(false);
         // Reiniciar la pantalla inicial de la stack y enviar el parámetro 'reset' para que borre el contenido.
         navigation.dispatch(
             CommonActions.reset({

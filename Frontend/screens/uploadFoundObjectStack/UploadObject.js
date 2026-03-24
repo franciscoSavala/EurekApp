@@ -9,7 +9,7 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform, KeyboardAvoidingView, Switch, Modal
+    Platform, KeyboardAvoidingView, Switch, Modal, Alert
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
@@ -19,12 +19,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
-import alert from "react-native-web/src/exports/Alert";
 import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 
 const FormData = global.FormData;
 
@@ -88,8 +88,13 @@ const imagePickerConfig = {
 
 const handleImagePicked = (result) => {
     if (!result.canceled) {
-        setImage(result.assets[0]);
-        setImageByte(Buffer.from(result.assets[0].base64, "base64"));
+        const asset = result.assets[0];
+        if (!ALLOWED_MIME_TYPES.includes(asset.mimeType)) {
+            Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+            return;
+        }
+        setImage(asset);
+        setImageByte(Buffer.from(asset.base64, "base64"));
         setImageUploaded(true);
     }
 };
@@ -104,10 +109,15 @@ const takePhoto = async () => {
         // Para web, usamos input file con capture
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'image/*';
+        input.accept = 'image/jpeg,image/png';
         input.capture = 'environment'; // Intenta abrir la cámara trasera si está disponible
         input.onchange = (event) => {
             const file = event.target.files[0];
+            if (!file) return;
+            if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+                Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+                return;
+            }
             const reader = new FileReader();
             reader.onload = () => {
                 const base64String = reader.result.split(',')[1];
@@ -127,19 +137,19 @@ const takePhoto = async () => {
 
 const validateConstraints = () => {
     if (!imageUploaded){
-        alert('Por favor sube una imagen');
+        Alert.alert('Error', 'Por favor sube una imagen');
         return false;
     }
     if (!objectTitle) {
-        alert('Por favor escribe una descripción');
+        Alert.alert('Error', 'Por favor escribe una descripción');
         return false;
     }
     if(objectTitle.length > 30){
-        alert('Por favor escribe una descripción de menos de 30 caracteres');
+        Alert.alert('Error', 'Por favor escribe una descripción de menos de 30 caracteres');
         return false;
     }
     if(imageByte.length / 1024 / 1024 > 10){
-        alert('Por favor sube una imagen de menos de 10MB');
+        Alert.alert('Error', 'Por favor sube una imagen de menos de 10MB');
         return false;
     }
     return true;
@@ -218,6 +228,7 @@ const submitData = async () => {
     } catch (error) {
         console.error(error);
         setResponseOk(false);
+        setShowSubmitButton(true);
     } finally {
         setLoading(false);
     }
@@ -394,7 +405,7 @@ return (
             animationType="none"
             transparent={true}
             visible={successModal}
-            onRequestClose={() => setSuccessModal(!setSuccessModal)}>
+            onRequestClose={() => setSuccessModal(false)}>
             <View style={styles.centeredView}>
                 <View style={styles.modalView}>
                     <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>

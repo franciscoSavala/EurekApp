@@ -58,6 +58,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
     const getLocationFromText = async () => {
         if (textLocation) {
             const geocodedLocation = await Location.geocodeAsync(textLocation);
+            if (!geocodedLocation?.length) return;
             const location = geocodedLocation.pop();
             const newRegion = {
                 latitude: location.latitude,

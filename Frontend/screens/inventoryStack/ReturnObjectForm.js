@@ -18,7 +18,6 @@ import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Buffer} from "buffer";
 import * as ImagePicker from "expo-image-picker";
-import alert from "react-native-web/src/exports/Alert";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -109,6 +108,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
             }*/
             console.log("Se ejecutó el try");
         } catch (error) {
+            console.error(error);
+            setResponseOk(false);
         } finally {
             setLoading(false);
         }

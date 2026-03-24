@@ -47,7 +47,7 @@ public class ReturnFoundObjectService {
     @SneakyThrows
     public ReturnFoundObjectDto returnFoundObject(ReturnFoundObjectCommand command)
     {
-        if(command.getDNI() == null || command.getPhoneNumber().isEmpty()){
+        if(command.getDNI() == null || command.getPhoneNumber() == null || command.getPhoneNumber().isEmpty()){
             throw new BadRequestException("incomplete_data", "");
         }
                         // 1- ORGANIZACIÓN
@@ -85,9 +85,9 @@ public class ReturnFoundObjectService {
             throw new NotFoundException("found_object_not_found", String.format("FoundObject with UUID '%s' not found", command.getFoundObjectUUID()));
         }
         // Verificamos que este objeto no haya sido devuelto aún
-        FoundObject fo = foundObjectRepository.getByUuid(command.getFoundObjectUUID());
-        if(fo.getWasReturned()){
-            throw new BadRequestException("found_object", String.format("Found object with UUID '%s' was already returned", command.getFoundObjectUUID()));}
+        if(foundObject.getWasReturned()){
+            throw new BadRequestException("found_object", String.format("Found object with UUID '%s' was already returned", command.getFoundObjectUUID()));
+        }
         // Actualizamos el objeto en la BD vectorial para marcarlo como devuelto.
         //foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
         Future<Void> updateFoundObjectFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.markAsReturned(command.getFoundObjectUUID()));
@@ -99,7 +99,6 @@ public class ReturnFoundObjectService {
         String personPhotoUUID = UUID.randomUUID().toString();
         // Convertimos la foto en bytes, para poder enviarla en una request.
         final byte[] imageBytes = command.getImage().getBytes();
-        s3Service.putObject(imageBytes, personPhotoUUID);
         Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes,personPhotoUUID));
 
 

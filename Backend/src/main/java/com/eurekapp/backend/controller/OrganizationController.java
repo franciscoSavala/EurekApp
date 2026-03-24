@@ -11,6 +11,9 @@ import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.OrganizationService;
 import com.eurekapp.backend.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/organizations")
 @CrossOrigin("*")
+@Tag(name = "Organizaciones", description = "Gestión de organizaciones y sus empleados")
+@SecurityRequirement(name = "bearerAuth")
 public class OrganizationController {
 
     @Autowired
@@ -29,77 +34,68 @@ public class OrganizationController {
     private UserService userService;
 
     @GetMapping
+    @Operation(summary = "Listar organizaciones", description = "Devuelve todas las organizaciones registradas en la plataforma.")
     public ResponseEntity<OrganizationListResponseDto> findAllOrganizations() {
         return ResponseEntity.ok(organizationService.getAllOrganizations());
     }
 
     @PostMapping
-    public ResponseEntity<Void> signUpOrganization(@RequestBody @Valid SignUpOrganizationCommand signUpOrganization){
+    @Operation(summary = "Registrar organización", description = "Da de alta una nueva organización en la plataforma.")
+    public ResponseEntity<Void> signUpOrganization(@RequestBody @Valid SignUpOrganizationCommand signUpOrganization) {
         organizationService.signUpOrganization(signUpOrganization);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/employees")
-    public ResponseEntity<UserListResponseDto> getOrganizationEmployees(@AuthenticationPrincipal UserEurekapp user){
-        if(user.getRole() == Role.ORGANIZATION_OWNER){
+    @Operation(summary = "Listar empleados de la organización",
+            description = "Devuelve todos los empleados de la organización del usuario autenticado. Solo accesible para ORGANIZATION_OWNER.")
+    public ResponseEntity<UserListResponseDto> getOrganizationEmployees(@AuthenticationPrincipal UserEurekapp user) {
+        if (user.getRole() == Role.ORGANIZATION_OWNER) {
             return ResponseEntity.ok(userService.getOrganizationEmployees(user.getOrganization()));
         }
         return ResponseEntity.badRequest().build();
     }
 
-    /*
-    * Endpoint usado por un administrador de organización para desvincular la cuenta de un empleado, haciendo que el
-    * mismo vuelva a ser un usuario regular.
-    * */
     @PostMapping("/delete_employee")
+    @Operation(summary = "Desvincular empleado",
+            description = "Elimina a un empleado de la organización, devolviendo su cuenta al rol USER. Solo para ORGANIZATION_OWNER.")
     public ResponseEntity<Void> deleteEmployee(@AuthenticationPrincipal UserEurekapp orgAdmin,
-                                               @RequestBody(required = true) DeleteEmployeeCommand command){
-        Long userId = command.getUserId();
-        Boolean succesful = userService.removeEmployeeFromOrganization(orgAdmin, userId);
-        if(succesful){
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.badRequest().build();
+                                               @RequestBody DeleteEmployeeCommand command) {
+        Boolean successful = userService.removeEmployeeFromOrganization(orgAdmin, command.getUserId());
+        return successful ? ResponseEntity.ok().build() : ResponseEntity.badRequest().build();
     }
 
-    /*
-     * Endpoint usado por un administrador de organización para agregar a un empleado.
-     * */
     @PostMapping("/add_employee")
+    @Operation(summary = "Invitar empleado",
+            description = "Envía una solicitud de vinculación a un usuario para que se una a la organización como empleado.")
     public ResponseEntity<Void> addEmployee(@AuthenticationPrincipal UserEurekapp orgAdmin,
-                                               @RequestBody(required = true) AddEmployeeCommand command){
-            String employeeUsername = command.getEmployeeUsername();
-            userService.addEmployeeToOrganization(orgAdmin, employeeUsername);
-            return ResponseEntity.ok().build();
+                                            @RequestBody AddEmployeeCommand command) {
+        userService.addEmployeeToOrganization(orgAdmin, command.getEmployeeUsername());
+        return ResponseEntity.ok().build();
     }
 
-    /*
-    * Endpoint usado por un usuario regular para obtener todas las solicitudes de unión a una organización, que estén
-    * pendientes de tratamiento (o sea, sin aceptar ni rechazar)
-     */
     @GetMapping("/getPendingAddEmployeeRequests")
-    public ResponseEntity<AddEmployeeRequestListResponseDto> getPendingAddEmployeeRequests(@AuthenticationPrincipal UserEurekapp user){
+    @Operation(summary = "Ver solicitudes de vinculación pendientes",
+            description = "Devuelve todas las solicitudes de unión a una organización que están pendientes de respuesta para el usuario autenticado.")
+    public ResponseEntity<AddEmployeeRequestListResponseDto> getPendingAddEmployeeRequests(@AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(userService.getAllPendingAddEmployeeRequests(user));
     }
 
-    /*
-    * Endpoint usado por un usuario regular para aceptar una solicitud de unión a una organización.
-    * */
     @PostMapping("/acceptAddEmployeeRequest")
+    @Operation(summary = "Aceptar solicitud de vinculación",
+            description = "El usuario acepta unirse a una organización como empleado. Su rol cambia a ORGANIZATION_EMPLOYEE.")
     public ResponseEntity<Void> acceptAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
-                                                         @RequestBody(required = true) AddEmployeeRequestCommand command){
+                                                         @RequestBody AddEmployeeRequestCommand command) {
         userService.acceptAddEmployeeRequest(user, command.getId());
         return ResponseEntity.ok().build();
     }
 
-    /*
-     * Endpoint usado por un usuario regular para rechazar una solicitud de unión a una organización.
-     * */
     @PostMapping("/declineAddEmployeeRequest")
+    @Operation(summary = "Rechazar solicitud de vinculación",
+            description = "El usuario rechaza la solicitud de unirse a una organización.")
     public ResponseEntity<Void> declineAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
-                                                         @RequestBody(required = true) AddEmployeeRequestCommand command){
+                                                          @RequestBody AddEmployeeRequestCommand command) {
         userService.declineAddEmployeeRequest(user, command.getId());
         return ResponseEntity.ok().build();
     }
-
 }

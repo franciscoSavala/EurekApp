@@ -12,15 +12,15 @@ export default function login({ username, password }) {
         body: JSON.stringify({ username: username, password: password }),
         redirect: 'follow',
     })
-        .then((res) => {
-            if (res.status < 500 && res >= 400) throw new Error('Usuario o contraseña incorrectos');
-            else if (!res.ok) throw new Error('Ha ocurrido un error, intente de nuevo más tarde');
+        .then(async (res) => {
+            if (!res.ok) {
+                let message = 'Usuario o contraseña incorrectos';
+                try {
+                    const data = await res.json();
+                    if (data?.message) message = data.message;
+                } catch (_) {}
+                throw new Error(message);
+            }
             return res.json();
-        })
-        .then((response) => {
-            // Recibimos un LoginResponseDto con info de más
-            return response;
-        }).catch((e) => {
-            console.error(e);
         });
 }
