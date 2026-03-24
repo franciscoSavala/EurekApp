@@ -48,6 +48,9 @@ jobs:
 
       - name: Copiar JAR a EC2
         run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            "sudo mkdir -p /opt/eurekapp && sudo chown ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} /opt/eurekapp"
           scp -i ~/.ssh/deploy_key \
             Backend/target/Backend-0.0.1.jar \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/opt/eurekapp/backend.jar
