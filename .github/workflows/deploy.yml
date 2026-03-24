@@ -13,6 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verificar secrets requeridos
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.EC2_HOST }}"    ] && MISSING="$MISSING EC2_HOST"
+          [ -z "${{ secrets.EC2_USER }}"    ] && MISSING="$MISSING EC2_USER"
+          [ -z "${{ secrets.EC2_SSH_KEY }}" ] && MISSING="$MISSING EC2_SSH_KEY"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Los siguientes GitHub Secrets no están configurados:$MISSING"
+            echo "Configurarlos en: Settings > Secrets and variables > Actions"
+            exit 1
+          fi
+
       - name: Checkout repositorio
         uses: actions/checkout@v4
 
@@ -30,7 +42,7 @@ jobs:
       - name: Configurar clave SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
