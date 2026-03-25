@@ -34,6 +34,7 @@ import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
 import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
+import Reports from "./screens/reportsStack/Reports";
 
 const AuthStack = createStackNavigator();
 
@@ -149,6 +150,19 @@ const ProfileStackScreen = () => {
     );
 }
 
+const ReportsStack = createStackNavigator();
+
+const ReportsStackScreen = () => {
+    return (
+        <ReportsStack.Navigator>
+            <ReportsStack.Screen
+                name='Reports'
+                component={Reports}
+                options={{headerShown: false, title: 'EurekApp - Reportes'}} />
+        </ReportsStack.Navigator>
+    );
+}
+
 const OrganizationStack = createStackNavigator();
 
 const OrganizationStackScreen = () => {
@@ -229,6 +243,7 @@ const EurekappTab = () => {
     const trophyIcon = () => <Icon name={'trophy'} size={20} />
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
+    const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const [ userRole, setUserRole ] = useState('');
@@ -328,6 +343,12 @@ const EurekappTab = () => {
 
             {userRole === 'ORGANIZATION_OWNER' ?
                 <>
+                    <Drawer.Screen name="ReportsStackScreen" options={{
+                        title: 'Reportes',
+                        headerTitleAlign: 'center',
+                        drawerIcon: chartIcon
+                    }} component={ReportsStackScreen}
+                    />
                     <Drawer.Screen name="OrganizationStackScreen" options={{
                         title: 'Mi organización',
                         headerTitleAlign: 'center',

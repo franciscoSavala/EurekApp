@@ -77,7 +77,7 @@ public class LostObjectService {
         //      radio.
 
         // Buscamos publicaciones de LostObject que tengan un cierto grado de coincidencia.
-        List<LostObject> lostObjects = lostObjectRepository.query(embeddings,null, null, null);
+        List<LostObject> lostObjects = lostObjectRepository.query(embeddings, null, null, null, null);
 
         // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
         if(lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) {

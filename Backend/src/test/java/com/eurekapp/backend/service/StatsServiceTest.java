@@ -49,8 +49,8 @@ class StatsServiceTest {
                 buildUser(Role.ORGANIZATION_EMPLOYEE)
         ));
         when(organizationRepository.findAll()).thenReturn(List.of(new Organization(), new Organization()));
-        when(foundObjectRepository.query(null, null, null, null, true)).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, false)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, true)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, false)).thenReturn(List.of());
 
         StatsResponseDto result = statsService.getStats();
 
@@ -65,11 +65,11 @@ class StatsServiceTest {
     void getStats_returnsCorrectFoundObjectCounts() {
         when(userRepository.findAll()).thenReturn(List.of());
         when(organizationRepository.findAll()).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, true)).thenReturn(List.of(
+        when(foundObjectRepository.query(null, null, null, null, null, true)).thenReturn(List.of(
                 FoundObject.builder().uuid("a").wasReturned(true).build(),
                 FoundObject.builder().uuid("b").wasReturned(true).build()
         ));
-        when(foundObjectRepository.query(null, null, null, null, false)).thenReturn(List.of(
+        when(foundObjectRepository.query(null, null, null, null, null, false)).thenReturn(List.of(
                 FoundObject.builder().uuid("c").wasReturned(false).build()
         ));
 
@@ -87,8 +87,8 @@ class StatsServiceTest {
                 buildUser(Role.USER)
         ));
         when(organizationRepository.findAll()).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, true)).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, false)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, true)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, false)).thenReturn(List.of());
 
         StatsResponseDto result = statsService.getStats();
 
@@ -101,8 +101,8 @@ class StatsServiceTest {
     void getStats_emptyDatabase_returnsAllZeros() {
         when(userRepository.findAll()).thenReturn(List.of());
         when(organizationRepository.findAll()).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, true)).thenReturn(List.of());
-        when(foundObjectRepository.query(null, null, null, null, false)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, true)).thenReturn(List.of());
+        when(foundObjectRepository.query(null, null, null, null, null, false)).thenReturn(List.of());
 
         StatsResponseDto result = statsService.getStats();
 

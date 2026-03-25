@@ -251,6 +251,7 @@ public class FoundObjectService implements IFoundObjectService {
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
+                                                                    null,
                                                                     false);
 
         /*
@@ -298,7 +299,7 @@ public class FoundObjectService implements IFoundObjectService {
         String orgId = org.getId().toString();
 
         // Obtenemos todos los objetos devueltos de la organización.
-        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, true);
+        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, null, true);
 
         // Creamos los DTOs y los metemos en una lista
         List<FoundObjectDto> dtos = foundObjects.stream()
@@ -355,7 +356,7 @@ public class FoundObjectService implements IFoundObjectService {
         String description = descriptionService.getImageTextRepresentation(imageBytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, false);
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, null, false);
 
         for (FoundObject fo : foundObjects) {
             double cosDistance = fo.getScore().doubleValue();
@@ -384,6 +385,7 @@ public class FoundObjectService implements IFoundObjectService {
         else{ throw new IllegalArgumentException("ERROR: Se debe proveer un ID de organización."); }
         List<FoundObject> foundObjects = foundObjectRepository.query(null,
                 orgId,
+                null,
                 null,
                 null,
                 false);

@@ -61,6 +61,7 @@ public class FoundObjectRepository {
                                    String orgId,
                                    GeoCoordinates coordinates,
                                    LocalDateTime foundDate,
+                                   LocalDateTime foundDateTo,
                                    Boolean wasReturned){
 
         // Lista de filtros
@@ -113,6 +114,18 @@ public class FoundObjectRepository {
                     .path("found_date")
                     .operator(Operator.GreaterThanEqual)
                     .valueDate(castedLostDate)
+                    .build());
+        }
+
+        // Agregamos un filtro opcional para foundDateTo (upper bound).
+        if (foundDateTo != null) {
+            ZonedDateTime zonedDateTimeTo = foundDateTo.atZone(ZoneId.of("GMT"));
+            Date castedFoundDateTo = Date.from(zonedDateTimeTo.toInstant());
+
+            filters.add(WhereFilter.builder()
+                    .path("found_date")
+                    .operator(Operator.LessThan)
+                    .valueDate(castedFoundDateTo)
                     .build());
         }
 

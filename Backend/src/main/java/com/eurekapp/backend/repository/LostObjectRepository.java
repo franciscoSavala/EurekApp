@@ -69,7 +69,8 @@ public class LostObjectRepository {
     public List<LostObject> query(List<Float> vector,
                                    String username,
                                    String orgId,
-                                   LocalDateTime lostDate){
+                                   LocalDateTime lostDateFrom,
+                                   LocalDateTime lostDateTo){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
@@ -92,6 +93,28 @@ public class LostObjectRepository {
                     .path("organization_id")
                     .operator(Operator.Equal)
                     .valueText(orgId)
+                    .build());
+        }
+
+        // Agregar filtro opcional para lostDateFrom (lower bound)
+        if (lostDateFrom != null) {
+            ZonedDateTime zonedDateTimeFrom = lostDateFrom.atZone(ZoneId.of("GMT"));
+            Date castedLostDateFrom = Date.from(zonedDateTimeFrom.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("lost_date")
+                    .operator(Operator.GreaterThanEqual)
+                    .valueDate(castedLostDateFrom)
+                    .build());
+        }
+
+        // Agregar filtro opcional para lostDateTo (upper bound)
+        if (lostDateTo != null) {
+            ZonedDateTime zonedDateTimeTo = lostDateTo.atZone(ZoneId.of("GMT"));
+            Date castedLostDateTo = Date.from(zonedDateTimeTo.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("lost_date")
+                    .operator(Operator.LessThan)
+                    .valueDate(castedLostDateTo)
                     .build());
         }
 
