@@ -45,7 +45,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
                     .findFirst()
                     .orElse(null);
 
-            if (role == null || (!role.startsWith(Role.ORGANIZATION_OWNER.name()) && !role.startsWith(Role.ORGANIZATION_EMPLOYEE.name()))) {
+            if (role == null || (!role.startsWith(Role.ORGANIZATION_OWNER.name()) && !role.startsWith(Role.ORGANIZATION_EMPLOYEE.name()) && !role.startsWith(Role.ENCARGADO.name()))) {
                 throw new ForbbidenException("not_valid_credentials", "User is not an organization owner");
             }
 

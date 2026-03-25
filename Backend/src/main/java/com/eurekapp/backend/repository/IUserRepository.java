@@ -15,5 +15,6 @@ public interface IUserRepository extends JpaRepository<UserEurekapp, Long> {
     UserEurekapp getByUsername(String username);
     Boolean existsByUsername(String username);
     List<UserEurekapp> findByOrganizationAndRole(Organization organization, Role role);
+    List<UserEurekapp> findByOrganizationAndRoleIn(Organization organization, List<Role> roles);
 
 }

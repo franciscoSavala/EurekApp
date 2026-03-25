@@ -44,6 +44,11 @@ const Organization = ({ route, navigation }) => {
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
 
+    const [encargadoConfirmModal, setEncargadoConfirmModal] = useState(false);
+    const [encargadoAction, setEncargadoAction] = useState(null); // 'assign' | 'revoke'
+    const [encargadoResultModal, setEncargadoResultModal] = useState(false);
+    const [encargadoResultOk, setEncargadoResultOk] = useState(false);
+
     useEffect(() => {
         const fetchOrganizationData = async () => {
             const organization = await AsyncStorage.getItem('organization');
@@ -76,7 +81,34 @@ const Organization = ({ route, navigation }) => {
         }
     }
 
+    const openEncargadoConfirm = (item, action) => {
+        setSelectedEmployee(item.id);
+        setEncargadoAction(action);
+        setEncargadoConfirmModal(true);
+    };
+
+    const handleEncargadoAction = async () => {
+        setEncargadoConfirmModal(false);
+        try {
+            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+            const endpoint = encargadoAction === 'assign'
+                ? '/organizations/assign_encargado'
+                : '/organizations/revoke_encargado';
+            await axios.post(`${BACK_URL}${endpoint}`, { userId: selectedEmployee },
+                { headers: { Authorization: authHeader } });
+            const newRole = encargadoAction === 'assign' ? 'ENCARGADO' : 'ORGANIZATION_EMPLOYEE';
+            setEmployees(prev => prev.map(e => e.id === selectedEmployee ? { ...e, role: newRole } : e));
+            setEncargadoResultOk(true);
+        } catch (error) {
+            console.error(error);
+            setEncargadoResultOk(false);
+        } finally {
+            setEncargadoResultModal(true);
+        }
+    };
+
     const renderItem = ({ item }) => {
+        const isEncargado = item.role === 'ENCARGADO';
         return (
             <View  style={[styles.item]}>
                 <View style={styles.itemTextContainer}>
@@ -86,8 +118,22 @@ const Organization = ({ route, navigation }) => {
                     <Text style={styles.itemText}>
                         {item.username}
                     </Text>
+                    <View style={[styles.roleBadge, isEncargado ? styles.roleBadgeEncargado : styles.roleBadgeEmpleado]}>
+                        <Text style={[styles.roleBadgeText, { color: isEncargado ? '#19b8b8' : '#638888' }]}>
+                            {isEncargado ? 'Encargado' : 'Empleado'}
+                        </Text>
+                    </View>
                 </View>
-                <View>
+                <View style={styles.actionButtons}>
+                    {!isEncargado ? (
+                        <TouchableOpacity style={styles.assignButton} onPress={() => openEncargadoConfirm(item, 'assign')}>
+                            <Text style={styles.assignButtonText}>Asignar encargado</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity style={styles.revokeButton} onPress={() => openEncargadoConfirm(item, 'revoke')}>
+                            <Text style={styles.revokeButtonText}>Revocar encargado</Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity style={styles.deleteButton} onPress={() => {setDeleteEmployeeModal(true);setSelectedEmployee(item.id);}}>
                         <Text style={styles.deleteButtonText}>Eliminar</Text>
                     </TouchableOpacity>
@@ -317,6 +363,55 @@ const Organization = ({ route, navigation }) => {
             <Modal
                 animationType="none"
                 transparent={true}
+                visible={encargadoConfirmModal}
+                onRequestClose={() => setEncargadoConfirmModal(false)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text style={styles.modalText}>
+                            {encargadoAction === 'assign'
+                                ? '¿Deseas asignar el rol de encargado a este usuario? Podrá gestionar confirmaciones y devoluciones de objetos.'
+                                : '¿Deseas revocar el rol de encargado a este usuario?'}
+                        </Text>
+                        <EurekappButton text={encargadoAction === 'assign' ? 'Asignar' : 'Revocar'}
+                                        onPress={handleEncargadoAction}/>
+                        <EurekappButton text='Cancelar'
+                                        onPress={() => setEncargadoConfirmModal(false)}/>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                animationType="none"
+                transparent={true}
+                visible={encargadoResultModal}
+                onRequestClose={() => setEncargadoResultModal(false)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        {encargadoResultOk ? (
+                            <>
+                                <Icon name={'circle-check'} size={50} color={'#008000'} style={{marginBottom: 16}}/>
+                                <Text style={styles.modalText}>
+                                    {encargadoAction === 'assign'
+                                        ? 'El rol de encargado fue asignado correctamente.'
+                                        : 'El rol de encargado fue revocado correctamente.'}
+                                </Text>
+                            </>
+                        ) : (
+                            <>
+                                <Icon name={'circle-xmark'} size={50} color={'#ED4337'} style={{marginBottom: 16}}/>
+                                <Text style={styles.modalText}>
+                                    Error al {encargadoAction === 'assign' ? 'asignar' : 'revocar'} el rol. Intentá nuevamente.
+                                </Text>
+                            </>
+                        )}
+                        <EurekappButton text='Cerrar' onPress={() => setEncargadoResultModal(false)}/>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                animationType="none"
+                transparent={true}
                 visible={addEmployeeModal}
                 onRequestClose={() => setAddEmployeeModal(!setAddEmployeeModal)}>
                 <View style={styles.centeredView}>
@@ -390,6 +485,54 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         backgroundColor: '#fff',
     },
+    actionButtons: {
+        flexDirection: 'column',
+        gap: 6,
+        alignItems: 'flex-end',
+    },
+    assignButton: {
+        backgroundColor: '#19b8b8',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 5,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    assignButtonText: {
+        color: 'white',
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    revokeButton: {
+        backgroundColor: '#f0f4f4',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 5,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    revokeButtonText: {
+        color: '#638888',
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    roleBadge: {
+        marginTop: 4,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 10,
+        alignSelf: 'flex-start',
+    },
+    roleBadgeEncargado: {
+        backgroundColor: '#e0f7f7',
+    },
+    roleBadgeEmpleado: {
+        backgroundColor: '#f0f4f4',
+    },
+    roleBadgeText: {
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
     deleteButton: {
         backgroundColor: 'red',
         paddingVertical: 8,
@@ -433,6 +576,11 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'flex-start',
         alignItems: 'flex-start',
+    },
+    itemText: {
+        color: '#111818',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
     },
     label: {
         alignSelf: 'flex-start',

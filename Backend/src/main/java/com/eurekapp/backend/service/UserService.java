@@ -10,6 +10,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IAddEmployeeRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,12 +27,14 @@ public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private IUserRepository userRepository;
     private IAddEmployeeRequestRepository addEmployeeRequestRepository;
+    private NotificationService notificationService;
 
     /*
     * Método usado para obtener todos los empleados de una organización.
     * */
     public UserListResponseDto getOrganizationEmployees(Organization organization) {
-        List<UserEurekapp> result = userRepository.findByOrganizationAndRole(organization, Role.ORGANIZATION_EMPLOYEE);
+        List<UserEurekapp> result = userRepository.findByOrganizationAndRoleIn(
+                organization, List.of(Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO));
 
          List<UserDto> userDtos = result.stream()
                                     .map(this::userToDto)
@@ -63,10 +66,46 @@ public class UserService {
      * */
     private Boolean isAuthorizedToRemoveEmployee(UserEurekapp orgAdmin, UserEurekapp employee){
         if(orgAdmin.getRole() == Role.ORGANIZATION_OWNER &&
-                orgAdmin.getOrganization().equals(employee.getOrganization()) ){
+                orgAdmin.getOrganization().equals(employee.getOrganization()) &&
+                (employee.getRole() == Role.ORGANIZATION_EMPLOYEE || employee.getRole() == Role.ENCARGADO)){
             return true;
         }
         return false;
+    }
+
+    public void assignEncargado(UserEurekapp orgAdmin, Long employeeUserId) {
+        if (orgAdmin.getRole() != Role.ORGANIZATION_OWNER) {
+            throw new ForbbidenException("forbidden", "No está autorizado a hacer esta solicitud.");
+        }
+        UserEurekapp employee = userRepository.getReferenceById(employeeUserId);
+        if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ORGANIZATION_EMPLOYEE) {
+            throw new ForbbidenException("forbidden", "El usuario no pertenece a esta organización o ya es encargado.");
+        }
+        employee.setRole(Role.ENCARGADO);
+        userRepository.saveAndFlush(employee);
+        try {
+            notificationService.sendNotification(
+                    employee.getUsername(),
+                    "Rol de encargado asignado",
+                    "Has sido designado como encargado en " + orgAdmin.getOrganization().getName() + "."
+            );
+        } catch (Exception e) {
+            log.warn("No se pudo enviar notificación al encargado: {}", e.getMessage());
+        }
+        log.info("Assigned ENCARGADO role to user {}", employee.getUsername());
+    }
+
+    public void revokeEncargado(UserEurekapp orgAdmin, Long employeeUserId) {
+        if (orgAdmin.getRole() != Role.ORGANIZATION_OWNER) {
+            throw new ForbbidenException("forbidden", "No está autorizado a hacer esta solicitud.");
+        }
+        UserEurekapp employee = userRepository.getReferenceById(employeeUserId);
+        if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ENCARGADO) {
+            throw new ForbbidenException("forbidden", "El usuario no es encargado en esta organización.");
+        }
+        employee.setRole(Role.ORGANIZATION_EMPLOYEE);
+        userRepository.saveAndFlush(employee);
+        log.info("Revoked ENCARGADO role from user {}", employee.getUsername());
     }
 
     public void addEmployeeToOrganization(UserEurekapp orgAdmin, String employeeUsername) {

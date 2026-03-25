@@ -2,6 +2,7 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.command.AddEmployeeCommand;
 import com.eurekapp.backend.dto.command.AddEmployeeRequestCommand;
+import com.eurekapp.backend.dto.command.AssignEncargadoCommand;
 import com.eurekapp.backend.dto.command.DeleteEmployeeCommand;
 import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
@@ -87,6 +88,24 @@ public class OrganizationController {
     public ResponseEntity<Void> acceptAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
                                                          @RequestBody AddEmployeeRequestCommand command) {
         userService.acceptAddEmployeeRequest(user, command.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/assign_encargado")
+    @Operation(summary = "Asignar rol de encargado",
+            description = "Asigna el rol de encargado a un empleado de la organización. Solo para ORGANIZATION_OWNER.")
+    public ResponseEntity<Void> assignEncargado(@AuthenticationPrincipal UserEurekapp orgAdmin,
+                                                @RequestBody AssignEncargadoCommand command) {
+        userService.assignEncargado(orgAdmin, command.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/revoke_encargado")
+    @Operation(summary = "Revocar rol de encargado",
+            description = "Revoca el rol de encargado de un empleado, dejándolo como empleado básico. Solo para ORGANIZATION_OWNER.")
+    public ResponseEntity<Void> revokeEncargado(@AuthenticationPrincipal UserEurekapp orgAdmin,
+                                                @RequestBody AssignEncargadoCommand command) {
+        userService.revokeEncargado(orgAdmin, command.getUserId());
         return ResponseEntity.ok().build();
     }
 
