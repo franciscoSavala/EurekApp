@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 
+import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -322,8 +323,12 @@ public class FoundObjectService implements IFoundObjectService {
 
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
         byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
-        log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",
-                foundObject.getUuid(), imageBytes.length);
+        String b64Json = null;
+        if (imageBytes != null) {
+            log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",
+                    foundObject.getUuid(), imageBytes.length);
+            b64Json = Base64.getEncoder().encodeToString(imageBytes);
+        }
 
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)
@@ -337,13 +342,38 @@ public class FoundObjectService implements IFoundObjectService {
                 .title(foundObject.getTitle())
                 .humanDescription(foundObject.getHumanDescription())
                 .aiDescription((foundObject.getAiDescription()))
-                .b64Json(Base64.getEncoder().encodeToString(imageBytes))
+                .b64Json(b64Json)
                 .score(foundObject.getScore())
                 .distance(foundObject.getDistance())
                 .organization(organizationDto)
                 .foundDate(foundObject.getFoundDate())
                 .latitude(foundObject.getCoordinates().getLatitude().floatValue())
                 .longitude(foundObject.getCoordinates().getLongitude().floatValue())
+                .build();
+    }
+
+    @SneakyThrows
+    public FoundObjectsListDto searchByPhoto(MultipartFile image) {
+        byte[] imageBytes = image.getBytes();
+        String description = descriptionService.getImageTextRepresentation(imageBytes);
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
+
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, false);
+
+        for (FoundObject fo : foundObjects) {
+            double cosDistance = fo.getScore().doubleValue();
+            cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
+            fo.setScore((float) cosDistance);
+        }
+
+        List<FoundObjectDto> result = foundObjects.stream()
+                .map(this::foundObjectToDto)
+                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
+                .limit(5)
+                .toList();
+
+        return FoundObjectsListDto.builder()
+                .foundObjects(result)
                 .build();
     }
 

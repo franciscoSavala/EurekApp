@@ -15,7 +15,7 @@ spring:
 application:
   s3:
     bucket:
-      name: 'eurekapp-temp'
+      name: 'eurekapp-temp-local'
   openai:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}           # requerido: setear en .env.local

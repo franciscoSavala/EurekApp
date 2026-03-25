@@ -136,6 +136,14 @@ public class FoundObjectController {
         return ResponseEntity.ok(foundObjectService.getAllReturnedFoundObjectsByOrganization(user));
     }
 
+    @PostMapping(value = "/search-by-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Buscar objeto perdido por foto",
+            description = "Recibe una foto del objeto perdido, genera una descripción con IA y busca coincidencias en todos los objetos encontrados.")
+    public ResponseEntity<FoundObjectsListDto> searchByPhoto(
+            @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(foundObjectService.searchByPhoto(file));
+    }
+
     @PostMapping("/getReturnedObject")
     @Operation(summary = "Detalle de una devolución",
             description = "Devuelve los datos completos del registro de devolución de un objeto encontrado específico.")
