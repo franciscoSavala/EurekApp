@@ -1,9 +1,11 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
+import StarRating from "../components/StarRating";
+import submitFeedback from "../../services/FeedbackService";
 
 const CATEGORY_LABELS = {
     ELECTRONICA: 'Electrónica', ROPA: 'Ropa', DOCUMENTOS: 'Documentos',
@@ -16,7 +18,36 @@ const FoundObjects = ({ route, navigation }) => {
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
     const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
+    const [feedbackModal, setFeedbackModal] = useState(false);
+    const [pendingWasFound, setPendingWasFound] = useState(null);
+    const [starRating, setStarRating] = useState(0);
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
+
+    const openFeedback = (wasFound) => {
+        setPendingWasFound(wasFound);
+        setStarRating(0);
+        setFeedbackModal(true);
+    };
+
+    const onFeedbackDone = async (skip = false) => {
+        if (!skip && starRating > 0) {
+            const selected = foundObjectsMap.get(objectSelectedId);
+            const orgId = selected?.organization?.id?.toString() || organizationId || null;
+            try {
+                await submitFeedback({
+                    organizationId: orgId,
+                    foundObjectUUID: pendingWasFound ? objectSelectedId : null,
+                    starRating,
+                    wasFound: pendingWasFound,
+                });
+            } catch (e) {
+                console.warn('Error enviando feedback:', e);
+            }
+        }
+        setFeedbackModal(false);
+        if (pendingWasFound) setOrganizationInformationModal(true);
+        else setUploadLostObjectModal(true);
+    };
 
     const renderItem = ({ item }) => {
         {/*
@@ -63,6 +94,9 @@ const FoundObjects = ({ route, navigation }) => {
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.coincidencesContainer}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backButtonText}>← Volver</Text>
+                </TouchableOpacity>
                 <Text style={styles.headerText}>Coincidencias encontradas</Text>
                 {(filterCategory || filterColor || filterLostDateTo) && (
                     <View style={styles.activeFiltersRow}>
@@ -96,11 +130,11 @@ const FoundObjects = ({ route, navigation }) => {
                 />
             </ScrollView>
             <View style={styles.buttonContainer}>
-                <EurekappButton onPress={() => setOrganizationInformationModal(true)}
+                <EurekappButton onPress={() => openFeedback(true)}
                                 backgroundColor={'#f0f4f4'}
                                 textColor={'#111818'}
                                 text="Este es mi objeto" />
-                <EurekappButton onPress={() => setUploadLostObjectModal(true)}
+                <EurekappButton onPress={() => openFeedback(false)}
                                 backgroundColor={'#fff'}
                                 textColor={'#111818'}
                                 text="No encontré mi objeto" />
@@ -111,6 +145,38 @@ const FoundObjects = ({ route, navigation }) => {
                                    lostDate={lostDate}
                                    organizationId={organizationId}
                                    coordinates={coordinates}/>
+            {/* Modal de feedback */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={feedbackModal}
+                onRequestClose={() => onFeedbackDone(true)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>
+                            ¿Qué tan útiles fueron las coincidencias?
+                        </Text>
+                        <Text style={[styles.modalText, { color: '#638888', fontSize: 13 }]}>
+                            Tu calificación nos ayuda a mejorar los resultados.
+                        </Text>
+                        <StarRating rating={starRating} onRate={setStarRating} size={32} />
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                            <TouchableOpacity
+                                style={[styles.feedbackBtn, { backgroundColor: '#f0f4f4' }]}
+                                onPress={() => onFeedbackDone(true)}>
+                                <Text style={[styles.feedbackBtnText, { color: '#638888' }]}>Omitir</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.feedbackBtn, { backgroundColor: starRating > 0 ? '#19b8b8' : '#ccc' }]}
+                                onPress={() => onFeedbackDone(false)}
+                                disabled={starRating === 0}>
+                                <Text style={[styles.feedbackBtnText, { color: 'white' }]}>Enviar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
             <Modal
                 animationType="none"
                 transparent={true}
@@ -283,6 +349,26 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#638888',
         fontFamily: 'PlusJakartaSans-Regular',
+    },
+    backButton: {
+        alignSelf: 'flex-start',
+        padding: 16,
+        paddingBottom: 0,
+    },
+    backButtonText: {
+        color: '#638888',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    feedbackBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    feedbackBtnText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
     },
 })
 export default FoundObjects;

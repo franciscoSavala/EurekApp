@@ -13,7 +13,6 @@ import {
     TextInput, TouchableOpacity,
     View
 } from "react-native";
-import {Controller, useForm} from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -23,16 +22,10 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const Achievements = ({ route, navigation }) => {
 
-    const { control,
-        handleSubmit,
-        formState: {errors},
-        setValue,
-        getValues ,
-        setError} = useForm();
-    const [currentLevel, setCurrentLevel] = useState('');
+const [currentLevel, setCurrentLevel] = useState('');
     const [nextLevel, setNextLevel] = useState('');
     const [returnedObjects, setReturnedObjects ] = useState(0);
-    const [returnedObjectsAchievements, setReturnedObjectsAchievements] = useState('');
+    const [returnedObjectsAchievements, setReturnedObjectsAchievements] = useState([]);
     const [nextReturnedObjectsAchievement, setNextReturnedObjectsAchievement] = useState('');
     const [xp, setXp] = useState(0)
 

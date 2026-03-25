@@ -1,6 +1,7 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.LoginRequestDto;
+import com.eurekapp.backend.dto.request.SocialLoginRequestDto;
 import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.service.AuthService;
@@ -35,5 +36,11 @@ public class AuthController {
     @Operation(summary = "Registrar usuario", description = "Crea una nueva cuenta de usuario con rol USER")
     public ResponseEntity<LoginResponseDto> register(@Valid @RequestBody UserRegistrationRequestDto userRegistrationRequestDto) {
         return ResponseEntity.ok(authService.register(userRegistrationRequestDto));
+    }
+
+    @PostMapping("/auth/social")
+    @Operation(summary = "Login social", description = "Autentica o registra un usuario mediante Google o Facebook")
+    public ResponseEntity<LoginResponseDto> socialLogin(@Valid @RequestBody SocialLoginRequestDto socialLoginRequestDto) {
+        return ResponseEntity.ok(authService.socialLogin(socialLoginRequestDto));
     }
 }

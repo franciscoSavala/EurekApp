@@ -1,17 +1,39 @@
-import {FlatList, Image, StyleSheet, Text, View} from "react-native";
+import {StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
 import {useState} from "react";
+import StarRating from "../components/StarRating";
+import submitFeedback from "../../services/FeedbackService";
 
 
-const NotFoundObjects = ({route}) => {
+const NotFoundObjects = ({route, navigation}) => {
     const { query, lostDate, coordinates, organizationId } = route.params;
     const [modalVisible, setModalVisible] = useState(false);
+    const [feedbackRating, setFeedbackRating] = useState(0);
+    const [feedbackSent, setFeedbackSent] = useState(false);
+
+    const handleSendFeedback = async () => {
+        if (feedbackRating === 0) return;
+        try {
+            await submitFeedback({
+                organizationId: organizationId || null,
+                foundObjectUUID: null,
+                starRating: feedbackRating,
+                wasFound: false,
+            });
+            setFeedbackSent(true);
+        } catch (e) {
+            console.warn('Error enviando feedback:', e);
+        }
+    };
 
     return (
         <View style={styles.container}>
             <View style={styles.coincidencesContainer}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backButtonText}>← Volver</Text>
+                </TouchableOpacity>
                 <Text style={styles.headerText}>No se encontraron coincidencias para tu búsqueda.</Text>
                 <View style={styles.prettyNotFoundContainer}>
                     <View style={styles.prettyCardNotFound}>
@@ -25,6 +47,21 @@ const NotFoundObjects = ({route}) => {
                         </View>
                     </View>
                 </View>
+            </View>
+            <View style={styles.feedbackSection}>
+                {feedbackSent ? (
+                    <Text style={styles.feedbackThanks}>¡Gracias por tu calificación!</Text>
+                ) : (
+                    <>
+                        <Text style={styles.feedbackLabel}>¿Qué tan útil fue la búsqueda?</Text>
+                        <StarRating rating={feedbackRating} onRate={setFeedbackRating} size={28} />
+                        {feedbackRating > 0 && (
+                            <TouchableOpacity style={styles.feedbackBtn} onPress={handleSendFeedback}>
+                                <Text style={styles.feedbackBtnText}>Enviar calificación</Text>
+                            </TouchableOpacity>
+                        )}
+                    </>
+                )}
             </View>
             <EurekappButton onPress={() => setModalVisible(true)} text="Guardar búsqueda" />
             <UploadLostObjectModal modalVisible={modalVisible}
@@ -104,6 +141,43 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         alignItems: 'center',
         width: '100%',
-    }
+    },
+    backButton: {
+        alignSelf: 'flex-start',
+        padding: 16,
+        paddingBottom: 0,
+    },
+    backButtonText: {
+        color: '#638888',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    feedbackSection: {
+        alignItems: 'center',
+        paddingVertical: 16,
+        gap: 10,
+    },
+    feedbackLabel: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: '#638888',
+    },
+    feedbackBtn: {
+        marginTop: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        backgroundColor: '#19b8b8',
+        borderRadius: 8,
+    },
+    feedbackBtnText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: 'white',
+    },
+    feedbackThanks: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: '#19b8b8',
+    },
 })
 export default NotFoundObjects;

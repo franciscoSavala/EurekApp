@@ -200,15 +200,26 @@ const FindObject = ({ navigation, route }) => {
                             </Text>
                         </TouchableOpacity>
                         {showDateToPicker && (
-                            <DateTimePicker
-                                value={filterLostDateTo || new Date()}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                                onChange={(_, selected) => {
-                                    setShowDateToPicker(false);
-                                    if (selected) setFilterLostDateTo(selected);
-                                }}
-                            />
+                            Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}
+                                    onChange={(e) => {
+                                        setShowDateToPicker(false);
+                                        if (e.target.value) setFilterLostDateTo(new Date(e.target.value));
+                                    }}
+                                />
+                            ) : (
+                                <DateTimePicker
+                                    value={filterLostDateTo || new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                                    onChange={(_, selected) => {
+                                        setShowDateToPicker(false);
+                                        if (selected) setFilterLostDateTo(selected);
+                                    }}
+                                />
+                            )
                         )}
 
                         <TouchableOpacity style={styles.clearFiltersButton}

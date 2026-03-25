@@ -29,8 +29,8 @@ public class UserEurekapp implements UserDetails {
     private Long id;
 
     @NotNull
-    @Size(min = 3, max = 50, message = "La dirección de correo electrónico debe tener entre 6 y 50 caracteres.")
-    @Column(name = "username", nullable = false, length = 50, unique = true)
+    @Size(min = 3, max = 100, message = "La dirección de correo electrónico debe tener entre 3 y 100 caracteres.")
+    @Column(name = "username", nullable = false, length = 100, unique = true)
     private String username;
 
     @NotNull
@@ -68,6 +68,12 @@ public class UserEurekapp implements UserDetails {
     @ColumnDefault("0")
     @Column(nullable = false)
     private Long returnedObjects = 0L;
+
+    @Column(name = "provider_type", nullable = true, length = 20)
+    private String providerType;
+
+    @Column(name = "provider_id", nullable = true, length = 255)
+    private String providerId;
 
     // Implementación de los métodos de la interfaz UserDetails
     @Override
