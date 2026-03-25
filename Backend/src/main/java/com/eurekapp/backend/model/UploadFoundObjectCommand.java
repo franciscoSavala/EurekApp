@@ -20,4 +20,5 @@ public class UploadFoundObjectCommand {
     private Long organizationId;
     private Double latitude;
     private Double longitude;
+    private String category;
 }

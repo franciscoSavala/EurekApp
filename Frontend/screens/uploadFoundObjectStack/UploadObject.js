@@ -9,8 +9,17 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform, KeyboardAvoidingView, Switch, Modal, Alert
+    Platform, KeyboardAvoidingView, Switch, Modal, Alert, TouchableOpacity
 } from 'react-native';
+
+const CATEGORIES = [
+    { value: 'ELECTRONICA', label: 'Electrónica' },
+    { value: 'ROPA', label: 'Ropa' },
+    { value: 'DOCUMENTOS', label: 'Documentos' },
+    { value: 'LLAVES', label: 'Llaves' },
+    { value: 'ACCESORIOS', label: 'Accesorios' },
+    { value: 'OTROS', label: 'Otros' },
+];
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
@@ -49,6 +58,7 @@ const UploadObject = () => {
     });
     const [useCoordinates, setUseCoordinates] = useState(false);
     const toggleSwitch = () => setUseCoordinates(previousState => !previousState);
+    const [category, setCategory] = useState(null);
 
     //form loading state
     const [loading, setLoading] = useState(false);
@@ -172,6 +182,7 @@ const submitData = async () => {
             formData.append('title', objectTitle);
             formData.append('found_date', foundDate.toISOString().split('.')[0]);
             formData.append('detailed_description', detailedDescription);
+            if (category) formData.append('category', category);
             if (useCoordinates){
                 formData.append('latitude', objectMarker.latitude.toString());
                 formData.append('longitude', objectMarker.longitude.toString());
@@ -204,6 +215,7 @@ const submitData = async () => {
                 {name: 'detailed_description', data: detailedDescription},
                 {name: 'file', filename: 'found_object.jpg',
                     data: String(image.base64)}];
+            if (category) body.push({name: 'category', data: category});
 
             if(useCoordinates) {
                 body.push(
@@ -383,6 +395,21 @@ return (
             }
             <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
                                    setDate={setFoundDate} date={foundDate}/>
+            <View style={styles.textAreaContainer}>
+                <Text style={styles.label}>Categoría (opcional):</Text>
+                <View style={styles.categoryRow}>
+                    {CATEGORIES.map((cat) => (
+                        <TouchableOpacity
+                            key={cat.value}
+                            style={[styles.categoryChip, category === cat.value && styles.categoryChipActive]}
+                            onPress={() => setCategory(category === cat.value ? null : cat.value)}>
+                            <Text style={[styles.categoryChipText, category === cat.value && styles.categoryChipTextActive]}>
+                                {cat.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
             <View style={styles.textAreaContainer}>
                 <Text style={styles.label}>
                     Información relevante (opcional):
@@ -568,7 +595,31 @@ switchContainer: {
 },
 switch: {
     marginRight: 10,
-}
+},
+categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginVertical: 8,
+},
+categoryChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: '#f0f4f4',
+},
+categoryChipActive: {
+    backgroundColor: '#19b8b8',
+},
+categoryChipText: {
+    fontSize: 13,
+    color: '#638888',
+    fontFamily: 'PlusJakartaSans-Regular',
+},
+categoryChipTextActive: {
+    color: '#fff',
+    fontFamily: 'PlusJakartaSans-Bold',
+},
 
 });
 

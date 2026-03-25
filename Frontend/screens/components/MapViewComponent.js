@@ -3,7 +3,7 @@ import {Text, TextInput, View, StyleSheet, Platform} from "react-native";
 import React, {useEffect, useRef, useState} from "react";
 import {MapContainer, TileLayer, Marker as LeafletMarker, useMap} from 'react-leaflet';
 import * as Location from "expo-location";
-import alert from "react-native-web/src/exports/Alert";
+import { Alert } from 'react-native';
 import "leaflet/dist/leaflet.css";
 import L from 'leaflet';
 
@@ -24,7 +24,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
         const getUserLocation = async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                alert('Permission to access location was denied');
+                Alert.alert('Permission to access location was denied');
                 return;
             }
             let location = await Location.getCurrentPositionAsync({});
@@ -85,14 +85,16 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
     }, [objectMarker, markerIsDraggable]);
 
 
-    const customMarkerIcon = L.icon({
-        iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-        shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
-    });
+    const customMarkerIcon = Platform.OS === 'web'
+        ? L.icon({
+            iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
+            shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+          })
+        : null;
 
     return(
         <View style={[styles.mapContainer, style]}>
@@ -122,7 +124,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
                     </MapContainer>
                 ) : (
                     <>
-                        // Mapa para mobile
+                        {/* Mapa para mobile */}
                         <MapView style={styles.map} initialRegion={mapRegion} ref={mapRef}>
                             { objectMarker.longitude === Number.MAX_VALUE ? (null) : (
                                 <Marker draggable

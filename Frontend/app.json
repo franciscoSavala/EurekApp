@@ -2,6 +2,7 @@
   "expo": {
     "name": "Frontend",
     "slug": "Frontend",
+    "scheme": "eurekapp",
     "version": "1.0.0",
     "extra": {
       "eas": {

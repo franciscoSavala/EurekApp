@@ -6,6 +6,7 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { Input, Icon, Text, Item, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
+import SocialAuthButtons from './SocialAuthButtons';
 
 export default function LoginForm(props) {
     const { isLoginLoading, hasLoginError, loginErrorMessage, login, isLogged } = useUser();
@@ -112,6 +113,7 @@ export default function LoginForm(props) {
             <TouchableOpacity style={styles.linkButton} onPress={() => props.nav.goBack()}>
                 <Text style={styles.linkButtonText}>Volver</Text>
             </TouchableOpacity>
+            <SocialAuthButtons />
         </View>
     );
 }
