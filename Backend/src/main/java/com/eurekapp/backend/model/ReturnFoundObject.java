@@ -44,4 +44,12 @@ public class ReturnFoundObject {
     // Fecha y hora de la transacción.
     @Column(nullable = false)
     private LocalDateTime datetimeOfReturn;
+
+    // Fecha y hora en que se envió la notificación al finder. Null si no se envió o hubo error.
+    @Column(name = "notification_sent_at")
+    private LocalDateTime notificationSentAt;
+
+    // Email del finder al que se debe enviar la notificación. Permite reprocesar registros con notification_sent_at IS NULL.
+    @Column(name = "notification_recipient")
+    private String notificationRecipient;
 }

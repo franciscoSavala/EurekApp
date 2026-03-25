@@ -6,6 +6,7 @@ import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
+import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,17 +30,20 @@ public class ReturnFoundObjectService {
     private final FoundObjectRepository foundObjectRepository;
     private final ObjectStorage s3Service;
     private final ExecutorService executorService;
+    private final NotificationService notificationService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
-                                    FoundObjectRepository foundObjectRepository, ObjectStorage s3Service, ExecutorService executorService){
+                                    FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
+                                    ExecutorService executorService, NotificationService notificationService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
         this.foundObjectRepository = foundObjectRepository;
         this.s3Service = s3Service;
         this.executorService = executorService;
+        this.notificationService = notificationService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -127,6 +131,47 @@ public class ReturnFoundObjectService {
         } catch (ExecutionException | InterruptedException e){
             log.error(e.toString());
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+                        // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
+        UserEurekapp finderProxy = foundObject.getObjectFinderUser();
+        if (finderProxy == null) {
+            log.info("Found object {} has no associated finder user, skipping notification", foundObject.getUuid());
+        } else {
+            try {
+                // Usar findById para evitar LazyInitializationException del proxy de getReferenceById
+                UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
+                if (finder == null) {
+                    log.warn("Finder user id={} not found in DB", finderProxy.getId());
+                } else {
+                    // Guardar el destinatario para posible reprocesamiento futuro
+                    rfo.setNotificationRecipient(finder.getUsername());
+                    returnFoundObjectRepository.save(rfo);
+
+                    // Actualizar XP y contador
+                    finder.setXP(finder.getXP() + 10L);
+                    finder.setReturnedObjects(finder.getReturnedObjects() + 1L);
+                    userRepository.save(finder);
+
+                    // Enviar email
+                    String subject = "¡Tu objeto encontrado fue retirado!";
+                    String content = String.format(
+                        "<h2>El objeto <b>%s</b> fue devuelto a su dueño.</h2>" +
+                        "<p><b>Fecha de devolución:</b> %s</p>" +
+                        "<p><b>Registrado por:</b> %s %s</p>" +
+                        "<p><b>DNI de quien retiró:</b> %s</p>",
+                        foundObject.getTitle(),
+                        rfo.getDatetimeOfReturn(),
+                        finder.getFirstName(), finder.getLastName(),
+                        rfo.getDNI()
+                    );
+                    notificationService.sendNotification(finder.getUsername(), subject, content);
+                    rfo.setNotificationSentAt(LocalDateTime.now());
+                    returnFoundObjectRepository.save(rfo);
+                }
+            } catch (Exception e) {
+                log.warn("Error en notificación/XP para finder id={}: {}", finderProxy.getId(), e.getMessage());
+            }
         }
 
         return ReturnFoundObjectDto.builder()
