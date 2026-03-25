@@ -43,8 +43,8 @@ public class StatsService {
         }
 
 
-        List<FoundObject> returnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, true);
-        List<FoundObject> unreturnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, false);
+        List<FoundObject> returnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, true, null);
+        List<FoundObject> unreturnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, false, null);
         Long unreturnedFoundObjects = ((Integer) unreturnedFoundObjectsList.size()).longValue();
         Long returnedFoundObjects = ((Integer) returnedFoundObjectsList.size()).longValue();
         Long foundObjects = unreturnedFoundObjects + returnedFoundObjects;

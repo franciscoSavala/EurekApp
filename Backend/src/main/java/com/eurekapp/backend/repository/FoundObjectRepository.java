@@ -38,7 +38,7 @@ public class FoundObjectRepository {
         WeaviateObject object = WeaviateObject.builder()
                 .id(foundObject.getUuid())
                 .className("FoundObject")
-                .properties(Map.of(
+                .properties(new java.util.HashMap<>(Map.of(
                         "found_date", foundObject.getFoundDate().toString()+":00Z",
                             "title", foundObject.getTitle(),
                         "object_finder_user_id", foundObject.getObjectFinderUser() != null? foundObject.getObjectFinderUser().getId().toString():"0",
@@ -46,11 +46,12 @@ public class FoundObjectRepository {
                         "ai_description", foundObject.getAiDescription(),
                         "organization_id", foundObject.getOrganizationId(),
                         "was_returned", foundObject.getWasReturned(),
+                        "category", foundObject.getCategory() != null ? foundObject.getCategory() : "",
                         "coordinates", Map.of(
                                 "latitude", foundObject.getCoordinates().getLatitude(),
                                 "longitude", foundObject.getCoordinates().getLongitude()
                         )
-                ))
+                )))
                 .vector(foundObject.getEmbeddings().toArray(new Float[0]))
                 .build();
         log.info("Uplading vector: {}", object);
@@ -62,7 +63,8 @@ public class FoundObjectRepository {
                                    GeoCoordinates coordinates,
                                    LocalDateTime foundDate,
                                    LocalDateTime foundDateTo,
-                                   Boolean wasReturned){
+                                   Boolean wasReturned,
+                                   String category){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
@@ -138,6 +140,15 @@ public class FoundObjectRepository {
                     .build());
         }
 
+        // Agregamos un filtro opcional para la categoría.
+        if (category != null) {
+            filters.add(WhereFilter.builder()
+                    .path("category")
+                    .operator(Operator.Equal)
+                    .valueText(category)
+                    .build());
+        }
+
         // Construimos el filtro compuesto (And).
         WhereFilter filter = WhereFilter.builder()
                 .operator(Operator.And)
@@ -154,7 +165,8 @@ public class FoundObjectRepository {
                         "found_date",
                         "was_returned",
                         "coordinates",
-                        "organization_id")
+                        "organization_id",
+                        "category")
         );
 
         // Convertir List<WeaviateObject> a List<FoundObject>
@@ -208,6 +220,7 @@ public class FoundObjectRepository {
                 .wasReturned((Boolean) properties.get("was_returned"))
                 .coordinates(location)
                 .organizationId((String) properties.get("organization_id"))
+                .category((String) properties.get("category"))
                 .score(certainty)
                 .build();
 

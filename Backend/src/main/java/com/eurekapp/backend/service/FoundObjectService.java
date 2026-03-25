@@ -158,6 +158,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .foundDate(command.getFoundDate())
                 .coordinates(GeoCoordinates.builder().latitude(objectLatitude).longitude(objectLongitude).build())
                 .wasReturned(false)
+                .category(command.getCategory())
                 .build();
         Future<Void> addFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.add(foundObject));
 
@@ -201,8 +202,9 @@ public class FoundObjectService implements IFoundObjectService {
         /*
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
         * */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getQuery());
-        //embeddings = embeddings.stream().map(e->(e*(-1))).toList();
+        List<Float> embeddings = (command.getQuery() != null && !command.getQuery().isBlank())
+                ? embeddingService.getTextVectorRepresentation(command.getQuery())
+                : null;
 
         /*
         *   La intención detrás de inicializar la organización y las coordenadas como null es que siempre le hagamos el
@@ -251,8 +253,9 @@ public class FoundObjectService implements IFoundObjectService {
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
-                                                                    null,
-                                                                    false);
+                                                                    command.getLostDateTo(),
+                                                                    false,
+                                                                    command.getCategory());
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -261,18 +264,18 @@ public class FoundObjectService implements IFoundObjectService {
         *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
         */
         for(FoundObject fo: foundObjects){
-            Double cosDistance = fo.getScore().doubleValue();
-            cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
-
             Double geoScore = CommonFunctions.calculateGeoScore(fo.getCoordinates(), queryCoordinates);
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
-            Double totalScore = 0.95*cosDistance + 0.05*geoScore;
-            log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - distance: " + distance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
-
-            // Inicialmente "score" tenía almacenada la distancia coseno. Ahora, la reemplazaremos por el score total.
+            Double totalScore;
+            if (fo.getScore() != null) {
+                Double cosDistance = fo.getScore().doubleValue();
+                cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
+                totalScore = 0.95*cosDistance + 0.05*geoScore;
+                log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - distance: " + distance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
+            } else {
+                totalScore = geoScore;
+            }
             fo.setScore(totalScore.floatValue());
-            // Agregamos la distancia en metros entre el lugar ingresado por el usuario y el lugar donde se encontró
-            // el objeto.
             fo.setDistance(distance.floatValue());
         }
 
@@ -280,7 +283,7 @@ public class FoundObjectService implements IFoundObjectService {
         // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
         List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
-                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
+                .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         return FoundObjectsListDto.builder()
@@ -299,7 +302,7 @@ public class FoundObjectService implements IFoundObjectService {
         String orgId = org.getId().toString();
 
         // Obtenemos todos los objetos devueltos de la organización.
-        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, null, true);
+        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, null, true, null);
 
         // Creamos los DTOs y los metemos en una lista
         List<FoundObjectDto> dtos = foundObjects.stream()
@@ -347,6 +350,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .foundDate(foundObject.getFoundDate())
                 .latitude(foundObject.getCoordinates().getLatitude().floatValue())
                 .longitude(foundObject.getCoordinates().getLongitude().floatValue())
+                .category(foundObject.getCategory())
                 .build();
     }
 
@@ -356,7 +360,7 @@ public class FoundObjectService implements IFoundObjectService {
         String description = descriptionService.getImageTextRepresentation(imageBytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, null, false);
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, null, false, null);
 
         for (FoundObject fo : foundObjects) {
             double cosDistance = fo.getScore().doubleValue();
@@ -388,7 +392,8 @@ public class FoundObjectService implements IFoundObjectService {
                 null,
                 null,
                 null,
-                false);
+                false,
+                null);
 
         // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
         List<FoundObjectDto> result = foundObjects.stream()

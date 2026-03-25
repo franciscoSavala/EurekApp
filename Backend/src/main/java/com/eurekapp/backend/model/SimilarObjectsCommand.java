@@ -15,6 +15,8 @@ public class SimilarObjectsCommand {
     private String query;
     private Long organizationId;
     private LocalDateTime lostDate;
+    private LocalDateTime lostDateTo;
     private Double latitude;
     private Double longitude;
+    private String category;
 }

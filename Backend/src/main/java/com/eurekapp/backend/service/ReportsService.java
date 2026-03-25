@@ -33,7 +33,7 @@ public class ReportsService {
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
         // Obtener FoundObjects del org en el rango
-        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, fromDt, toDt, null);
+        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, fromDt, toDt, null, null);
 
         // Obtener LostObjects del org en el rango
         List<LostObject> lostObjects = lostObjectRepository.query(null, null, orgId, fromDt, toDt);

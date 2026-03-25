@@ -1,13 +1,18 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View} from "react-native";
+import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
 
+const CATEGORY_LABELS = {
+    ELECTRONICA: 'Electrónica', ROPA: 'Ropa', DOCUMENTOS: 'Documentos',
+    LLAVES: 'Llaves', ACCESORIOS: 'Accesorios', OTROS: 'Otros',
+};
+
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound, query, lostDate, coordinates, organizationId } = route.params;
+    const { objectsFound, query, lostDate, coordinates, organizationId, filterCategory, filterColor, filterLostDateTo } = route.params;
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
     const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
@@ -59,6 +64,29 @@ const FoundObjects = ({ route, navigation }) => {
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.coincidencesContainer}>
                 <Text style={styles.headerText}>Coincidencias encontradas</Text>
+                {(filterCategory || filterColor || filterLostDateTo) && (
+                    <View style={styles.activeFiltersRow}>
+                        {filterCategory && (
+                            <View style={styles.filterChip}>
+                                <Text style={styles.filterChipText}>{CATEGORY_LABELS[filterCategory] || filterCategory}</Text>
+                            </View>
+                        )}
+                        {filterColor ? (
+                            <View style={styles.filterChip}>
+                                <Text style={styles.filterChipText}>{filterColor}</Text>
+                            </View>
+                        ) : null}
+                        {filterLostDateTo && (
+                            <View style={styles.filterChip}>
+                                <Text style={styles.filterChipText}>hasta {new Date(filterLostDateTo).toISOString().split('T')[0]}</Text>
+                            </View>
+                        )}
+                        <TouchableOpacity style={styles.clearFilterBtn}
+                            onPress={() => navigation.navigate('FindObject', { reset: true })}>
+                            <Text style={styles.clearFilterBtnText}>Limpiar filtros</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
                 <FlatList
                     data={objectsFound}
                     keyExtractor={(item) => item.id}
@@ -225,6 +253,36 @@ const styles = StyleSheet.create({
     },
     infoIcon: {
         marginBottom: 50,
+    },
+    activeFiltersRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        paddingHorizontal: 10,
+        marginBottom: 8,
+        alignItems: 'center',
+    },
+    filterChip: {
+        backgroundColor: '#e0f7f7',
+        borderRadius: 16,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+    },
+    filterChipText: {
+        fontSize: 12,
+        color: '#19b8b8',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    clearFilterBtn: {
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 16,
+        backgroundColor: '#f0f4f4',
+    },
+    clearFilterBtnText: {
+        fontSize: 12,
+        color: '#638888',
+        fontFamily: 'PlusJakartaSans-Regular',
     },
 })
 export default FoundObjects;

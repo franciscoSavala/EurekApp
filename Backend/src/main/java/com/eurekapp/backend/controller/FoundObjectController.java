@@ -44,6 +44,7 @@ public class FoundObjectController {
             @RequestParam(value = "found_date") LocalDateTime foundDate,
             @RequestParam(value = "latitude", required = false) Double latitude,
             @RequestParam(value = "longitude", required = false) Double longitude,
+            @RequestParam(value = "category", required = false) String category,
             @PathVariable(value = "organizationId", required = false) Long organizationId) {
         UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
                 .title(title)
@@ -54,6 +55,7 @@ public class FoundObjectController {
                 .latitude(latitude)
                 .longitude(longitude)
                 .detailedDescription(detailedDescription != null ? detailedDescription : "")
+                .category(category)
                 .build();
         return ResponseEntity.ok(foundObjectService.uploadFoundObject(command));
     }
@@ -62,13 +64,17 @@ public class FoundObjectController {
     @Operation(summary = "Buscar objetos por organización",
             description = "Búsqueda semántica de objetos encontrados en una organización específica, a partir de una descripción textual y fecha aproximada de pérdida.")
     public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByOrganization(
-            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
+            @RequestParam(required = false) @Length(max = 255, message = "Max length supported is 255") String query,
             @PathVariable(name = "organizationId", required = false) Long organizationId,
-            @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate) {
+            @RequestParam(name = "lost_date", required = false) LocalDateTime lostDate,
+            @RequestParam(name = "lost_date_to", required = false) LocalDateTime lostDateTo,
+            @RequestParam(name = "category", required = false) String category) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
                 .organizationId(organizationId)
                 .lostDate(lostDate)
+                .lostDateTo(lostDateTo)
+                .category(category)
                 .build();
         return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }
@@ -77,15 +83,19 @@ public class FoundObjectController {
     @Operation(summary = "Buscar objetos por coordenadas",
             description = "Búsqueda semántica de objetos encontrados cercanos a unas coordenadas geográficas, a partir de una descripción y fecha aproximada.")
     public ResponseEntity<FoundObjectsListDto> searchFoundObjectsByCoordinates(
-            @RequestParam @Length(max = 255, message = "Max length supported is 255") String query,
+            @RequestParam(required = false) @Length(max = 255, message = "Max length supported is 255") String query,
             @RequestParam(name = "lost_date", required = false) @Past LocalDateTime lostDate,
+            @RequestParam(name = "lost_date_to", required = false) LocalDateTime lostDateTo,
             @RequestParam(name = "latitude") Double latitude,
-            @RequestParam(name = "longitude") Double longitude) {
+            @RequestParam(name = "longitude") Double longitude,
+            @RequestParam(name = "category", required = false) String category) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .query(query)
                 .lostDate(lostDate)
+                .lostDateTo(lostDateTo)
                 .latitude(latitude)
                 .longitude(longitude)
+                .category(category)
                 .build();
         return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
     }

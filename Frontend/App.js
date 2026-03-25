@@ -300,7 +300,7 @@ const EurekappTab = () => {
                         headerTitleAlign: 'center',
                         drawerIcon: boxesIcon
                     }} listeners={{
-                        drawerItemPress: () => resetAndNavigate(navigation,"ReturnObjectList")
+                        drawerItemPress: () => resetAndNavigate(navigation,"LostObjectReturnStackScreen")
                     }} component={InventoryStackScreen}
                     />
                     <Drawer.Screen name="ReturnedObjectsStackScreen" options={{
@@ -308,7 +308,7 @@ const EurekappTab = () => {
                         headerTitleAlign: 'center',
                         drawerIcon: historyIcon
                     }} listeners={{
-                        drawerItemPress: () => resetAndNavigate(navigation,"ReturnedObjects")
+                        drawerItemPress: () => resetAndNavigate(navigation,"ReturnedObjectsStackScreen")
                     }} component={ReturnedObjectsStackScreen}
                     />
                 </>
@@ -330,7 +330,7 @@ const EurekappTab = () => {
                 headerTitleAlign: 'center',
                 drawerIcon: trophyIcon
             }} listeners={{
-                drawerItemPress: () => resetAndNavigate(navigation,"Achievements")
+                drawerItemPress: () => resetAndNavigate(navigation,"AchievementsStackScreen")
             }}component={AchievementsStackScreen}
             />
 
