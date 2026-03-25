@@ -29,6 +29,9 @@ public class SearchFeedback {
     @Column(name = "was_found", nullable = false)
     private Boolean wasFound;           // true = "este es mi objeto"
 
+    @Column(name = "comment", nullable = true, length = 500)
+    private String comment;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

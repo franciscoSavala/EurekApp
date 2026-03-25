@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, Platform} from "react-native";
+import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -21,11 +21,13 @@ const FoundObjects = ({ route, navigation }) => {
     const [feedbackModal, setFeedbackModal] = useState(false);
     const [pendingWasFound, setPendingWasFound] = useState(null);
     const [starRating, setStarRating] = useState(0);
+    const [comment, setComment] = useState('');
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const openFeedback = (wasFound) => {
         setPendingWasFound(wasFound);
         setStarRating(0);
+        setComment('');
         setFeedbackModal(true);
     };
 
@@ -39,6 +41,7 @@ const FoundObjects = ({ route, navigation }) => {
                     foundObjectUUID: pendingWasFound ? objectSelectedId : null,
                     starRating,
                     wasFound: pendingWasFound,
+                    comment: comment.trim() || null,
                 });
             } catch (e) {
                 console.warn('Error enviando feedback:', e);
@@ -160,6 +163,15 @@ const FoundObjects = ({ route, navigation }) => {
                             Tu calificación nos ayuda a mejorar los resultados.
                         </Text>
                         <StarRating rating={starRating} onRate={setStarRating} size={32} />
+                        <TextInput
+                            placeholder="Comentario opcional..."
+                            placeholderTextColor="#aaa"
+                            value={comment}
+                            onChangeText={setComment}
+                            multiline
+                            maxLength={500}
+                            style={styles.commentInput}
+                        />
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
                             <TouchableOpacity
                                 style={[styles.feedbackBtn, { backgroundColor: '#f0f4f4' }]}
@@ -369,6 +381,19 @@ const styles = StyleSheet.create({
     feedbackBtnText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
+    },
+    commentInput: {
+        marginTop: 12,
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#e0e8e8',
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#111818',
+        minHeight: 60,
+        textAlignVertical: 'top',
     },
 })
 export default FoundObjects;

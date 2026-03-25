@@ -1,4 +1,4 @@
-import {StyleSheet, Text, TouchableOpacity, View} from "react-native";
+import {StyleSheet, Text, TextInput, TouchableOpacity, View} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -12,6 +12,7 @@ const NotFoundObjects = ({route, navigation}) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [feedbackRating, setFeedbackRating] = useState(0);
     const [feedbackSent, setFeedbackSent] = useState(false);
+    const [comment, setComment] = useState('');
 
     const handleSendFeedback = async () => {
         if (feedbackRating === 0) return;
@@ -21,6 +22,7 @@ const NotFoundObjects = ({route, navigation}) => {
                 foundObjectUUID: null,
                 starRating: feedbackRating,
                 wasFound: false,
+                comment: comment.trim() || null,
             });
             setFeedbackSent(true);
         } catch (e) {
@@ -55,6 +57,15 @@ const NotFoundObjects = ({route, navigation}) => {
                     <>
                         <Text style={styles.feedbackLabel}>¿Qué tan útil fue la búsqueda?</Text>
                         <StarRating rating={feedbackRating} onRate={setFeedbackRating} size={28} />
+                        <TextInput
+                            placeholder="Comentario opcional..."
+                            placeholderTextColor="#aaa"
+                            value={comment}
+                            onChangeText={setComment}
+                            multiline
+                            maxLength={500}
+                            style={styles.commentInput}
+                        />
                         {feedbackRating > 0 && (
                             <TouchableOpacity style={styles.feedbackBtn} onPress={handleSendFeedback}>
                                 <Text style={styles.feedbackBtnText}>Enviar calificación</Text>
@@ -178,6 +189,18 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
         color: '#19b8b8',
+    },
+    commentInput: {
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#e0e8e8',
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#111818',
+        minHeight: 56,
+        textAlignVertical: 'top',
     },
 })
 export default NotFoundObjects;
