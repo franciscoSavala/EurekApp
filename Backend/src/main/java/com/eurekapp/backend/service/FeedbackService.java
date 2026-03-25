@@ -30,13 +30,14 @@ public class FeedbackService {
                 .foundObjectUUID(dto.getFoundObjectUUID())
                 .starRating(dto.getStarRating())
                 .wasFound(dto.getWasFound())
+                .comment(dto.getComment())
                 .createdAt(LocalDateTime.now())
                 .user(user)
                 .build();
         feedbackRepository.save(fb);
     }
 
-    public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy) {
+    public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los reportes de feedback");
         }
@@ -47,6 +48,9 @@ public class FeedbackService {
 
         List<SearchFeedback> feedbacks =
                 feedbackRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
+        if (wasFound != null) {
+            feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
+        }
 
         long successful = feedbacks.stream().filter(SearchFeedback::getWasFound).count();
         long unsuccessful = feedbacks.size() - successful;
@@ -70,7 +74,7 @@ public class FeedbackService {
                 .build();
     }
 
-    public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to) {
+    public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new BadRequestException("forbidden", "Solo los responsables de organización pueden exportar reportes");
         }
@@ -78,15 +82,19 @@ public class FeedbackService {
         String orgId = user.getOrganization().getId().toString();
         List<SearchFeedback> feedbacks = feedbackRepository.findByOrganizationIdAndCreatedAtBetween(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        if (wasFound != null) {
+            feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
+        }
 
-        StringBuilder sb = new StringBuilder("id,organizationId,foundObjectUUID,starRating,wasFound,createdAt\n");
+        StringBuilder sb = new StringBuilder("id,organizationId,foundObjectUUID,starRating,wasFound,createdAt,comment\n");
         for (SearchFeedback f : feedbacks) {
             sb.append(f.getId()).append(',')
               .append(f.getOrganizationId() != null ? f.getOrganizationId() : "").append(',')
               .append(f.getFoundObjectUUID() != null ? f.getFoundObjectUUID() : "").append(',')
               .append(f.getStarRating()).append(',')
               .append(f.getWasFound()).append(',')
-              .append(f.getCreatedAt()).append('\n');
+              .append(f.getCreatedAt()).append(',')
+              .append(f.getComment() != null ? f.getComment().replace(",", ";") : "").append('\n');
         }
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }

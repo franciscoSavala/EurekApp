@@ -42,10 +42,11 @@ public class FeedbackController {
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false, defaultValue = "DAY") String groupBy) {
+            @RequestParam(required = false, defaultValue = "DAY") String groupBy,
+            @RequestParam(required = false) Boolean wasFound) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
-        return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy));
+        return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy, wasFound));
     }
 
     @GetMapping("/report/export")
@@ -53,10 +54,11 @@ public class FeedbackController {
     public ResponseEntity<byte[]> exportCsv(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) Boolean wasFound) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
-        byte[] csv = feedbackService.exportCsv(user, fromDate, toDate);
+        byte[] csv = feedbackService.exportCsv(user, fromDate, toDate, wasFound);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=feedback-report.csv")
                 .header("Content-Type", "text/csv; charset=UTF-8")
