@@ -53,6 +53,8 @@ const Organization = ({ route, navigation }) => {
         const fetchOrganizationData = async () => {
             const organization = await AsyncStorage.getItem('organization');
             if (organization) setOrganization(JSON.parse(organization));
+            const raw = await AsyncStorage.getItem('user');
+            if (raw) setUser(JSON.parse(raw));
         }
         fetchOrganizationData();
         queryEmployees();
@@ -322,6 +324,15 @@ const Organization = ({ route, navigation }) => {
                     <Icon name={'plus'} size={24} color={'#111818'} style={{paddingHorizontal: 20}} />
                     <Text style={styles.addEmployeeButtonText}>Agregar un empleado</Text>
                 </TouchableOpacity>
+
+                {user?.role === 'ORGANIZATION_OWNER' && (
+                    <TouchableOpacity
+                        style={[styles.addEmployeeButton, {marginTop: 8}]}
+                        onPress={() => navigation.navigate('OrganizationPolicy')}>
+                        <Icon name={'gear'} size={24} color={'#111818'} style={{paddingHorizontal: 20}} />
+                        <Text style={styles.addEmployeeButtonText}>Configurar políticas</Text>
+                    </TouchableOpacity>
+                )}
 
                 <View style={styles.employeesContainer}>
                     { loading ?

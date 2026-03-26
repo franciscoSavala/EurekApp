@@ -7,6 +7,7 @@ import com.eurekapp.backend.dto.command.DeleteEmployeeCommand;
 import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
+import com.eurekapp.backend.dto.response.OrganizationPolicyDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -115,6 +116,22 @@ public class OrganizationController {
     public ResponseEntity<Void> declineAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
                                                           @RequestBody AddEmployeeRequestCommand command) {
         userService.declineAddEmployeeRequest(user, command.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/policy")
+    @Operation(summary = "Obtener políticas de la organización",
+            description = "Devuelve las políticas configuradas para la organización del usuario autenticado. Solo para ORGANIZATION_OWNER.")
+    public ResponseEntity<OrganizationPolicyDto> getPolicy(@AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(organizationService.getPolicy(user));
+    }
+
+    @PutMapping("/policy")
+    @Operation(summary = "Actualizar políticas de la organización",
+            description = "Actualiza las políticas de manejo de objetos perdidos. Registra el historial de cambios. Solo para ORGANIZATION_OWNER.")
+    public ResponseEntity<Void> updatePolicy(@AuthenticationPrincipal UserEurekapp user,
+                                              @RequestBody @Valid OrganizationPolicyDto dto) {
+        organizationService.updatePolicy(user, dto);
         return ResponseEntity.ok().build();
     }
 }
