@@ -37,6 +37,7 @@ import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 import Reports from "./screens/reportsStack/Reports";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
+import FraudReport from "./screens/fraudAlertsStack/FraudReport";
 
 const AuthStack = createStackNavigator();
 
@@ -178,6 +179,10 @@ const FraudAlertsStackScreen = () => {
                 name='FraudAlertDetail'
                 component={FraudAlertDetail}
                 options={{headerShown: true, title: 'Detalle de alerta'}} />
+            <FraudAlertsStack.Screen
+                name='FraudReport'
+                component={FraudReport}
+                options={{headerShown: true, title: 'Reporte de fraude'}} />
         </FraudAlertsStack.Navigator>
     );
 }

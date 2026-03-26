@@ -2,16 +2,22 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.ResolveFraudAlertRequestDto;
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
+import com.eurekapp.backend.model.FraudAlertStatus;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.FraudDetectionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -50,5 +56,29 @@ public class FraudAlertController {
             @Valid @RequestBody ResolveFraudAlertRequestDto dto) {
         service.resolve(id, user, dto.getResolution());
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/report")
+    @Operation(summary = "Reporte de usuarios con fraude", description = "Agrupa las alertas por usuario sospechoso con métricas y acción sugerida. Solo ORGANIZATION_OWNER.")
+    public ResponseEntity<List<FraudUserReportEntryDto>> getFraudReport(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) FraudAlertStatus status) {
+        return ResponseEntity.ok(service.getFraudUserReport(user, from, to, status));
+    }
+
+    @GetMapping("/report/export")
+    @Operation(summary = "Exportar reporte de fraude en CSV")
+    public ResponseEntity<byte[]> exportFraudReport(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) FraudAlertStatus status) {
+        byte[] csv = service.exportFraudReportCsv(user, from, to, status);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"fraud-report.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv);
     }
 }

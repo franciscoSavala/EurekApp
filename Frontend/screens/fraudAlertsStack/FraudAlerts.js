@@ -35,15 +35,23 @@ const STATUS_LABELS = {
 const FraudAlerts = ({ navigation }) => {
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [isOwner, setIsOwner] = useState(false);
 
     const fetchAlerts = async () => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axios.get(`${BACK_URL}/fraud-alerts`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-            });
+            const [res, raw] = await Promise.all([
+                axios.get(`${BACK_URL}/fraud-alerts`, {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                }),
+                AsyncStorage.getItem('user'),
+            ]);
             setAlerts(res.data);
+            if (raw) {
+                const u = JSON.parse(raw);
+                setIsOwner(u.role === 'ORGANIZATION_OWNER');
+            }
         } catch (error) {
             console.log(error);
         } finally {
@@ -86,6 +94,13 @@ const FraudAlerts = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
+            {isOwner && (
+                <TouchableOpacity
+                    style={styles.reportBtn}
+                    onPress={() => navigation.navigate('FraudReport')}>
+                    <Text style={styles.reportBtnText}>Ver reporte</Text>
+                </TouchableOpacity>
+            )}
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#111818" />
@@ -110,6 +125,20 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    reportBtn: {
+        margin: 16,
+        marginBottom: 0,
+        borderWidth: 1,
+        borderColor: '#111818',
+        borderRadius: 24,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    reportBtnText: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 14,
+        color: '#111818',
     },
     loadingContainer: {
         flex: 1,
