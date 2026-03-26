@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbbidenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
@@ -11,8 +12,12 @@ import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @AllArgsConstructor
@@ -116,6 +121,68 @@ public class FraudDetectionService {
         alert.setResolvedAt(LocalDateTime.now());
         alert.setResolvedBy(user);
         alertRepository.save(alert);
+    }
+
+    public List<FraudUserReportEntryDto> getFraudUserReport(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
+        if (user.getRole() != Role.ORGANIZATION_OWNER) {
+            throw new ForbbidenException("forbidden",
+                    "Solo el responsable de la organización puede acceder al reporte de fraude");
+        }
+        String orgId = user.getOrganization().getId().toString();
+        LocalDateTime fromDt = from.atStartOfDay();
+        LocalDateTime toDt = to.plusDays(1).atStartOfDay();
+
+        List<FraudAlert> alerts = status != null
+                ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgId, status, fromDt, toDt)
+                : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
+
+        Map<Long, List<FraudAlert>> byUser = alerts.stream()
+                .filter(a -> a.getSuspectUser() != null)
+                .collect(Collectors.groupingBy(a -> a.getSuspectUser().getId()));
+
+        return byUser.values().stream()
+                .map(group -> {
+                    UserEurekapp suspect = group.get(0).getSuspectUser();
+                    long confirmedCount = group.stream()
+                            .filter(a -> a.getStatus() == FraudAlertStatus.CONFIRMED_FRAUD).count();
+                    List<String> reasons = group.stream()
+                            .map(FraudAlert::getReason).distinct().collect(Collectors.toList());
+                    String suggested = confirmedCount >= 4 ? "Bloqueo"
+                            : confirmedCount >= 2 ? "Suspensión temporal"
+                            : confirmedCount == 1 ? "Advertencia"
+                            : "Sin acción sugerida";
+                    return FraudUserReportEntryDto.builder()
+                            .userId(suspect.getId())
+                            .email(suspect.getUsername())
+                            .fullName(suspect.getFirstName() + " " + suspect.getLastName())
+                            .fraudCount(group.size())
+                            .confirmedFraudCount(confirmedCount)
+                            .reasons(reasons)
+                            .suggestedAction(suggested)
+                            .incidents(group.stream().map(this::toDto).collect(Collectors.toList()))
+                            .build();
+                })
+                .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
+                        .thenComparingLong(FraudUserReportEntryDto::getFraudCount).reversed())
+                .collect(Collectors.toList());
+    }
+
+    public byte[] exportFraudReportCsv(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
+        List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
+        StringBuilder sb = new StringBuilder(
+                "userId,email,fullName,fraudCount,confirmedFraudCount,reasons,suggestedAction\n");
+        for (FraudUserReportEntryDto entry : report) {
+            sb.append(entry.getUserId()).append(',')
+              .append(entry.getEmail()).append(',')
+              .append(entry.getFullName().replace(",", " ")).append(',')
+              .append(entry.getFraudCount()).append(',')
+              .append(entry.getConfirmedFraudCount()).append(',')
+              .append(String.join("|", entry.getReasons())).append(',')
+              .append(entry.getSuggestedAction()).append('\n');
+        }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     private void validateAccess(UserEurekapp user) {
