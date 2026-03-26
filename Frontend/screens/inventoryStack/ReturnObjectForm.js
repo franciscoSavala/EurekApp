@@ -31,11 +31,27 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [ loading, setLoading ] = useState(false);
     const [ responseOk, setResponseOk ] = useState(false);
     const [ buttonWasPressed, setButtonWasPressed ] = useState(false);
-    const { objectId } = route.params;
+    const { objectId, objectCategory } = route.params;
     const [imageUploaded, setImageUploaded ] = useState(false);
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
+    const [policy, setPolicy] = useState(null);
+
+    useEffect(() => {
+        const fetchPolicy = async () => {
+            try {
+                const jwt = await AsyncStorage.getItem('jwt');
+                const res = await axios.get(`${BACK_URL}/organizations/policy`, {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                });
+                setPolicy(res.data);
+            } catch (e) {
+                // ignorar si no hay política configurada
+            }
+        };
+        fetchPolicy();
+    }, []);
 
     const validatePhotoUploaded = () => {
         if (!imageUploaded){
@@ -223,6 +239,32 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
                         </Text>
                     </View>
+
+                    {policy && (
+                        <View style={styles.policyBlock}>
+                            <Text style={styles.policyTitle}>Requisitos de entrega</Text>
+                            {policy.requiresIdentityValidation && (
+                                <Text style={styles.policyItem}>
+                                    ✓ Verificar identidad del reclamante{policy.identityValidationDetails ? `: ${policy.identityValidationDetails}` : ''}
+                                </Text>
+                            )}
+                            {policy.deliveryProcess === 'WITH_SIGNATURE' && (
+                                <Text style={styles.policyItem}>✓ Registrar firma del receptor</Text>
+                            )}
+                            {policy.deliveryProcess === 'WITH_RECEIPT' && (
+                                <Text style={styles.policyItem}>✓ Entregar comprobante al receptor</Text>
+                            )}
+                            {policy.requiresAdditionalEvidence && (
+                                <Text style={styles.policyItem}>
+                                    ✓ Solicitar evidencia adicional de propiedad{policy.additionalEvidenceDetails ? `: ${policy.additionalEvidenceDetails}` : ''}
+                                </Text>
+                            )}
+                            {policy.strictControlCategories && objectCategory &&
+                                policy.strictControlCategories.toUpperCase().split(',').map(c => c.trim()).includes(objectCategory.toUpperCase()) && (
+                                <Text style={styles.policyItemStrict}>⚠ Objeto con control estricto (categoría: {objectCategory})</Text>
+                            )}
+                        </View>
+                    )}
 
                     <Text style={[styles.label, {
                         fontSize: 13,
@@ -445,6 +487,32 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
+    },
+    policyBlock: {
+        alignSelf: 'stretch',
+        backgroundColor: '#f0f4f4',
+        borderRadius: 12,
+        padding: 14,
+        marginHorizontal: 10,
+        marginBottom: 10,
+    },
+    policyTitle: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 13,
+        color: '#111818',
+        marginBottom: 8,
+    },
+    policyItem: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 13,
+        color: '#111818',
+        marginBottom: 4,
+    },
+    policyItemStrict: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 13,
+        color: '#b45309',
+        marginBottom: 4,
     },
     explanatoryTextContainer: {
         justifyContent: 'center',

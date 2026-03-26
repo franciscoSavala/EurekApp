@@ -30,6 +30,7 @@ import RegistrationScreen from "./screens/login/RegistrationScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
+import OrganizationPolicy from "./screens/organizationStack/OrganizationPolicy";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
@@ -196,6 +197,10 @@ const OrganizationStackScreen = () => {
                 name='Organization'
                 component={Organization}
                 options={{headerShown: false, title: 'EurekApp - Mi organización'}} />
+            <OrganizationStack.Screen
+                name='OrganizationPolicy'
+                component={OrganizationPolicy}
+                options={{headerShown: true, title: 'Políticas de la organización'}} />
         </OrganizationStack.Navigator>
     );
 }

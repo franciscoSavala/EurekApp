@@ -23,6 +23,32 @@ const Inventory = ({ navigation }) => {
     const [institutesObject, setInstitutesObject] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [maxStorageDays, setMaxStorageDays] = useState(null);
+
+    useEffect(() => {
+        const fetchPolicy = async () => {
+            try {
+                const jwt = await AsyncStorage.getItem('jwt');
+                const res = await axios.get(`${BACK_URL}/organizations/policy`, {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                });
+                if (res.data.maxStorageDays != null) {
+                    setMaxStorageDays(res.data.maxStorageDays);
+                }
+            } catch (e) {
+                // ignorar si no hay política
+            }
+        };
+        fetchPolicy();
+    }, []);
+
+    const getStorageStatus = (foundDate) => {
+        if (!maxStorageDays || !foundDate) return null;
+        const days = (Date.now() - new Date(foundDate).getTime()) / (1000 * 60 * 60 * 24);
+        if (days >= maxStorageDays) return 'expired';
+        if (days >= maxStorageDays * 0.8) return 'expiring';
+        return null;
+    };
 
     const fetchFoundObjectsFromOrganization = async (institute) => {
         try {
@@ -66,6 +92,7 @@ const Inventory = ({ navigation }) => {
 
     const renderItem = ({item}) => {
         const date = new Date(item.found_date);
+        const storageStatus = getStorageStatus(item.found_date);
         return (
             <Pressable style={styles.item}>
                 <View style={styles.itemTextContainer}>
@@ -75,6 +102,16 @@ const Inventory = ({ navigation }) => {
                     <Text style={styles.itemText}>
                         Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
                     </Text>
+                    {storageStatus === 'expired' && (
+                        <View style={styles.expiredBadge}>
+                            <Text style={styles.expiredBadgeText}>Vencido</Text>
+                        </View>
+                    )}
+                    {storageStatus === 'expiring' && (
+                        <View style={styles.expiringBadge}>
+                            <Text style={styles.expiringBadgeText}>Por vencer</Text>
+                        </View>
+                    )}
                     <View style={styles.buttonsContainer}>
                         <TouchableOpacity style={styles.seeDetailsButton} onPress={() => {navigation.navigate('FoundObjectDetail', {
                             foundObjectUUID: item.id
@@ -233,7 +270,33 @@ const styles = StyleSheet.create({
         //paddingHorizontal: 20,
         flexDirection: "row",
         marginHorizontal: 2,
-    }
+    },
+    expiredBadge: {
+        backgroundColor: '#ED4337',
+        borderRadius: 8,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        alignSelf: 'flex-start',
+        marginTop: 4,
+    },
+    expiredBadgeText: {
+        color: '#fff',
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans-Bold',
+    },
+    expiringBadge: {
+        backgroundColor: '#f59e0b',
+        borderRadius: 8,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        alignSelf: 'flex-start',
+        marginTop: 4,
+    },
+    expiringBadgeText: {
+        color: '#fff',
+        fontSize: 11,
+        fontFamily: 'PlusJakartaSans-Bold',
+    },
 });
 
 
