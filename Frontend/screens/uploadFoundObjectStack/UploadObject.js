@@ -31,6 +31,7 @@ import ReactNativeBlobUtil from "react-native-blob-util";
 import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
+import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -74,6 +75,7 @@ const UploadObject = () => {
 });
 
     const [successModal, setSuccessModal] = useState(false);
+    const [usabilityModalVisible, setUsabilityModalVisible] = useState(false);
     const [showSubmitButton, setShowSubmitButton] = useState(true);
     const navigation = useNavigation();
 
@@ -246,8 +248,13 @@ const submitData = async () => {
     }
 };
 
-const handleCloseSuccessModal = (navigation) => {
+const handleCloseSuccessModal = () => {
     setSuccessModal(false);
+    setUsabilityModalVisible(true);
+}
+
+const handleUsabilityModalClose = () => {
+    setUsabilityModalVisible(false);
     navigation.dispatch(
         CommonActions.reset({
             index: 0,
@@ -440,10 +447,15 @@ return (
                         El objeto fue cargado al inventario con éxito.
                     </Text>
                     <EurekappButton text='Cerrar'
-                                    onPress={() => handleCloseSuccessModal(navigation)}/>
+                                    onPress={handleCloseSuccessModal}/>
                 </View>
             </View>
         </Modal>
+        <UsabilityFeedbackModal
+            visible={usabilityModalVisible}
+            onClose={handleUsabilityModalClose}
+            context="upload_object"
+        />
     </View>
 );
 };

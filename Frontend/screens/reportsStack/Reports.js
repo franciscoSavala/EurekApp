@@ -29,6 +29,7 @@ const Reports = ({ navigation }) => {
     const [showFromPicker, setShowFromPicker] = useState(false);
     const [showToPicker, setShowToPicker] = useState(false);
     const [groupBy, setGroupBy] = useState("DAY");
+    const [wasFoundFilter, setWasFoundFilter] = useState(null); // null=todos, true=encontró, false=no encontró
     const [data, setData] = useState(null);
     const [feedbackData, setFeedbackData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -44,7 +45,8 @@ const Reports = ({ navigation }) => {
             const res = await axios.get(`${BACK_URL}/reports`, { headers, params });
             setData(res.data);
             try {
-                const fbRes = await axios.get(`${BACK_URL}/feedback/report`, { headers, params });
+                const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+                const fbRes = await axios.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams });
                 setFeedbackData(fbRes.data);
             } catch {
                 setFeedbackData(null); // usuario sin permiso o sin datos
@@ -59,7 +61,8 @@ const Reports = ({ navigation }) => {
 
     const handleExportCsv = async () => {
         const jwt = await AsyncStorage.getItem("jwt");
-        const url = `${BACK_URL}/feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}`;
+        const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
+        const url = `${BACK_URL}/feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}${wasFoundParam}`;
         if (Platform.OS === "web") {
             // En web, el JWT no se puede pasar por URL fácilmente; hacer fetch y disparar descarga
             try {
@@ -94,7 +97,7 @@ const Reports = ({ navigation }) => {
 
     useEffect(() => {
         fetchReports();
-    }, [fromDate, toDate, groupBy]);
+    }, [fromDate, toDate, groupBy, wasFoundFilter]);
 
     const maxValue = data?.time_series
         ? Math.max(
@@ -195,6 +198,23 @@ const Reports = ({ navigation }) => {
                         {feedbackData && (
                             <>
                                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Feedback de búsquedas</Text>
+                                <View style={[styles.row, { marginBottom: 8 }]}>
+                                    {[
+                                        { label: 'Todos', value: null },
+                                        { label: 'Encontró objeto', value: true },
+                                        { label: 'No encontró', value: false },
+                                    ].map(({ label, value }) => (
+                                        <Pressable
+                                            key={String(value)}
+                                            style={[styles.groupBtn, wasFoundFilter === value && styles.groupBtnActive]}
+                                            onPress={() => setWasFoundFilter(value)}
+                                        >
+                                            <Text style={[styles.groupBtnText, wasFoundFilter === value && styles.groupBtnTextActive]}>
+                                                {label}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
                                 <View style={styles.cardsRow}>
                                     <View style={[styles.card, { borderLeftColor: '#f0a500', alignItems: 'center' }]}>
                                         <StarRating rating={Math.round(feedbackData.average_rating || 0)} size={18} disabled />
