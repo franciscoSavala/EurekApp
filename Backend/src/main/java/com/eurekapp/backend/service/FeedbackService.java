@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 public class FeedbackService {
 
     private final ISearchFeedbackRepository feedbackRepository;
+    private final FraudDetectionService fraudDetectionService;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
         SearchFeedback fb = SearchFeedback.builder()
@@ -35,6 +36,10 @@ public class FeedbackService {
                 .user(user)
                 .build();
         feedbackRepository.save(fb);
+        if (Boolean.TRUE.equals(dto.getWasFound()) && dto.getFoundObjectUUID() != null
+                && dto.getOrganizationId() != null && user != null) {
+            fraudDetectionService.checkForFraud(dto.getOrganizationId(), dto.getFoundObjectUUID(), user);
+        }
     }
 
     public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {
