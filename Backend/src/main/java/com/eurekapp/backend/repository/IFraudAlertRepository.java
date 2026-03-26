@@ -24,4 +24,7 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
 
     List<FraudAlert> findByOrganizationIdAndStatusAndCreatedAtBetween(
             String organizationId, FraudAlertStatus status, LocalDateTime from, LocalDateTime to);
+
+    boolean existsByOrganizationIdAndSuspectUser_IdAndStatus(
+            String organizationId, Long userId, FraudAlertStatus status);
 }

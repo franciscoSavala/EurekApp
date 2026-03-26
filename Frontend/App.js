@@ -31,6 +31,8 @@ import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSig
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 import OrganizationPolicy from "./screens/organizationStack/OrganizationPolicy";
+import ReclamosList from "./screens/inventoryStack/ReclamosList";
+import ReclamoDetail from "./screens/inventoryStack/ReclamoDetail";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
@@ -123,6 +125,14 @@ const InventoryStackScreen = () => {
                 name='ReturnObjectForm'
                 component={ReturnObjectForm}
                 options={{headerShown: true, title: 'Devolver objeto'}} />
+            <InventoryStack.Screen
+                name='ReclamosList'
+                component={ReclamosList}
+                options={{headerShown: true, title: 'Reclamos'}} />
+            <InventoryStack.Screen
+                name='ReclamoDetail'
+                component={ReclamoDetail}
+                options={{headerShown: true, title: 'Detalle del reclamo'}} />
         </InventoryStack.Navigator>
     );
 }
