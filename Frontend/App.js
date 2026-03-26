@@ -35,6 +35,8 @@ import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectD
 import Achievements from "./screens/AchievementsStack/Achievements";
 import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 import Reports from "./screens/reportsStack/Reports";
+import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
+import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 
 const AuthStack = createStackNavigator();
 
@@ -163,6 +165,23 @@ const ReportsStackScreen = () => {
     );
 }
 
+const FraudAlertsStack = createStackNavigator();
+
+const FraudAlertsStackScreen = () => {
+    return (
+        <FraudAlertsStack.Navigator>
+            <FraudAlertsStack.Screen
+                name='FraudAlerts'
+                component={FraudAlerts}
+                options={{headerShown: false, title: 'EurekApp - Alertas de fraude'}} />
+            <FraudAlertsStack.Screen
+                name='FraudAlertDetail'
+                component={FraudAlertDetail}
+                options={{headerShown: true, title: 'Detalle de alerta'}} />
+        </FraudAlertsStack.Navigator>
+    );
+}
+
 const OrganizationStack = createStackNavigator();
 
 const OrganizationStackScreen = () => {
@@ -244,6 +263,7 @@ const EurekappTab = () => {
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
+    const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const [ userRole, setUserRole ] = useState('');
@@ -340,6 +360,14 @@ const EurekappTab = () => {
                 drawerIcon: userIcon
             }} component={ProfileStackScreen}
             />
+
+            {(userRole === 'ORGANIZATION_OWNER' || userRole === 'ENCARGADO') ?
+                <Drawer.Screen name="FraudAlertsStackScreen" options={{
+                    title: 'Alertas de fraude',
+                    headerTitleAlign: 'center',
+                    drawerIcon: shieldIcon
+                }} component={FraudAlertsStackScreen}
+                /> : null}
 
             {userRole === 'ORGANIZATION_OWNER' ?
                 <>

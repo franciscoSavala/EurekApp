@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "react";
+import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
 import {
     ActivityIndicator,
@@ -33,6 +34,7 @@ const Profile = ({ route, navigation }) => {
     const [organization, setOrganization] = useState('');
     const [addEmployeeRequests, setAddEmployeeRequests] = useState('');
     const [loading, setLoading] = useState(false);
+    const [usabilityModalVisible, setUsabilityModalVisible] = useState(false);
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -290,6 +292,16 @@ const Profile = ({ route, navigation }) => {
                     </>
                 )}
             </View>
+            <TouchableOpacity
+                style={styles.feedbackButton}
+                onPress={() => setUsabilityModalVisible(true)}>
+                <Text style={styles.feedbackButtonText}>Dar feedback sobre la app</Text>
+            </TouchableOpacity>
+            <UsabilityFeedbackModal
+                visible={usabilityModalVisible}
+                onClose={() => setUsabilityModalVisible(false)}
+                context="profile"
+            />
         </View>
     );
 }
@@ -373,6 +385,21 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         borderBottomWidth: 0,
         marginHorizontal: 10,
+    },
+    feedbackButton: {
+        marginBottom: 16,
+        marginHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 8,
+        backgroundColor: '#f0f4f4',
+        alignItems: 'center',
+        width: '90%',
+        alignSelf: 'center',
+    },
+    feedbackButtonText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: '#638888',
     },
 });
 
