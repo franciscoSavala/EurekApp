@@ -39,7 +39,7 @@ jobs:
 
       - name: Instalar dependencias
         working-directory: Frontend
-        run: npm ci
+        run: npm install
 
       - name: Build web (Expo)
         working-directory: Frontend
