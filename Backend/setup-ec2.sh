@@ -17,6 +17,19 @@ echo -e "${CYAN}║   EurekApp — EC2 Setup (una vez)     ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
 echo ""
 
+# ─── 0. Swap (1GB — red de seguridad para t2.micro 1GB RAM) ──────────────────
+if [[ ! -f /swapfile ]]; then
+  info "Creando 1GB de swap..."
+  sudo fallocate -l 1G /swapfile
+  sudo chmod 600 /swapfile
+  sudo mkswap /swapfile
+  sudo swapon /swapfile
+  echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab > /dev/null
+  success "Swap 1GB activado"
+else
+  success "Swap ya existe, saltando"
+fi
+
 # ─── 1. Java 21 (Amazon Corretto) ────────────────────────────────────────────
 info "Instalando Amazon Corretto 21..."
 sudo dnf install -y java-21-amazon-corretto-headless
@@ -57,18 +70,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable eurekapp
 success "Servicio eurekapp instalado y habilitado (no iniciado aún)"
 
-# ─── 6. Levantar MySQL y Weaviate ────────────────────────────────────────────
-if [[ ! -f /opt/eurekapp/.env.prod ]]; then
-  error ".env.prod no encontrado en /opt/eurekapp/. Crealo con las claves reales antes de continuar."
-fi
-
+# ─── 6. Levantar Weaviate (MySQL está en RDS, no en Docker) ──────────────────
 if [[ ! -f /opt/eurekapp/docker-compose.prod.yml ]]; then
   error "docker-compose.prod.yml no encontrado en /opt/eurekapp/."
 fi
 
-info "Levantando MySQL y Weaviate..."
+info "Levantando Weaviate..."
 cd /opt/eurekapp
-sudo docker compose -f docker-compose.prod.yml --env-file .env.prod up -d mysql weaviate
+sudo docker compose -f docker-compose.prod.yml up -d weaviate
 
 info "Esperando que Weaviate esté listo (puede tardar ~30s)..."
 MAX=40
@@ -86,12 +95,35 @@ while true; do
   sleep 3
 done
 echo ""
-success "MySQL y Weaviate listos"
+success "Weaviate listo"
 
 # ─── 7. Inicializar schema de Weaviate ───────────────────────────────────────
 info "Inicializando schema de Weaviate..."
 bash /opt/eurekapp/init-weaviate.sh
 success "Schema inicializado"
+
+# ─── 8. Nginx (reverse proxy :80 → :8080) ────────────────────────────────────
+info "Instalando Nginx..."
+sudo dnf install -y nginx
+
+sudo tee /etc/nginx/conf.d/eurekapp.conf > /dev/null <<'NGINX'
+server {
+    listen 80;
+    server_name _;
+    client_max_body_size 20M;
+
+    location / {
+        proxy_pass         http://127.0.0.1:8080;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_read_timeout 60s;
+    }
+}
+NGINX
+
+sudo systemctl enable --now nginx
+success "Nginx instalado y corriendo"
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
