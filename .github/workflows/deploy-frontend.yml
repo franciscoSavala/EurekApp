@@ -1,0 +1,75 @@
+name: Deploy Frontend Web
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Frontend/**'
+
+jobs:
+  build-and-deploy:
+    name: Build web y subir a S3
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verificar secrets requeridos
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}"          ] && MISSING="$MISSING AWS_ACCESS_KEY_ID"
+          [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}"      ] && MISSING="$MISSING AWS_SECRET_ACCESS_KEY"
+          [ -z "${{ secrets.AWS_REGION }}"                 ] && MISSING="$MISSING AWS_REGION"
+          [ -z "${{ secrets.S3_BUCKET }}"                  ] && MISSING="$MISSING S3_BUCKET"
+          [ -z "${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }}" ] && MISSING="$MISSING CLOUDFRONT_DISTRIBUTION_ID"
+          [ -z "${{ secrets.BACK_URL }}"                   ] && MISSING="$MISSING BACK_URL"
+          if [ -n "$MISSING" ]; then
+            echo "ERROR: Secrets faltantes:$MISSING"
+            exit 1
+          fi
+
+      - name: Checkout repositorio
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Build web (Expo)
+        working-directory: Frontend
+        env:
+          BACK_URL: ${{ secrets.BACK_URL }}
+        run: npx expo export --platform web --output-dir web-build
+
+      - name: Configurar AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Sync assets a S3 (cache largo)
+        run: |
+          aws s3 sync Frontend/web-build/ s3://${{ secrets.S3_BUCKET }}/ \
+            --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html" \
+            --exclude "service-worker.js"
+
+      - name: Subir index.html sin cache
+        run: |
+          aws s3 cp Frontend/web-build/index.html \
+            s3://${{ secrets.S3_BUCKET }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+
+      - name: Invalidar CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
