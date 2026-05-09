@@ -4,9 +4,10 @@
 /Frontend/%ProgramData%/
 /data
 
-# Claude Code
+# Editor / local tooling
 .claude/
 .claudeskills/
+.mcp.json
 
 # Dependencies
 node_modules/
