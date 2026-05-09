@@ -22,6 +22,24 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
+const InputForm = ({text, valueName, value, autoComplete = 'off', keyboardType = 'default', editable, setValue, clearErrors, onChange}) => (
+    <TextInput
+        placeholder={text}
+        placeholderTextColor={'#638888'}
+        onChangeText={(v) => {
+            clearErrors(valueName);
+            onChange?.();
+            setValue(valueName, v);
+        }}
+        value={value}
+        style={styles.textArea}
+        renderErrorMessage={false}
+        autoComplete={autoComplete}
+        keyboardType={keyboardType}
+        editable={editable}
+    />
+);
+
 const Organization = ({ route, navigation }) => {
 
     const { control,
@@ -141,22 +159,6 @@ const Organization = ({ route, navigation }) => {
                     </TouchableOpacity>
                 </View>
             </View>
-        );
-    }
-
-    const InputForm = ({text, valueName, value , autoComplete = 'off', keyboardType = 'default', editable}) => {
-        return (
-            <TextInput
-                placeholder={text}
-                placeholderTextColor={'#638888'}
-                onChangeText={(value) => setValue(valueName, value)}
-                value={value}
-                style={styles.textArea}
-                renderErrorMessage={false}
-                autoComplete={autoComplete}
-                keyboardType={keyboardType}
-                editable={editable}
-            />
         );
     }
 
@@ -282,11 +284,9 @@ const Organization = ({ route, navigation }) => {
                             text={organization.name}
                             valueName='Name'
                             value={value}
-                            editable={enableModification} // Pasamos la variable enableModification
-                            style={{
-                                backgroundColor: enableModification ? 'white' : 'gray', // Color de fondo en función de enableModification
-                                color: enableModification ? 'black' : 'lightgray'       // Color del texto
-                            }}
+                            editable={enableModification}
+                            setValue={setValue}
+                            clearErrors={clearErrors}
                         />
                     )}
                     name='Name'
@@ -304,11 +304,9 @@ const Organization = ({ route, navigation }) => {
                             text={organization.contactData}
                             valueName='ContactData'
                             value={value}
-                            editable={enableModification} // Pasamos la variable enableModification
-                            style={{
-                                backgroundColor: enableModification ? 'white' : 'gray', // Color de fondo en función de enableModification
-                                color: enableModification ? 'black' : 'lightgray'       // Color del texto
-                            }}
+                            editable={enableModification}
+                            setValue={setValue}
+                            clearErrors={clearErrors}
                         />
                     )}
                     name='ContactData'
@@ -439,6 +437,12 @@ const Organization = ({ route, navigation }) => {
                                     text='E-mail'
                                     valueName='employeeUsername'
                                     value={value}
+                                    setValue={setValue}
+                                    clearErrors={clearErrors}
+                                    onChange={() => {
+                                        setButtonWasPressed(false);
+                                        setResponseOk(false);
+                                    }}
                                 />
                             )}
                             name='employeeUsername'
