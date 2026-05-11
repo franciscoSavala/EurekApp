@@ -21,10 +21,10 @@ application:
     api-key: ${OPENAI_SECRET_KEY}           # requerido: setear en .env.local
   jwt:
     sign-key: ${JWT_SIGN_KEY}               # requerido: setear en .env.local
-  mailtrap:
-    host: 'live.smtp.mailtrap.io'
-    user: 'api'
-    password: ${MAILTRAP_KEY}               # requerido: setear en .env.local
+  mail:
+    host: 'smtp.gmail.com'
+    user: ${MAIL_USER}                      # requerido: setear en .env.local
+    password: ${MAIL_PASSWORD}              # requerido: setear en .env.local
     port: '587'
   weaviate:
     url: 'localhost:8081'

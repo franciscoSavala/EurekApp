@@ -26,10 +26,10 @@ application:
     api-key: ${PINECONE_SECRET_KEY:unused}
   jwt:
     sign-key: ${JWT_SIGN_KEY}
-  mailtrap:
-    host: 'live.smtp.mailtrap.io'
-    user: 'api'
-    password: ${MAILTRAP_KEY}
+  mail:
+    host: 'smtp.gmail.com'
+    user: ${MAIL_USER}
+    password: ${MAIL_PASSWORD}
     port: '587'
   weaviate:
     url: '${WEAVIATE_URL:localhost:8081}'

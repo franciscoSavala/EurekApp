@@ -30,10 +30,10 @@ public class EmailService implements NotificationService {
     private final String password;
 
     public EmailService(
-            @Value("${application.mailtrap.host}") String host,
-            @Value("${application.mailtrap.password}") String password,
-            @Value("${application.mailtrap.port}") String port,
-            @Value("${application.mailtrap.user}") String user
+            @Value("${application.mail.host}") String host,
+            @Value("${application.mail.password}") String password,
+            @Value("${application.mail.port}") String port,
+            @Value("${application.mail.user}") String user
     ){
         this.properties = new Properties();
         this.properties.put("mail.smtp.host", host);
@@ -56,7 +56,7 @@ public class EmailService implements NotificationService {
 
         Message message = new MimeMessage(session);
         try {
-            message.setFrom(new InternetAddress("hello@demomailtrap.co"));
+            message.setFrom(new InternetAddress("eurekapp.cba@gmail.com"));
             message.setRecipients(Message.RecipientType.TO,
                     InternetAddress.parse("franciscosavala01@gmail.com"));
             message.setSubject("Hemos encontrado tu objeto!");
@@ -84,7 +84,7 @@ public class EmailService implements NotificationService {
         });
         Message message = new MimeMessage(session);
         try {
-            message.setFrom(new InternetAddress("hello@demomailtrap.co"));
+            message.setFrom(new InternetAddress("eurekapp.cba@gmail.com"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipient));
             message.setSubject(subject);
             MimeBodyPart mimeBodyPart = new MimeBodyPart();
