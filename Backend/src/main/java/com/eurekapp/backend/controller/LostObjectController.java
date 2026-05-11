@@ -5,6 +5,7 @@ import com.eurekapp.backend.service.LostObjectService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,7 +23,7 @@ public class LostObjectController {
     @PostMapping
     @Operation(summary = "Reportar objeto perdido",
             description = "Registra una búsqueda abierta de un objeto perdido con descripción, fecha y coordenadas aproximadas.")
-    public ResponseEntity<Void> reportLostObject(@RequestBody ReportLostObjectCommand command) {
+    public ResponseEntity<Void> reportLostObject(@Valid @RequestBody ReportLostObjectCommand command) {
         lostObjectService.reportLostObject(command);
         return ResponseEntity.ok().build();
     }
