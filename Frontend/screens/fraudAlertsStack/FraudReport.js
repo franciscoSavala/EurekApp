@@ -159,8 +159,19 @@ const FraudReport = () => {
                             <Text style={styles.dateButtonText}>{formatDate(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFrom && (
-                            <DateTimePicker value={fromDate} mode="date" display="default"
-                                onChange={(_, d) => { setShowFrom(false); if (d) setFromDate(d); }} />
+                            Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    defaultValue={formatDate(fromDate)}
+                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
+                                    onChange={(e) => { setShowFrom(false); if (e.target.value) setFromDate(new Date(e.target.value)); }}
+                                    onBlur={() => setShowFrom(false)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <DateTimePicker value={fromDate} mode="date" display="default"
+                                    onChange={(_, d) => { setShowFrom(false); if (d) setFromDate(d); }} />
+                            )
                         )}
                     </View>
                     <View style={styles.dateBlock}>
@@ -169,8 +180,19 @@ const FraudReport = () => {
                             <Text style={styles.dateButtonText}>{formatDate(toDate)}</Text>
                         </TouchableOpacity>
                         {showTo && (
-                            <DateTimePicker value={toDate} mode="date" display="default"
-                                onChange={(_, d) => { setShowTo(false); if (d) setToDate(d); }} />
+                            Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    defaultValue={formatDate(toDate)}
+                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
+                                    onChange={(e) => { setShowTo(false); if (e.target.value) setToDate(new Date(e.target.value)); }}
+                                    onBlur={() => setShowTo(false)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <DateTimePicker value={toDate} mode="date" display="default"
+                                    onChange={(_, d) => { setShowTo(false); if (d) setToDate(d); }} />
+                            )
                         )}
                     </View>
                 </View>
