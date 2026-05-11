@@ -187,6 +187,7 @@ echo ""
 cd "$SCRIPT_DIR"
 
 export OPENAI_SECRET_KEY JWT_SIGN_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-export MAILTRAP_KEY="${MAILTRAP_KEY:-}"
+export MAIL_USER="${MAIL_USER:-}"
+export MAIL_PASSWORD="${MAIL_PASSWORD:-}"
 
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

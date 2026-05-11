@@ -15,6 +15,7 @@ import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.service.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -40,13 +41,15 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final RestTemplate restTemplate;
+    private final NotificationService notificationService;
 
-    public AuthService(IUserRepository userRepository, JwtService jwtService, AuthenticationManager authenticationManager) {
+    public AuthService(IUserRepository userRepository, JwtService jwtService, AuthenticationManager authenticationManager, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.restTemplate = new RestTemplate();
+        this.notificationService = notificationService;
     }
 
 
@@ -103,6 +106,20 @@ public class AuthService {
         userRepository.save(newUser);
 
         log.info("[action:register] Usuario {} registrado exitosamente", user.getUsername());
+
+        // Enviar email de bienvenida
+        try {
+            String subject = "¡Bienvenido/a a EurekApp!";
+            String content = "<div style='font-family:sans-serif;max-width:600px;margin:auto;padding:24px'>"
+                    + "<h2 style='color:#017575'>¡Hola, " + newUser.getFirstName() + "!</h2>"
+                    + "<p>Tu cuenta en <strong>EurekApp</strong> fue creada exitosamente.</p>"
+                    + "<p>Ya podés buscar objetos perdidos, reportar objetos encontrados y mucho más.</p>"
+                    + "<p style='margin-top:32px;color:#638888;font-size:13px'>Si no creaste esta cuenta, ignorá este mensaje.</p>"
+                    + "</div>";
+            notificationService.sendNotification(newUser.getUsername(), subject, content);
+        } catch (Exception e) {
+            log.warn("[action:register] No se pudo enviar el email de bienvenida a {}: {}", newUser.getUsername(), e.getMessage());
+        }
 
         // Generar el token JWT para el usuario registrado
         String jwtToken = jwtService.generateToken(newUser);

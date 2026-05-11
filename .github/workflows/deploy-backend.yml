@@ -25,7 +25,8 @@ jobs:
           [ -z "${{ secrets.DATABASE_PASS }}"    ] && MISSING="$MISSING DATABASE_PASS"
           [ -z "${{ secrets.OPENAI_SECRET_KEY }}" ] && MISSING="$MISSING OPENAI_SECRET_KEY"
           [ -z "${{ secrets.JWT_SIGN_KEY }}"     ] && MISSING="$MISSING JWT_SIGN_KEY"
-          [ -z "${{ secrets.MAILTRAP_KEY }}"     ] && MISSING="$MISSING MAILTRAP_KEY"
+          [ -z "${{ secrets.MAIL_USER }}"         ] && MISSING="$MISSING MAIL_USER"
+          [ -z "${{ secrets.MAIL_PASSWORD }}"     ] && MISSING="$MISSING MAIL_PASSWORD"
           if [ -n "$MISSING" ]; then
             echo "ERROR: Secrets faltantes:$MISSING"
             echo "Configurarlos en: Settings > Secrets and variables > Actions"
@@ -65,7 +66,8 @@ jobs:
           DATABASE_PASS=${{ secrets.DATABASE_PASS }}
           OPENAI_SECRET_KEY=${{ secrets.OPENAI_SECRET_KEY }}
           JWT_SIGN_KEY=${{ secrets.JWT_SIGN_KEY }}
-          MAILTRAP_KEY=${{ secrets.MAILTRAP_KEY }}
+          MAIL_USER=${{ secrets.MAIL_USER }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
           ENVEOF
           chmod 600 /opt/eurekapp/.env.prod"
 
