@@ -2,6 +2,7 @@ package com.eurekapp.backend.dto.command;
 
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
@@ -13,6 +14,7 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class ReportLostObjectCommand {
+    @NotBlank(message = "La descripción de la búsqueda no puede estar vacía")
     @JsonProperty("description")
     private String description;
     @JsonProperty("username")

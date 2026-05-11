@@ -75,9 +75,19 @@ const FindObject = ({ navigation, route }) => {
     );
 
     const validateInputConstraints = () => {
+        const hasDescription = queryObjects.trim().length > 0;
+        const hasCategory = filterCategory !== null;
+        const hasColor = filterColor.trim().length > 0;
+
+        if (!hasDescription && !hasCategory && !hasColor) {
+            Alert.alert(
+                "Criterio requerido",
+                "Debes ingresar una descripción, categoría o color para realizar la búsqueda."
+            );
+            return false;
+        }
         if (queryObjects.length > 255) {
-            alert("La descripción del objeto es muy larga");
-            console.log("La descripción del objeto es muy larga");
+            Alert.alert("", "La descripción del objeto es muy larga");
             return false;
         }
         return true;
