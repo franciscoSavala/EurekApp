@@ -308,7 +308,7 @@ const EurekappTab = () => {
                 drawerItemPress: () => resetAndNavigate(navigation, "FindObject")
             }} component={FindObjectStackScreen}
             />
-            {userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' ?
+            {userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' || userRole === 'ENCARGADO' ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
                         title: 'Receptar un objeto',
@@ -336,7 +336,7 @@ const EurekappTab = () => {
                 : null
             }
 
-            {userRole === 'REGULAR_USER' ?
+            {userRole === 'REGULAR_USER' || userRole === 'USER' ?
             <>
                 <Drawer.Screen name="OrganizationSignupForm" options={{
                     title: 'Solicitar alta de organización',
