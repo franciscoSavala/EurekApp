@@ -44,7 +44,7 @@ const Profile = ({ route, navigation }) => {
             if (!raw) return;
             const user = JSON.parse(raw);
             setUser(user);
-            if (user.role === 'ORGANIZATION_OWNER' || user.role === 'ORGANIZATION_EMPLOYEE') {
+            if (user.role === 'ORGANIZATION_OWNER' || user.role === 'ORGANIZATION_EMPLOYEE' || user.role === 'ENCARGADO') {
                 const organization = await AsyncStorage.getItem('organization');
                 setOrganization(JSON.parse(organization));
             }else{
@@ -182,13 +182,14 @@ const Profile = ({ route, navigation }) => {
     }
 
     const hasOrganizationRole = () => {
-        return user?.role === 'ORGANIZATION_OWNER' || user?.role === 'ORGANIZATION_EMPLOYEE';
+        return user?.role === 'ORGANIZATION_OWNER' || user?.role === 'ORGANIZATION_EMPLOYEE' || user?.role === 'ENCARGADO';
     };
 
     const translateRole = () => {
         var role = '';
         if(user.role === 'ORGANIZATION_OWNER'){role = 'Administrador de organización';}
         if(user.role === 'ORGANIZATION_EMPLOYEE'){role = 'Empleado de organización';}
+        if(user.role === 'ENCARGADO'){role = 'Encargado';}
         if(user.role === 'USER'){role = 'Usuario regular';}
         return role;
     };
