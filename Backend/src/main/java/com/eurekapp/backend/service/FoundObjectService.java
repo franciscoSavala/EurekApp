@@ -33,7 +33,7 @@ import java.util.concurrent.Future;
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
-    private static final double MIN_SCORE = 0.0;
+    private static final double MIN_SCORE = 0.3;
     private static final int GRACE_HOURS = 6;
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
@@ -283,6 +283,7 @@ public class FoundObjectService implements IFoundObjectService {
         // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
         List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
+                .filter(dto -> dto.getScore() != null && dto.getScore() >= MIN_SCORE)
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
@@ -370,6 +371,7 @@ public class FoundObjectService implements IFoundObjectService {
 
         List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
+                .filter(dto -> dto.getScore() != null && dto.getScore() > 0)
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
                 .limit(5)
                 .toList();
