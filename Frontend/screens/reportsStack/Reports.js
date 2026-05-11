@@ -126,15 +126,29 @@ const Reports = ({ navigation }) => {
                             <Text style={styles.dateText}>{formatDate(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFromPicker && (
-                            <DateTimePicker
-                                value={fromDate}
-                                mode="date"
-                                display={Platform.OS === "ios" ? "inline" : "default"}
-                                onChange={(_, selected) => {
-                                    setShowFromPicker(false);
-                                    if (selected) setFromDate(selected);
-                                }}
-                            />
+                            Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    defaultValue={formatDate(fromDate)}
+                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
+                                    onChange={(e) => {
+                                        setShowFromPicker(false);
+                                        if (e.target.value) setFromDate(new Date(e.target.value));
+                                    }}
+                                    onBlur={() => setShowFromPicker(false)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <DateTimePicker
+                                    value={fromDate}
+                                    mode="date"
+                                    display={Platform.OS === "ios" ? "inline" : "default"}
+                                    onChange={(_, selected) => {
+                                        setShowFromPicker(false);
+                                        if (selected) setFromDate(selected);
+                                    }}
+                                />
+                            )
                         )}
                     </View>
                     <View style={styles.dateBlock}>
@@ -146,15 +160,29 @@ const Reports = ({ navigation }) => {
                             <Text style={styles.dateText}>{formatDate(toDate)}</Text>
                         </TouchableOpacity>
                         {showToPicker && (
-                            <DateTimePicker
-                                value={toDate}
-                                mode="date"
-                                display={Platform.OS === "ios" ? "inline" : "default"}
-                                onChange={(_, selected) => {
-                                    setShowToPicker(false);
-                                    if (selected) setToDate(selected);
-                                }}
-                            />
+                            Platform.OS === 'web' ? (
+                                <input
+                                    type="date"
+                                    defaultValue={formatDate(toDate)}
+                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
+                                    onChange={(e) => {
+                                        setShowToPicker(false);
+                                        if (e.target.value) setToDate(new Date(e.target.value));
+                                    }}
+                                    onBlur={() => setShowToPicker(false)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <DateTimePicker
+                                    value={toDate}
+                                    mode="date"
+                                    display={Platform.OS === "ios" ? "inline" : "default"}
+                                    onChange={(_, selected) => {
+                                        setShowToPicker(false);
+                                        if (selected) setToDate(selected);
+                                    }}
+                                />
+                            )
                         )}
                     </View>
                 </View>
