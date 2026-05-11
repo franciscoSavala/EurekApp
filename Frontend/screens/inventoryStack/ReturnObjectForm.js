@@ -139,7 +139,12 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
+                            <View style={{alignItems: 'center', gap: 8, marginVertical: 10}}>
+                                <Icon name={'circle-check'} size={50} color={'#008000'}/>
+                                <Text style={{color: '#008000', fontSize: 16, fontFamily: 'PlusJakartaSans-Regular', textAlign: 'center'}}>
+                                    La devolución del objeto se registró correctamente.
+                                </Text>
+                            </View>
                         ) : (
                             <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
                         )
