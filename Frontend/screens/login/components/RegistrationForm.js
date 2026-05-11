@@ -112,7 +112,12 @@ export default function RegistrationForm(props) {
                 name='Password'
                 rules={{
                     required: { value: true, message: 'La contraseña es obligatoria.' },
-                    minLength: { value: 6, message: 'La contraseña debe tener al menos 6 caracteres.' },
+                    minLength: { value: 8, message: 'La contraseña debe tener entre 8 y 16 caracteres.' },
+                    maxLength: { value: 16, message: 'La contraseña debe tener entre 8 y 16 caracteres.' },
+                    pattern: {
+                        value: /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[@#$%^&+=!]).*$/,
+                        message: 'La contraseña debe contener letras, números y al menos un carácter especial (@#$%^&+=!).',
+                    },
                 }}
                 defaultValue=''
             />
