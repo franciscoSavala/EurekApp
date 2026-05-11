@@ -38,6 +38,31 @@ const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 
 const FormData = global.FormData;
 
+const webImageButtonStyle = {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderRadius: 12,
+    borderWidth: 2,
+    border: '2px solid #bdc1c1',
+    backgroundColor: '#fff',
+    paddingTop: 16,
+    paddingBottom: 16,
+    paddingLeft: 12,
+    paddingRight: 12,
+    cursor: 'pointer',
+    width: '100%',
+};
+
+const webImageButtonTextStyle = {
+    fontSize: 16,
+    color: '#638888',
+    fontFamily: 'PlusJakartaSans-Regular',
+};
+
 const UploadObject = () => {
     //object data
     const { control,
@@ -77,7 +102,17 @@ const UploadObject = () => {
     const [successModal, setSuccessModal] = useState(false);
     const [usabilityModalVisible, setUsabilityModalVisible] = useState(false);
     const [showSubmitButton, setShowSubmitButton] = useState(true);
+    const [cameraModalVisible, setCameraModalVisible] = useState(false);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const fileInputRef = useRef(null);
     const navigation = useNavigation();
+
+useEffect(() => {
+    if (cameraModalVisible && videoRef.current && streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+    }
+}, [cameraModalVisible]);
 
 useEffect(() => {
     const getContextInstitute = async () => {
@@ -112,39 +147,86 @@ const handleImagePicked = (result) => {
 };
 
 const pickImage = async () => {
-    let result = await ImagePicker.launchImageLibraryAsync(imagePickerConfig);
-    handleImagePicked(result);
+    if (Platform.OS === 'web') {
+        fileInputRef.current?.click();
+    } else {
+        let result = await ImagePicker.launchImageLibraryAsync(imagePickerConfig);
+        handleImagePicked(result);
+    }
+};
+
+const handleWebFileInput = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        const base64String = reader.result.split(',')[1];
+        setImage({ uri: URL.createObjectURL(file), base64: base64String, mimeType: file.type });
+        setImageByte(Buffer.from(base64String, 'base64'));
+        setImageUploaded(true);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
 };
 
 const takePhoto = async () => {
     if (Platform.OS === 'web') {
-        // Para web, usamos input file con capture
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/jpeg,image/png';
-        input.capture = 'environment'; // Intenta abrir la cámara trasera si está disponible
-        input.onchange = (event) => {
-            const file = event.target.files[0];
-            if (!file) return;
-            if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-                Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+        if (!navigator.mediaDevices) {
+            window.alert('No se puede acceder a la cámara. Asegurate de usar HTTPS o localhost.');
+            return;
+        }
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const hasCamera = devices.some(d => d.kind === 'videoinput');
+            if (!hasCamera) {
+                window.alert('No se detectó ninguna cámara en este dispositivo.');
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = () => {
-                const base64String = reader.result.split(',')[1];
-                setImage({ uri: URL.createObjectURL(file), base64: base64String });
-                setImageByte(Buffer.from(base64String, "base64"));
-                setImageUploaded(true);
-            };
-            reader.readAsDataURL(file);
-        };
-        input.click();
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            streamRef.current = stream;
+            setCameraModalVisible(true);
+        } catch (err) {
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                window.alert('El acceso a la cámara fue denegado. Habilitalo desde la configuración del navegador.');
+            } else {
+                window.alert('No se pudo acceder a la cámara: ' + err.message);
+            }
+        }
     } else {
-        // En móviles, seguimos usando ImagePicker
         let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
         handleImagePicked(result);
     }
+};
+
+const captureFrame = () => {
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob((blob) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const base64String = reader.result.split(',')[1];
+            setImage({ uri: URL.createObjectURL(blob), base64: base64String });
+            setImageByte(Buffer.from(base64String, 'base64'));
+            setImageUploaded(true);
+        };
+        reader.readAsDataURL(blob);
+        stopCamera();
+    }, 'image/jpeg');
+};
+
+const stopCamera = () => {
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
+    setCameraModalVisible(false);
 };
 
 const validateConstraints = () => {
@@ -365,17 +447,29 @@ return (
                 }
             </View>
             <View style={styles.imageLoadContainer}>
-                <Pressable onPress={pickImage}
-                           style={styles.imageLoadPressable}>
-                    <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                    <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
-                </Pressable>
-                <View style={{width: 10}}></View>
-                <Pressable onPress={takePhoto}
-                           style={styles.imageLoadPressable}>
-                    <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                    <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
-                </Pressable>
+                {Platform.OS === 'web' ? (
+                    <>
+                        <button onClick={pickImage} style={webImageButtonStyle}>
+                            <span style={webImageButtonTextStyle}>Seleccionar foto</span>
+                        </button>
+                        <View style={{width: 10}}/>
+                        <button onClick={takePhoto} style={webImageButtonStyle}>
+                            <span style={webImageButtonTextStyle}>Sacar Foto</span>
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <Pressable onPress={pickImage} style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Seleccionar foto</Text>
+                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                        <View style={{width: 10}}/>
+                        <Pressable onPress={takePhoto} style={styles.imageLoadPressable}>
+                            <Text style={styles.imageLoadText}>Sacar Foto</Text>
+                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                        </Pressable>
+                    </>
+                )}
             </View>
             <View style={styles.switchContainer}>
                 <Switch
@@ -456,6 +550,40 @@ return (
             onClose={handleUsabilityModalClose}
             context="upload_object"
         />
+
+        {Platform.OS === 'web' && (
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                style={{ display: 'none' }}
+                onChange={handleWebFileInput}
+            />
+        )}
+        {Platform.OS === 'web' && (
+            <Modal
+                animationType="none"
+                transparent={true}
+                visible={cameraModalVisible}
+                onRequestClose={stopCamera}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            style={{ width: '100%', maxWidth: 400, borderRadius: 12 }}
+                        />
+                        <EurekappButton text="Capturar foto" onPress={captureFrame} />
+                        <EurekappButton
+                            text="Cancelar"
+                            backgroundColor={'#f0f4f4'}
+                            textColor={'#111818'}
+                            onPress={stopCamera} />
+                    </View>
+                </View>
+            </Modal>
+        )}
     </View>
 );
 };
