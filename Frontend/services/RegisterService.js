@@ -17,7 +17,11 @@ export default function register({ firstname, lastname, username, password }) {
                 let message = 'Ha ocurrido un error, intente de nuevo más tarde';
                 try {
                     const data = await res.json();
-                    if (data?.message) message = data.message;
+                    if (data?.details?.length > 0) {
+                        message = data.details.join('\n');
+                    } else if (data?.message) {
+                        message = data.message;
+                    }
                 } catch (_) {}
                 throw new Error(message);
             }
