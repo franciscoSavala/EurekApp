@@ -286,26 +286,7 @@ const EurekappTab = () => {
     const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
-    const [ userRole, setUserRole ] = useState('');
-
-    useEffect(() => {
-        fetchUserRole();
-    }, []);
-
-    useFocusEffect(
-        useCallback(() => {
-            console.log("useFocusEffect fue ejecutado");
-            fetchUserRole();
-        }, [])
-    );
-
-    const fetchUserRole = async () => {
-        const raw = await AsyncStorage.getItem('user');
-        if (!raw) return;
-        const user = JSON.parse(raw);
-        setUserRole(user.role);
-        console.log("fetchUserRole fue ejecutado");
-    }
+    const { userRole } = useContext(LoginContext);
 
     const resetAndNavigate = (navigation, screenName) => {
         navigation.dispatch(
@@ -411,6 +392,7 @@ const EurekappTab = () => {
 const App = () => {
     LogBox.ignoreAllLogs();
     const [user, setUser] = useState('');
+    const [userRole, setUserRole] = useState('');
     const [sessionLoading, setSessionLoading] = useState(true);
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
@@ -420,7 +402,11 @@ const App = () => {
     useEffect(() => {
         const restoreSession = async () => {
             const token = await AsyncStorage.getItem('jwt');
-            if (token) setUser(token);
+            if (token) {
+                setUser(token);
+                const raw = await AsyncStorage.getItem('user');
+                if (raw) setUserRole(JSON.parse(raw).role);
+            }
             setSessionLoading(false);
         };
         restoreSession();
@@ -430,7 +416,7 @@ const App = () => {
 
     return (
         <NavigationContainer>
-            <LoginContext.Provider value={{ setUser: setUser, user }}>
+            <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
                 {user ? <EurekappTab /> : <AuthStackScreen />}
             </LoginContext.Provider>
         </NavigationContainer>

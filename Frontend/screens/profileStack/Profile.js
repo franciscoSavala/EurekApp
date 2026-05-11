@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import React, {useContext, useEffect, useState} from "react";
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
 import {
@@ -18,6 +18,7 @@ import {Controller, useForm} from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import Constants from "expo-constants";
+import {LoginContext} from "../../hooks/useUser";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -35,6 +36,7 @@ const Profile = ({ route, navigation }) => {
     const [addEmployeeRequests, setAddEmployeeRequests] = useState('');
     const [loading, setLoading] = useState(false);
     const [usabilityModalVisible, setUsabilityModalVisible] = useState(false);
+    const { setUserRole } = useContext(LoginContext);
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -126,6 +128,8 @@ const Profile = ({ route, navigation }) => {
             console.log(res.data);
             setAddEmployeeRequests('');
             await refreshUserDetails();
+            const raw = await AsyncStorage.getItem('user');
+            if (raw) setUserRole(JSON.parse(raw).role);
             navigation.replace("Profile");
         } catch (error) {
             console.log(error)
