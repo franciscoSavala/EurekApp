@@ -10,8 +10,9 @@ import {
     Text, TouchableOpacity,
     View
 } from "react-native";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {useFocusEffect} from "@react-navigation/native";
 import EurekappButton from "../components/Button";
 import axios from "axios";
 import Constants from "expo-constants";
@@ -85,18 +86,19 @@ const Inventory = ({ navigation }) => {
         setRefreshing(false);
     }
 
-    useEffect(() => {
-        const getContextInstitute = async () => {
-            const institute = {
-                id: await AsyncStorage.getItem('org.id'),
-                name: await AsyncStorage.getItem('org.name')
+    useFocusEffect(
+        useCallback(() => {
+            const getContextInstitute = async () => {
+                const institute = {
+                    id: await AsyncStorage.getItem('org.id'),
+                    name: await AsyncStorage.getItem('org.name')
+                };
+                setSelectedInstitute(institute);
+                await fetchFoundObjectsFromOrganization(institute);
             };
-            setSelectedInstitute( institute );
-            await fetchFoundObjectsFromOrganization(institute);
-        }
-        getContextInstitute();
-
-    }, []);
+            getContextInstitute();
+        }, [])
+    );
 
     const renderItem = ({item}) => {
         const date = new Date(item.found_date);
