@@ -5,7 +5,7 @@ import com.eurekapp.backend.dto.AddEmployeeRequestDto;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IAddEmployeeRequestRepository;
@@ -49,7 +49,8 @@ public class UserService {
     * ninguna organización.
     * */
     public Boolean removeEmployeeFromOrganization(UserEurekapp orgAdmin, Long employeeUserId){
-        UserEurekapp employee = userRepository.getReferenceById(employeeUserId);
+        UserEurekapp employee = userRepository.findById(employeeUserId)
+                .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
         if(isAuthorizedToRemoveEmployee(orgAdmin, employee)){
             employee.setRole(Role.USER);
             employee.setOrganization(null);
@@ -75,11 +76,12 @@ public class UserService {
 
     public void assignEncargado(UserEurekapp orgAdmin, Long employeeUserId) {
         if (orgAdmin.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden", "No está autorizado a hacer esta solicitud.");
+            throw new ForbiddenException("forbidden", "No está autorizado a hacer esta solicitud.");
         }
-        UserEurekapp employee = userRepository.getReferenceById(employeeUserId);
+        UserEurekapp employee = userRepository.findById(employeeUserId)
+                .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
         if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ORGANIZATION_EMPLOYEE) {
-            throw new ForbbidenException("forbidden", "El usuario no pertenece a esta organización o ya es encargado.");
+            throw new ForbiddenException("forbidden", "El usuario no pertenece a esta organización o ya es encargado.");
         }
         employee.setRole(Role.ENCARGADO);
         userRepository.saveAndFlush(employee);
@@ -97,11 +99,12 @@ public class UserService {
 
     public void revokeEncargado(UserEurekapp orgAdmin, Long employeeUserId) {
         if (orgAdmin.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden", "No está autorizado a hacer esta solicitud.");
+            throw new ForbiddenException("forbidden", "No está autorizado a hacer esta solicitud.");
         }
-        UserEurekapp employee = userRepository.getReferenceById(employeeUserId);
+        UserEurekapp employee = userRepository.findById(employeeUserId)
+                .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
         if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ENCARGADO) {
-            throw new ForbbidenException("forbidden", "El usuario no es encargado en esta organización.");
+            throw new ForbiddenException("forbidden", "El usuario no es encargado en esta organización.");
         }
         employee.setRole(Role.ORGANIZATION_EMPLOYEE);
         userRepository.saveAndFlush(employee);
@@ -112,7 +115,7 @@ public class UserService {
 
         // Verificamos que el usuario que envía la solicitud sea admin de una organización.
         if(orgAdmin.getRole() != Role.ORGANIZATION_OWNER){
-            throw new ForbbidenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
+            throw new ForbiddenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
         }
 
         // Verificamos si el usuario destinatario existe.
@@ -123,7 +126,7 @@ public class UserService {
         // Verificamos si el usuario destinatario ya pertenece a una organización.
         UserEurekapp employee = userRepository.getByUsername(employeeUsername);
         if(employee.getOrganization() != null){
-            throw new ForbbidenException("user_not_available", String.format("El usuario con email '%s' ya pertenece a una organización.", employeeUsername));
+            throw new ForbiddenException("user_not_available", String.format("El usuario con email '%s' ya pertenece a una organización.", employeeUsername));
         }
 
         // Verificamos que el usuario no tenga una solicitud pendiente de esta misma organización.
@@ -131,7 +134,7 @@ public class UserService {
                                                     orgAdmin.getOrganization(),
                                                     AddEmployeeRequestStatus.PENDING);
         if(!pendingRequests.isEmpty()){
-            throw new ForbbidenException("cannot_send_request", String.format("El usuario con email '%s' ya tiene una solicitud pendiente de tu organización.", employeeUsername));
+            throw new ForbiddenException("cannot_send_request", String.format("El usuario con email '%s' ya tiene una solicitud pendiente de tu organización.", employeeUsername));
         }
 
         // Creamos la solicitud para que el usuario destinatario la pueda ver en su perfil
@@ -171,15 +174,16 @@ public class UserService {
 
         // Si el rol del usuario no es USER, lanzamos excepción.
         if(!user.getRole().equals(Role.USER)){
-            throw new ForbbidenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
+            throw new ForbiddenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
         }
 
         // Obtenemos la solicitud
-        AddEmployeeRequest request = addEmployeeRequestRepository.getReferenceById(addEmployeeRequestId);
+        AddEmployeeRequest request = addEmployeeRequestRepository.findById(addEmployeeRequestId)
+                .orElseThrow(() -> new NotFoundException("request_not_found", "Add employee request not found"));
 
         // Si el usuario no coincide con el de la solicitud, lanzamos excepción.
         if(!user.equals(request.getUser())){
-            throw new ForbbidenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
+            throw new ForbiddenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
         }
 
         // Cambiamos el rol del usuario a ORGANIZATION_EMPLOYEE y le asignamos la organización:
@@ -206,15 +210,16 @@ public class UserService {
     public void declineAddEmployeeRequest(UserEurekapp user, Long addEmployeeRequestId) {
         // Si el rol del usuario no es USER, lanzamos excepción.
         if(!user.getRole().equals(Role.USER)){
-            throw new ForbbidenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
+            throw new ForbiddenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
         }
 
         // Obtenemos la solicitud
-        AddEmployeeRequest request = addEmployeeRequestRepository.getReferenceById(addEmployeeRequestId);
+        AddEmployeeRequest request = addEmployeeRequestRepository.findById(addEmployeeRequestId)
+                .orElseThrow(() -> new NotFoundException("request_not_found", "Add employee request not found"));
 
         // Si el usuario no coincide con el de la solicitud, lanzamos excepción.
         if(!user.equals(request.getUser())){
-            throw new ForbbidenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
+            throw new ForbiddenException("forbidden", String.format("No está autorizado a hacer esta solicitud."));
         }
 
         // Cambiamos el estado de la request a "Rechazada"

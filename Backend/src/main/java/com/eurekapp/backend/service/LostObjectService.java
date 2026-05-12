@@ -107,6 +107,6 @@ public class LostObjectService {
         String message = simpleEmailContentBuilder.buildEmailContent(
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
-        notificationService.sendNotification(message);
+        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "Hemos encontrado tu objeto!", message);
     }
 }

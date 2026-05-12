@@ -5,7 +5,7 @@ import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationPolicyDto;
 import com.eurekapp.backend.dto.response.OrganizationPolicyHistoryDto;
 import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IOrganizationPolicyHistoryRepository;
 import com.eurekapp.backend.repository.IOrganizationPolicyRepository;
@@ -57,7 +57,7 @@ public class OrganizationService {
 
     public OrganizationPolicyDto getPolicy(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden", "Solo el responsable puede acceder a las políticas");
+            throw new ForbiddenException("forbidden", "Solo el responsable puede acceder a las políticas");
         }
         Long orgId = user.getOrganization().getId();
         Optional<OrganizationPolicy> policyOpt = policyRepository.findByOrganization_Id(orgId);
@@ -97,11 +97,11 @@ public class OrganizationService {
 
     public void updatePolicy(UserEurekapp user, OrganizationPolicyDto dto) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden", "Solo el responsable puede modificar las políticas");
+            throw new ForbiddenException("forbidden", "Solo el responsable puede modificar las políticas");
         }
         Long orgId = user.getOrganization().getId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ForbbidenException("forbidden", "Organización no encontrada"));
+                .orElseThrow(() -> new ForbiddenException("forbidden", "Organización no encontrada"));
 
         Optional<OrganizationPolicy> existing = policyRepository.findByOrganization_Id(orgId);
 

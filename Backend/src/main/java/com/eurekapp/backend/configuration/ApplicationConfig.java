@@ -1,6 +1,6 @@
 package com.eurekapp.backend.configuration;
 
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.repository.IUserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +23,7 @@ public class ApplicationConfig {
     @Bean
     public UserDetailsService userDetailsService() {
         return username -> userRepository.findByUsername(username)
-                .orElseThrow(() -> new ForbbidenException("not_valid_credentials", "No existe un usuario con ese nombre"));
+                .orElseThrow(() -> new ForbiddenException("not_valid_credentials", "No existe un usuario con ese nombre"));
     }
 
     @Bean

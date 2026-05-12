@@ -2,7 +2,7 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
@@ -105,7 +105,7 @@ public class FraudDetectionService {
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
         if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
-            throw new ForbbidenException("forbidden", "No tienes acceso a esta alerta");
+            throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
         }
         return toDto(alert);
     }
@@ -115,7 +115,7 @@ public class FraudDetectionService {
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
         if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
-            throw new ForbbidenException("forbidden", "No tienes acceso a esta alerta");
+            throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
         }
         alert.setStatus(resolution);
         alert.setResolvedAt(LocalDateTime.now());
@@ -126,7 +126,7 @@ public class FraudDetectionService {
     public List<FraudUserReportEntryDto> getFraudUserReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden",
+            throw new ForbiddenException("forbidden",
                     "Solo el responsable de la organización puede acceder al reporte de fraude");
         }
         String orgId = user.getOrganization().getId().toString();
@@ -187,7 +187,7 @@ public class FraudDetectionService {
 
     private void validateAccess(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER && user.getRole() != Role.ENCARGADO) {
-            throw new ForbbidenException("forbidden",
+            throw new ForbiddenException("forbidden",
                     "Solo el encargado o responsable de la organización puede gestionar alertas de fraude");
         }
     }

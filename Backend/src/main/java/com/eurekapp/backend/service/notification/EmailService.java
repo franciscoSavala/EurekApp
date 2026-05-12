@@ -46,35 +46,6 @@ public class EmailService implements NotificationService {
     }
 
     @Override
-    public void sendNotification(String notification) {
-        Session session = Session.getInstance(this.properties, new Authenticator() {
-            @Override
-            protected PasswordAuthentication getPasswordAuthentication() {
-                return new PasswordAuthentication(user, password);
-            }
-        });
-
-        Message message = new MimeMessage(session);
-        try {
-            message.setFrom(new InternetAddress("eurekapp.cba@gmail.com"));
-            message.setRecipients(Message.RecipientType.TO,
-                    InternetAddress.parse("franciscosavala01@gmail.com"));
-            message.setSubject("Hemos encontrado tu objeto!");
-            MimeBodyPart mimeBodyPart = new MimeBodyPart();
-            mimeBodyPart.setContent(notification, "text/html; charset=utf-8");
-
-            Multipart multipart = new MimeMultipart();
-            multipart.addBodyPart(mimeBodyPart);
-
-            message.setContent(multipart);
-
-            Transport.send(message);
-        } catch (MessagingException e) {
-            throw new ApiException("invalid_email", "Not valid email", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    @Override
     public void sendNotification(String recipient, String subject, String content) {
         Session session = Session.getInstance(this.properties, new Authenticator() {
             @Override

@@ -103,4 +103,30 @@ public class Handler {
 
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ApiError> handleForbiddenException(ForbiddenException e) {
+        List<String> errorDetails = List.of(e.getMessage());
+        ApiError apiError = ApiError.builder()
+                .error(e.getError())
+                .message(e.getMessage())
+                .status(HttpStatus.FORBIDDEN.value())
+                .details(errorDetails)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(apiError);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ResponseEntity<ApiError> handleNotFoundException(NotFoundException e) {
+        List<String> errorDetails = List.of(e.getMessage());
+        ApiError apiError = ApiError.builder()
+                .error(e.getError())
+                .message(e.getMessage())
+                .status(HttpStatus.NOT_FOUND.value())
+                .details(errorDetails)
+                .build();
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(apiError);
+    }
 }

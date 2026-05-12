@@ -5,7 +5,7 @@ import com.eurekapp.backend.dto.request.LoginRequestDto;
 import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.exception.BadRequestException;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IUserRepository;
@@ -120,7 +120,7 @@ class AuthServiceTest {
     }
 
     @Test
-    void register_duplicateUsername_throwsForbbidenException() {
+    void register_duplicateUsername_throwsForbiddenException() {
         when(userRepository.findByUsername("existing@mail.com"))
                 .thenReturn(Optional.of(buildUser("existing@mail.com")));
 
@@ -130,7 +130,7 @@ class AuthServiceTest {
                 .firstname("Ana")
                 .lastname("García")
                 .build()))
-                .isInstanceOf(ForbbidenException.class);
+                .isInstanceOf(ForbiddenException.class);
     }
 
     @Test

@@ -8,7 +8,7 @@ import com.eurekapp.backend.dto.request.SocialLoginRequestDto;
 import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.exception.BadRequestException;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.Organization;
@@ -87,7 +87,7 @@ public class AuthService {
         // Verificar si el usuario ya está registrado
         if (userRepository.findByUsername(user.getUsername()).isPresent()) {
             log.warn("[action:register] Usuario con correo {} ya registrado", user.getUsername());
-            throw new ForbbidenException(ValidationError.REPEATED_EMAIL.getCode(), ValidationError.REPEATED_EMAIL.getError());
+            throw new ForbiddenException(ValidationError.REPEATED_EMAIL.getCode(), ValidationError.REPEATED_EMAIL.getError());
         }
 
         // Creación del usuario
