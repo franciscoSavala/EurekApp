@@ -8,7 +8,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -47,7 +47,7 @@ const ReclamosList = ({ navigation }) => {
             const jwt = await AsyncStorage.getItem('jwt');
             const params = {};
             if (status) params.status = status;
-            const res = await axios.get(`${BACK_URL}/reclamos`, {
+            const res = await axiosInstance.get(`${BACK_URL}/reclamos`, {
                 headers: { Authorization: `Bearer ${jwt}` },
                 params,
             });

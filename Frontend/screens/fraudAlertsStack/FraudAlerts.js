@@ -9,7 +9,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -42,7 +42,7 @@ const FraudAlerts = ({ navigation }) => {
         try {
             const jwt = await AsyncStorage.getItem('jwt');
             const [res, raw] = await Promise.all([
-                axios.get(`${BACK_URL}/fraud-alerts`, {
+                axiosInstance.get(`${BACK_URL}/fraud-alerts`, {
                     headers: { Authorization: `Bearer ${jwt}` },
                 }),
                 AsyncStorage.getItem('user'),

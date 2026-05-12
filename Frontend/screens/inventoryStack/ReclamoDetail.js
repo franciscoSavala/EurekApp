@@ -9,7 +9,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -39,7 +39,7 @@ const ReclamoDetail = ({ route }) => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axios.get(`${BACK_URL}/reclamos/${reclamoId}`, {
+            const res = await axiosInstance.get(`${BACK_URL}/reclamos/${reclamoId}`, {
                 headers: { Authorization: `Bearer ${jwt}` },
             });
             setReclamo(res.data);
@@ -60,7 +60,7 @@ const ReclamoDetail = ({ route }) => {
         setUpdating(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            await axios.put(
+            await axiosInstance.put(
                 `${BACK_URL}/reclamos/${reclamoId}/status`,
                 { newStatus },
                 { headers: { Authorization: `Bearer ${jwt}` } }

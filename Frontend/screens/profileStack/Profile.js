@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import {LoginContext} from "../../hooks/useUser";
 
@@ -79,7 +79,7 @@ const Profile = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.get(BACK_URL + `/organizations/getPendingAddEmployeeRequests`, config );
+            let res = await axiosInstance.get(BACK_URL + `/organizations/getPendingAddEmployeeRequests`, config );
             let jsonData = res.data;
             setAddEmployeeRequests(jsonData.requests);
             console.log(res.data);
@@ -123,7 +123,7 @@ const Profile = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(BACK_URL + `/organizations/acceptAddEmployeeRequest`,
+            let res = await axiosInstance.post(BACK_URL + `/organizations/acceptAddEmployeeRequest`,
                 {requestId: id} ,config );
             console.log(res.data);
             setAddEmployeeRequests('');
@@ -144,7 +144,7 @@ const Profile = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(BACK_URL + `/organizations/declineAddEmployeeRequest`,
+            let res = await axiosInstance.post(BACK_URL + `/organizations/declineAddEmployeeRequest`,
                 {requestId: id} ,config );
             console.log(res.data);
             if (res.status === 200) {
@@ -164,7 +164,7 @@ const Profile = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.get(BACK_URL + `/user/refreshUserDetails`,config );
+            let res = await axiosInstance.get(BACK_URL + `/user/refreshUserDetails`,config );
             console.log(res.data);
             if (res.status === 200) {
                 await AsyncStorage.setItem('username', res.data.user.username.toString());

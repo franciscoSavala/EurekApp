@@ -3,7 +3,7 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import EurekappButton from "../components/Button";
 import React, {useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import {CommonActions, useNavigation} from '@react-navigation/native';
 
@@ -27,7 +27,7 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(`${BACK_URL}/lost-objects`, //esto es inseguro pero ok...
+            let res = await axiosInstance.post(`${BACK_URL}/lost-objects`, //esto es inseguro pero ok...
                 {
                     description: query,
                     username: username,

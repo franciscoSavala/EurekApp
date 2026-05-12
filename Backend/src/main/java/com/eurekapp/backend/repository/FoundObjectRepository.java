@@ -65,6 +65,18 @@ public class FoundObjectRepository {
                                    LocalDateTime foundDateTo,
                                    Boolean wasReturned,
                                    String category){
+        return query(vector, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, null, null);
+    }
+
+    public List<FoundObject> query(List<Float> vector,
+                                   String orgId,
+                                   GeoCoordinates coordinates,
+                                   LocalDateTime foundDate,
+                                   LocalDateTime foundDateTo,
+                                   Boolean wasReturned,
+                                   String category,
+                                   Integer limit,
+                                   Integer offset){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
@@ -166,7 +178,9 @@ public class FoundObjectRepository {
                         "was_returned",
                         "coordinates",
                         "organization_id",
-                        "category")
+                        "category"),
+                limit,
+                offset
         );
 
         // Convertir List<WeaviateObject> a List<FoundObject>

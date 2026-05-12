@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {Picker} from "@react-native-picker/picker";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Text, View} from "react-native";
@@ -20,7 +20,7 @@ const InstitutePicker = ({ setSelected }) => {
                         'Authorization': authHeader
                     }
                 }
-                let res = await axios.get(BACK_URL + "/organizations", config);
+                let res = await axiosInstance.get(BACK_URL + "/organizations", config);
                 let jsonData = res.data;
                 setInstitutionList(jsonData.organizations);
             } catch (error) {

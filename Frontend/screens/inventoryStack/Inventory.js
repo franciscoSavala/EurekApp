@@ -1,5 +1,6 @@
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     Modal,
@@ -14,16 +15,21 @@ import React, {useCallback, useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useFocusEffect} from "@react-navigation/native";
 import EurekappButton from "../components/Button";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
+
+const PAGE_SIZE = 20;
 
 const Inventory = ({ navigation }) => {
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [institutesObject, setInstitutesObject] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(false);
     const [maxStorageDays, setMaxStorageDays] = useState(null);
     const [userRole, setUserRole] = useState(null);
 
@@ -31,14 +37,14 @@ const Inventory = ({ navigation }) => {
         const fetchPolicy = async () => {
             try {
                 const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axios.get(`${BACK_URL}/organizations/policy`, {
+                const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
                     headers: { Authorization: `Bearer ${jwt}` },
                 });
                 if (res.data.maxStorageDays != null) {
                     setMaxStorageDays(res.data.maxStorageDays);
                 }
             } catch (e) {
-                // ignorar si no hay política
+                if (__DEV__) console.warn('fetchPolicy error:', e);
             }
         };
         const loadUserRole = async () => {
@@ -59,32 +65,40 @@ const Inventory = ({ navigation }) => {
         return null;
     };
 
-    const fetchFoundObjectsFromOrganization = async (institute) => {
+    const fetchFoundObjectsFromOrganization = async (institute, pageNum = 0, append = false) => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            console.log(selectedInstitute);
-            let res = await axios.get(
+            const jwt = await AsyncStorage.getItem('jwt');
+            const res = await axiosInstance.get(
                 `${BACK_URL}/found-objects/organizations/all/${institute.id}`,
-                config );
-            let jsonData = res.data;
-            setInstitutesObject(jsonData.found_objects);
+                {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                    params: { page: pageNum, pageSize: PAGE_SIZE },
+                }
+            );
+            const { found_objects = [], has_more = false } = res.data;
+            setInstitutesObject(prev => append ? [...prev, ...found_objects] : found_objects);
+            setHasMore(has_more);
+            setPage(pageNum);
         } catch (error) {
-            console.error(error);
+            if (__DEV__) console.error(error);
+            Alert.alert('Error', 'No se pudo cargar el inventario. Verificá tu conexión.');
         } finally {
             setLoading(false);
+            setLoadingMore(false);
         }
     }
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await fetchFoundObjectsFromOrganization(selectedInstitute);
+        await fetchFoundObjectsFromOrganization(selectedInstitute, 0, false);
         setRefreshing(false);
     }
+
+    const loadMore = () => {
+        if (!hasMore || loadingMore || loading) return;
+        setLoadingMore(true);
+        fetchFoundObjectsFromOrganization(selectedInstitute, page + 1, true);
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -94,7 +108,7 @@ const Inventory = ({ navigation }) => {
                     name: await AsyncStorage.getItem('org.name')
                 };
                 setSelectedInstitute(institute);
-                await fetchFoundObjectsFromOrganization(institute);
+                await fetchFoundObjectsFromOrganization(institute, 0, false);
             };
             getContextInstitute();
         }, [])
@@ -139,11 +153,12 @@ const Inventory = ({ navigation }) => {
                 <View style={{width:5}}></View>
 
                 <Image
-                    source={ item.b64Json
-                            ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
-                            : require('../../assets/defaultImage.png') }
+                    source={item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : require('../../assets/defaultImage.png')}
                     style={styles.image}
                     resizeMode="cover"
+                    accessibilityLabel="Imagen del objeto"
                 />
             </Pressable>
         );
@@ -180,6 +195,9 @@ const Inventory = ({ navigation }) => {
                         contentContainerStyle={styles.contentContainer}
                         scrollEnabled={true}
                         ListEmptyComponent={NotFoundComponent}
+                        onEndReached={loadMore}
+                        onEndReachedThreshold={0.3}
+                        ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color="#111818" style={{marginVertical: 12}} /> : null}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                         } />

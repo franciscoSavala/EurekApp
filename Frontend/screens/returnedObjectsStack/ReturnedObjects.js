@@ -13,7 +13,7 @@ import {
 import React, {useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappButton from "../components/Button";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -32,7 +32,7 @@ const ReturnedObjects = ({ navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.get(
+            let res = await axiosInstance.get(
                 `${BACK_URL}/found-objects/getReturnedObjects`,
                 config );
             let jsonData = res.data;

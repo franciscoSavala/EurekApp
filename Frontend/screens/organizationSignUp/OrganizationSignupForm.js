@@ -1,7 +1,7 @@
 import {Controller, useForm} from "react-hook-form";
 import React, {useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import {ActivityIndicator, StyleSheet, TextInput, View} from "react-native";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Input, Text} from "react-native-elements";
@@ -33,7 +33,7 @@ const OrganizationSignupForm = () => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(`${BACK_URL}/organizations`,
+            let res = await axiosInstance.post(`${BACK_URL}/organizations`,
                 {
                     contact_email: organizationEmail,
                     request_data: requestData,

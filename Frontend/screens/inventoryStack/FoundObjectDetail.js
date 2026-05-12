@@ -20,7 +20,7 @@ import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import {CommonActions, useNavigation} from "@react-navigation/native";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import MapViewComponent from "../components/MapViewComponent";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -57,7 +57,7 @@ const FoundObjectDetail = ({route}) => {
                         'Authorization': authHeader
                     }
                 }
-                let response = await axios.post(`${BACK_URL}/found-objects/getDetail`, {
+                let response = await axiosInstance.post(`${BACK_URL}/found-objects/getDetail`, {
                     foundObjectUUID: route.params.foundObjectUUID.toString(),
                 }, config);
 

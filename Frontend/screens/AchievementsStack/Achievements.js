@@ -14,7 +14,7 @@ import {
     View
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import AchievementBar from "./AchievementBar";
 
@@ -52,7 +52,7 @@ const [currentLevel, setCurrentLevel] = useState('');
                 }
             }
             let endpoint = '/user/achievements';
-            let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
+            let res = await axiosInstance.get(BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
 

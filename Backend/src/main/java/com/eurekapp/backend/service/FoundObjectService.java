@@ -379,25 +379,34 @@ public class FoundObjectService implements IFoundObjectService {
      * Este método retorna todos los objetos encontrados en una organización que aún no han sido devueltos.
      * **/
     public FoundObjectsListDto getAllUnreturnedFoundObjectsByOrganization(SimilarObjectsCommand command){
-        // Pedimos a FoundObjectRepository que devuelva todos los objetos aún no devueltos que esté reteniendo la organización.
         String orgId;
         if(command.getOrganizationId() != null){ orgId = command.getOrganizationId().toString();}
         else{ throw new IllegalArgumentException("ERROR: Se debe proveer un ID de organización."); }
+
+        int page = command.getPage() != null ? command.getPage() : 0;
+        int pageSize = command.getPageSize() != null ? command.getPageSize() : 20;
+        int offset = page * pageSize;
+
+        // Pedimos pageSize+1 para saber si hay más sin hacer una query extra de conteo.
         List<FoundObject> foundObjects = foundObjectRepository.query(null,
                 orgId,
                 null,
                 null,
                 null,
                 false,
-                null);
+                null,
+                pageSize + 1,
+                offset);
 
-        // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
+        boolean hasMore = foundObjects.size() > pageSize;
         List<FoundObjectDto> result = foundObjects.stream()
+                .limit(pageSize)
                 .map(this::foundObjectToDto)
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
+                .hasMore(hasMore)
                 .build();
     }
 }

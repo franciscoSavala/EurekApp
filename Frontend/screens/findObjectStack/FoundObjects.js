@@ -84,11 +84,12 @@ const FoundObjects = ({ route, navigation }) => {
                     </Text>
                 </View>
                 <Image
-                    source={ item.b64Json
-                        ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
-                        : require('../../assets/defaultImage.png') }
+                    source={item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : require('../../assets/defaultImage.png')}
                     style={styles.image}
                     resizeMode="cover"
+                    accessibilityLabel="Imagen del objeto encontrado"
                 />
             </Pressable>
         );

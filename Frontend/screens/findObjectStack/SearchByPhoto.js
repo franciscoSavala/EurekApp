@@ -8,7 +8,6 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform,
     Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +17,7 @@ import Icon from 'react-native-vector-icons/FontAwesome6';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import { isWeb } from '../../utils/platform';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -62,7 +62,7 @@ const SearchByPhoto = ({ navigation }) => {
     };
 
     const takePhoto = async () => {
-        if (Platform.OS === 'web') {
+        if (isWeb) {
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = 'image/jpeg,image/png';
@@ -110,7 +110,7 @@ const SearchByPhoto = ({ navigation }) => {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let objectsFound;
 
-            if (Platform.OS === 'web') {
+            if (isWeb) {
                 const formData = new FormData();
                 formData.append('file', new Blob([imageByte]));
                 const response = await fetch(`${BACK_URL}/found-objects/search-by-photo`, {

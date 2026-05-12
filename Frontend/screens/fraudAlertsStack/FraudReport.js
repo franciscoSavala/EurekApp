@@ -10,7 +10,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -59,7 +59,7 @@ const FraudReport = () => {
         try {
             const jwt = await AsyncStorage.getItem('jwt');
             const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
-            const res = await axios.get(`${BACK_URL}/fraud-alerts/report?${params}`, {
+            const res = await axiosInstance.get(`${BACK_URL}/fraud-alerts/report?${params}`, {
                 headers: { Authorization: `Bearer ${jwt}` },
             });
             setEntries(res.data);

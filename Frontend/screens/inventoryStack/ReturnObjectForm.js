@@ -13,7 +13,7 @@ import {Input, Text} from "react-native-elements";
 import React, {useEffect, useState} from "react";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Buffer} from "buffer";
@@ -42,7 +42,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
         const fetchPolicy = async () => {
             try {
                 const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axios.get(`${BACK_URL}/organizations/policy`, {
+                const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
                     headers: { Authorization: `Bearer ${jwt}` },
                 });
                 setPolicy(res.data);
@@ -80,7 +80,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(`${BACK_URL}/found-objects/return/${institute.id}`,
+            let res = await axiosInstance.post(`${BACK_URL}/found-objects/return/${institute.id}`,
                 {
                     username: ownerUsername,
                     dni: dni,
