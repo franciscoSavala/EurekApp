@@ -324,13 +324,7 @@ public class FoundObjectService implements IFoundObjectService {
     }
 
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
-        byte[] imageBytes = s3Service.getObjectBytes(foundObject.getUuid());
-        String b64Json = null;
-        if (imageBytes != null) {
-            log.info("[api_method:GET] [service:S3] Retrieving {}, Bytes processed: {}",
-                    foundObject.getUuid(), imageBytes.length);
-            b64Json = Base64.getEncoder().encodeToString(imageBytes);
-        }
+        String imageUrl = s3Service.generatePresignedUrl(foundObject.getUuid(), java.time.Duration.ofHours(1));
 
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)
@@ -344,7 +338,7 @@ public class FoundObjectService implements IFoundObjectService {
                 .title(foundObject.getTitle())
                 .humanDescription(foundObject.getHumanDescription())
                 .aiDescription((foundObject.getAiDescription()))
-                .b64Json(b64Json)
+                .imageUrl(imageUrl)
                 .score(foundObject.getScore())
                 .distance(foundObject.getDistance())
                 .organization(organizationDto)

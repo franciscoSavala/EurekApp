@@ -1,6 +1,7 @@
 package com.eurekapp.backend.configuration.security;
 
 import com.eurekapp.backend.model.Role;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -19,6 +20,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -28,21 +30,27 @@ public class SecurityConfiguration {
     private final OrganizationAuthorizationFilter organizationAuthorizationFilter;
     private final AuthenticationProvider authenticationProvider;
     private final FilterChainExceptionHandler filterChainExceptionHandler;
+    private final AuthRateLimitFilter authRateLimitFilter;
+
+    @Value("${cors.allowed-origins}")
+    private String allowedOrigins;
 
     public SecurityConfiguration(JwtAuthenticationFilter authenticationFilter,
                                  OrganizationAuthorizationFilter organizationAuthorizationFilter,
                                  AuthenticationProvider authenticationProvider,
-                                 FilterChainExceptionHandler filterChainExceptionHandler) {
+                                 FilterChainExceptionHandler filterChainExceptionHandler,
+                                 AuthRateLimitFilter authRateLimitFilter) {
         this.authenticationFilter = authenticationFilter;
         this.organizationAuthorizationFilter = organizationAuthorizationFilter;
         this.authenticationProvider = authenticationProvider;
         this.filterChainExceptionHandler = filterChainExceptionHandler;
+        this.authRateLimitFilter = authRateLimitFilter;
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
@@ -62,6 +70,7 @@ public class SecurityConfiguration {
                         .requestMatchers( "/**").authenticated())
                 .sessionManagement( sessionManager -> sessionManager.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
+                .addFilterBefore(authRateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(organizationAuthorizationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(filterChainExceptionHandler, OrganizationAuthorizationFilter.class);

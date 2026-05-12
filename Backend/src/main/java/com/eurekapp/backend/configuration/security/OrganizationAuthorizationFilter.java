@@ -1,6 +1,6 @@
 package com.eurekapp.backend.configuration.security;
 
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -37,7 +37,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
         if (SECURED_PATHS.keySet().stream().anyMatch(key -> path.startsWith(key) && method.equals(SECURED_PATHS.get(key)))) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
             if (authentication == null || !authentication.isAuthenticated()) {
-                filterChain.doFilter(request, response);
+                throw new ForbiddenException("not_authenticated", "Authentication required");
             }
 
             String role = authentication.getAuthorities().stream()
@@ -46,7 +46,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
                     .orElse(null);
 
             if (role == null || (!role.startsWith(Role.ORGANIZATION_OWNER.name()) && !role.startsWith(Role.ORGANIZATION_EMPLOYEE.name()) && !role.startsWith(Role.ENCARGADO.name()))) {
-                throw new ForbbidenException("not_valid_credentials", "User is not an organization owner");
+                throw new ForbiddenException("not_valid_credentials", "User is not an organization owner");
             }
 
             // Extract organization ID from the URL
@@ -57,7 +57,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
             Long userOrganizationId = getUserOrganizationId(authentication);
 
             if (!organizationIdFromPath.equals(userOrganizationId)) {
-                throw new ForbbidenException("not_valid_credentials", "User does not have access to this organization");
+                throw new ForbiddenException("not_valid_credentials", "User does not have access to this organization");
             }
         }
 
@@ -67,7 +67,7 @@ public class OrganizationAuthorizationFilter extends OncePerRequestFilter {
     private Long getUserOrganizationId(Authentication authentication) {
         UserEurekapp user = (UserEurekapp) authentication.getPrincipal();
         Organization organization = user.getOrganization();
-        if (organization == null) throw new ForbbidenException("not_org_owner", "User is not an organization owner");
+        if (organization == null) throw new ForbiddenException("not_org_owner", "User is not an organization owner");
         return organization.getId();
     }
 }

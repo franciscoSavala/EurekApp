@@ -3,6 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
@@ -195,6 +196,9 @@ public class ReturnFoundObjectService {
 
         // Validamos que el usuario pertenezca a la organización que retiene el objeto. Si no lo es, lanzamos una excepción.
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUUID);
+        if (user.getOrganization() == null) {
+            throw new ForbiddenException("no_organization", "User does not belong to any organization.");
+        }
         if( !fo.getOrganizationId().equals(user.getOrganization().getId().toString()) ){
             throw new BadRequestException("return_found_object", String.format("Found object with UUID '%s' does not belong to your organization.", foundObjectUUID));
         }

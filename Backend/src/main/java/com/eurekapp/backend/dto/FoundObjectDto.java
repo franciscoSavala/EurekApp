@@ -15,7 +15,7 @@ public class FoundObjectDto {
     private String title;
     private String humanDescription;
     private String aiDescription;
-    private String b64Json;
+    private String imageUrl;
     private Float score;
     private String id;
     private OrganizationDto organization;

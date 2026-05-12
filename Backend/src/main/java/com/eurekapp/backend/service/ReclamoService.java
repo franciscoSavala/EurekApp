@@ -3,7 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.command.UpdateClaimStatusCommand;
 import com.eurekapp.backend.dto.response.ReclamoDto;
 import com.eurekapp.backend.dto.response.ReclamoHistoryDto;
-import com.eurekapp.backend.exception.ForbbidenException;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
@@ -133,7 +133,7 @@ public class ReclamoService {
 
     private void validateAccess(UserEurekapp user) {
         if (user.getRole() != Role.ENCARGADO && user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbbidenException("forbidden", "Solo encargados o responsables pueden acceder a los reclamos");
+            throw new ForbiddenException("forbidden", "Solo encargados o responsables pueden acceder a los reclamos");
         }
     }
 
@@ -142,7 +142,7 @@ public class ReclamoService {
                 .orElseThrow(() -> new NotFoundException("reclamo_not_found", "Reclamo no encontrado"));
         String orgId = user.getOrganization().getId().toString();
         if (!orgId.equals(reclamo.getOrganizationId())) {
-            throw new ForbbidenException("forbidden", "El reclamo no pertenece a tu organización");
+            throw new ForbiddenException("forbidden", "El reclamo no pertenece a tu organización");
         }
         return reclamo;
     }
