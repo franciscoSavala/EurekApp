@@ -10,7 +10,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -51,7 +51,7 @@ const OrganizationPolicy = () => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axios.get(`${BACK_URL}/organizations/policy`, {
+            const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
                 headers: { Authorization: `Bearer ${jwt}` },
             });
             const p = res.data;
@@ -84,7 +84,7 @@ const OrganizationPolicy = () => {
         setSaveOk(null);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            await axios.put(
+            await axiosInstance.put(
                 `${BACK_URL}/organizations/policy`,
                 {
                     maxStorageDays: maxStorageDays ? parseInt(maxStorageDays, 10) : null,

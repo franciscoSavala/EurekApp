@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Linking,
-    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -11,9 +10,10 @@ import {
     View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { isWeb, isIOS } from "../../utils/platform";
 import StarRating from "../components/StarRating";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -42,11 +42,11 @@ const Reports = ({ navigation }) => {
             const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDate(fromDate), to: formatDate(toDate), groupBy };
             const headers = { Authorization: `Bearer ${jwt}` };
-            const res = await axios.get(`${BACK_URL}/reports`, { headers, params });
+            const res = await axiosInstance.get(`${BACK_URL}/reports`, { headers, params });
             setData(res.data);
             try {
                 const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-                const fbRes = await axios.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams });
+                const fbRes = await axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams });
                 setFeedbackData(fbRes.data);
             } catch {
                 setFeedbackData(null); // usuario sin permiso o sin datos
@@ -63,7 +63,7 @@ const Reports = ({ navigation }) => {
         const jwt = await AsyncStorage.getItem("jwt");
         const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
         const url = `${BACK_URL}/feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}${wasFoundParam}`;
-        if (Platform.OS === "web") {
+        if (isWeb) {
             // En web, el JWT no se puede pasar por URL fácilmente; hacer fetch y disparar descarga
             try {
                 const res = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
@@ -126,7 +126,7 @@ const Reports = ({ navigation }) => {
                             <Text style={styles.dateText}>{formatDate(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFromPicker && (
-                            Platform.OS === 'web' ? (
+                            isWeb ? (
                                 <input
                                     type="date"
                                     defaultValue={formatDate(fromDate)}
@@ -142,7 +142,7 @@ const Reports = ({ navigation }) => {
                                 <DateTimePicker
                                     value={fromDate}
                                     mode="date"
-                                    display={Platform.OS === "ios" ? "inline" : "default"}
+                                    display={isIOS ? "inline" : "default"}
                                     onChange={(_, selected) => {
                                         setShowFromPicker(false);
                                         if (selected) setFromDate(selected);
@@ -160,7 +160,7 @@ const Reports = ({ navigation }) => {
                             <Text style={styles.dateText}>{formatDate(toDate)}</Text>
                         </TouchableOpacity>
                         {showToPicker && (
-                            Platform.OS === 'web' ? (
+                            isWeb ? (
                                 <input
                                     type="date"
                                     defaultValue={formatDate(toDate)}
@@ -176,7 +176,7 @@ const Reports = ({ navigation }) => {
                                 <DateTimePicker
                                     value={toDate}
                                     mode="date"
-                                    display={Platform.OS === "ios" ? "inline" : "default"}
+                                    display={isIOS ? "inline" : "default"}
                                     onChange={(_, selected) => {
                                         setShowToPicker(false);
                                         if (selected) setToDate(selected);

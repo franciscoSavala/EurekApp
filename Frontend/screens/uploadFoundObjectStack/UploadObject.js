@@ -9,8 +9,10 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Platform, KeyboardAvoidingView, Switch, Modal, Alert, TouchableOpacity
+    KeyboardAvoidingView, Modal, Alert, TouchableOpacity
 } from 'react-native';
+
+const MAX_IMAGE_SIZE_MB = 10;
 
 const CATEGORIES = [
     { value: 'ELECTRONICA', label: 'Electrónica' },
@@ -32,6 +34,7 @@ import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
+import { isWeb, isIOS } from "../../utils/platform";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -147,7 +150,7 @@ const handleImagePicked = (result) => {
 };
 
 const pickImage = async () => {
-    if (Platform.OS === 'web') {
+    if (isWeb) {
         fileInputRef.current?.click();
     } else {
         let result = await ImagePicker.launchImageLibraryAsync(imagePickerConfig);
@@ -174,7 +177,7 @@ const handleWebFileInput = (e) => {
 };
 
 const takePhoto = async () => {
-    if (Platform.OS === 'web') {
+    if (isWeb) {
         if (!navigator.mediaDevices) {
             window.alert('No se puede acceder a la cámara. Asegurate de usar HTTPS o localhost.');
             return;
@@ -242,8 +245,8 @@ const validateConstraints = () => {
         Alert.alert('Error', 'Por favor escribe una descripción de menos de 30 caracteres');
         return false;
     }
-    if(imageByte.length / 1024 / 1024 > 10){
-        Alert.alert('Error', 'Por favor sube una imagen de menos de 10MB');
+    if(imageByte.length / 1024 / 1024 > MAX_IMAGE_SIZE_MB){
+        Alert.alert('Error', `Por favor sube una imagen de menos de ${MAX_IMAGE_SIZE_MB}MB`);
         return false;
     }
     return true;
@@ -259,7 +262,7 @@ const submitData = async () => {
 
         let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
 
-        if (Platform.OS === 'web') {
+        if (isWeb) {
             // Enviar datos como JSON en la web
             const formData = new FormData();
             formData.append('object_finder_username', objectFinderUsername)
@@ -322,7 +325,8 @@ const submitData = async () => {
             }
         }
     } catch (error) {
-        console.error(error);
+        if (__DEV__) console.error(error);
+        Alert.alert('Error', 'No se pudo subir el objeto. Verificá tu conexión.');
         setResponseOk(false);
         setShowSubmitButton(true);
     } finally {
@@ -447,7 +451,7 @@ return (
                 }
             </View>
             <View style={styles.imageLoadContainer}>
-                {Platform.OS === 'web' ? (
+                {isWeb ? (
                     <>
                         <button onClick={pickImage} style={webImageButtonStyle}>
                             <span style={webImageButtonTextStyle}>Seleccionar foto</span>
@@ -551,7 +555,7 @@ return (
             context="upload_object"
         />
 
-        {Platform.OS === 'web' && (
+        {isWeb && (
             <input
                 ref={fileInputRef}
                 type="file"
@@ -560,7 +564,7 @@ return (
                 onChange={handleWebFileInput}
             />
         )}
-        {Platform.OS === 'web' && (
+        {isWeb && (
             <Modal
                 animationType="none"
                 transparent={true}

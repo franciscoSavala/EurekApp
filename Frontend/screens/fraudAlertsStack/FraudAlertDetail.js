@@ -8,7 +8,7 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -44,7 +44,7 @@ const FraudAlertDetail = ({ route }) => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axios.get(`${BACK_URL}/fraud-alerts/${alertId}`, {
+            const res = await axiosInstance.get(`${BACK_URL}/fraud-alerts/${alertId}`, {
                 headers: { Authorization: `Bearer ${jwt}` },
             });
             setAlert(res.data);
@@ -59,7 +59,7 @@ const FraudAlertDetail = ({ route }) => {
         setResolving(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            await axios.post(
+            await axiosInstance.post(
                 `${BACK_URL}/fraud-alerts/${alertId}/resolve`,
                 { resolution },
                 { headers: { Authorization: `Bearer ${jwt}` } }

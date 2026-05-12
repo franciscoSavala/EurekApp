@@ -12,7 +12,7 @@ import SearchByPhoto from './screens/findObjectStack/SearchByPhoto';
 import PhotoSearchResults from './screens/findObjectStack/PhotoSearchResults';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {LogBox, StyleSheet, Text, View} from "react-native";
+import {StyleSheet, Text, View} from "react-native";
 import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
@@ -41,6 +41,7 @@ import Reports from "./screens/reportsStack/Reports";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
+import { setupAxiosInterceptors } from './utils/axiosInstance';
 
 const AuthStack = createStackNavigator();
 
@@ -389,8 +390,15 @@ const EurekappTab = () => {
     );
 }
 
+const AxiosSetup = () => {
+    const { logout } = useUser();
+    useEffect(() => {
+        setupAxiosInterceptors(logout);
+    }, [logout]);
+    return null;
+};
+
 const App = () => {
-    LogBox.ignoreAllLogs();
     const [user, setUser] = useState('');
     const [userRole, setUserRole] = useState('');
     const [sessionLoading, setSessionLoading] = useState(true);
@@ -401,13 +409,20 @@ const App = () => {
 
     useEffect(() => {
         const restoreSession = async () => {
-            const token = await AsyncStorage.getItem('jwt');
-            if (token) {
-                setUser(token);
-                const raw = await AsyncStorage.getItem('user');
-                if (raw) setUserRole(JSON.parse(raw).role);
+            try {
+                const [token, raw] = await Promise.all([
+                    AsyncStorage.getItem('jwt'),
+                    AsyncStorage.getItem('user'),
+                ]);
+                if (token) {
+                    setUser(token);
+                    if (raw) setUserRole(JSON.parse(raw).role);
+                }
+            } catch (e) {
+                if (__DEV__) console.warn('restoreSession error:', e);
+            } finally {
+                setSessionLoading(false);
             }
-            setSessionLoading(false);
         };
         restoreSession();
     }, []);
@@ -417,6 +432,7 @@ const App = () => {
     return (
         <NavigationContainer>
             <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
+                <AxiosSetup />
                 {user ? <EurekappTab /> : <AuthStackScreen />}
             </LoginContext.Provider>
         </NavigationContainer>

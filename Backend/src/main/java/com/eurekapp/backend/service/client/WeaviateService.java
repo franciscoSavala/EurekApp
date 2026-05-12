@@ -98,7 +98,16 @@ public class WeaviateService {
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
                                                      WhereFilter filter,
-                                                    List<String> fieldNames) {
+                                                     List<String> fieldNames) {
+        return queryObjects(className, vector, filter, fieldNames, null, null);
+    }
+
+    public List<WeaviateObject> queryObjects(String className,
+                                                     List<Float> vector,
+                                                     WhereFilter filter,
+                                                     List<String> fieldNames,
+                                                     Integer limit,
+                                                     Integer offset) {
         //Crearemos el string de la consulta GraphQL
 
         // 1- Nombre de la clase
@@ -118,6 +127,11 @@ public class WeaviateService {
         if (vector != null && !vector.isEmpty()) {
             queryBuilder.append("nearVector: { vector: ").append(vector.toString())
                     .append(", certainty: 0.0} ");}
+
+        // 4a- Paginación
+        if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
+        if (offset != null && offset > 0) { queryBuilder.append("offset: ").append(offset).append(" "); }
+
         queryBuilder.append(")");
 
         // 4- Lista de atributos a incluir en la respuesta

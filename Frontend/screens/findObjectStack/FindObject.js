@@ -13,7 +13,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
@@ -35,6 +35,7 @@ const CATEGORIES = [
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
 const FindObject = ({ navigation, route }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
@@ -42,7 +43,7 @@ const FindObject = ({ navigation, route }) => {
     const [loading, setLoading] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [lostDate, setLostDate] = useState(() => {
-        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+        let curDate = new Date(Date.now() - THREE_HOURS_MS);
         curDate.setMinutes(0,0,0);
         return curDate;
     });
@@ -56,22 +57,18 @@ const FindObject = ({ navigation, route }) => {
     const [filterLostDateTo, setFilterLostDateTo] = useState(null);
     const [showDateToPicker, setShowDateToPicker] = useState(false);
 
-    // Efecto que se ejecuta cuando la pantalla recibe el parámetro 'reset'
     useFocusEffect(
         React.useCallback(() => {
-            if (route.params?.reset) {
-                // Reseteamos todos los estados al recibir el parámetro 'reset'
-                setSelectedInstitution(null);
-                setQueryObjects("");
-                setLoading(false);
-                setButtonWasPressed(false);
-                setLostDate(new Date());
-                setFilterCategory(null);
-                setFilterColor('');
-                setFilterLostDateTo(null);
-                setShowFilters(false);
-            }
-        }, [route.params?.reset]) // Dependencia en el parámetro 'reset'
+            setSelectedInstitution(null);
+            setQueryObjects("");
+            setLoading(false);
+            setButtonWasPressed(false);
+            setLostDate(new Date(Date.now() - THREE_HOURS_MS));
+            setFilterCategory(null);
+            setFilterColor('');
+            setFilterLostDateTo(null);
+            setShowFilters(false);
+        }, [])
     );
 
     const validateInputConstraints = () => {
@@ -129,7 +126,7 @@ const FindObject = ({ navigation, route }) => {
                 routeParams.latitude = objectMarker.latitude;
             }
             let endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
-            let res = await axios.get(BACK_URL + endpoint, //esto es inseguro pero ok...
+            let res = await axiosInstance.get(BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
             const foundObjects = jsonData.found_objects ?? [];
@@ -142,7 +139,8 @@ const FindObject = ({ navigation, route }) => {
             }
 
         } catch (error) {
-            console.error(error);
+            if (__DEV__) console.error(error);
+            Alert.alert('Error', 'No se pudo realizar la búsqueda. Verificá tu conexión.');
         } finally {
             setLoading(false);
         }

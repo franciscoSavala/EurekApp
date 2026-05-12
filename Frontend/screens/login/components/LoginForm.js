@@ -4,7 +4,7 @@ import {
     StyleSheet, TextInput, TouchableOpacity
 } from 'react-native';
 import { useForm, Controller } from 'react-hook-form';
-import { Input, Icon, Text, Item, Button } from 'react-native-elements';
+import { Input, Text, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 import SocialAuthButtons from './SocialAuthButtons';
 
@@ -27,6 +27,7 @@ export default function LoginForm(props) {
                 secureTextEntry={secure}
                 autoComplete={autoComplete}
                 keyboardType={keyboardType}
+                accessibilityLabel={text}
                 style={{
                     color: 'white',
                     borderBottomWidth: 1,

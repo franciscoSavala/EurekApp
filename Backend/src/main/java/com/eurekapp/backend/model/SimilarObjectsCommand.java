@@ -19,4 +19,6 @@ public class SimilarObjectsCommand {
     private Double latitude;
     private Double longitude;
     private String category;
+    private Integer page;
+    private Integer pageSize;
 }

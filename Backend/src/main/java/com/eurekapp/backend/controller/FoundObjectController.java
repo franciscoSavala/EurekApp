@@ -104,9 +104,13 @@ public class FoundObjectController {
     @Operation(summary = "Listar inventario de la organización",
             description = "Devuelve todos los objetos encontrados que la organización tiene actualmente en su poder (no devueltos aún).")
     public ResponseEntity<FoundObjectsListDto> getAllUnreturnedFoundObjectsByOrganization(
-            @PathVariable(name = "organizationId", required = false) Long organizationId) {
+            @PathVariable(name = "organizationId", required = false) Long organizationId,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .organizationId(organizationId)
+                .page(page)
+                .pageSize(pageSize)
                 .build();
         return ResponseEntity.ok(foundObjectService.getAllUnreturnedFoundObjectsByOrganization(command));
     }

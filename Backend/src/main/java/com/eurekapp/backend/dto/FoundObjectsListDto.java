@@ -15,4 +15,6 @@ import java.util.List;
 public class FoundObjectsListDto {
     @JsonProperty("found_objects")
     private List<FoundObjectDto> foundObjects;
+    @JsonProperty("has_more")
+    private Boolean hasMore;
 }

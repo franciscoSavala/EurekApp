@@ -16,7 +16,7 @@ import {
 import {Controller, useForm} from "react-hook-form";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
+import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 
@@ -90,7 +90,7 @@ const Organization = ({ route, navigation }) => {
                 }
             }
             let endpoint = "/organizations/employees";
-            let res = await axios.get( BACK_URL + endpoint, //esto es inseguro pero ok...
+            let res = await axiosInstance.get( BACK_URL + endpoint, //esto es inseguro pero ok...
                 config );
             let jsonData = res.data;
             setEmployees(jsonData.users);
@@ -114,7 +114,7 @@ const Organization = ({ route, navigation }) => {
             const endpoint = encargadoAction === 'assign'
                 ? '/organizations/assign_encargado'
                 : '/organizations/revoke_encargado';
-            await axios.post(`${BACK_URL}${endpoint}`, { userId: selectedEmployee },
+            await axiosInstance.post(`${BACK_URL}${endpoint}`, { userId: selectedEmployee },
                 { headers: { Authorization: authHeader } });
             const newRole = encargadoAction === 'assign' ? 'ENCARGADO' : 'ORGANIZATION_EMPLOYEE';
             setEmployees(prev => prev.map(e => e.id === selectedEmployee ? { ...e, role: newRole } : e));
@@ -189,7 +189,7 @@ const Organization = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(`${BACK_URL}/organizations/add_employee`,
+            let res = await axiosInstance.post(`${BACK_URL}/organizations/add_employee`,
                 {
                     employeeUsername: employeeUsername,
                 }, config );
@@ -236,7 +236,7 @@ const Organization = ({ route, navigation }) => {
                     'Authorization': authHeader
                 }
             }
-            let res = await axios.post(`${BACK_URL}/organizations/delete_employee`,
+            let res = await axiosInstance.post(`${BACK_URL}/organizations/delete_employee`,
                 {
                     userId: id
                 }, config );
