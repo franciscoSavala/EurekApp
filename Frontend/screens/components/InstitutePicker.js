@@ -11,24 +11,26 @@ const InstitutePicker = ({ setSelected }) => {
     const [institutionList, setInstitutionList] = useState([]);
     const [pickerFocused, setPickerFocused] = useState(false);
     const [selectedInstitute, setSelectedInstitution] = useState("");
+    const [jwt, setJwt] = useState(null);
+
     useEffect(() => {
+        AsyncStorage.getItem('jwt').then(token => { if (token) setJwt(token); });
+    }, []);
+
+    useEffect(() => {
+        if (!jwt) return;
         const fetchInstitutes = async () => {
             try {
-                let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-                let config = {
-                    headers: {
-                        'Authorization': authHeader
-                    }
-                }
-                let res = await axiosInstance.get(BACK_URL + "/organizations", config);
-                let jsonData = res.data;
-                setInstitutionList(jsonData.organizations);
+                let res = await axiosInstance.get(BACK_URL + "/organizations", {
+                    headers: { Authorization: 'Bearer ' + jwt }
+                });
+                setInstitutionList(res.data.organizations);
             } catch (error) {
-                console.error(error);
+                if (__DEV__) console.error(error);
             }
         }
         fetchInstitutes();
-    }, []);
+    }, [jwt]);
 
     const onValueChange = (itemValue, itemIndex) => {
         setSelectedInstitution(itemValue);
