@@ -9,7 +9,7 @@ export const LoginContext = createContext();
 
 export default function useUser(callback, deps) {
     // Creamos el contexto de nuestra aplicación
-    const { setUser } = useContext(LoginContext);
+    const { setUser, setUserRole } = useContext(LoginContext);
     //Utilizamos el estado para poder saber si está o no cargando
     const [state, setState] = useState({
         loading: false,
@@ -26,6 +26,7 @@ export default function useUser(callback, deps) {
             //await AsyncStorage.removeItem('username');
             setState({loading: false, error: false, logged: false});
             setUser(null);
+            setUserRole('');
         } catch (error) {
             console.error('Error al hacer logout:', error);
             setState({loading: false, error: true, logged: true});
@@ -53,6 +54,7 @@ export default function useUser(callback, deps) {
                             await AsyncStorage.removeItem('organization');
                         }
                         setUser(userContext.token);
+                        setUserRole(userContext.user.role);
                         setState({ loading: false, error: false, logged: true });
                     } catch (e) {
                         console.error('Error guardando sesión:', e);
@@ -62,7 +64,7 @@ export default function useUser(callback, deps) {
                     setState({ loading: false, error: true, errorMessage: err.message, logged: false });
                 });
         },
-        [setUser, setState]
+        [setUser, setUserRole, setState]
     );
 
     const register = useCallback(
@@ -86,6 +88,7 @@ export default function useUser(callback, deps) {
                             await AsyncStorage.removeItem('organization');
                         }
                         setUser(userContext.token);
+                        setUserRole(userContext.user.role);
                         setState({ loading: false, error: false, logged: true });
                     } catch (e) {
                         console.error('Error guardando sesión:', e);
@@ -95,7 +98,7 @@ export default function useUser(callback, deps) {
                     setState({ loading: false, error: true, errorMessage: err.message, logged: false });
                 });
         },
-        [setUser, setState]
+        [setUser, setUserRole, setState]
     );
 
     const loginWithSocial = useCallback(
@@ -118,13 +121,14 @@ export default function useUser(callback, deps) {
                     await AsyncStorage.removeItem('organization');
                 }
                 setUser(userContext.token);
+                setUserRole(userContext.user.role);
                 setState({ loading: false, error: false, logged: true });
             } catch (err) {
                 const message = err?.response?.data?.message || err.message || 'Error al iniciar sesión social';
                 setState({ loading: false, error: true, errorMessage: message, logged: false });
             }
         },
-        [setUser, setState]
+        [setUser, setUserRole, setState]
     );
 
     return {
