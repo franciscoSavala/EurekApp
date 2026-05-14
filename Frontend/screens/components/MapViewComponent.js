@@ -7,10 +7,14 @@ import { Alert } from 'react-native';
 import "leaflet/dist/leaflet.css";
 import L from 'leaflet';
 
+function MapMover({ center }) {
+    const map = useMap();
+    useEffect(() => { map.flyTo(center, 15); }, [center]);
+    return null;
+}
+
 const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDraggable, style}) => {
     const [mapRegion, setMapRegion] = useState({
-        //latitude: -31.4124,
-        //longitude: -64.1867,
         latitude: objectMarker.latitude,
         longitude: objectMarker.longitude,
         latitudeDelta: 0.0422,
@@ -18,6 +22,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
     })
     const [textLocation, setTextLocation] = useState("");
     const [typingTimeout, setTypingTimeout] = useState(null);
+    const [webCenter, setWebCenter] = useState([objectMarker.latitude, objectMarker.longitude]);
     const mapRef = useRef(null);
 
     useEffect(() => {
@@ -45,8 +50,10 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
             clearTimeout(typingTimeout);
         }
 
-        // Iniciar un nuevo temporizador de 5 segundos
-        const timeout = setTimeout(getLocationFromText, 5000);
+        const timeout = setTimeout(
+            Platform.OS === 'web' ? getLocationFromTextWeb : getLocationFromText,
+            1500
+        );
 
         // Guardar el temporizador en el estado
         setTypingTimeout(timeout);
@@ -70,6 +77,22 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
             if (mapRef.current) {
                 mapRef.current.animateToRegion(newRegion, 1000);
             }
+        }
+    }
+
+    const getLocationFromTextWeb = async () => {
+        if (!textLocation) return;
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(textLocation)}&format=json&limit=1`
+            );
+            const data = await res.json();
+            if (!data.length) return;
+            const { lat, lon } = data[0];
+            setObjectMarker({ latitude: parseFloat(lat), longitude: parseFloat(lon) });
+            setWebCenter([parseFloat(lat), parseFloat(lon)]);
+        } catch (e) {
+            console.error('Geocoding error:', e);
         }
     }
 
@@ -107,21 +130,33 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
             <View style={styles.mapRounded}>
                 {Platform.OS === 'web' ? (
                     // Mapa para web
-                    <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={15} >
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
-                        {objectMarker.longitude === Number.MAX_VALUE ? null :(
-                            <LeafletMarker
-                                position={[objectMarker.latitude, objectMarker.longitude]}
-                                icon={customMarkerIcon}
-                                draggable={markerIsDraggable}
-                                eventHandlers={{
-                                    dragend: (event) => {
-                                        const { lat, lng } = event.target.getLatLng();
-                                        setObjectMarker({ latitude: lat, longitude: lng }); },
-                                }}
-                            /> )
-                        }
-                    </MapContainer>
+                    <>
+                        <TextInput
+                            style={styles.textArea}
+                            placeholder="Escribe la ubicación"
+                            onChangeText={(e) => setTextLocation(e)}
+                            onSubmitEditing={async () => {
+                                clearTimeout(typingTimeout);
+                                await getLocationFromTextWeb();
+                            }}
+                        />
+                        <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={15} >
+                            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
+                            <MapMover center={webCenter} />
+                            {objectMarker.longitude === Number.MAX_VALUE ? null :(
+                                <LeafletMarker
+                                    position={[objectMarker.latitude, objectMarker.longitude]}
+                                    icon={customMarkerIcon}
+                                    draggable={markerIsDraggable}
+                                    eventHandlers={{
+                                        dragend: (event) => {
+                                            const { lat, lng } = event.target.getLatLng();
+                                            setObjectMarker({ latitude: lat, longitude: lng }); },
+                                    }}
+                                /> )
+                            }
+                        </MapContainer>
+                    </>
                 ) : (
                     <>
                         {/* Mapa para mobile */}
