@@ -72,17 +72,6 @@ const FindObject = ({ navigation, route }) => {
     );
 
     const validateInputConstraints = () => {
-        const hasDescription = queryObjects.trim().length > 0;
-        const hasCategory = filterCategory !== null;
-        const hasColor = filterColor.trim().length > 0;
-
-        if (!hasDescription && !hasCategory && !hasColor) {
-            Alert.alert(
-                "Criterio requerido",
-                "Debes ingresar una descripción, categoría o color para realizar la búsqueda."
-            );
-            return false;
-        }
         if (queryObjects.length > 255) {
             Alert.alert("", "La descripción del objeto es muy larga");
             return false;
