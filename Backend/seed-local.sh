@@ -33,8 +33,15 @@ header "Generando hash de contraseña"
 
 SEED_PASSWORD="Eurekapp1!"
 
-# Intentar con python3 + bcrypt (instalando si hace falta)
-BCRYPT_HASH=$(python3 - <<'PYEOF' 2>/dev/null
+# Detectar python funcional (en Windows, python3 puede ser un stub de la Store)
+PYTHON_CMD=""
+for _py in python python3; do
+  if command -v "$_py" &>/dev/null && "$_py" -c "import sys; sys.exit(0)" &>/dev/null; then
+    PYTHON_CMD="$_py"
+    break
+  fi
+done
+BCRYPT_HASH=$(${PYTHON_CMD} - <<'PYEOF' 2>/dev/null
 import sys
 try:
     import bcrypt
@@ -67,7 +74,7 @@ header "Generando vectores para Weaviate"
 # Vectores unitarios normalizados de 1536 dimensiones (compatibles con cosine distance)
 generate_vector() {
   local SEED="$1"
-  python3 - <<PYEOF 2>/dev/null
+  ${PYTHON_CMD} - <<PYEOF 2>/dev/null
 import random, math
 random.seed($SEED)
 v = [random.gauss(0, 1) for _ in range(1536)]
@@ -78,7 +85,7 @@ PYEOF
 }
 
 info "Generando 8 vectores (puede tardar unos segundos)..."
-VEC_1=$(generate_vector 101); [[ -n "$VEC_1" ]] || error "No se pudo generar vectores. Verificá que python3 esté instalado."
+VEC_1=$(generate_vector 101); [[ -n "$VEC_1" ]] || error "No se pudo generar vectores. Verificá que python3 o python esté instalado."
 VEC_2=$(generate_vector 102)
 VEC_3=$(generate_vector 103)
 VEC_4=$(generate_vector 104)
@@ -217,35 +224,35 @@ insert_found_object "$FO_UUID_1" \
   "Billetera negra de cuero" \
   "Billetera negra de cuero con tarjetas y algo de efectivo" \
   "Una billetera de cuero negro con compartimentos para tarjetas, billetes y una moneda" \
-  "1" "-31.4377" "-64.1829" "2025-03-01" "false" "$VEC_1"
+  "1" "-31.4377" "-64.1829" "2026-04-28" "false" "$VEC_1"
 success "  FoundObject 1: Billetera negra"
 
 insert_found_object "$FO_UUID_2" \
   "Llave con llavero azul" \
   "Llave suelta con llavero de goma azul" \
   "Una llave de metal plateada con un llavero de goma de color azul sin inscripciones" \
-  "1" "-31.4377" "-64.1829" "2025-03-05" "false" "$VEC_2"
+  "1" "-31.4377" "-64.1829" "2026-05-02" "false" "$VEC_2"
 success "  FoundObject 2: Llave con llavero azul"
 
 insert_found_object "$FO_UUID_3" \
   "Auriculares inalámbricos blancos" \
   "Auriculares over-ear blancos, sin cables, marca no visible" \
   "Auriculares inalámbricos de color blanco con almohadillas negras y sin etiqueta visible" \
-  "2" "-31.4201" "-64.1888" "2025-03-08" "true" "$VEC_3"
+  "2" "-31.4201" "-64.1888" "2026-05-05" "true" "$VEC_3"
 success "  FoundObject 3: Auriculares (retornado)"
 
 insert_found_object "$FO_UUID_4" \
   "Mochila azul con libros" \
   "Mochila azul mediana con varios libros y un estuche adentro" \
   "Mochila de tela de color azul marino con logo desgastado, contiene libros de texto y un estuche escolar" \
-  "1" "-31.4375" "-64.1831" "2025-03-10" "false" "$VEC_4"
+  "1" "-31.4375" "-64.1831" "2026-05-07" "false" "$VEC_4"
 success "  FoundObject 4: Mochila azul"
 
 insert_found_object "$FO_UUID_5" \
   "Celular Samsung negro" \
   "Celular Samsung con pantalla rota y funda gris" \
   "Smartphone Samsung de color negro con la pantalla fisurada y una funda protectora gris oscuro" \
-  "3" "-31.3233" "-64.2081" "2025-03-12" "false" "$VEC_5"
+  "3" "-31.3233" "-64.2081" "2026-05-09" "false" "$VEC_5"
 success "  FoundObject 5: Celular Samsung"
 
 # ─── 10. Insertar LostObjects en Weaviate ────────────────────────────────────
@@ -280,17 +287,17 @@ insert_lost_object() {
 
 insert_lost_object "$LO_UUID_1" \
   "Perdí mi billetera negra de cuero cerca de la facultad, tenía DNI y tarjetas" \
-  "julia@mail.com" "2025-03-02" "1" "-31.4377" "-64.1829" "$VEC_6"
+  "julia@mail.com" "2026-04-29" "1" "-31.4377" "-64.1829" "$VEC_6"
 success "  LostObject 1: Billetera (julia)"
 
 insert_lost_object "$LO_UUID_2" \
   "Se me cayeron unos auriculares inalámbricos blancos en la terminal" \
-  "pedro@mail.com" "2025-03-09" "2" "-31.4201" "-64.1888" "$VEC_7"
+  "pedro@mail.com" "2026-05-06" "2" "-31.4201" "-64.1888" "$VEC_7"
 success "  LostObject 2: Auriculares (pedro)"
 
 insert_lost_object "$LO_UUID_3" \
   "Perdí una mochila azul con libros de ingeniería en UTN" \
-  "valeria@mail.com" "2025-03-11" "1" "-31.4375" "-64.1831" "$VEC_8"
+  "valeria@mail.com" "2026-05-08" "1" "-31.4375" "-64.1831" "$VEC_8"
 success "  LostObject 3: Mochila (valeria)"
 
 # ─── 11. Insertar ReturnFoundObjects ─────────────────────────────────────────
@@ -301,8 +308,8 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (id, user_id, DNI, phone_number, found_object_uuid, person_photo_uuid, datetime_of_return)
 VALUES
-(1, 7, '35123456', '3516001122', '$FO_UUID_3', 'photo-uuid-fake-001', '2025-03-09 14:35:00'),
-(2, NULL, '28987654', '3514009988', '$FO_UUID_3', 'photo-uuid-fake-002', '2025-03-09 14:36:00');
+(1, 7, '35123456', '3516001122', '$FO_UUID_3', 'photo-uuid-fake-001', '2026-05-06 14:35:00'),
+(2, NULL, '28987654', '3514009988', '$FO_UUID_3', 'photo-uuid-fake-002', '2026-05-06 14:36:00');
 SQL
 
 # Actualizar XP y returned_objects del usuario 7 (Pedro) que retornó el objeto
