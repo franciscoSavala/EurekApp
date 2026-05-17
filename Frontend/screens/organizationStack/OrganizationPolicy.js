@@ -1,6 +1,8 @@
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
+    Modal,
+    Pressable,
     ScrollView,
     StyleSheet,
     Switch,
@@ -17,11 +19,41 @@ import { useFocusEffect } from '@react-navigation/native';
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const ORG_TYPE_OPTIONS = [
-    { label: 'Club', value: 'CLUB' },
-    { label: 'Aeropuerto', value: 'AIRPORT' },
-    { label: 'Shopping', value: 'SHOPPING' },
+    { label: 'Universidad', value: 'UNIVERSITY' },
+    { label: 'Escuela / colegio', value: 'SCHOOL' },
+    { label: 'Hospital / clínica', value: 'HOSPITAL' },
+    { label: 'Hotel', value: 'HOTEL' },
+    { label: 'Restaurante / bar', value: 'RESTAURANT' },
+    { label: 'Terminal de ómnibus', value: 'BUS_TERMINAL' },
+    { label: 'Estación de tren', value: 'TRAIN_STATION' },
+    { label: 'Complejo deportivo', value: 'SPORTS_COMPLEX' },
+    { label: 'Gimnasio', value: 'GYM' },
+    { label: 'Empresa / oficina corporativa', value: 'CORPORATE_OFFICE' },
+    { label: 'Coworking', value: 'COWORKING' },
+    { label: 'Cine', value: 'CINEMA' },
+    { label: 'Teatro', value: 'THEATER' },
+    { label: 'Estadio', value: 'STADIUM' },
+    { label: 'Evento / festival', value: 'EVENT' },
+    { label: 'Municipalidad', value: 'CITY_HALL' },
+    { label: 'Biblioteca', value: 'LIBRARY' },
+    { label: 'Museo', value: 'MUSEUM' },
+    { label: 'Casino', value: 'CASINO' },
+    { label: 'Parque recreativo', value: 'RECREATIONAL_PARK' },
+    { label: 'Camping', value: 'CAMPING' },
+    { label: 'Crucero / puerto', value: 'CRUISE_PORT' },
+    { label: 'Iglesia / templo', value: 'CHURCH' },
+    { label: 'Supermercado', value: 'SUPERMARKET' },
+    { label: 'Centro comercial', value: 'SHOPPING_MALL' },
+    { label: 'Centro de convenciones', value: 'CONVENTION_CENTER' },
+    { label: 'Parque de diversiones', value: 'AMUSEMENT_PARK' },
+    { label: 'Balneario / playa privada', value: 'PRIVATE_BEACH' },
     { label: 'Otro', value: 'OTHER' },
 ];
+
+const orgTypeLabel = value => {
+    const opt = ORG_TYPE_OPTIONS.find(o => o.value === value);
+    return opt ? opt.label : 'Seleccionar...';
+};
 
 const OrganizationPolicy = () => {
     const [loading, setLoading] = useState(false);
@@ -35,6 +67,7 @@ const OrganizationPolicy = () => {
     const [requiresAdditionalEvidence, setRequiresAdditionalEvidence] = useState(false);
     const [additionalEvidenceDetails, setAdditionalEvidenceDetails] = useState('');
     const [organizationType, setOrganizationType] = useState('OTHER');
+    const [orgTypePickerOpen, setOrgTypePickerOpen] = useState(false);
 
     const fetchPolicy = async () => {
         setLoading(true);
@@ -97,21 +130,6 @@ const OrganizationPolicy = () => {
         <Text style={styles.fieldLabel}>{text}</Text>
     );
 
-    const SelectorRow = ({ options, value, onChange }) => (
-        <View style={styles.selectorRow}>
-            {options.map(opt => (
-                <TouchableOpacity
-                    key={opt.value}
-                    style={[styles.selectorBtn, value === opt.value && styles.selectorBtnActive]}
-                    onPress={() => onChange(opt.value)}>
-                    <Text style={[styles.selectorBtnText, value === opt.value && styles.selectorBtnTextActive]}>
-                        {opt.label}
-                    </Text>
-                </TouchableOpacity>
-            ))}
-        </View>
-    );
-
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -135,7 +153,36 @@ const OrganizationPolicy = () => {
             />
 
             <SectionTitle text="Tipo de organización" />
-            <SelectorRow options={ORG_TYPE_OPTIONS} value={organizationType} onChange={setOrganizationType} />
+            <TouchableOpacity style={styles.dropdown} onPress={() => setOrgTypePickerOpen(true)}>
+                <Text style={styles.dropdownText}>{orgTypeLabel(organizationType)}</Text>
+                <Text style={styles.dropdownChevron}>▾</Text>
+            </TouchableOpacity>
+            <Modal
+                visible={orgTypePickerOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setOrgTypePickerOpen(false)}>
+                <Pressable style={styles.modalBackdrop} onPress={() => setOrgTypePickerOpen(false)}>
+                    <Pressable style={styles.modalCard} onPress={() => {}}>
+                        <Text style={styles.modalTitle}>Tipo de organización</Text>
+                        <ScrollView style={styles.modalList}>
+                            {ORG_TYPE_OPTIONS.map(opt => (
+                                <TouchableOpacity
+                                    key={opt.value}
+                                    style={[styles.modalOption, organizationType === opt.value && styles.modalOptionActive]}
+                                    onPress={() => {
+                                        setOrganizationType(opt.value);
+                                        setOrgTypePickerOpen(false);
+                                    }}>
+                                    <Text style={[styles.modalOptionText, organizationType === opt.value && styles.modalOptionTextActive]}>
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </Pressable>
+                </Pressable>
+            </Modal>
 
             <SectionTitle text="Validación de identidad" />
             <View style={styles.switchRow}>
@@ -281,30 +328,65 @@ const styles = StyleSheet.create({
         color: '#111818',
         marginRight: 12,
     },
-    selectorRow: {
+    dropdown: {
+        backgroundColor: '#f0f4f4',
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 14,
         flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 8,
+        alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: 4,
     },
-    selectorBtn: {
-        borderWidth: 1,
-        borderColor: '#d1d5db',
-        borderRadius: 20,
-        paddingVertical: 5,
-        paddingHorizontal: 12,
-    },
-    selectorBtnActive: {
-        backgroundColor: '#111818',
-        borderColor: '#111818',
-    },
-    selectorBtnText: {
+    dropdownText: {
         fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 13,
+        fontSize: 14,
         color: '#111818',
     },
-    selectorBtnTextActive: {
+    dropdownChevron: {
+        fontSize: 14,
+        color: '#638888',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalCard: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        width: '100%',
+        maxWidth: 480,
+        maxHeight: '80%',
+    },
+    modalTitle: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 16,
+        color: '#111818',
+        marginBottom: 12,
+    },
+    modalList: {
+        flexGrow: 0,
+    },
+    modalOption: {
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+    },
+    modalOptionActive: {
+        backgroundColor: '#111818',
+    },
+    modalOptionText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: '#111818',
+    },
+    modalOptionTextActive: {
         color: '#fff',
+        fontFamily: 'PlusJakartaSans-Bold',
     },
     saveBtn: {
         backgroundColor: '#111818',
