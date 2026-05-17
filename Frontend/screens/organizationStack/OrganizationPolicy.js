@@ -16,12 +16,6 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const DELIVERY_OPTIONS = [
-    { label: 'Sin requisito', value: 'NONE' },
-    { label: 'Con firma', value: 'WITH_SIGNATURE' },
-    { label: 'Con comprobante', value: 'WITH_RECEIPT' },
-];
-
 const ORG_TYPE_OPTIONS = [
     { label: 'Club', value: 'CLUB' },
     { label: 'Aeropuerto', value: 'AIRPORT' },
@@ -38,13 +32,8 @@ const OrganizationPolicy = () => {
 
     const [maxStorageDays, setMaxStorageDays] = useState('');
     const [requiresIdentityValidation, setRequiresIdentityValidation] = useState(false);
-    const [identityValidationDetails, setIdentityValidationDetails] = useState('');
-    const [deliveryProcess, setDeliveryProcess] = useState('NONE');
     const [requiresAdditionalEvidence, setRequiresAdditionalEvidence] = useState(false);
     const [additionalEvidenceDetails, setAdditionalEvidenceDetails] = useState('');
-    const [strictControlCategories, setStrictControlCategories] = useState('');
-    const [notifyOnMatch, setNotifyOnMatch] = useState(true);
-    const [rewardPolicy, setRewardPolicy] = useState('');
     const [organizationType, setOrganizationType] = useState('OTHER');
 
     const fetchPolicy = async () => {
@@ -57,13 +46,8 @@ const OrganizationPolicy = () => {
             const p = res.data;
             setMaxStorageDays(p.maxStorageDays != null ? String(p.maxStorageDays) : '');
             setRequiresIdentityValidation(p.requiresIdentityValidation === true);
-            setIdentityValidationDetails(p.identityValidationDetails || '');
-            setDeliveryProcess(p.deliveryProcess || 'NONE');
             setRequiresAdditionalEvidence(p.requiresAdditionalEvidence === true);
             setAdditionalEvidenceDetails(p.additionalEvidenceDetails || '');
-            setStrictControlCategories(p.strictControlCategories || '');
-            setNotifyOnMatch(p.notifyOnMatch !== false);
-            setRewardPolicy(p.rewardPolicy || '');
             setOrganizationType(p.organizationType || 'OTHER');
             setHistory(p.history || []);
         } catch (error) {
@@ -89,13 +73,8 @@ const OrganizationPolicy = () => {
                 {
                     maxStorageDays: maxStorageDays ? parseInt(maxStorageDays, 10) : null,
                     requiresIdentityValidation,
-                    identityValidationDetails: identityValidationDetails || null,
-                    deliveryProcess: deliveryProcess || null,
                     requiresAdditionalEvidence,
                     additionalEvidenceDetails: additionalEvidenceDetails || null,
-                    strictControlCategories: strictControlCategories || null,
-                    notifyOnMatch,
-                    rewardPolicy: rewardPolicy || null,
                     organizationType: organizationType || null,
                 },
                 { headers: { Authorization: `Bearer ${jwt}` } }
@@ -142,7 +121,8 @@ const OrganizationPolicy = () => {
     }
 
     return (
-        <ScrollView contentContainerStyle={styles.container}>
+        <View style={styles.screen}>
+            <ScrollView contentContainerStyle={styles.container}>
             <SectionTitle text="Almacenamiento" />
             <FieldLabel text="Tiempo máximo de almacenamiento (días)" />
             <TextInput
@@ -168,21 +148,8 @@ const OrganizationPolicy = () => {
                 />
             </View>
             {requiresIdentityValidation && (
-                <>
-                    <FieldLabel text="Detalle de validación de identidad" />
-                    <TextInput
-                        style={[styles.input, styles.inputMultiline]}
-                        placeholder="Ej: DNI + selfie"
-                        placeholderTextColor="#638888"
-                        multiline
-                        value={identityValidationDetails}
-                        onChangeText={setIdentityValidationDetails}
-                    />
-                </>
+                <Text style={styles.helperText}>Se solicitará DNI + foto de la persona</Text>
             )}
-
-            <SectionTitle text="Proceso de entrega" />
-            <SelectorRow options={DELIVERY_OPTIONS} value={deliveryProcess} onChange={setDeliveryProcess} />
 
             <SectionTitle text="Evidencia adicional" />
             <View style={styles.switchRow}>
@@ -208,50 +175,6 @@ const OrganizationPolicy = () => {
                 </>
             )}
 
-            <SectionTitle text="Objetos con control estricto" />
-            <FieldLabel text="Categorías con controles más estrictos (separadas por coma)" />
-            <TextInput
-                style={styles.input}
-                placeholder="Ej: DOCUMENTO, ELECTRONICO"
-                placeholderTextColor="#638888"
-                value={strictControlCategories}
-                onChangeText={setStrictControlCategories}
-            />
-
-            <SectionTitle text="Notificaciones" />
-            <View style={styles.switchRow}>
-                <Text style={styles.switchLabel}>Notificar al usuario cuando haya una coincidencia</Text>
-                <Switch
-                    value={notifyOnMatch}
-                    onValueChange={setNotifyOnMatch}
-                    trackColor={{ false: '#d1d5db', true: '#111818' }}
-                    thumbColor="#fff"
-                />
-            </View>
-
-            <SectionTitle text="Política de recompensas" />
-            <TextInput
-                style={[styles.input, styles.inputMultiline]}
-                placeholder="Describe la política de incentivos o recompensas por devolución"
-                placeholderTextColor="#638888"
-                multiline
-                value={rewardPolicy}
-                onChangeText={setRewardPolicy}
-            />
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-                {saving
-                    ? <ActivityIndicator color="#fff" />
-                    : <Text style={styles.saveBtnText}>Guardar políticas</Text>}
-            </TouchableOpacity>
-
-            {saveOk === true && (
-                <Text style={styles.successMsg}>Políticas guardadas correctamente.</Text>
-            )}
-            {saveOk === false && (
-                <Text style={styles.errorMsg}>Error al guardar. Intenta de nuevo.</Text>
-            )}
-
             {history.length > 0 && (
                 <View style={styles.historySection}>
                     <TouchableOpacity
@@ -272,15 +195,39 @@ const OrganizationPolicy = () => {
                     ))}
                 </View>
             )}
-        </ScrollView>
+            </ScrollView>
+            <View style={styles.footer}>
+                {saveOk === true && (
+                    <Text style={styles.successMsg}>Políticas guardadas correctamente.</Text>
+                )}
+                {saveOk === false && (
+                    <Text style={styles.errorMsg}>Error al guardar. Intenta de nuevo.</Text>
+                )}
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+                    {saving
+                        ? <ActivityIndicator color="#fff" />
+                        : <Text style={styles.saveBtnText}>Guardar políticas</Text>}
+                </TouchableOpacity>
+            </View>
+        </View>
     );
 };
 
 const styles = StyleSheet.create({
+    screen: {
+        flex: 1,
+        backgroundColor: '#fff',
+    },
     container: {
         padding: 16,
         backgroundColor: '#fff',
-        paddingBottom: 40,
+        paddingBottom: 24,
+    },
+    footer: {
+        padding: 16,
+        backgroundColor: '#fff',
+        borderTopWidth: 1,
+        borderTopColor: '#f0f4f4',
     },
     loadingContainer: {
         flex: 1,
@@ -296,6 +243,12 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     fieldLabel: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 13,
+        color: '#638888',
+        marginBottom: 4,
+    },
+    helperText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
         color: '#638888',
@@ -358,7 +311,6 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         paddingVertical: 14,
         alignItems: 'center',
-        marginTop: 24,
     },
     saveBtnText: {
         color: '#fff',
@@ -370,14 +322,14 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#008000',
         textAlign: 'center',
-        marginTop: 8,
+        marginBottom: 8,
     },
     errorMsg: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
         color: '#ED4337',
         textAlign: 'center',
-        marginTop: 8,
+        marginBottom: 8,
     },
     historySection: {
         marginTop: 24,

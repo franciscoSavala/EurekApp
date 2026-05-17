@@ -26,24 +26,10 @@ public class OrganizationPolicy {
 
     private Boolean requiresIdentityValidation;
 
-    @Column(length = 500)
-    private String identityValidationDetails;
-
-    @Enumerated(EnumType.STRING)
-    private DeliveryProcess deliveryProcess;
-
     private Boolean requiresAdditionalEvidence;
 
     @Column(length = 500)
     private String additionalEvidenceDetails;
-
-    @Column(length = 500)
-    private String strictControlCategories;
-
-    private Boolean notifyOnMatch;
-
-    @Column(length = 500)
-    private String rewardPolicy;
 
     @Enumerated(EnumType.STRING)
     private OrganizationType organizationType;

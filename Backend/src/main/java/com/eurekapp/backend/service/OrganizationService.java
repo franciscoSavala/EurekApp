@@ -74,7 +74,6 @@ public class OrganizationService {
 
         if (policyOpt.isEmpty()) {
             return OrganizationPolicyDto.builder()
-                    .notifyOnMatch(true)
                     .history(history)
                     .build();
         }
@@ -83,13 +82,8 @@ public class OrganizationService {
         return OrganizationPolicyDto.builder()
                 .maxStorageDays(p.getMaxStorageDays())
                 .requiresIdentityValidation(p.getRequiresIdentityValidation())
-                .identityValidationDetails(p.getIdentityValidationDetails())
-                .deliveryProcess(p.getDeliveryProcess() != null ? p.getDeliveryProcess().name() : null)
                 .requiresAdditionalEvidence(p.getRequiresAdditionalEvidence())
                 .additionalEvidenceDetails(p.getAdditionalEvidenceDetails())
-                .strictControlCategories(p.getStrictControlCategories())
-                .notifyOnMatch(p.getNotifyOnMatch())
-                .rewardPolicy(p.getRewardPolicy())
                 .organizationType(p.getOrganizationType() != null ? p.getOrganizationType().name() : null)
                 .history(history)
                 .build();
@@ -128,14 +122,8 @@ public class OrganizationService {
 
         policy.setMaxStorageDays(dto.getMaxStorageDays());
         policy.setRequiresIdentityValidation(dto.getRequiresIdentityValidation());
-        policy.setIdentityValidationDetails(dto.getIdentityValidationDetails());
-        policy.setDeliveryProcess(dto.getDeliveryProcess() != null
-                ? DeliveryProcess.valueOf(dto.getDeliveryProcess()) : null);
         policy.setRequiresAdditionalEvidence(dto.getRequiresAdditionalEvidence());
         policy.setAdditionalEvidenceDetails(dto.getAdditionalEvidenceDetails());
-        policy.setStrictControlCategories(dto.getStrictControlCategories());
-        policy.setNotifyOnMatch(dto.getNotifyOnMatch());
-        policy.setRewardPolicy(dto.getRewardPolicy());
         policy.setOrganizationType(dto.getOrganizationType() != null
                 ? OrganizationType.valueOf(dto.getOrganizationType()) : null);
 

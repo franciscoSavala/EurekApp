@@ -14,13 +14,8 @@ import java.util.List;
 public class OrganizationPolicyDto {
     private Integer maxStorageDays;
     private Boolean requiresIdentityValidation;
-    private String identityValidationDetails;
-    private String deliveryProcess;
     private Boolean requiresAdditionalEvidence;
     private String additionalEvidenceDetails;
-    private String strictControlCategories;
-    private Boolean notifyOnMatch;
-    private String rewardPolicy;
     private String organizationType;
     private List<OrganizationPolicyHistoryDto> history;
 }

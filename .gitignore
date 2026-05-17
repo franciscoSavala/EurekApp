@@ -9,5 +9,8 @@
 .claudeskills/
 .mcp.json
 
+# Secrets
+Backend/.env.local
+
 # Dependencies
 node_modules/

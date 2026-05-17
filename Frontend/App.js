@@ -384,6 +384,12 @@ const EurekappTab = () => {
                         headerTitleAlign: 'center',
                         drawerIcon: organizationIcon
                     }} component={OrganizationStackScreen}
+                    listeners={({ navigation }) => ({
+                        drawerItemPress: e => {
+                            e.preventDefault();
+                            navigation.navigate('OrganizationStackScreen', { screen: 'Organization' });
+                        },
+                    })}
                     />
                 </>: null}
         </Drawer.Navigator>

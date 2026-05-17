@@ -12,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
-import java.util.Optional;
 
 @Service
 public class LostObjectService {
@@ -24,7 +23,6 @@ public class LostObjectService {
     private final SimpleEmailContentBuilder simpleEmailContentBuilder;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
-    private final IOrganizationPolicyRepository policyRepository;
     private final ObjectStorage objectStorage;
     private final LostObjectRepository lostObjectRepository;
 
@@ -33,14 +31,12 @@ public class LostObjectService {
             SimpleEmailContentBuilder simpleEmailContentBuilder,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
-            IOrganizationPolicyRepository policyRepository,
             ObjectStorage objectStorage,
             LostObjectRepository lostObjectRepository) {
         this.embeddingService = embeddingService;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
-        this.policyRepository = policyRepository;
         this.objectStorage = objectStorage;
         this.lostObjectRepository = lostObjectRepository;
     }
@@ -95,13 +91,6 @@ public class LostObjectService {
 
         // Obtenemos la imagen del objeto encontrado
         String imageUrl = objectStorage.getObjectUrl(foundId);
-
-        // Verificar política de notificaciones de la organización
-        Optional<OrganizationPolicy> policy = policyRepository.findByOrganization_Id(organizationId);
-        if (policy.isPresent() && Boolean.FALSE.equals(policy.get().getNotifyOnMatch())) {
-            log.info("LostObjectService: notifyOnMatch desactivado para org {}. Notificación omitida.", organizationId);
-            return;
-        }
 
         // Elaboramos la notificación que enviaremos
         String message = simpleEmailContentBuilder.buildEmailContent(
