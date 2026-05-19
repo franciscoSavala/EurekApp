@@ -146,7 +146,14 @@ const ReturnObjectForm = ({ route, navigation}) => {
                                 </Text>
                             </View>
                         ) : (
-                            <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
+                            <View style={{alignItems: 'center', gap: 8, marginVertical: 10}}>
+                                <Icon name={'circle-xmark'} size={50} color={'#ED4337'}/>
+                                {errors.ObjectOwnerUsername?.message ? (
+                                    <Text style={{color: '#ED4337', fontSize: 16, fontFamily: 'PlusJakartaSans-Regular', textAlign: 'center'}}>
+                                        {errors.ObjectOwnerUsername.message}
+                                    </Text>
+                                ) : null}
+                            </View>
                         )
                     )
                 ) : null

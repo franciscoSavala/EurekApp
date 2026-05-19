@@ -32,12 +32,14 @@ public class ReturnFoundObjectService {
     private final ObjectStorage s3Service;
     private final ExecutorService executorService;
     private final NotificationService notificationService;
+    private final IReclamoRepository reclamoRepository;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
-                                    ExecutorService executorService, NotificationService notificationService){
+                                    ExecutorService executorService, NotificationService notificationService,
+                                    IReclamoRepository reclamoRepository){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -45,6 +47,7 @@ public class ReturnFoundObjectService {
         this.s3Service = s3Service;
         this.executorService = executorService;
         this.notificationService = notificationService;
+        this.reclamoRepository = reclamoRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -78,6 +81,18 @@ public class ReturnFoundObjectService {
             }else{
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
                 throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
+            }
+
+            // Verificamos que el usuario tenga un reclamo previo sobre este objeto
+            boolean hasPriorClaim = reclamoRepository
+                    .findByOrganizationIdAndFoundObjectUUIDAndUser_Id(
+                            command.getOrganizationId().toString(),
+                            command.getFoundObjectUUID(),
+                            user.getId()
+                    ).isPresent();
+            if (!hasPriorClaim) {
+                throw new BadRequestException("no_prior_claim",
+                        "El usuario no posee un reclamo previo asociado a este objeto");
             }
         }
 
