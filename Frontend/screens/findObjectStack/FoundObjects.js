@@ -95,6 +95,11 @@ const FoundObjects = ({ route, navigation }) => {
         );
     };
 
+    const handleClaimConfirmed = () => {
+        setOrganizationInformationModal(false);
+        navigation.navigate('FindObject');
+    };
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.coincidencesContainer}>
@@ -211,7 +216,7 @@ const FoundObjects = ({ route, navigation }) => {
                             Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto, y te tomarán una foto.
                         </Text>
                         <EurekappButton text='Cerrar'
-                                        onPress={() => setOrganizationInformationModal(false)}/>
+                                        onPress={handleClaimConfirmed}/>
                     </View>
                 </View>
             </Modal>
