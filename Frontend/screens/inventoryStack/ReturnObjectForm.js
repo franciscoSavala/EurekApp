@@ -1,16 +1,20 @@
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
-    ImageBackground, Platform,
-    Pressable, ScrollView,
+    ImageBackground,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
     StyleSheet,
     TextInput,
-    View
+    View,
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import {Input, Text} from "react-native-elements";
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
@@ -20,6 +24,7 @@ import {Buffer} from "buffer";
 import * as ImagePicker from "expo-image-picker";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
+const isWeb = Platform.OS === 'web';
 
 const ReturnObjectForm = ({ route, navigation}) => {
     const { control,
@@ -37,6 +42,15 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
     const [policy, setPolicy] = useState(null);
+    const [cameraModalVisible, setCameraModalVisible] = useState(false);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+
+    useEffect(() => {
+        if (cameraModalVisible && videoRef.current && streamRef.current) {
+            videoRef.current.srcObject = streamRef.current;
+        }
+    }, [cameraModalVisible]);
 
     useEffect(() => {
         const fetchPolicy = async () => {
@@ -202,28 +216,58 @@ const ReturnObjectForm = ({ route, navigation}) => {
         quality: 1,
     };
 
-    const takePhoto = async () => {
-        if (Platform.OS === 'web') {
-            // Para web, usamos input file con capture
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/*';
-            input.capture = 'environment'; // Intenta abrir la cámara trasera si está disponible
-            input.onchange = (event) => {
-                const file = event.target.files[0];
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64String = reader.result.split(',')[1];
-                    setImage({ uri: URL.createObjectURL(file), base64: base64String });
-                    setImageByte(Buffer.from(base64String, "base64"));
-                    setImageUploaded(true);
-                };
-                reader.readAsDataURL(file);
+    const captureFrame = () => {
+        const video = videoRef.current;
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64String = reader.result.split(',')[1];
+                setImage({ uri: URL.createObjectURL(blob), base64: base64String });
+                setImageByte(Buffer.from(base64String, 'base64'));
+                setImageUploaded(true);
+                setImageRequiredMessage('');
             };
-            input.click();
-            setImageRequiredMessage("");
+            reader.readAsDataURL(blob);
+            stopCamera();
+        }, 'image/jpeg');
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setCameraModalVisible(false);
+    };
+
+    const takePhoto = async () => {
+        if (isWeb) {
+            if (!navigator.mediaDevices) {
+                window.alert('No se puede acceder a la cámara. Asegurate de usar HTTPS o localhost.');
+                return;
+            }
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const hasCamera = devices.some(d => d.kind === 'videoinput');
+                if (!hasCamera) {
+                    window.alert('No se detectó ninguna cámara en este dispositivo.');
+                    return;
+                }
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                streamRef.current = stream;
+                setCameraModalVisible(true);
+            } catch (err) {
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    window.alert('El acceso a la cámara fue denegado. Habilitalo desde la configuración del navegador.');
+                } else {
+                    window.alert('No se pudo acceder a la cámara: ' + err.message);
+                }
+            }
         } else {
-            // En móviles, seguimos usando ImagePicker
             let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
             handleImagePicked(result);
         }
@@ -408,7 +452,31 @@ const ReturnObjectForm = ({ route, navigation}) => {
 
             </ScrollView>
 
-        </View>
+        {isWeb && (
+            <Modal
+                animationType="none"
+                transparent={true}
+                visible={cameraModalVisible}
+                onRequestClose={stopCamera}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <video
+                            ref={videoRef}
+                            autoPlay
+                            playsInline
+                            style={{ width: '100%', maxWidth: 400, borderRadius: 12 }}
+                        />
+                        <EurekappButton text="Capturar foto" onPress={captureFrame} />
+                        <EurekappButton
+                            text="Cancelar"
+                            backgroundColor={'#f0f4f4'}
+                            textColor={'#111818'}
+                            onPress={stopCamera} />
+                    </View>
+                </View>
+            </Modal>
+        )}
+    </View>
     );
 }
 
@@ -525,6 +593,24 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#b45309',
         marginBottom: 4,
+    },
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 35,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
     },
     explanatoryTextContainer: {
         justifyContent: 'center',
