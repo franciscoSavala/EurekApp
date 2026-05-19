@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
+    Image,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -69,11 +70,6 @@ const ReclamosList = ({ navigation }) => {
         setStatusFilter(value);
     };
 
-    const renderStars = (rating) => {
-        if (!rating) return null;
-        return '★'.repeat(rating) + '☆'.repeat(5 - rating);
-    };
-
     const renderItem = ({ item }) => {
         const color = STATUS_COLORS[item.status] || '#638888';
         const label = STATUS_LABELS[item.status] || item.status;
@@ -84,43 +80,54 @@ const ReclamosList = ({ navigation }) => {
                 style={styles.card}
                 onPress={() => navigation.navigate('ReclamoDetail', { reclamoId: item.id })}>
 
-                <View style={styles.cardHeader}>
-                    <View style={[styles.statusBadge, { backgroundColor: color }]}>
-                        <Text style={styles.statusBadgeText}>{label}</Text>
+                <View style={styles.cardBody}>
+                    {item.b64Json ? (
+                        <Image
+                            source={{ uri: `data:image/jpeg;base64,${item.b64Json}` }}
+                            style={styles.objectImage}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View style={[styles.objectImage, styles.objectImagePlaceholder]}>
+                            <Text style={styles.objectImagePlaceholderText}>Sin imagen</Text>
+                        </View>
+                    )}
+
+                    <View style={styles.cardInfo}>
+                        <View style={styles.cardHeader}>
+                            <View style={[styles.statusBadge, { backgroundColor: color }]}>
+                                <Text style={styles.statusBadgeText}>{label}</Text>
+                            </View>
+                            {item.isSuspicious && (
+                                <Text style={styles.suspiciousIcon}>⚠</Text>
+                            )}
+                        </View>
+
+                        <Text style={styles.objectTitle} numberOfLines={2}>
+                            {item.foundObjectTitle || 'Objeto sin nombre'}
+                        </Text>
+
+                        {item.foundObjectCategory ? (
+                            <View style={styles.categoryBadge}>
+                                <Text style={styles.categoryBadgeText}>{item.foundObjectCategory}</Text>
+                            </View>
+                        ) : null}
+
+                        <Text style={styles.userName} numberOfLines={1}>
+                            {item.userFullName || 'Usuario desconocido'}
+                        </Text>
+                        <Text style={styles.userEmail} numberOfLines={1}>{item.userEmail || '-'}</Text>
+
+                        {date ? (
+                            <Text style={styles.dateText}>
+                                {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}{' '}
+                                {date.getHours()}:{String(date.getMinutes()).padStart(2, '0')}
+                            </Text>
+                        ) : null}
                     </View>
-                    <View style={styles.headerRight}>
-                        {item.isSuspicious && (
-                            <Text style={styles.suspiciousIcon}>⚠</Text>
-                        )}
-                        <Text style={styles.confidenceText}>{item.confidenceLevel}</Text>
-                    </View>
+
+                    <Text style={styles.chevron}>›</Text>
                 </View>
-
-                <Text style={styles.objectTitle}>
-                    {item.foundObjectTitle || item.foundObjectUUID || 'Objeto sin nombre'}
-                </Text>
-
-                {item.foundObjectCategory ? (
-                    <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryBadgeText}>{item.foundObjectCategory}</Text>
-                    </View>
-                ) : null}
-
-                <Text style={styles.userName}>
-                    {item.userFullName || 'Usuario desconocido'}
-                </Text>
-                <Text style={styles.userEmail}>{item.userEmail || '-'}</Text>
-
-                {item.starRating ? (
-                    <Text style={styles.stars}>{renderStars(item.starRating)}</Text>
-                ) : null}
-
-                {date ? (
-                    <Text style={styles.dateText}>
-                        {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}{' '}
-                        {date.getHours()}:{String(date.getMinutes()).padStart(2, '0')}
-                    </Text>
-                ) : null}
             </TouchableOpacity>
         );
     };
@@ -206,17 +213,42 @@ const styles = StyleSheet.create({
     card: {
         backgroundColor: '#f0f4f4',
         borderRadius: 14,
-        padding: 14,
+        padding: 12,
         marginBottom: 10,
         maxWidth: 800,
         width: '100%',
         alignSelf: 'center',
     },
+    cardBody: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    objectImage: {
+        width: 72,
+        height: 72,
+        borderRadius: 10,
+        flexShrink: 0,
+    },
+    objectImagePlaceholder: {
+        backgroundColor: '#d1d5db',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    objectImagePlaceholderText: {
+        fontSize: 10,
+        color: '#9ca3af',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    cardInfo: {
+        flex: 1,
+        gap: 3,
+    },
     cardHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 8,
+        gap: 6,
+        marginBottom: 2,
     },
     statusBadge: {
         borderRadius: 10,
@@ -228,25 +260,14 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontFamily: 'PlusJakartaSans-Bold',
     },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-    },
     suspiciousIcon: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#b45309',
-    },
-    confidenceText: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 12,
-        color: '#638888',
     },
     objectTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
-        fontSize: 15,
+        fontSize: 14,
         color: '#111818',
-        marginBottom: 4,
     },
     categoryBadge: {
         backgroundColor: '#e0f7f7',
@@ -254,7 +275,6 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
         paddingHorizontal: 8,
         alignSelf: 'flex-start',
-        marginBottom: 6,
     },
     categoryBadgeText: {
         fontSize: 11,
@@ -270,17 +290,16 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
         color: '#638888',
-        marginBottom: 4,
-    },
-    stars: {
-        fontSize: 14,
-        color: '#f59e0b',
-        marginBottom: 2,
     },
     dateText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 11,
         color: '#638888',
+    },
+    chevron: {
+        fontSize: 24,
+        color: '#9ca3af',
+        alignSelf: 'center',
     },
     emptyContainer: {
         paddingTop: 60,
