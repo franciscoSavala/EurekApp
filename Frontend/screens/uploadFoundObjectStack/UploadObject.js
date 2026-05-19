@@ -9,7 +9,7 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    KeyboardAvoidingView, Modal, Alert, TouchableOpacity
+    KeyboardAvoidingView, Modal, Alert, TouchableOpacity, Switch
 } from 'react-native';
 
 const MAX_IMAGE_SIZE_MB = 10;
