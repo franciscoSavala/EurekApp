@@ -3,6 +3,7 @@ package com.eurekapp.backend.controller;
 import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.command.FoundObjectDetailCommand;
 import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.dto.response.RewardExclusionListDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.model.*;
@@ -165,5 +166,14 @@ public class FoundObjectController {
             @AuthenticationPrincipal UserEurekapp user,
             @RequestBody GetReturnFoundObjectCommand command) {
         return ResponseEntity.ok(returnFoundObjectService.getReturnFoundObject(user, command.getFoundObjectUUID()));
+    }
+
+    @GetMapping("/reward-exclusions/organizations/{organizationId}")
+    @Operation(summary = "Consultar exclusiones de recompensa",
+            description = "Devuelve los casos en que no se otorgó recompensa por incompatibilidad de funciones (encargado/empleado). Solo accesible por el responsable de la organización.")
+    public ResponseEntity<RewardExclusionListDto> getRewardExclusions(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable Long organizationId) {
+        return ResponseEntity.ok(returnFoundObjectService.getRewardExclusions(user, organizationId));
     }
 }

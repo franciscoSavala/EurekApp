@@ -1,6 +1,8 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.ReturnFoundObjectDto;
+import com.eurekapp.backend.dto.response.RewardExclusionDto;
+import com.eurekapp.backend.dto.response.RewardExclusionListDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Base64;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +29,8 @@ import java.util.concurrent.Future;
 public class ReturnFoundObjectService {
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
+    private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO);
+
     private final IOrganizationRepository organizationRepository;
     private final IUserRepository userRepository;
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
@@ -33,13 +39,15 @@ public class ReturnFoundObjectService {
     private final ExecutorService executorService;
     private final NotificationService notificationService;
     private final IReclamoRepository reclamoRepository;
+    private final IRewardExclusionRepository rewardExclusionRepository;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
                                     ExecutorService executorService, NotificationService notificationService,
-                                    IReclamoRepository reclamoRepository){
+                                    IReclamoRepository reclamoRepository,
+                                    IRewardExclusionRepository rewardExclusionRepository){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -48,6 +56,7 @@ public class ReturnFoundObjectService {
         this.executorService = executorService;
         this.notificationService = notificationService;
         this.reclamoRepository = reclamoRepository;
+        this.rewardExclusionRepository = rewardExclusionRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -159,6 +168,18 @@ public class ReturnFoundObjectService {
                 UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
                 if (finder == null) {
                     log.warn("Finder user id={} not found in DB", finderProxy.getId());
+                } else if (INCOMPATIBLE_ROLES.contains(finder.getRole())) {
+                    // El finder tiene un rol incompatible: no se le asigna recompensa
+                    RewardExclusion exclusion = RewardExclusion.builder()
+                            .foundObjectUUID(command.getFoundObjectUUID())
+                            .user(finder)
+                            .userRole(finder.getRole())
+                            .reason("INCOMPATIBLE_ROLE")
+                            .excludedAt(LocalDateTime.now())
+                            .organizationId(command.getOrganizationId().toString())
+                            .build();
+                    rewardExclusionRepository.save(exclusion);
+                    log.info("Reward excluded for finder id={} role={} reason=INCOMPATIBLE_ROLE", finder.getId(), finder.getRole());
                 } else {
                     // Guardar el destinatario para posible reprocesamiento futuro
                     rfo.setNotificationRecipient(finder.getUsername());
@@ -200,6 +221,22 @@ public class ReturnFoundObjectService {
                 .build();
     }
 
+
+    /**
+     * Devuelve todos los casos en que no se otorgó recompensa por incompatibilidad de funciones,
+     * para auditoría por parte del responsable de la organización.
+     */
+    public RewardExclusionListDto getRewardExclusions(UserEurekapp user, Long organizationId) {
+        if (user.getRole() != Role.ORGANIZATION_OWNER) {
+            throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de recompensa");
+        }
+        if (user.getOrganization() == null || !user.getOrganization().getId().equals(organizationId)) {
+            throw new ForbiddenException("forbidden", "No pertenece a esta organización");
+        }
+        List<RewardExclusion> exclusions = rewardExclusionRepository.findByOrganizationId(organizationId.toString());
+        List<RewardExclusionDto> dtos = exclusions.stream().map(RewardExclusionDto::from).toList();
+        return new RewardExclusionListDto(dtos);
+    }
 
     /*
     * Método usado para obtener una devolución de objeto a partir del id del FoundObject.
