@@ -47,15 +47,31 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
 
     const StatusComponent = () => {
         return(
-            <View>
+            <View style={{ alignItems: 'center' }}>
                 {buttonWasPressed ? (
                     loading ? (
                         <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
+                            <>
+                                <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
+                                <Text style={[styles.modalText, { color: '#008000', fontFamily: 'PlusJakartaSans-Bold' }]}>
+                                    ¡Búsqueda guardada correctamente!
+                                </Text>
+                                <Text style={[styles.modalText, { color: '#638888', fontSize: 13 }]}>
+                                    Te avisaremos cuando encontremos un objeto similar.
+                                </Text>
+                            </>
                         ) : (
-                            <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
+                            <>
+                                <Icon style={{marginVertical: 10}} name={'circle-exclamation'} size={50} color={'#f59e0b'}/>
+                                <Text style={[styles.modalText, { color: '#b45309', fontFamily: 'PlusJakartaSans-Bold' }]}>
+                                    No se pudo guardar la búsqueda
+                                </Text>
+                                <Text style={[styles.modalText, { color: '#638888', fontSize: 13 }]}>
+                                    Por favor, intentá de nuevo más tarde.
+                                </Text>
+                            </>
                         )
                     )
                 ) : null
