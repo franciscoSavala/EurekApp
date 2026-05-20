@@ -108,6 +108,7 @@ header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
 TRUNCATE TABLE organization_request;
@@ -171,19 +172,21 @@ HASH_ESCAPED="${BCRYPT_HASH//\'/\'\'}"
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO users (id, username, password, active, first_name, last_name, role, organization_id, XP, returned_objects) VALUES
 -- Admin
-(1,  'admin@eurekapp.com',      '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 500, 10),
+(1,  'admin@eurekapp.com',          '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 500, 10),
 -- Dueños de organización
-(2,  'owner.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Martina',  'González',  'ORGANIZATION_OWNER',     1,    150,  3),
-(3,  'owner.term@eurekapp.com', '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernández', 'ORGANIZATION_OWNER',     2,    80,   2),
+(2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'González',  'ORGANIZATION_OWNER',     1,    150,  3),
+(3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernández', 'ORGANIZATION_OWNER',     2,    80,   2),
+-- Encargado (rol incompatible para recompensas)
+(4,  'encargado.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Carlos',   'Mendoza',   'ENCARGADO',              1,    0,    0),
 -- Empleados
-(4,  'emp1.utn@eurekapp.com',   '$HASH_ESCAPED', 1, 'Lucía',    'Pérez',     'ORGANIZATION_EMPLOYEE',  1,    30,   1),
-(5,  'emp2.utn@eurekapp.com',   '$HASH_ESCAPED', 1, 'Tomás',    'Ramírez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
+(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucía',    'Pérez',     'ORGANIZATION_EMPLOYEE',  1,    30,   1),
+(6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomás',    'Ramírez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
 -- Usuarios regulares
-(6,  'julia@mail.com',          '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
-(7,  'pedro@mail.com',          '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 10,   0),
-(8,  'valeria@mail.com',        '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0);
+(7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
+(8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 10,   0),
+(9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0);
 SQL
-success "8 usuarios insertados"
+success "9 usuarios insertados"
 
 # ─── 9. Insertar FoundObjects en Weaviate ────────────────────────────────────
 header "Insertando FoundObjects en Weaviate"
@@ -304,29 +307,43 @@ success "  LostObject 3: Mochila (valeria)"
 header "Insertando ReturnFoundObjects"
 
 # UUID_3 (auriculares) está marcado como was_returned=true → lo registramos
+# El finder del FO_UUID_4 (mochila) es el encargado (id=4): se registra exclusión de recompensa
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (id, user_id, DNI, phone_number, found_object_uuid, person_photo_uuid, datetime_of_return)
 VALUES
-(1, 7, '35123456', '3516001122', '$FO_UUID_3', 'photo-uuid-fake-001', '2026-05-06 14:35:00'),
+(1, 8, '35123456', '3516001122', '$FO_UUID_3', 'photo-uuid-fake-001', '2026-05-06 14:35:00'),
 (2, NULL, '28987654', '3514009988', '$FO_UUID_3', 'photo-uuid-fake-002', '2026-05-06 14:36:00');
 SQL
 
-# Actualizar XP y returned_objects del usuario 7 (Pedro) que retornó el objeto
+# Actualizar XP y returned_objects del usuario 8 (Pedro) que retornó el objeto
 $MYSQL_EXEC 2>/dev/null <<'SQL'
-UPDATE users SET returned_objects = returned_objects + 1, XP = XP + 10 WHERE id = 7;
+UPDATE users SET returned_objects = returned_objects + 1, XP = XP + 10 WHERE id = 8;
 SQL
 success "2 retornos registrados"
 
-# ─── 12. Resumen ─────────────────────────────────────────────────────────────
+# ─── 12. Insertar exclusiones de recompensa de ejemplo ───────────────────────
+header "Insertando exclusiones de recompensa"
+
+# El encargado (id=4) registró FO_UUID_4 (mochila): no recibe recompensa al ser devuelto
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO reward_exclusions
+  (found_object_uuid, user_id, user_role, reason, excluded_at, organization_id)
+VALUES
+('$FO_UUID_4', 4, 'ENCARGADO', 'INCOMPATIBLE_ROLE', '2026-05-10 09:15:00', '1');
+SQL
+success "1 exclusión de recompensa registrada (encargado)"
+
+# ─── 13. Resumen ─────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}${BOLD}║               Seed completado exitosamente           ║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                               ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Organizaciones : 3                                ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Usuarios       : 8                                ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Retornos       : 2                                ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organizaciones      : 3                           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Usuarios            : 9                           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Retornos            : 2                           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward  : 1                           ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    FoundObjects   : 5                                ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    LostObjects    : 3                                ${GREEN}${BOLD}║${NC}"
@@ -334,12 +351,13 @@ echo -e "${GREEN}${BOLD}╠═════════════════�
 echo -e "${GREEN}${BOLD}║${NC}  Contraseña de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}         ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Usuarios disponibles:                               ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    admin@eurekapp.com      → ADMIN                   ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    owner.utn@eurekapp.com  → OWNER (UTN FRC)         ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    owner.term@eurekapp.com → OWNER (Terminal)        ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    emp1.utn@eurekapp.com   → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    julia@mail.com          → USER (XP: 20)           ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    pedro@mail.com          → USER (XP: 10)           ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    valeria@mail.com        → USER (XP: 0)            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    admin@eurekapp.com          → ADMIN                ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.utn@eurekapp.com      → OWNER (UTN FRC)     ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.term@eurekapp.com     → OWNER (Terminal)    ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    encargado.utn@eurekapp.com  → ENCARGADO (UTN FRC) ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.utn@eurekapp.com       → EMPLOYEE (UTN FRC)  ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    julia@mail.com              → USER (XP: 20)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    pedro@mail.com              → USER (XP: 10)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    valeria@mail.com            → USER (XP: 0)        ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════╝${NC}"
 echo ""
