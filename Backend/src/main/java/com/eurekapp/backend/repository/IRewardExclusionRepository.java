@@ -8,4 +8,6 @@ import java.util.List;
 public interface IRewardExclusionRepository extends JpaRepository<RewardExclusion, Long> {
 
     List<RewardExclusion> findByOrganizationId(String organizationId);
+
+    boolean existsByFoundObjectUUID(String foundObjectUUID);
 }
