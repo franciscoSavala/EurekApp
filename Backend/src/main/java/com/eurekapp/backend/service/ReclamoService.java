@@ -9,6 +9,7 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IReclamoHistoryRepository;
 import com.eurekapp.backend.repository.IReclamoRepository;
+import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import lombok.AllArgsConstructor;
@@ -32,6 +33,7 @@ public class ReclamoService {
     private final FoundObjectRepository foundObjectRepository;
     private final ObjectStorage objectStorage;
     private final IFraudAlertRepository fraudAlertRepository;
+    private final IReturnFoundObjectRepository returnFoundObjectRepository;
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
@@ -242,6 +244,13 @@ public class ReclamoService {
                             .build())
                     .collect(Collectors.toList());
             builder.history(history);
+        }
+
+        if (reclamo.getStatus() == ClaimStatus.DEVUELTO && reclamo.getFoundObjectUUID() != null) {
+            ReturnFoundObject rfo = returnFoundObjectRepository.findByFoundObjectUUID(reclamo.getFoundObjectUUID());
+            if (rfo != null) {
+                builder.datetimeOfReturn(rfo.getDatetimeOfReturn());
+            }
         }
 
         return builder.build();

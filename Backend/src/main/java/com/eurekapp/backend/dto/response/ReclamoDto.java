@@ -37,5 +37,7 @@ public class ReclamoDto {
     private Double foundObjectLongitude;
     private String b64Json;
 
+    private LocalDateTime datetimeOfReturn;
+
     private List<ReclamoHistoryDto> history;
 }

@@ -39,6 +39,7 @@ public class ReturnFoundObjectService {
     private final ExecutorService executorService;
     private final NotificationService notificationService;
     private final IReclamoRepository reclamoRepository;
+    private final IReclamoHistoryRepository reclamoHistoryRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
@@ -47,6 +48,7 @@ public class ReturnFoundObjectService {
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
                                     ExecutorService executorService, NotificationService notificationService,
                                     IReclamoRepository reclamoRepository,
+                                    IReclamoHistoryRepository reclamoHistoryRepository,
                                     IRewardExclusionRepository rewardExclusionRepository){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
@@ -56,6 +58,7 @@ public class ReturnFoundObjectService {
         this.executorService = executorService;
         this.notificationService = notificationService;
         this.reclamoRepository = reclamoRepository;
+        this.reclamoHistoryRepository = reclamoHistoryRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
     }
 
@@ -158,7 +161,24 @@ public class ReturnFoundObjectService {
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-                        // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
+                        // 6b- ACTUALIZAR STATUS DEL RECLAMO A DEVUELTO
+        reclamoRepository.findByFoundObjectUUIDAndStatus(command.getFoundObjectUUID(), ClaimStatus.APROBADO)
+                .ifPresent(r -> {
+                    ReclamoHistory h = ReclamoHistory.builder()
+                            .reclamo(r)
+                            .previousStatus(r.getStatus())
+                            .newStatus(ClaimStatus.DEVUELTO)
+                            .changedBy(null)
+                            .changedAt(LocalDateTime.now())
+                            .note("Objeto retirado")
+                            .build();
+                    reclamoHistoryRepository.save(h);
+                    r.setStatus(ClaimStatus.DEVUELTO);
+                    r.setUpdatedAt(LocalDateTime.now());
+                    reclamoRepository.save(r);
+                });
+
+                    // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();
         if (finderProxy == null) {
             log.info("Found object {} has no associated finder user, skipping notification", foundObject.getUuid());

@@ -164,6 +164,7 @@ public class LostObjectRepository {
 
         LostObject lostObject = LostObject.builder()
                 .uuid(weaviateObject.getId())
+                .username((String) properties.get("username"))
                 .description((String) properties.get("description"))
                 .lostDate(CommonFunctions.convertToLocalDateTime((String) properties.get("lost_date")))
                 .coordinates(location)

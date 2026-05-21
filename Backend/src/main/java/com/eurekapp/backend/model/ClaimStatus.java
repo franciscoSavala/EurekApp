@@ -4,5 +4,6 @@ public enum ClaimStatus {
     PENDIENTE,
     EN_REVISION,
     APROBADO,
-    RECHAZADO
+    RECHAZADO,
+    DEVUELTO
 }

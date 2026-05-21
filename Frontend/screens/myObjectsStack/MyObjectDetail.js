@@ -20,6 +20,7 @@ const STATUS_CONFIG = {
     EN_REVISION: { label: 'En revisión',             color: '#b45309', bg: '#fef3c7', icon: 'magnifying-glass' },
     APROBADO:    { label: 'Coincidencia encontrada', color: '#065f46', bg: '#d1fae5', icon: 'circle-check' },
     RECHAZADO:   { label: 'Cerrado',                 color: '#991b1b', bg: '#fee2e2', icon: 'circle-xmark' },
+    DEVUELTO:    { label: 'Devuelto',                color: '#1d4ed8', bg: '#dbeafe', icon: 'box-open' },
 };
 
 const StatusBadge = ({ status }) => {
@@ -123,7 +124,10 @@ const MyObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
-                <InfoRow icon="calendar" label="Fecha del reclamo" value={formatDate(reclamo.createdAt)} />
+                <InfoRow icon="calendar" label="Fecha de búsqueda" value={formatDate(reclamo.createdAt)} />
+                {!!reclamo.datetimeOfReturn && (
+                    <InfoRow icon="box-open" label="Fecha de retiro" value={formatDate(reclamo.datetimeOfReturn)} />
+                )}
                 <InfoRow icon="tag" label="Categoría" value={reclamo.foundObjectCategory} />
                 {!!reclamo.comment && (
                     <InfoRow icon="comment" label="Tu comentario" value={reclamo.comment} />

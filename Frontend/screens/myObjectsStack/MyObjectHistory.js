@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -20,6 +21,8 @@ const STATUS_CONFIG = {
     EN_REVISION: { label: 'En revisión',             color: '#b45309', bg: '#fef3c7' },
     APROBADO:    { label: 'Coincidencia encontrada', color: '#065f46', bg: '#d1fae5' },
     RECHAZADO:   { label: 'Cerrado',                 color: '#991b1b', bg: '#fee2e2' },
+    DEVUELTO:    { label: 'Devuelto',                color: '#1d4ed8', bg: '#dbeafe' },
+    BUSCANDO:    { label: 'Buscando',                color: '#0d6e6e', bg: '#ccf2f2' },
 };
 
 const StatusChip = ({ status }) => {
@@ -33,16 +36,20 @@ const StatusChip = ({ status }) => {
 
 const MyObjectHistory = ({ navigation }) => {
     const [reclamos, setReclamos] = useState([]);
+    const [lostObjects, setLostObjects] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchReclamos = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(`${BACK_URL}/reclamos/my`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-            });
-            setReclamos(res.data);
+            const headers = { Authorization: `Bearer ${jwt}` };
+            const [reclamosRes, lostRes] = await Promise.allSettled([
+                axiosInstance.get(`${BACK_URL}/reclamos/my`, { headers }),
+                axiosInstance.get(`${BACK_URL}/lost-objects/my`, { headers }),
+            ]);
+            if (reclamosRes.status === 'fulfilled') setReclamos(reclamosRes.value.data);
+            if (lostRes.status === 'fulfilled') setLostObjects(lostRes.value.data);
         } catch (e) {
             console.warn('Error cargando historial:', e);
         } finally {
@@ -50,7 +57,7 @@ const MyObjectHistory = ({ navigation }) => {
         }
     };
 
-    useFocusEffect(useCallback(() => { fetchReclamos(); }, []));
+    useFocusEffect(useCallback(() => { fetchData(); }, []));
 
     const formatDate = (isoString) => {
         if (!isoString) return '';
@@ -58,7 +65,7 @@ const MyObjectHistory = ({ navigation }) => {
         return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-    const renderItem = ({ item }) => (
+    const renderReclamo = ({ item }) => (
         <TouchableOpacity
             style={styles.card}
             onPress={() => navigation.navigate('MyObjectDetail', { reclamoId: item.id })}
@@ -74,7 +81,32 @@ const MyObjectHistory = ({ navigation }) => {
             )}
             <View style={styles.cardFooter}>
                 <Icon name="calendar" size={12} color="#638888" />
-                <Text style={styles.cardDate}> Reclamo: {formatDate(item.createdAt)}</Text>
+                {item.status === 'DEVUELTO' && item.datetimeOfReturn ? (
+                    <Text style={styles.cardDate}> Retirado: {formatDate(item.datetimeOfReturn)}</Text>
+                ) : (
+                    <Text style={styles.cardDate}> Búsqueda: {formatDate(item.createdAt)}</Text>
+                )}
+            </View>
+        </TouchableOpacity>
+    );
+
+    const renderLostObject = ({ item }) => (
+        <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('MyLostObjectDetail', { lostObject: item })}
+        >
+            <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle} numberOfLines={1}>
+                    Búsqueda abierta
+                </Text>
+                <StatusChip status="BUSCANDO" />
+            </View>
+            {!!item.description && (
+                <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+            )}
+            <View style={styles.cardFooter}>
+                <Icon name="calendar" size={12} color="#638888" />
+                <Text style={styles.cardDate}> Registrada: {formatDate(item.lostDate)}</Text>
             </View>
         </TouchableOpacity>
     );
@@ -87,10 +119,11 @@ const MyObjectHistory = ({ navigation }) => {
         );
     }
 
-    return (
-        <View style={styles.container}>
-            <Text style={styles.heading}>Mis búsquedas guardadas</Text>
-            {reclamos.length === 0 ? (
+    const isEmpty = reclamos.length === 0 && lostObjects.length === 0;
+
+    if (isEmpty) {
+        return (
+            <View style={styles.container}>
                 <View style={styles.emptyContainer}>
                     <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
                     <Text style={styles.emptyTitle}>Sin búsquedas guardadas</Text>
@@ -98,15 +131,40 @@ const MyObjectHistory = ({ navigation }) => {
                         Cuando guardes una búsqueda, aparecerá acá con su estado actualizado.
                     </Text>
                 </View>
-            ) : (
-                <FlatList
-                    data={reclamos}
-                    keyExtractor={(item) => String(item.id)}
-                    renderItem={renderItem}
-                    contentContainerStyle={styles.list}
-                />
+            </View>
+        );
+    }
+
+    return (
+        <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+            {reclamos.length > 0 && (
+                <>
+                    <Text style={styles.heading}>Mis búsquedas guardadas</Text>
+                    <FlatList
+                        data={reclamos}
+                        keyExtractor={(item) => `reclamo-${item.id}`}
+                        renderItem={renderReclamo}
+                        scrollEnabled={false}
+                        contentContainerStyle={styles.list}
+                    />
+                </>
             )}
-        </View>
+
+            {lostObjects.length > 0 && (
+                <>
+                    <Text style={[styles.heading, reclamos.length > 0 && { marginTop: 24 }]}>
+                        Búsquedas abiertas
+                    </Text>
+                    <FlatList
+                        data={lostObjects}
+                        keyExtractor={(item) => `lost-${item.uuid}`}
+                        renderItem={renderLostObject}
+                        scrollEnabled={false}
+                        contentContainerStyle={styles.list}
+                    />
+                </>
+            )}
+        </ScrollView>
     );
 };
 
@@ -115,6 +173,9 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
         paddingTop: 16,
+    },
+    scrollContent: {
+        paddingBottom: 32,
     },
     centered: {
         flex: 1,
@@ -131,7 +192,6 @@ const styles = StyleSheet.create({
     },
     list: {
         paddingHorizontal: 16,
-        paddingBottom: 24,
         gap: 12,
     },
     card: {

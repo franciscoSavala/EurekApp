@@ -43,6 +43,7 @@ import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
 import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
 import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
+import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import { setupAxiosInterceptors } from './utils/axiosInstance';
 
 const AuthStack = createStackNavigator();
@@ -215,6 +216,11 @@ const MyObjectsStackScreen = () => {
                 name="MyObjectDetail"
                 component={MyObjectDetail}
                 options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda' }}
+            />
+            <MyObjectsStack.Screen
+                name="MyLostObjectDetail"
+                component={MyLostObjectDetail}
+                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda abierta' }}
             />
         </MyObjectsStack.Navigator>
     );
