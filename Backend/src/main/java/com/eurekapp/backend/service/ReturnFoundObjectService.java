@@ -259,6 +259,10 @@ public class ReturnFoundObjectService {
 
         // Obtenemos la objeto ReturnFoundObject
         ReturnFoundObject rfo = returnFoundObjectRepository.findByFoundObjectUUID(foundObjectUUID);
+        if (rfo == null) {
+            throw new NotFoundException("return_not_found",
+                String.format("No return record found for object '%s'", foundObjectUUID));
+        }
 
         // Validamos que el usuario pertenezca a la organización que retiene el objeto. Si no lo es, lanzamos una excepción.
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUUID);
