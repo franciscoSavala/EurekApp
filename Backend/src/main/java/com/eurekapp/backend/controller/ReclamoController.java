@@ -51,6 +51,22 @@ public class ReclamoController {
         return ResponseEntity.ok(reclamoService.getReclamoDetail(user, id));
     }
 
+    @GetMapping("/my")
+    @Operation(summary = "Mis búsquedas guardadas",
+            description = "Devuelve el historial de reclamos del usuario autenticado (rol USER).")
+    public ResponseEntity<List<ReclamoDto>> getMyReclamos(@AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(reclamoService.getMyReclamos(user));
+    }
+
+    @GetMapping("/my/{id}")
+    @Operation(summary = "Detalle de mi búsqueda guardada",
+            description = "Devuelve el detalle completo de uno de los reclamos del usuario autenticado.")
+    public ResponseEntity<ReclamoDto> getMyReclamoDetail(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(reclamoService.getMyReclamoDetail(user, id));
+    }
+
     @PutMapping("/{id}/status")
     @Operation(summary = "Actualizar estado del reclamo",
             description = "Actualiza el estado del reclamo y registra la acción en el historial.")

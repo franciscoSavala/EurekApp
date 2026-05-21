@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
+import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class LostObjectService {
@@ -97,5 +99,17 @@ public class LostObjectService {
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
         notificationService.sendNotification(lostObjects.getFirst().getUsername(), "Hemos encontrado tu objeto!", message);
+    }
+
+    public List<LostObjectResponseDto> getMyLostObjects(String username) {
+        List<LostObject> results = lostObjectRepository.query(null, username, null, null, null);
+        return results.stream()
+                .map(lo -> LostObjectResponseDto.builder()
+                        .uuid(lo.getUuid())
+                        .description(lo.getDescription())
+                        .lostDate(lo.getLostDate())
+                        .organizationId(lo.getOrganizationId())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

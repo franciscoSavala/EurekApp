@@ -1,4 +1,5 @@
 import React, {useContext, useEffect, useState} from "react";
+import { Ionicons } from '@expo/vector-icons';
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
 import {
@@ -300,6 +301,7 @@ const Profile = ({ route, navigation }) => {
             <TouchableOpacity
                 style={styles.feedbackButton}
                 onPress={() => setUsabilityModalVisible(true)}>
+                <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                 <Text style={styles.feedbackButtonText}>Dar feedback sobre la app</Text>
             </TouchableOpacity>
             <UsabilityFeedbackModal
@@ -392,19 +394,27 @@ const styles = StyleSheet.create({
         marginHorizontal: 10,
     },
     feedbackButton: {
-        marginBottom: 16,
+        marginBottom: 24,
         marginHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 8,
-        backgroundColor: '#f0f4f4',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        backgroundColor: '#0d9e9e',
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         width: '90%',
         alignSelf: 'center',
+        shadowColor: '#0d9e9e',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 6,
+        elevation: 6,
     },
     feedbackButtonText: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 14,
-        color: '#638888',
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 16,
+        color: '#fff',
     },
 });
 

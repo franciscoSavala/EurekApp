@@ -74,7 +74,20 @@ const NotFoundObjects = ({route, navigation}) => {
                     </>
                 )}
             </View>
-            <EurekappButton onPress={() => setModalVisible(true)} text="Guardar búsqueda" />
+            <View style={styles.saveSearchCard}>
+                <Icon name="bell" size={22} color="#0d9e9e" style={{ marginBottom: 8 }} />
+                <Text style={styles.saveSearchTitle}>¿No encontraste tu objeto?</Text>
+                <Text style={styles.saveSearchDescription}>
+                    Guardá esta búsqueda para que podamos avisarte si aparece un objeto similar.
+                </Text>
+                <EurekappButton
+                    onPress={() => setModalVisible(true)}
+                    text="Guardar búsqueda"
+                    backgroundColor="#0d9e9e"
+                    textColor="#fff"
+                    style={styles.saveSearchButtonWrapper}
+                />
+            </View>
             <UploadLostObjectModal modalVisible={modalVisible}
                                    setModalVisible={setModalVisible}
                                    query={query}
@@ -201,6 +214,38 @@ const styles = StyleSheet.create({
         color: '#111818',
         minHeight: 56,
         textAlignVertical: 'top',
+    },
+    saveSearchCard: {
+        marginHorizontal: 16,
+        marginBottom: 24,
+        padding: 20,
+        borderRadius: 16,
+        backgroundColor: '#f0f9f9',
+        borderWidth: 1,
+        borderColor: '#b2e0e0',
+        alignItems: 'center',
+        width: '90%',
+        alignSelf: 'center',
+    },
+    saveSearchTitle: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 16,
+        color: '#111818',
+        marginBottom: 6,
+        textAlign: 'center',
+    },
+    saveSearchDescription: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+        color: '#638888',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 20,
+    },
+    saveSearchButtonWrapper: {
+        width: '100%',
+        alignSelf: 'center',
+        marginVertical: 0,
     },
 })
 export default NotFoundObjects;

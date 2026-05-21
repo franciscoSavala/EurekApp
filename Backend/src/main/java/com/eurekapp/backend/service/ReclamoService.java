@@ -9,6 +9,7 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IReclamoHistoryRepository;
 import com.eurekapp.backend.repository.IReclamoRepository;
+import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import lombok.AllArgsConstructor;
@@ -32,6 +33,7 @@ public class ReclamoService {
     private final FoundObjectRepository foundObjectRepository;
     private final ObjectStorage objectStorage;
     private final IFraudAlertRepository fraudAlertRepository;
+    private final IReturnFoundObjectRepository returnFoundObjectRepository;
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
@@ -129,6 +131,34 @@ public class ReclamoService {
         reclamoRepository.save(reclamo);
     }
 
+    public List<ReclamoDto> getMyReclamos(UserEurekapp user) {
+        List<Reclamo> reclamos = reclamoRepository.findByUser_Id(user.getId());
+        return reclamos.stream()
+                .map(r -> {
+                    ReclamoDto dto = toDto(r, false);
+                    if (r.getFoundObjectUUID() != null) {
+                        FoundObject fo = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
+                        if (fo != null) {
+                            dto.setFoundObjectTitle(fo.getTitle());
+                            dto.setFoundObjectHumanDescription(fo.getHumanDescription());
+                        }
+                    }
+                    return dto;
+                })
+                .sorted(Comparator.comparing(ReclamoDto::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+    }
+
+    public ReclamoDto getMyReclamoDetail(UserEurekapp user, Long id) {
+        Reclamo reclamo = reclamoRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("reclamo_not_found", "Reclamo no encontrado"));
+        if (reclamo.getUser() == null || !reclamo.getUser().getId().equals(user.getId())) {
+            throw new ForbiddenException("forbidden", "No tenés permiso para ver este reclamo");
+        }
+        return toDto(reclamo, true);
+    }
+
     // --- helpers ---
 
     private void validateAccess(UserEurekapp user) {
@@ -214,6 +244,13 @@ public class ReclamoService {
                             .build())
                     .collect(Collectors.toList());
             builder.history(history);
+        }
+
+        if (reclamo.getStatus() == ClaimStatus.DEVUELTO && reclamo.getFoundObjectUUID() != null) {
+            ReturnFoundObject rfo = returnFoundObjectRepository.findByFoundObjectUUID(reclamo.getFoundObjectUUID());
+            if (rfo != null) {
+                builder.datetimeOfReturn(rfo.getDatetimeOfReturn());
+            }
         }
 
         return builder.build();
