@@ -29,6 +29,7 @@ const FormData = global.FormData;
 const ReturnedObjectDetail = ({route}) => {
     // ReturnFoundObject data (rfo)
     const [rfo, setRfo] = useState(null);
+    const [error, setError] = useState(false);
     const navigation = useNavigation();
 
 
@@ -62,11 +63,21 @@ const ReturnedObjectDetail = ({route}) => {
             }
         } catch (error) {
             console.log(error);
+            setError(true);
         }
     };
 
     const handleClose = () => {
         navigation.goBack();
+    }
+
+    if (error) {
+        return (
+            <View style={styles.centered}>
+                <Text style={styles.errorText}>No se pudo cargar el detalle de la devolución.</Text>
+                <EurekappButton text="Volver" onPress={handleClose} />
+            </View>
+        );
     }
 
     if (!rfo) {
@@ -272,7 +283,21 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Bold',
-    }
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 24,
+        gap: 16,
+    },
+    errorText: {
+        color: '#638888',
+        fontSize: 16,
+        fontFamily: 'PlusJakartaSans-Regular',
+        textAlign: 'center',
+    },
 
 });
 
