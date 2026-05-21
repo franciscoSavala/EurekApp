@@ -42,6 +42,9 @@ import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
 import RewardExclusionsList from "./screens/rewardExclusionsStack/RewardExclusionsList";
+import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
+import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
+import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import { setupAxiosInterceptors } from './utils/axiosInstance';
 
 const AuthStack = createStackNavigator();
@@ -212,6 +215,30 @@ const RewardExclusionsStackScreen = () => (
     </RewardExclusionsStack.Navigator>
 );
 
+const MyObjectsStack = createStackNavigator();
+
+const MyObjectsStackScreen = () => {
+    return (
+        <MyObjectsStack.Navigator>
+            <MyObjectsStack.Screen
+                name="MyObjectHistory"
+                component={MyObjectHistory}
+                options={{ headerShown: false, title: 'EurekApp - Mis búsquedas' }}
+            />
+            <MyObjectsStack.Screen
+                name="MyObjectDetail"
+                component={MyObjectDetail}
+                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda' }}
+            />
+            <MyObjectsStack.Screen
+                name="MyLostObjectDetail"
+                component={MyLostObjectDetail}
+                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda abierta' }}
+            />
+        </MyObjectsStack.Navigator>
+    );
+}
+
 const OrganizationStack = createStackNavigator();
 
 const OrganizationStackScreen = () => {
@@ -352,6 +379,13 @@ const EurekappTab = () => {
 
             {userRole === 'REGULAR_USER' || userRole === 'USER' ?
             <>
+                <Drawer.Screen name="MyObjectsStackScreen" options={{
+                    title: 'Mis búsquedas',
+                    headerTitleAlign: 'center',
+                    drawerIcon: historyIcon
+                }} listeners={{
+                    drawerItemPress: () => resetAndNavigate(navigation, 'MyObjectsStackScreen')
+                }} component={MyObjectsStackScreen} />
                 <Drawer.Screen name="OrganizationSignupForm" options={{
                     title: 'Solicitar alta de organización',
                     headerTitleAlign: 'center',
