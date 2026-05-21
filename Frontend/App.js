@@ -41,6 +41,7 @@ import Reports from "./screens/reportsStack/Reports";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
+import RewardExclusionsList from "./screens/rewardExclusionsStack/RewardExclusionsList";
 import { setupAxiosInterceptors } from './utils/axiosInstance';
 
 const AuthStack = createStackNavigator();
@@ -198,6 +199,18 @@ const FraudAlertsStackScreen = () => {
         </FraudAlertsStack.Navigator>
     );
 }
+
+const RewardExclusionsStack = createStackNavigator();
+
+const RewardExclusionsStackScreen = () => (
+    <RewardExclusionsStack.Navigator>
+        <RewardExclusionsStack.Screen
+            name="RewardExclusionsList"
+            component={RewardExclusionsList}
+            options={{ headerShown: false, title: 'Exclusiones de recompensa' }}
+        />
+    </RewardExclusionsStack.Navigator>
+);
 
 const OrganizationStack = createStackNavigator();
 
@@ -378,6 +391,12 @@ const EurekappTab = () => {
                         headerTitleAlign: 'center',
                         drawerIcon: chartIcon
                     }} component={ReportsStackScreen}
+                    />
+                    <Drawer.Screen name="RewardExclusionsStackScreen" options={{
+                        title: 'Exclusiones de recompensa',
+                        headerTitleAlign: 'center',
+                        drawerIcon: () => <Icon name={'ban'} size={20} />,
+                    }} component={RewardExclusionsStackScreen}
                     />
                     <Drawer.Screen name="OrganizationStackScreen" options={{
                         title: 'Mi organización',

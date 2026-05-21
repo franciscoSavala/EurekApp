@@ -12,6 +12,7 @@ import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
+import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
@@ -36,6 +37,9 @@ public class FoundObjectService implements IFoundObjectService {
     private static final double MIN_SCORE = 0.3;
     private static final int GRACE_HOURS = 6;
 
+    private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
+            Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER);
+
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
 
     private final ObjectStorage s3Service;
@@ -48,6 +52,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final IOrganizationRepository organizationRepository;
     private final FoundObjectRepository foundObjectRepository;
     private final IUserRepository userRepository;
+    private final IRewardExclusionRepository rewardExclusionRepository;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -55,7 +60,10 @@ public class FoundObjectService implements IFoundObjectService {
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
-                              ExecutorService executorService, FoundObjectRepository foundObjectRepository, IUserRepository userRepository) {
+                              ExecutorService executorService,
+                              FoundObjectRepository foundObjectRepository,
+                              IUserRepository userRepository,
+                              IRewardExclusionRepository rewardExclusionRepository) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -65,6 +73,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.executorService = executorService;
         this.foundObjectRepository = foundObjectRepository;
         this.userRepository = userRepository;
+        this.rewardExclusionRepository = rewardExclusionRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -174,6 +183,19 @@ public class FoundObjectService implements IFoundObjectService {
             throw new ApiException("upload_error", "There was an error uploading your object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
+        // Si el finder tiene rol incompatible, registrar exclusión de recompensa al momento de la carga
+        if (objectFinderUser != null && INCOMPATIBLE_ROLES.contains(objectFinderUser.getRole())) {
+            rewardExclusionRepository.save(RewardExclusion.builder()
+                    .foundObjectUUID(foundObjectId)
+                    .user(objectFinderUser)
+                    .userRole(objectFinderUser.getRole())
+                    .reason("INCOMPATIBLE_ROLE")
+                    .excludedAt(LocalDateTime.now())
+                    .organizationId(String.valueOf(command.getOrganizationId()))
+                    .build());
+            log.info("Reward excluded at upload for finder id={} role={} uuid={}",
+                    objectFinderUser.getId(), objectFinderUser.getRole(), foundObjectId);
+        }
 
                     // 9- NOTIFICACIONES
         /*

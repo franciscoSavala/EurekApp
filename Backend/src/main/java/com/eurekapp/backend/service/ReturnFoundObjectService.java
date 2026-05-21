@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.List;
-import java.util.Set;
+
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -29,7 +29,7 @@ import java.util.concurrent.Future;
 public class ReturnFoundObjectService {
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
-    private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO);
+
 
     private final IOrganizationRepository organizationRepository;
     private final IUserRepository userRepository;
@@ -168,18 +168,9 @@ public class ReturnFoundObjectService {
                 UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
                 if (finder == null) {
                     log.warn("Finder user id={} not found in DB", finderProxy.getId());
-                } else if (INCOMPATIBLE_ROLES.contains(finder.getRole())) {
-                    // El finder tiene un rol incompatible: no se le asigna recompensa
-                    RewardExclusion exclusion = RewardExclusion.builder()
-                            .foundObjectUUID(command.getFoundObjectUUID())
-                            .user(finder)
-                            .userRole(finder.getRole())
-                            .reason("INCOMPATIBLE_ROLE")
-                            .excludedAt(LocalDateTime.now())
-                            .organizationId(command.getOrganizationId().toString())
-                            .build();
-                    rewardExclusionRepository.save(exclusion);
-                    log.info("Reward excluded for finder id={} role={} reason=INCOMPATIBLE_ROLE", finder.getId(), finder.getRole());
+                } else if (rewardExclusionRepository.existsByFoundObjectUUID(foundObject.getUuid())) {
+                    // Exclusión ya registrada al momento de la carga del objeto
+                    log.info("Reward already excluded for uuid={} (registered at upload time)", foundObject.getUuid());
                 } else {
                     // Guardar el destinatario para posible reprocesamiento futuro
                     rfo.setNotificationRecipient(finder.getUsername());
