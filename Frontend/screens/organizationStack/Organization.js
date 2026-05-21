@@ -151,7 +151,8 @@ const Organization = ({ route, navigation }) => {
                         </TouchableOpacity>
                     ) : (
                         <TouchableOpacity style={styles.revokeButton} onPress={() => openEncargadoConfirm(item, 'revoke')}>
-                            <Text style={styles.revokeButtonText}>Revocar encargado</Text>
+                            <Icon name="user-minus" size={13} color="#fff" style={{ marginRight: 5 }} />
+                            <Text style={styles.revokeButtonText}>Eliminar encargado</Text>
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity style={styles.deleteButton} onPress={() => {setDeleteEmployeeModal(true);setSelectedEmployee(item.id);}}>
@@ -519,17 +520,18 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
     },
     revokeButton: {
-        backgroundColor: '#f0f4f4',
+        backgroundColor: '#c0392b',
         paddingVertical: 6,
         paddingHorizontal: 10,
         borderRadius: 5,
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
     },
     revokeButtonText: {
-        color: '#638888',
+        color: '#fff',
         fontSize: 12,
-        fontFamily: 'PlusJakartaSans-Regular',
+        fontFamily: 'PlusJakartaSans-Bold',
     },
     roleBadge: {
         marginTop: 4,

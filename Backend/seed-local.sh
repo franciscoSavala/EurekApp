@@ -103,7 +103,27 @@ if [[ "${1:-}" != "--force" ]]; then
   [[ "$CONFIRM" =~ ^[sS]$ ]] || { echo "Cancelado."; exit 0; }
 fi
 
-# ─── 5. Limpiar MySQL ────────────────────────────────────────────────────────
+# ─── 5. Verificar y corregir ENUM de role ───────────────────────────────────
+header "Verificando ENUM de columna 'role'"
+
+ENUM_OK=$($MYSQL_EXEC 2>/dev/null <<'SQL'
+SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role';
+SQL
+)
+
+if echo "$ENUM_OK" | grep -q "ENCARGADO"; then
+  success "ENUM de 'role' contiene ENCARGADO — OK"
+else
+  warn "ENUM de 'role' no contiene ENCARGADO. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<'SQL'
+ALTER TABLE users
+  MODIFY COLUMN role ENUM('USER','ORGANIZATION_OWNER','ORGANIZATION_EMPLOYEE','ENCARGADO','ADMIN');
+SQL
+  success "ENUM corregido"
+fi
+
+# ─── 6b. Limpiar MySQL ───────────────────────────────────────────────────────
 header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
