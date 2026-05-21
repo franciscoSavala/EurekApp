@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
 
@@ -29,6 +30,7 @@ import java.util.concurrent.Future;
 public class ReturnFoundObjectService {
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
+    private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
 
     private final IOrganizationRepository organizationRepository;
@@ -207,9 +209,10 @@ public class ReturnFoundObjectService {
                         "<h2>El objeto <b>%s</b> fue devuelto a su dueño.</h2>" +
                         "<p><b>Fecha de devolución:</b> %s</p>" +
                         "<p><b>Registrado por:</b> %s %s</p>" +
-                        "<p><b>DNI de quien retiró:</b> %s</p>",
+                        "<p><b>DNI de quien retiró:</b> %s</p>" +
+                        "<p><b>Sumaste 10 puntos por devolver este objeto. ¡Gracias por tu contribución!</b></p>",
                         foundObject.getTitle(),
-                        rfo.getDatetimeOfReturn(),
+                        rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER),
                         finder.getFirstName(), finder.getLastName(),
                         rfo.getDNI()
                     );
