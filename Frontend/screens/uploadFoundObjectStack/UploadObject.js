@@ -237,14 +237,16 @@ const validateConstraints = () => {
         Alert.alert('Error', 'Por favor sube una imagen');
         return false;
     }
-    if (!objectTitle) {
-        Alert.alert('Error', 'Por favor escribe una descripción');
+    const trimmedTitle = objectTitle.trim();
+    if (!trimmedTitle) {
+        Alert.alert('Error', 'Por favor escribí un título para la publicación');
         return false;
     }
-    if(objectTitle.length > 30){
-        Alert.alert('Error', 'Por favor escribe una descripción de menos de 30 caracteres');
+    if (trimmedTitle.length > 100) {
+        Alert.alert('Error', 'El título no puede superar los 100 caracteres');
         return false;
     }
+    setObjectTitle(trimmedTitle);
     if(imageByte.length / 1024 / 1024 > MAX_IMAGE_SIZE_MB){
         Alert.alert('Error', `Por favor sube una imagen de menos de ${MAX_IMAGE_SIZE_MB}MB`);
         return false;
@@ -400,11 +402,11 @@ return (
             <View style={styles.textAreaContainer}>
                 <Text style={styles.label}>Titulo de la publicación: </Text>
                 <TextInput
-                    maxLength={30}
+                    maxLength={100}
                     style={styles.textArea}
                     placeholder="Escribe un título"
                     multiline
-                    onChangeText={(text) => setObjectTitle(text)}
+                    onChangeText={(text) => setObjectTitle(text.trimStart())}
                 />
             </View>
 
