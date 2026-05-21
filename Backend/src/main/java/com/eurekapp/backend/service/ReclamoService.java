@@ -208,42 +208,46 @@ public class ReclamoService {
                     .userFullName(u.getFirstName() + " " + u.getLastName());
         }
 
-        if (includeDetail && reclamo.getFoundObjectUUID() != null) {
+        if (reclamo.getFoundObjectUUID() != null) {
             FoundObject fo = foundObjectRepository.getByUuid(reclamo.getFoundObjectUUID());
             if (fo != null) {
-                builder.foundObjectTitle(fo.getTitle())
-                        .foundObjectHumanDescription(fo.getHumanDescription())
-                        .foundObjectAiDescription(fo.getAiDescription())
-                        .foundObjectDate(fo.getFoundDate())
-                        .foundObjectOrganizationId(fo.getOrganizationId())
-                        .foundObjectCategory(fo.getCategory() != null ? fo.getCategory() : reclamo.getFoundObjectCategory());
-                if (fo.getCoordinates() != null) {
-                    builder.foundObjectLatitude(fo.getCoordinates().getLatitude())
-                            .foundObjectLongitude(fo.getCoordinates().getLongitude());
+                builder.foundObjectTitle(fo.getTitle());
+                if (includeDetail) {
+                    builder.foundObjectHumanDescription(fo.getHumanDescription())
+                            .foundObjectAiDescription(fo.getAiDescription())
+                            .foundObjectDate(fo.getFoundDate())
+                            .foundObjectOrganizationId(fo.getOrganizationId())
+                            .foundObjectCategory(fo.getCategory() != null ? fo.getCategory() : reclamo.getFoundObjectCategory());
+                    if (fo.getCoordinates() != null) {
+                        builder.foundObjectLatitude(fo.getCoordinates().getLatitude())
+                                .foundObjectLongitude(fo.getCoordinates().getLongitude());
+                    }
                 }
             }
-            try {
-                byte[] imageBytes = objectStorage.getObjectBytes(reclamo.getFoundObjectUUID());
-                if (imageBytes != null) {
-                    builder.b64Json(Base64.getEncoder().encodeToString(imageBytes));
+            if (includeDetail) {
+                try {
+                    byte[] imageBytes = objectStorage.getObjectBytes(reclamo.getFoundObjectUUID());
+                    if (imageBytes != null) {
+                        builder.b64Json(Base64.getEncoder().encodeToString(imageBytes));
+                    }
+                } catch (Exception e) {
+                    // No bloquear si falla la imagen
                 }
-            } catch (Exception e) {
-                // No bloquear si falla la imagen
-            }
 
-            List<ReclamoHistoryDto> history = historyRepository
-                    .findByReclamo_IdOrderByChangedAtAsc(reclamo.getId())
-                    .stream()
-                    .map(h -> ReclamoHistoryDto.builder()
-                            .id(h.getId())
-                            .previousStatus(h.getPreviousStatus() != null ? h.getPreviousStatus().name() : null)
-                            .newStatus(h.getNewStatus().name())
-                            .changedByEmail(h.getChangedBy() != null ? h.getChangedBy().getUsername() : null)
-                            .changedAt(h.getChangedAt())
-                            .note(h.getNote())
-                            .build())
-                    .collect(Collectors.toList());
-            builder.history(history);
+                List<ReclamoHistoryDto> history = historyRepository
+                        .findByReclamo_IdOrderByChangedAtAsc(reclamo.getId())
+                        .stream()
+                        .map(h -> ReclamoHistoryDto.builder()
+                                .id(h.getId())
+                                .previousStatus(h.getPreviousStatus() != null ? h.getPreviousStatus().name() : null)
+                                .newStatus(h.getNewStatus().name())
+                                .changedByEmail(h.getChangedBy() != null ? h.getChangedBy().getUsername() : null)
+                                .changedAt(h.getChangedAt())
+                                .note(h.getNote())
+                                .build())
+                        .collect(Collectors.toList());
+                builder.history(history);
+            }
         }
 
         if (reclamo.getStatus() == ClaimStatus.DEVUELTO && reclamo.getFoundObjectUUID() != null) {
