@@ -41,6 +41,8 @@ import Reports from "./screens/reportsStack/Reports";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
+import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
+import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import { setupAxiosInterceptors } from './utils/axiosInstance';
 
 const AuthStack = createStackNavigator();
@@ -199,6 +201,25 @@ const FraudAlertsStackScreen = () => {
     );
 }
 
+const MyObjectsStack = createStackNavigator();
+
+const MyObjectsStackScreen = () => {
+    return (
+        <MyObjectsStack.Navigator>
+            <MyObjectsStack.Screen
+                name="MyObjectHistory"
+                component={MyObjectHistory}
+                options={{ headerShown: false, title: 'EurekApp - Mis búsquedas' }}
+            />
+            <MyObjectsStack.Screen
+                name="MyObjectDetail"
+                component={MyObjectDetail}
+                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda' }}
+            />
+        </MyObjectsStack.Navigator>
+    );
+}
+
 const OrganizationStack = createStackNavigator();
 
 const OrganizationStackScreen = () => {
@@ -339,6 +360,13 @@ const EurekappTab = () => {
 
             {userRole === 'REGULAR_USER' || userRole === 'USER' ?
             <>
+                <Drawer.Screen name="MyObjectsStackScreen" options={{
+                    title: 'Mis búsquedas',
+                    headerTitleAlign: 'center',
+                    drawerIcon: historyIcon
+                }} listeners={{
+                    drawerItemPress: () => resetAndNavigate(navigation, 'MyObjectsStackScreen')
+                }} component={MyObjectsStackScreen} />
                 <Drawer.Screen name="OrganizationSignupForm" options={{
                     title: 'Solicitar alta de organización',
                     headerTitleAlign: 'center',
