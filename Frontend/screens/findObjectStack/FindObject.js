@@ -71,9 +71,21 @@ const FindObject = ({ navigation, route }) => {
         }, [])
     );
 
+    const showAlert = (message) => {
+        if (Platform.OS === 'web') {
+            window.alert(message);
+        } else {
+            Alert.alert("", message);
+        }
+    };
+
     const validateInputConstraints = () => {
+        if (!queryObjects.trim() && !filterCategory) {
+            showAlert("Debes ingresar una descripción o seleccionar una categoría para realizar la búsqueda.");
+            return false;
+        }
         if (queryObjects.length > 255) {
-            Alert.alert("", "La descripción del objeto es muy larga");
+            showAlert("La descripción del objeto es muy larga");
             return false;
         }
         return true;
@@ -129,7 +141,7 @@ const FindObject = ({ navigation, route }) => {
 
         } catch (error) {
             if (__DEV__) console.error(error);
-            Alert.alert('Error', 'No se pudo realizar la búsqueda. Verificá tu conexión.');
+            showAlert('No se pudo realizar la búsqueda. Verificá tu conexión.');
         } finally {
             setLoading(false);
         }
