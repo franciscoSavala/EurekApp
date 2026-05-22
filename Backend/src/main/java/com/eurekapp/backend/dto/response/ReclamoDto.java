@@ -33,6 +33,9 @@ public class ReclamoDto {
     private String foundObjectAiDescription;
     private LocalDateTime foundObjectDate;
     private String foundObjectOrganizationId;
+    private String foundObjectOrganizationName;
+    private String foundObjectStreet;
+    private String foundObjectStreetNumber;
     private Double foundObjectLatitude;
     private Double foundObjectLongitude;
     private String b64Json;

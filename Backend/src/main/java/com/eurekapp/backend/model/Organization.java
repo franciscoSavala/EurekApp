@@ -16,6 +16,8 @@ public class Organization {
     private Long id;
     private String name;
     private String contactData;
+    private String street;
+    private String streetNumber;
 
     @Embedded
     private GeoCoordinates coordinates;

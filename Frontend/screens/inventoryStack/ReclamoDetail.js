@@ -153,9 +153,12 @@ const ReclamoDetail = ({ route }) => {
                 <InfoRow label="Descripción" value={reclamo.foundObjectHumanDescription} />
                 <InfoRow label="Descripción AI" value={reclamo.foundObjectAiDescription} />
                 <InfoRow label="Fecha de hallazgo" value={formatDate(reclamo.foundObjectDate)} />
+                <InfoRow label="Organización" value={reclamo.foundObjectOrganizationName} />
+                <InfoRow label="Calle" value={reclamo.foundObjectStreet} />
+                <InfoRow label="Número" value={reclamo.foundObjectStreetNumber} />
                 {reclamo.foundObjectLatitude != null && (
                     <InfoRow
-                        label="Ubicación"
+                        label="Coordenadas"
                         value={`${reclamo.foundObjectLatitude?.toFixed(5)}, ${reclamo.foundObjectLongitude?.toFixed(5)}`}
                     />
                 )}
