@@ -42,5 +42,13 @@ public class ReclamoDto {
 
     private LocalDateTime datetimeOfReturn;
 
+    private String finderEmail;
+    private String finderFullName;
+    private String finderRole;
+    private String takerDNI;
+    private String takerEmail;
+    private Boolean rewardExcluded;
+    private String rewardExclusionReason;
+
     private List<ReclamoHistoryDto> history;
 }

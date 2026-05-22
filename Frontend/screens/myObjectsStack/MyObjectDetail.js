@@ -15,6 +15,13 @@ import Icon from 'react-native-vector-icons/FontAwesome6';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
+const ROLE_LABELS = {
+    EMPLOYEE: 'Empleado',
+    ENCARGADO: 'Encargado',
+    ORGANIZATION_OWNER: 'Responsable de organización',
+    USER: 'Usuario',
+};
+
 const STATUS_CONFIG = {
     PENDIENTE:   { label: 'Pendiente',               color: '#888',    bg: '#f0f0f0', icon: 'clock' },
     EN_REVISION: { label: 'En revisión',             color: '#b45309', bg: '#fef3c7', icon: 'magnifying-glass' },
@@ -134,6 +141,21 @@ const MyObjectDetail = ({ route, navigation }) => {
                 )}
                 {!!reclamo.foundObjectDate && (
                     <InfoRow icon="box" label="Objeto encontrado el" value={formatDate(reclamo.foundObjectDate)} />
+                )}
+                {!!reclamo.finderFullName && (
+                    <InfoRow icon="user" label="Encontrado por"
+                        value={`${reclamo.finderFullName}${reclamo.finderRole ? ` (${ROLE_LABELS[reclamo.finderRole] || reclamo.finderRole})` : ''}`} />
+                )}
+                {!!reclamo.takerDNI && (
+                    <InfoRow icon="id-card" label="Retirado por (DNI)" value={reclamo.takerDNI} />
+                )}
+                {!!reclamo.takerEmail && (
+                    <InfoRow icon="envelope" label="Email de quien retiró" value={reclamo.takerEmail} />
+                )}
+                {reclamo.rewardExcluded && (
+                    <View style={styles.warningBox}>
+                        <Text style={styles.warningText}>{reclamo.rewardExclusionReason}</Text>
+                    </View>
                 )}
             </View>
 
@@ -288,6 +310,17 @@ const styles = StyleSheet.create({
         color: '#444',
         marginTop: 2,
         fontStyle: 'italic',
+    },
+    warningBox: {
+        backgroundColor: '#fef3c7',
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 8,
+    },
+    warningText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 13,
+        color: '#b45309',
     },
 });
 

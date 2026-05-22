@@ -355,7 +355,7 @@ public class FoundObjectService implements IFoundObjectService {
                 organizationService.organizationToDto(organization) :
                 null;
 
-        return FoundObjectDto.builder()
+        FoundObjectDto dto = FoundObjectDto.builder()
                 .id(foundObject.getUuid())
                 .title(foundObject.getTitle())
                 .humanDescription(foundObject.getHumanDescription())
@@ -369,6 +369,13 @@ public class FoundObjectService implements IFoundObjectService {
                 .longitude(foundObject.getCoordinates().getLongitude().floatValue())
                 .category(foundObject.getCategory())
                 .build();
+        UserEurekapp finder = foundObject.getObjectFinderUser();
+        if (finder != null) {
+            dto.setFinderEmail(finder.getUsername());
+            dto.setFinderFullName(finder.getFirstName() + " " + finder.getLastName());
+            dto.setFinderRole(finder.getRole() != null ? finder.getRole().name() : null);
+        }
+        return dto;
     }
 
     @SneakyThrows
