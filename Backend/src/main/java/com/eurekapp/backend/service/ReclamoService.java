@@ -8,6 +8,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IReclamoHistoryRepository;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReclamoRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.FoundObjectRepository;
@@ -34,6 +35,7 @@ public class ReclamoService {
     private final ObjectStorage objectStorage;
     private final IFraudAlertRepository fraudAlertRepository;
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
+    private final IOrganizationRepository organizationRepository;
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
@@ -221,6 +223,15 @@ public class ReclamoService {
                     if (fo.getCoordinates() != null) {
                         builder.foundObjectLatitude(fo.getCoordinates().getLatitude())
                                 .foundObjectLongitude(fo.getCoordinates().getLongitude());
+                    }
+                    if (fo.getOrganizationId() != null) {
+                        try {
+                            organizationRepository.findById(Long.parseLong(fo.getOrganizationId()))
+                                    .ifPresent(org -> builder
+                                            .foundObjectOrganizationName(org.getName())
+                                            .foundObjectStreet(org.getStreet())
+                                            .foundObjectStreetNumber(org.getStreetNumber()));
+                        } catch (NumberFormatException ignored) {}
                     }
                 }
             }
