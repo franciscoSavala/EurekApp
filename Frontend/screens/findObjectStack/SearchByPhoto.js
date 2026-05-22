@@ -61,40 +61,6 @@ const SearchByPhoto = ({ navigation }) => {
         handleImagePicked(result);
     };
 
-    const takePhoto = async () => {
-        if (isWeb) {
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = 'image/jpeg,image/png';
-            input.capture = 'environment';
-            input.onchange = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-                    Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
-                    return;
-                }
-                const reader = new FileReader();
-                reader.onload = () => {
-                    const base64String = reader.result.split(',')[1];
-                    const bytes = Buffer.from(base64String, 'base64');
-                    if (bytes.length / 1024 / 1024 > MAX_SIZE_MB) {
-                        Alert.alert('Imagen muy grande', `La foto no debe superar los ${MAX_SIZE_MB} MB`);
-                        return;
-                    }
-                    setImage({ uri: URL.createObjectURL(file), base64: base64String });
-                    setImageByte(bytes);
-                    setImageUploaded(true);
-                };
-                reader.readAsDataURL(file);
-            };
-            input.click();
-        } else {
-            let result = await ImagePicker.launchCameraAsync(imagePickerConfig);
-            handleImagePicked(result);
-        }
-    };
-
     const deleteImage = () => {
         setImage({});
         setImageUploaded(false);
@@ -174,11 +140,6 @@ const SearchByPhoto = ({ navigation }) => {
                     <Pressable onPress={pickImage} style={styles.imageLoadPressable}>
                         <Text style={styles.imageLoadText}>Seleccionar foto</Text>
                         <Icon name={'upload'} size={24} color={'#bdc1c1'} />
-                    </Pressable>
-                    <View style={{ width: 10 }} />
-                    <Pressable onPress={takePhoto} style={styles.imageLoadPressable}>
-                        <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                        <Icon name={'camera'} size={24} color={'#bdc1c1'} />
                     </Pressable>
                 </View>
                 {loading && (
