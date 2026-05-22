@@ -166,12 +166,8 @@ const ReclamoDetail = ({ route }) => {
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
                 <InfoRow label="Fecha del reclamo" value={formatDate(reclamo.createdAt)} />
                 <InfoRow label="Última actualización" value={formatDate(reclamo.updatedAt)} />
-                {reclamo.starRating ? (
-                    <InfoRow label="Puntuación" value={renderStars(reclamo.starRating)} />
-                ) : null}
-                {reclamo.comment ? (
-                    <InfoRow label="Comentario" value={reclamo.comment} />
-                ) : null}
+                <InfoRow label="Puntuación" value={renderStars(reclamo.starRating)} />
+                <InfoRow label="Comentario" value={reclamo.comment} />
             </View>
 
             {/* Botones de acción */}
