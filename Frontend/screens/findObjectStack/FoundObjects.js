@@ -14,7 +14,10 @@ const CATEGORY_LABELS = {
 
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound, query, lostDate, coordinates, organizationId, filterCategory, filterColor, filterLostDateTo } = route.params;
+    const { objectsFound, query, lostDate, latitude, longitude, organizationId, filterCategory, filterColor, filterLostDateTo } = route.params;
+    const coordinates = (latitude != null && longitude != null)
+        ? { latitude, longitude }
+        : null;
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
     const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
