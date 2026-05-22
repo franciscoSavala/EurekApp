@@ -27,6 +27,8 @@ public class LostObjectService {
     private final IOrganizationRepository organizationRepository;
     private final ObjectStorage objectStorage;
     private final LostObjectRepository lostObjectRepository;
+    private final IUserRepository userRepository;
+    private final InAppNotificationService inAppNotificationService;
 
     public LostObjectService(
             EmbeddingService embeddingService,
@@ -34,13 +36,17 @@ public class LostObjectService {
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
             ObjectStorage objectStorage,
-            LostObjectRepository lostObjectRepository) {
+            LostObjectRepository lostObjectRepository,
+            IUserRepository userRepository,
+            InAppNotificationService inAppNotificationService) {
         this.embeddingService = embeddingService;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
         this.objectStorage = objectStorage;
         this.lostObjectRepository = lostObjectRepository;
+        this.userRepository = userRepository;
+        this.inAppNotificationService = inAppNotificationService;
     }
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
@@ -99,6 +105,16 @@ public class LostObjectService {
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
         notificationService.sendNotification(lostObjects.getFirst().getUsername(), "Hemos encontrado tu objeto!", message);
+
+        userRepository.findByUsername(lostObjects.getFirst().getUsername()).ifPresent(user ->
+                inAppNotificationService.createNotification(
+                        user,
+                        "¡Posible coincidencia encontrada!",
+                        "Se encontró un objeto en " + organization.getName() + " que podría ser el tuyo: " + description,
+                        "MATCH_FOUND",
+                        null
+                )
+        );
     }
 
     public List<LostObjectResponseDto> getMyLostObjects(String username) {
