@@ -65,10 +65,23 @@ public class FoundObjectRepository {
                                    LocalDateTime foundDateTo,
                                    Boolean wasReturned,
                                    String category){
-        return query(vector, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, null, null);
+        return query(vector, null, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, null, null);
     }
 
     public List<FoundObject> query(List<Float> vector,
+                                   String orgId,
+                                   GeoCoordinates coordinates,
+                                   LocalDateTime foundDate,
+                                   LocalDateTime foundDateTo,
+                                   Boolean wasReturned,
+                                   String category,
+                                   Integer limit,
+                                   Integer offset){
+        return query(vector, null, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, limit, offset);
+    }
+
+    public List<FoundObject> query(List<Float> vector,
+                                   String queryText,
                                    String orgId,
                                    GeoCoordinates coordinates,
                                    LocalDateTime foundDate,
@@ -174,6 +187,7 @@ public class FoundObjectRepository {
 
         List<WeaviateObject> result = weaviateService.queryObjects("FoundObject",
                 vector,
+                queryText,
                 filter,
                 List.of("title",
                         "object_finder_user_id",
@@ -220,8 +234,11 @@ public class FoundObjectRepository {
         }
 
         Float certainty = null;
-        if(weaviateObject.getAdditional() != null && weaviateObject.getAdditional().get("certainty") != null) {
-            certainty = ((Double) weaviateObject.getAdditional().get("certainty")).floatValue();
+        if (weaviateObject.getAdditional() != null) {
+            if (weaviateObject.getAdditional().get("certainty") != null)
+                certainty = ((Double) weaviateObject.getAdditional().get("certainty")).floatValue();
+            else if (weaviateObject.getAdditional().get("score") != null)
+                certainty = Float.parseFloat(weaviateObject.getAdditional().get("score").toString());
         }
 
         GeoCoordinates location = null;

@@ -99,11 +99,21 @@ public class WeaviateService {
                                                      List<Float> vector,
                                                      WhereFilter filter,
                                                      List<String> fieldNames) {
-        return queryObjects(className, vector, filter, fieldNames, null, null);
+        return queryObjects(className, vector, null, filter, fieldNames, null, null);
     }
 
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
+                                                     WhereFilter filter,
+                                                     List<String> fieldNames,
+                                                     Integer limit,
+                                                     Integer offset) {
+        return queryObjects(className, vector, null, filter, fieldNames, limit, offset);
+    }
+
+    public List<WeaviateObject> queryObjects(String className,
+                                                     List<Float> vector,
+                                                     String queryText,
                                                      WhereFilter filter,
                                                      List<String> fieldNames,
                                                      Integer limit,
@@ -123,10 +133,17 @@ public class WeaviateService {
                     .append(toGraphQLString(filter))
                     .append("} ");}
 
-        // 3- Agregar el vector, si se proporciona
-        if (vector != null && !vector.isEmpty()) {
+        // 3- Agregar vector/hybrid search
+        boolean useHybrid = queryText != null && !queryText.isBlank() && vector != null && !vector.isEmpty();
+        if (useHybrid) {
+            String escaped = queryText.replace("\"", "\\\"");
+            queryBuilder.append("hybrid: { query: \"").append(escaped)
+                    .append("\", vector: ").append(vector.toString())
+                    .append(", alpha: 0.75} ");
+        } else if (vector != null && !vector.isEmpty()) {
             queryBuilder.append("nearVector: { vector: ").append(vector.toString())
-                    .append(", certainty: 0.0} ");}
+                    .append(", certainty: 0.0} ");
+        }
 
         // 4a- Paginación
         if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
@@ -143,8 +160,12 @@ public class WeaviateService {
         }
 
         // 5- Sin importar para qué clase estamos haciendo una query vectorial, siempre querremos saber el id y la
-        //  certeza de cad resultado.
-        queryBuilder.append("_additional { id certainty } ");
+        //  certeza de cada resultado. Hybrid devuelve "score"; nearVector devuelve "certainty".
+        if (useHybrid) {
+            queryBuilder.append("_additional { id score } ");
+        } else {
+            queryBuilder.append("_additional { id certainty } ");
+        }
         queryBuilder.append("}");
 
         // 5- Cerrar la query
