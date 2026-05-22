@@ -122,9 +122,12 @@ const ReturnObjectForm = ({ route, navigation}) => {
             }else{
                 const errorData = await res.json();
                 setResponseOk(false);
+                const userMessage = errorData.error === 'found_object'
+                    ? 'Este objeto ya fue devuelto anteriormente.'
+                    : (errorData.message || 'Error al registrar la devolución.');
                 setError('ObjectOwnerUsername', {
                     type: 'manual',
-                    message: errorData.message
+                    message: userMessage
                 })
             }
             /*if(res.status === '404'){
@@ -447,7 +450,9 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     }</Text>
 
                     <StatusComponent />
-                    <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
+                    {!responseOk && (
+                        <EurekappButton text={'Registrar devolución'} onPress={handleSubmit(onSubmit)}/>
+                    )}
                 </View>
 
             </ScrollView>
