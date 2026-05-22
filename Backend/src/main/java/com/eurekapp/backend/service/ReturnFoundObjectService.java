@@ -164,21 +164,23 @@ public class ReturnFoundObjectService {
         }
 
                         // 6b- ACTUALIZAR STATUS DEL RECLAMO A DEVUELTO
-        reclamoRepository.findByFoundObjectUUIDAndStatus(command.getFoundObjectUUID(), ClaimStatus.APROBADO)
-                .ifPresent(r -> {
-                    ReclamoHistory h = ReclamoHistory.builder()
-                            .reclamo(r)
-                            .previousStatus(r.getStatus())
-                            .newStatus(ClaimStatus.DEVUELTO)
-                            .changedBy(null)
-                            .changedAt(LocalDateTime.now())
-                            .note("Objeto retirado")
-                            .build();
-                    reclamoHistoryRepository.save(h);
-                    r.setStatus(ClaimStatus.DEVUELTO);
-                    r.setUpdatedAt(LocalDateTime.now());
-                    reclamoRepository.save(r);
-                });
+        List<Reclamo> reclamosDelObjeto =
+                reclamoRepository.findByFoundObjectUUID(command.getFoundObjectUUID());
+        for (Reclamo r : reclamosDelObjeto) {
+            if (r.getStatus() == ClaimStatus.DEVUELTO || r.getStatus() == ClaimStatus.RECHAZADO) continue;
+            ReclamoHistory h = ReclamoHistory.builder()
+                    .reclamo(r)
+                    .previousStatus(r.getStatus())
+                    .newStatus(ClaimStatus.DEVUELTO)
+                    .changedBy(null)
+                    .changedAt(LocalDateTime.now())
+                    .note("Objeto retirado")
+                    .build();
+            reclamoHistoryRepository.save(h);
+            r.setStatus(ClaimStatus.DEVUELTO);
+            r.setUpdatedAt(LocalDateTime.now());
+            reclamoRepository.save(r);
+        }
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();
