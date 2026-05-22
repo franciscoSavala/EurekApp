@@ -1,18 +1,64 @@
-import React from 'react';
-import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import EurekappButton from '../components/Button';
 import Icon from 'react-native-vector-icons/FontAwesome6';
+import UploadLostObjectModal from './UploadLostObjectModal';
+import StarRating from '../components/StarRating';
+import submitFeedback from '../../services/FeedbackService';
 
 const PhotoSearchResults = ({ route, navigation }) => {
     const { objectsFound } = route.params;
     const results = objectsFound.slice(0, 5);
+    const foundObjectsMap = new Map(results.map(obj => [obj.id, obj]));
+
+    const [objectSelectedId, setObjectSelectedId] = useState("");
+    const [feedbackModal, setFeedbackModal] = useState(false);
+    const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
+    const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
+    const [pendingWasFound, setPendingWasFound] = useState(null);
+    const [starRating, setStarRating] = useState(0);
+    const [comment, setComment] = useState('');
+
+    const openFeedback = (wasFound) => {
+        setPendingWasFound(wasFound);
+        setStarRating(0);
+        setComment('');
+        setFeedbackModal(true);
+    };
+
+    const onFeedbackDone = async (skip = false) => {
+        if (!skip && starRating > 0) {
+            const selected = foundObjectsMap.get(objectSelectedId);
+            const orgId = selected?.organization?.id?.toString() || null;
+            try {
+                await submitFeedback({
+                    organizationId: orgId,
+                    foundObjectUUID: pendingWasFound ? objectSelectedId : null,
+                    starRating,
+                    wasFound: pendingWasFound,
+                    comment: comment.trim() || null,
+                });
+            } catch (e) {
+                console.warn('Error enviando feedback:', e);
+            }
+        }
+        setFeedbackModal(false);
+        if (pendingWasFound) setOrganizationInformationModal(true);
+        else setUploadLostObjectModal(true);
+    };
+
+    const handleClaimConfirmed = () => {
+        setOrganizationInformationModal(false);
+        navigation.navigate('SearchByPhoto');
+    };
 
     const renderItem = ({ item }) => {
+        const isSelected = item.id === objectSelectedId;
         const date = new Date(item.found_date);
         return (
             <Pressable
-                style={styles.item}
-                onPress={() => navigation.navigate('FoundObjectDetail', { foundObjectUUID: item.id })}>
+                style={[styles.item, isSelected && styles.highlightedObjectFound]}
+                onPress={() => setObjectSelectedId(item.id)}>
                 <View style={styles.itemTextContainer}>
                     <Text style={[styles.itemText, { fontFamily: 'PlusJakartaSans-Bold' }]}>
                         {item.title}
@@ -72,15 +118,99 @@ const PhotoSearchResults = ({ route, navigation }) => {
                     keyExtractor={(item) => item.id}
                     renderItem={renderItem}
                     contentContainerStyle={styles.contentContainer}
+                    extraData={objectSelectedId}
                     scrollEnabled={false}
                 />
             </ScrollView>
-            <EurekappButton
-                text="Nueva búsqueda"
-                onPress={() => navigation.goBack()}
-                backgroundColor={'#f0f4f4'}
-                textColor={'#111818'}
-            />
+            <View style={styles.buttonContainer}>
+                <EurekappButton
+                    onPress={() => openFeedback(true)}
+                    backgroundColor={'#f0f4f4'}
+                    textColor={'#111818'}
+                    text="Este es mi objeto" />
+                <EurekappButton
+                    onPress={() => openFeedback(false)}
+                    backgroundColor={'#fff'}
+                    textColor={'#111818'}
+                    text="No encontré mi objeto" />
+                <EurekappButton
+                    text="Nueva búsqueda"
+                    onPress={() => navigation.goBack()}
+                    backgroundColor={'#fff'}
+                    textColor={'#638888'} />
+            </View>
+
+            <UploadLostObjectModal
+                modalVisible={uploadLostObjectModal}
+                setModalVisible={setUploadLostObjectModal}
+                query={null}
+                lostDate={null}
+                organizationId={null}
+                coordinates={null} />
+
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={feedbackModal}
+                onRequestClose={() => onFeedbackDone(true)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>
+                            ¿Qué tan útiles fueron las coincidencias?
+                        </Text>
+                        <Text style={[styles.modalText, { color: '#638888', fontSize: 13 }]}>
+                            Tu calificación nos ayuda a mejorar los resultados.
+                        </Text>
+                        <StarRating rating={starRating} onRate={setStarRating} size={32} />
+                        <TextInput
+                            placeholder="Comentario opcional..."
+                            placeholderTextColor="#aaa"
+                            value={comment}
+                            onChangeText={setComment}
+                            multiline
+                            maxLength={500}
+                            style={styles.commentInput}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                            <TouchableOpacity
+                                style={[styles.feedbackBtn, { backgroundColor: '#f0f4f4' }]}
+                                onPress={() => onFeedbackDone(true)}>
+                                <Text style={[styles.feedbackBtnText, { color: '#638888' }]}>Omitir</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.feedbackBtn, { backgroundColor: starRating > 0 ? '#19b8b8' : '#ccc' }]}
+                                onPress={() => onFeedbackDone(false)}
+                                disabled={starRating === 0}>
+                                <Text style={[styles.feedbackBtnText, { color: 'white' }]}>Enviar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                animationType="none"
+                transparent={true}
+                visible={organizationInformationModal}
+                onRequestClose={() => setOrganizationInformationModal(false)}>
+                <View style={styles.centeredView}>
+                    <View style={styles.modalView}>
+                        <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'} />
+                        <Text style={styles.modalText}>
+                            Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}
+                            {foundObjectsMap.has(objectSelectedId) ? (
+                                <>
+                                    {foundObjectsMap.get(objectSelectedId).organization.name}{"\n"}
+                                    {foundObjectsMap.get(objectSelectedId).organization.contactData}
+                                </>
+                            ) : null}
+                            {"\n"}{"\n"}
+                            Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto, y te tomarán una foto.
+                        </Text>
+                        <EurekappButton text='Cerrar' onPress={handleClaimConfirmed} />
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -120,6 +250,9 @@ const styles = StyleSheet.create({
         marginVertical: 5,
         borderRadius: 16,
     },
+    highlightedObjectFound: {
+        backgroundColor: '#19e6e6',
+    },
     itemTextContainer: {
         flex: 2,
         flexDirection: 'column',
@@ -139,6 +272,60 @@ const styles = StyleSheet.create({
         maxHeight: 120,
         borderRadius: 16,
         overflow: 'hidden',
+    },
+    buttonContainer: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        width: '100%',
+    },
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 35,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    modalText: {
+        marginBottom: 15,
+        textAlign: 'left',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    infoIcon: {
+        marginBottom: 50,
+    },
+    feedbackBtn: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    feedbackBtnText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 14,
+    },
+    commentInput: {
+        marginTop: 12,
+        width: '100%',
+        borderWidth: 1,
+        borderColor: '#e0e8e8',
+        borderRadius: 8,
+        padding: 10,
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#111818',
+        minHeight: 60,
+        textAlignVertical: 'top',
     },
     prettyNotFoundContainer: {
         flex: 1,
