@@ -8,7 +8,10 @@ import submitFeedback from "../../services/FeedbackService";
 
 
 const NotFoundObjects = ({route, navigation}) => {
-    const { query, lostDate, coordinates, organizationId } = route.params;
+    const { query, lostDate, latitude, longitude, organizationId } = route.params;
+    const coordinates = (latitude != null && longitude != null)
+        ? { latitude, longitude }
+        : null;
     const [modalVisible, setModalVisible] = useState(false);
     const [feedbackRating, setFeedbackRating] = useState(0);
     const [feedbackSent, setFeedbackSent] = useState(false);
