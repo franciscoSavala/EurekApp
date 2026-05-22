@@ -174,6 +174,9 @@ public class WeaviateService {
 
             // Elaboramos una lista donde cada componente es un resultado de la query
             List<Map<String,Object>> objectsList = (List<Map<String,Object>>) objectsMap.get(className);
+            if (objectsList == null) {
+                return weaviateObjects;
+            }
             for (Map<String, Object> objectData : objectsList) {
                 WeaviateObject weaviateObject = convertToWeaviateObject(objectData);
                 weaviateObjects.add(weaviateObject);
@@ -219,7 +222,21 @@ public class WeaviateService {
     private static String toGraphQLString(WhereFilter filter) {
         StringBuilder stringBuilder = new StringBuilder();
 
-        // Asegúrate de que la estructura de WhereFilter tiene los métodos necesarios
+        // Leaf filter (Equal, LessThan, etc.) — no tiene operandos
+        if (filter.getOperands() == null || filter.getOperands().length == 0) {
+            stringBuilder.append("path: [\"").append(filter.getPath()[0]).append("\"], ");
+            stringBuilder.append("operator: ").append(filter.getOperator()).append(", ");
+            if (filter.getValueText() != null) {
+                stringBuilder.append("valueText: \"").append(filter.getValueText()).append("\"");
+            } else if (filter.getValueBoolean() != null) {
+                stringBuilder.append("valueBoolean: ").append(filter.getValueBoolean());
+            } else if (filter.getValueDate() != null) {
+                stringBuilder.append("valueDate: \"").append(filter.getValueDate().toInstant()).append("\"");
+            }
+            return stringBuilder.toString();
+        }
+
+        // Compound filter (And/Or)
         if (filter.getOperator() != null) {
             stringBuilder.append("operator: ").append(filter.getOperator()).append(" ");
         }

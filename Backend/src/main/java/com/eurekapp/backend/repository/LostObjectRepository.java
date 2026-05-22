@@ -132,11 +132,13 @@ public class LostObjectRepository {
 
         // Construir el filtro compuesto (And), si es que efectivamente hay filtros.
         WhereFilter filter = null;
-        if(!filters.isEmpty()) {
-        filter = WhereFilter.builder()
-                .operator(Operator.And)
-                .operands(filters.toArray(new WhereFilter[0])) // Convierte la lista en array
-                .build();
+        if (filters.size() == 1) {
+            filter = filters.get(0);
+        } else if (filters.size() > 1) {
+            filter = WhereFilter.builder()
+                    .operator(Operator.And)
+                    .operands(filters.toArray(new WhereFilter[0]))
+                    .build();
         }
 
         List<WeaviateObject> result = weaviateService.queryObjects("LostObject",
