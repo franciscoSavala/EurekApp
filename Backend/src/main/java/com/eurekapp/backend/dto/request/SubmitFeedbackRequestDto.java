@@ -10,7 +10,7 @@ import lombok.Data;
 public class SubmitFeedbackRequestDto {
     private String organizationId;
     private String foundObjectUUID;     // nullable — null si wasFound=false
-    @NotNull @Min(1) @Max(5)
+    @NotNull @Min(0) @Max(5)
     private Integer starRating;
     @NotNull
     private Boolean wasFound;
