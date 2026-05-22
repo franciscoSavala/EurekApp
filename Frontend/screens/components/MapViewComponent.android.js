@@ -4,7 +4,7 @@ import React, {useEffect, useRef, useState} from "react";
 import * as Location from "expo-location";
 import alert from "react-native-web/src/exports/Alert";
 
-const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => {
+const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDraggable, style}) => {
     const [mapRegion, setMapRegion] = useState({
         latitude: -31.4124,
         longitude: -64.1867,
@@ -16,6 +16,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
     const mapRef = useRef(null);
 
     useEffect(() => {
+        if (!markerIsDraggable) return;
         const getUserLocation = async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
@@ -95,14 +96,16 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, style}) => 
                     }
                 </MapView>
             </View>
-            <TextInput
-                style={styles.textArea}
-                placeholder="Escribe la ubicación"
-                onChangeText={(e) => setTextLocation(e)}
-                onSubmitEditing={async (e) => {
-                    clearTimeout(typingTimeout);
-                    await getLocationFromText();
-                }}/>
+            {markerIsDraggable && (
+                <TextInput
+                    style={styles.textArea}
+                    placeholder="Escribe la ubicación"
+                    onChangeText={(e) => setTextLocation(e)}
+                    onSubmitEditing={async (e) => {
+                        clearTimeout(typingTimeout);
+                        await getLocationFromText();
+                    }}/>
+            )}
         </View>
     );
 }
