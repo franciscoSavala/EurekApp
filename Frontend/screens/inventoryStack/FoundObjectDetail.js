@@ -27,6 +27,13 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
+const ROLE_LABELS = {
+    EMPLOYEE: 'Empleado',
+    ENCARGADO: 'Encargado',
+    ORGANIZATION_OWNER: 'Responsable de organización',
+    USER: 'Usuario',
+};
+
 const FoundObjectDetail = ({route}) => {
     // FoundObject data (fo)
     const [fo, setFo] = useState(null);
@@ -142,6 +149,14 @@ const FoundObjectDetail = ({route}) => {
                             labelText={""}/>
                     }
                 </View>
+
+                {fo.finderFullName && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>
+                            Encontrado por: {fo.finderFullName}{fo.finderRole ? ` (${ROLE_LABELS[fo.finderRole] || fo.finderRole})` : ''}
+                        </Text>
+                    </View>
+                )}
 
             </ScrollView>
             <EurekappButton text="Volver" onPress={handleClose} />

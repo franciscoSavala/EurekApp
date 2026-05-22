@@ -25,4 +25,7 @@ public class FoundObjectDto {
     private Float longitude;
     private Float distance;
     private String category;
+    private String finderEmail;
+    private String finderFullName;
+    private String finderRole;
 }

@@ -11,6 +11,7 @@ import com.eurekapp.backend.repository.IReclamoHistoryRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReclamoRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
+import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import lombok.AllArgsConstructor;
@@ -36,6 +37,7 @@ public class ReclamoService {
     private final IFraudAlertRepository fraudAlertRepository;
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final IOrganizationRepository organizationRepository;
+    private final IRewardExclusionRepository rewardExclusionRepository;
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
@@ -233,6 +235,16 @@ public class ReclamoService {
                                             .foundObjectStreetNumber(org.getStreetNumber()));
                         } catch (NumberFormatException ignored) {}
                     }
+                    if (fo.getObjectFinderUser() != null) {
+                        UserEurekapp finder = fo.getObjectFinderUser();
+                        builder.finderEmail(finder.getUsername())
+                                .finderFullName(finder.getFirstName() + " " + finder.getLastName())
+                                .finderRole(finder.getRole() != null ? finder.getRole().name() : null);
+                        rewardExclusionRepository.findByFoundObjectUUID(reclamo.getFoundObjectUUID())
+                                .ifPresent(excl -> builder
+                                        .rewardExcluded(true)
+                                        .rewardExclusionReason("El usuario que encontró el objeto no puede recibir recompensas de puntos por ser un miembro activo de la organización"));
+                    }
                 }
             }
             if (includeDetail) {
@@ -261,10 +273,14 @@ public class ReclamoService {
             }
         }
 
-        if (reclamo.getStatus() == ClaimStatus.DEVUELTO && reclamo.getFoundObjectUUID() != null) {
+        if (reclamo.getFoundObjectUUID() != null) {
             ReturnFoundObject rfo = returnFoundObjectRepository.findByFoundObjectUUID(reclamo.getFoundObjectUUID());
             if (rfo != null) {
-                builder.datetimeOfReturn(rfo.getDatetimeOfReturn());
+                builder.datetimeOfReturn(rfo.getDatetimeOfReturn())
+                        .takerDNI(rfo.getDNI());
+                if (rfo.getUserEurekapp() != null) {
+                    builder.takerEmail(rfo.getUserEurekapp().getUsername());
+                }
             }
         }
 
