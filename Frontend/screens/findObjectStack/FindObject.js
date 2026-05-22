@@ -156,10 +156,14 @@ const FindObject = ({ navigation, route }) => {
                         style={styles.textArea}
                         placeholder="Proporciona detalles que ayuden a identificarlo"
                         multiline
+                        value={queryObjects}
                         onChangeText={(text) => setQueryObjects(text)}
                     />
                 </View>
-                <InstitutePicker setSelected={(institution) => setSelectedInstitution(institution)} />
+                <InstitutePicker
+                    selectedValue={selectedInstitute ? selectedInstitute.id.toString() : ""}
+                    setSelected={(institution) => setSelectedInstitution(institution)}
+                />
                 { selectedInstitute == null ? <MapViewComponent
                     objectMarker={objectMarker}
                     setObjectMarker={setObjectMarker}
