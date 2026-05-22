@@ -7,10 +7,9 @@ import {Text, View} from "react-native";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const InstitutePicker = ({ setSelected }) => {
+const InstitutePicker = ({ setSelected, selectedValue = "" }) => {
     const [institutionList, setInstitutionList] = useState([]);
     const [pickerFocused, setPickerFocused] = useState(false);
-    const [selectedInstitute, setSelectedInstitution] = useState("");
     const [jwt, setJwt] = useState(null);
 
     useEffect(() => {
@@ -32,15 +31,14 @@ const InstitutePicker = ({ setSelected }) => {
         fetchInstitutes();
     }, [jwt]);
 
-    const onValueChange = (itemValue, itemIndex) => {
-        setSelectedInstitution(itemValue);
-        setSelected(institutionList.find(org => org.id === Number(itemValue)))
-    }
+    const onValueChange = (itemValue) => {
+        setSelected(institutionList.find(org => org.id === Number(itemValue)));
+    };
     return (
         <View style={styles.pickerContainer}>
             <Text style={styles.labelText}>Establecimiento donde lo perdiste</Text>
             <Picker
-                selectedValue={selectedInstitute}
+                selectedValue={selectedValue}
                 style={styles.picker}
                 onValueChange={onValueChange}
                 onFocus={() => setPickerFocused(true)}
