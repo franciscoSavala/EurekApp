@@ -4,11 +4,16 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
+    encoding:
+      charset: UTF-8
+      force: true
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USER}
     password: ${DATABASE_PASS}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      connection-init-sql: "SET NAMES utf8mb4"
   jpa:
     hibernate:
       ddl-auto: update

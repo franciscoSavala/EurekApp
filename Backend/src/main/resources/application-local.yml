@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/eurekapp
+    url: jdbc:mysql://localhost:3306/eurekapp?useUnicode=true&characterEncoding=UTF-8
     username: eurekapp
     password: eurekapp
     driver-class-name: com.mysql.cj.jdbc.Driver
