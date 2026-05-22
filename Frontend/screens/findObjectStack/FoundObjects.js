@@ -35,16 +35,17 @@ const FoundObjects = ({ route, navigation }) => {
     };
 
     const onFeedbackDone = async (skip = false) => {
-        if (!skip && starRating > 0) {
+        const shouldSubmit = pendingWasFound || (!skip && starRating > 0);
+        if (shouldSubmit) {
             const selected = foundObjectsMap.get(objectSelectedId);
             const orgId = selected?.organization?.id?.toString() || organizationId || null;
             try {
                 await submitFeedback({
                     organizationId: orgId,
                     foundObjectUUID: pendingWasFound ? objectSelectedId : null,
-                    starRating,
+                    starRating: skip ? 0 : starRating,
                     wasFound: pendingWasFound,
-                    comment: comment.trim() || null,
+                    comment: skip ? null : (comment.trim() || null),
                 });
             } catch (e) {
                 console.warn('Error enviando feedback:', e);
