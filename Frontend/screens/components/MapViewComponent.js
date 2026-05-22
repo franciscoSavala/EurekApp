@@ -26,6 +26,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
     const mapRef = useRef(null);
 
     useEffect(() => {
+        if (!markerIsDraggable) return;
         const getUserLocation = async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
@@ -42,7 +43,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
                 latitude: location.coords.latitude
             })
         }
-        getUserLocation(); //TODO: HABILITAR PARA OBTENER LA UBICACION DEL USUARIO
+        getUserLocation();
     }, []);
 
     useEffect(() => {
@@ -131,15 +132,17 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
                 {Platform.OS === 'web' ? (
                     // Mapa para web
                     <>
-                        <TextInput
-                            style={styles.textArea}
-                            placeholder="Escribe la ubicación"
-                            onChangeText={(e) => setTextLocation(e)}
-                            onSubmitEditing={async () => {
-                                clearTimeout(typingTimeout);
-                                await getLocationFromTextWeb();
-                            }}
-                        />
+                        {markerIsDraggable && (
+                            <TextInput
+                                style={styles.textArea}
+                                placeholder="Escribe la ubicación"
+                                onChangeText={(e) => setTextLocation(e)}
+                                onSubmitEditing={async () => {
+                                    clearTimeout(typingTimeout);
+                                    await getLocationFromTextWeb();
+                                }}
+                            />
+                        )}
                         <MapContainer style={styles.map} center={[mapRegion.latitude, mapRegion.longitude]} zoom={15} >
                             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"/>
                             <MapMover center={webCenter} />
@@ -170,15 +173,17 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
                             )
                             }
                         </MapView>
-                        <TextInput
-                            style={styles.textArea}
-                            placeholder="Escribe la ubicación"
-                            onChangeText={(e) => setTextLocation(e)}
-                            onSubmitEditing={async (e) => {
-                                clearTimeout(typingTimeout);
-                                await getLocationFromText();
-                            }}
-                        />
+                        {markerIsDraggable && (
+                            <TextInput
+                                style={styles.textArea}
+                                placeholder="Escribe la ubicación"
+                                onChangeText={(e) => setTextLocation(e)}
+                                onSubmitEditing={async (e) => {
+                                    clearTimeout(typingTimeout);
+                                    await getLocationFromText();
+                                }}
+                            />
+                        )}
                     </>
                 )}
             </View>
