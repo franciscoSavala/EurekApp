@@ -28,6 +28,7 @@ public class UserService {
     private IUserRepository userRepository;
     private IAddEmployeeRequestRepository addEmployeeRequestRepository;
     private NotificationService notificationService;
+    private InAppNotificationService inAppNotificationService;
 
     /*
     * Método usado para obtener todos los empleados de una organización.
@@ -94,6 +95,13 @@ public class UserService {
         } catch (Exception e) {
             log.warn("No se pudo enviar notificación al encargado: {}", e.getMessage());
         }
+        inAppNotificationService.createNotification(
+                employee,
+                "Nuevo rol asignado",
+                "Fuiste designado como encargado en " + orgAdmin.getOrganization().getName() + ".",
+                "ROLE_CHANGED",
+                null
+        );
         log.info("Assigned ENCARGADO role to user {}", employee.getUsername());
     }
 
@@ -108,6 +116,13 @@ public class UserService {
         }
         employee.setRole(Role.ORGANIZATION_EMPLOYEE);
         userRepository.saveAndFlush(employee);
+        inAppNotificationService.createNotification(
+                employee,
+                "Cambio de rol",
+                "Tu rol de encargado en " + orgAdmin.getOrganization().getName() + " fue removido.",
+                "ROLE_CHANGED",
+                null
+        );
         log.info("Revoked ENCARGADO role from user {}", employee.getUsername());
     }
 
@@ -144,6 +159,14 @@ public class UserService {
                 .status(AddEmployeeRequestStatus.PENDING)
                 .build();
         addEmployeeRequestRepository.save(newRequest);
+
+        inAppNotificationService.createNotification(
+                employee,
+                "Solicitud de organización",
+                orgAdmin.getOrganization().getName() + " quiere que te unas a su organización.",
+                "EMPLOYEE_INVITATION",
+                newRequest.getId()
+        );
     }
 
 

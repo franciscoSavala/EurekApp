@@ -45,7 +45,11 @@ import RewardExclusionsList from "./screens/rewardExclusionsStack/RewardExclusio
 import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
 import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
-import { setupAxiosInterceptors } from './utils/axiosInstance';
+import Notifications from "./screens/notificationsStack/Notifications";
+import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
+import Constants from 'expo-constants';
+
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const AuthStack = createStackNavigator();
 
@@ -239,6 +243,20 @@ const MyObjectsStackScreen = () => {
     );
 }
 
+const NotificationsStack = createStackNavigator();
+
+const NotificationsStackScreen = () => {
+    return (
+        <NotificationsStack.Navigator>
+            <NotificationsStack.Screen
+                name="Notifications"
+                component={Notifications}
+                options={{ headerShown: false, title: 'EurekApp - Notificaciones' }}
+            />
+        </NotificationsStack.Navigator>
+    );
+}
+
 const OrganizationStack = createStackNavigator();
 
 const OrganizationStackScreen = () => {
@@ -328,6 +346,41 @@ const EurekappTab = () => {
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
+    const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const jwt = await AsyncStorage.getItem('jwt');
+                const res = await axiosInstance.get(BACK_URL + '/notifications/unread-count', {
+                    headers: { Authorization: 'Bearer ' + jwt },
+                });
+                setUnreadNotifCount(res.data.count || 0);
+            } catch (e) {
+                // silently ignore — badge is optional
+            }
+        };
+        fetchUnreadCount();
+    }, []);
+
+    const bellIcon = () => (
+        <View style={{ position: 'relative' }}>
+            <Icon name={'bell'} size={20} />
+            {unreadNotifCount > 0 && (
+                <View style={{
+                    position: 'absolute', top: -5, right: -8,
+                    backgroundColor: '#CC4444', borderRadius: 8,
+                    minWidth: 16, height: 16,
+                    justifyContent: 'center', alignItems: 'center',
+                    paddingHorizontal: 2,
+                }}>
+                    <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
+                        {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
 
     const resetAndNavigate = (navigation, screenName) => {
         navigation.dispatch(
@@ -401,6 +454,18 @@ const EurekappTab = () => {
             }} listeners={{
                 drawerItemPress: () => resetAndNavigate(navigation,"AchievementsStackScreen")
             }}component={AchievementsStackScreen}
+            />
+
+            <Drawer.Screen name="NotificationsStackScreen" options={{
+                title: 'Notificaciones',
+                headerTitleAlign: 'center',
+                drawerIcon: bellIcon
+            }} listeners={{
+                drawerItemPress: () => {
+                    setUnreadNotifCount(0);
+                    resetAndNavigate(navigation, 'NotificationsStackScreen');
+                }
+            }} component={NotificationsStackScreen}
             />
 
             <Drawer.Screen name="ProfileStackScreen" options={{

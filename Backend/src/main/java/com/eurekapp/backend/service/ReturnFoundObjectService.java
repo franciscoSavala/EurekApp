@@ -43,6 +43,7 @@ public class ReturnFoundObjectService {
     private final IReclamoRepository reclamoRepository;
     private final IReclamoHistoryRepository reclamoHistoryRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
+    private final InAppNotificationService inAppNotificationService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -51,7 +52,8 @@ public class ReturnFoundObjectService {
                                     ExecutorService executorService, NotificationService notificationService,
                                     IReclamoRepository reclamoRepository,
                                     IReclamoHistoryRepository reclamoHistoryRepository,
-                                    IRewardExclusionRepository rewardExclusionRepository){
+                                    IRewardExclusionRepository rewardExclusionRepository,
+                                    InAppNotificationService inAppNotificationService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -62,6 +64,7 @@ public class ReturnFoundObjectService {
         this.reclamoRepository = reclamoRepository;
         this.reclamoHistoryRepository = reclamoHistoryRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
+        this.inAppNotificationService = inAppNotificationService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -221,6 +224,14 @@ public class ReturnFoundObjectService {
                     notificationService.sendNotification(finder.getUsername(), subject, content);
                     rfo.setNotificationSentAt(LocalDateTime.now());
                     returnFoundObjectRepository.save(rfo);
+
+                    inAppNotificationService.createNotification(
+                            finder,
+                            "¡Obtuviste una recompensa!",
+                            "El objeto \"" + foundObject.getTitle() + "\" fue devuelto a su dueño. Sumaste 10 puntos de experiencia.",
+                            "REWARD_EARNED",
+                            null
+                    );
                 }
             } catch (Exception e) {
                 log.warn("Error en notificación/XP para finder id={}: {}", finderProxy.getId(), e.getMessage());
