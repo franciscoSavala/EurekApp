@@ -394,14 +394,16 @@ const EurekappTab = () => {
             </>: null
             }
 
-            <Drawer.Screen name="AchievementsStackScreen" options={{
-                title: 'Logros',
-                headerTitleAlign: 'center',
-                drawerIcon: trophyIcon
-            }} listeners={{
-                drawerItemPress: () => resetAndNavigate(navigation,"AchievementsStackScreen")
-            }}component={AchievementsStackScreen}
-            />
+            {(userRole === 'USER' || userRole === 'REGULAR_USER') ?
+                <Drawer.Screen name="AchievementsStackScreen" options={{
+                    title: 'Logros',
+                    headerTitleAlign: 'center',
+                    drawerIcon: trophyIcon
+                }} listeners={{
+                    drawerItemPress: () => resetAndNavigate(navigation,"AchievementsStackScreen")
+                }} component={AchievementsStackScreen}
+                />
+            : null}
 
             <Drawer.Screen name="ProfileStackScreen" options={{
                 title: 'Mi perfil',
