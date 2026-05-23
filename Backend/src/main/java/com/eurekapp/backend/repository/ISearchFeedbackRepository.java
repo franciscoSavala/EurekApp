@@ -13,6 +13,8 @@ public interface ISearchFeedbackRepository extends JpaRepository<SearchFeedback,
 
     long countByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);
 
+    List<SearchFeedback> findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);
+
     long countByOrganizationIdAndUserAndWasFoundTrueAndCreatedAtAfter(
             String organizationId, UserEurekapp user, LocalDateTime after);
 }
