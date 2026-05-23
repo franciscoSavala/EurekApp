@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -47,6 +47,23 @@ const defaultFrom = () => {
     return d;
 };
 
+const AVATAR_COLORS = ['#19b8b8', '#b45309', '#4caf50', '#7c4dff', '#e53935', '#f0a500'];
+
+const UserAvatar = ({ fullName }) => {
+    const initials = (fullName || '?')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(w => w[0].toUpperCase())
+        .join('');
+    const idx = (fullName || '').charCodeAt(0) % AVATAR_COLORS.length;
+    return (
+        <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[idx] }]}>
+            <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+    );
+};
+
 const FraudReport = () => {
     const [fromDate, setFromDate] = useState(defaultFrom());
     const [toDate, setToDate] = useState(new Date());
@@ -58,6 +75,14 @@ const FraudReport = () => {
     const [exporting, setExporting] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedUser, setExpandedUser] = useState(null);
+    const [sortBy, setSortBy] = useState('confirmedFraudCount');
+
+    const sortedEntries = useMemo(() => {
+        return [...entries].sort((a, b) => {
+            if (sortBy === 'fullName') return (a.fullName || '').localeCompare(b.fullName || '');
+            return (b[sortBy] || 0) - (a[sortBy] || 0);
+        });
+    }, [entries, sortBy]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -138,7 +163,8 @@ const FraudReport = () => {
         return (
             <TouchableOpacity style={styles.card} onPress={() => toggleExpand(item.userId)}>
                 <View style={styles.cardHeader}>
-                    <View style={styles.userInfo}>
+                    <UserAvatar fullName={item.fullName} />
+                    <View style={[styles.userInfo, { marginLeft: 10 }]}>
                         <Text style={styles.userName}>{item.fullName}</Text>
                         <Text style={styles.userEmail}>{item.email}</Text>
                     </View>
@@ -233,6 +259,24 @@ const FraudReport = () => {
                     ))}
                 </View>
 
+                <Text style={styles.filterLabel}>Ordenar por</Text>
+                <View style={styles.statusRow}>
+                    {[
+                        { label: 'Fraudes confirmados', value: 'confirmedFraudCount' },
+                        { label: 'Total alertas', value: 'fraudCount' },
+                        { label: 'Nombre A-Z', value: 'fullName' },
+                    ].map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            style={[styles.statusBtn, sortBy === opt.value && styles.statusBtnActive]}
+                            onPress={() => setSortBy(opt.value)}>
+                            <Text style={[styles.statusBtnText, sortBy === opt.value && styles.statusBtnTextActive]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
@@ -250,7 +294,7 @@ const FraudReport = () => {
             )}
 
             <FlatList
-                data={entries}
+                data={sortedEntries}
                 keyExtractor={(item) => item.userId.toString()}
                 renderItem={renderEntry}
                 contentContainerStyle={styles.listContent}
@@ -376,6 +420,19 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 8,
+    },
+    avatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
+    },
+    avatarText: {
+        color: 'white',
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 15,
     },
     userInfo: {
         flex: 1,
