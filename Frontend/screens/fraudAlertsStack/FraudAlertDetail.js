@@ -16,6 +16,8 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const REASON_LABELS = {
     MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes del mismo objeto',
     HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
+    FINDER_CLAIMER_COLLUSION: 'Posible acuerdo entre registrador y reclamante',
+    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
 };
 
 const STATUS_COLORS = {
@@ -100,14 +102,36 @@ const FraudAlertDetail = ({ route }) => {
             <Text style={styles.sectionLabel}>Detalle</Text>
             <Text style={styles.value}>{alert.details || 'Sin detalle adicional'}</Text>
 
-            <Text style={styles.sectionLabel}>Usuario sospechoso</Text>
-            <Text style={styles.value}>
-                {alert.suspectUserFullName || 'Desconocido'}
-                {alert.suspectUserEmail ? `\n${alert.suspectUserEmail}` : ''}
+            <Text style={styles.sectionLabel}>
+                {alert.relatedClaimants && alert.relatedClaimants.length > 1
+                    ? `Reclamantes (${alert.relatedClaimants.length})`
+                    : 'Usuario sospechoso'}
             </Text>
+            {alert.relatedClaimants && alert.relatedClaimants.length > 0 ? (
+                alert.relatedClaimants.map((c, i) => (
+                    <View key={i} style={styles.claimantRow}>
+                        <Text style={styles.value}>{c.fullName || 'Desconocido'}</Text>
+                        <Text style={styles.metaText}>{c.email}</Text>
+                    </View>
+                ))
+            ) : (
+                <Text style={styles.value}>
+                    {alert.suspectUserFullName || 'Desconocido'}
+                    {alert.suspectUserEmail ? `\n${alert.suspectUserEmail}` : ''}
+                </Text>
+            )}
 
             <Text style={styles.sectionLabel}>Objeto asociado</Text>
-            <Text style={styles.value}>{alert.foundObjectUUID || 'No especificado'}</Text>
+            {alert.foundObjectTitle ? (
+                <View>
+                    <Text style={styles.value}>{alert.foundObjectTitle}</Text>
+                    {alert.foundObjectDescription ? (
+                        <Text style={styles.metaText}>{alert.foundObjectDescription}</Text>
+                    ) : null}
+                </View>
+            ) : (
+                <Text style={styles.value}>{alert.foundObjectUUID || 'No especificado'}</Text>
+            )}
 
             <Text style={styles.sectionLabel}>Fecha de detección</Text>
             <Text style={styles.value}>
@@ -224,6 +248,12 @@ const styles = StyleSheet.create({
         color: 'white',
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
+    },
+    claimantRow: {
+        marginBottom: 8,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
     },
 });
 

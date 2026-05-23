@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudClaimantDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -279,14 +280,46 @@ public class FraudDetectionService {
     }
 
     private FraudAlertDto toDto(FraudAlert a) {
+        String objectTitle = null;
+        String objectDescription = null;
+        if (a.getFoundObjectUUID() != null) {
+            try {
+                FoundObject fo = foundObjectRepository.getByUuid(a.getFoundObjectUUID());
+                if (fo != null) {
+                    objectTitle = fo.getTitle();
+                    objectDescription = fo.getHumanDescription();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<FraudClaimantDto> claimants = List.of();
+        if (a.getFoundObjectUUID() != null && a.getOrganizationId() != null) {
+            try {
+                claimants = feedbackRepository
+                        .findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(
+                                a.getOrganizationId(), a.getFoundObjectUUID())
+                        .stream()
+                        .filter(f -> f.getUser() != null)
+                        .map(f -> FraudClaimantDto.builder()
+                                .userId(f.getUser().getId())
+                                .email(f.getUser().getUsername())
+                                .fullName(f.getUser().getFirstName() + " " + f.getUser().getLastName())
+                                .build())
+                        .collect(Collectors.toList());
+            } catch (Exception ignored) {}
+        }
+
         return FraudAlertDto.builder()
                 .id(a.getId())
                 .organizationId(a.getOrganizationId())
                 .foundObjectUUID(a.getFoundObjectUUID())
+                .foundObjectTitle(objectTitle)
+                .foundObjectDescription(objectDescription)
                 .suspectUserEmail(a.getSuspectUser() != null ? a.getSuspectUser().getUsername() : null)
                 .suspectUserFullName(a.getSuspectUser() != null
                         ? a.getSuspectUser().getFirstName() + " " + a.getSuspectUser().getLastName()
                         : null)
+                .relatedClaimants(claimants)
                 .reason(a.getReason())
                 .details(a.getDetails())
                 .status(a.getStatus().name())
