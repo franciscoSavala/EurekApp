@@ -5,11 +5,17 @@ import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
+import com.eurekapp.backend.model.ClaimStatus;
+import com.eurekapp.backend.model.Reclamo;
+import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
+import com.eurekapp.backend.repository.IReclamoRepository;
 import com.eurekapp.backend.repository.ISearchFeedbackRepository;
+import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -20,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Service
 public class FraudDetectionService {
 
@@ -28,32 +34,91 @@ public class FraudDetectionService {
     private final ISearchFeedbackRepository feedbackRepository;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
+    private final IUserRepository userRepository;
+    private final InAppNotificationService inAppNotificationService;
+    private final IReclamoRepository reclamoRepository;
+    private final FoundObjectRepository foundObjectRepository;
 
-    public void checkForFraud(String orgId, String foundObjectUUID, UserEurekapp claimer) {
-        checkMultipleClaimers(orgId, foundObjectUUID, claimer);
+    @Value("${fraud.max-claims-per-period:3}")
+    private int maxClaimsPerPeriod;
+    @Value("${fraud.claim-period-days:30}")
+    private int claimPeriodDays;
+    @Value("${fraud.finder-claimer-collusion-threshold:2}")
+    private int finderClaimerCollusionThreshold;
+    @Value("${fraud.max-rejected-claims:3}")
+    private int maxRejectedClaims;
+
+    public void checkForFraud(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription, FoundObject foundObject) {
+        checkMultipleClaimers(orgId, foundObjectUUID, claimer, claimDescription);
         checkHighClaimFrequency(orgId, claimer);
+        checkFinderClaimerCollusion(orgId, foundObjectUUID, claimer, foundObject);
+        checkRepeatedRejections(orgId, claimer);
     }
 
-    private void checkMultipleClaimers(String orgId, String foundObjectUUID, UserEurekapp claimer) {
+    private void checkMultipleClaimers(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription) {
         long count = feedbackRepository
                 .countByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(orgId, foundObjectUUID);
         if (count > 1) {
-            createAlertIfAbsent(orgId, foundObjectUUID, claimer,
-                    "MULTIPLE_CLAIMERS_SAME_OBJECT",
-                    "Múltiples usuarios reclamaron ser dueños del objeto con UUID: "
-                            + foundObjectUUID + ". Total de reclamantes: " + count);
+            String details = "Múltiples usuarios reclamaron ser dueños del objeto con UUID: "
+                    + foundObjectUUID + ". Total de reclamantes: " + count;
+            if (claimDescription == null || claimDescription.trim().length() < 10) {
+                details += ". ATENCIÓN: descripción del reclamante muy corta o ausente.";
+            }
+            createAlertIfAbsent(orgId, foundObjectUUID, claimer, "MULTIPLE_CLAIMERS_SAME_OBJECT", details);
         }
     }
 
     private void checkHighClaimFrequency(String orgId, UserEurekapp claimer) {
-        LocalDateTime since = LocalDateTime.now().minusDays(30);
+        LocalDateTime since = LocalDateTime.now().minusDays(claimPeriodDays);
         long count = feedbackRepository
                 .countByOrganizationIdAndUserAndWasFoundTrueAndCreatedAtAfter(orgId, claimer, since);
-        if (count > 3) {
+        if (count > maxClaimsPerPeriod) {
             createAlertIfAbsent(orgId, null, claimer,
                     "HIGH_CLAIM_FREQUENCY",
                     "El usuario " + claimer.getUsername()
-                            + " reclamó " + count + " objetos en los últimos 30 días en esta organización.");
+                            + " reclamó " + count + " objetos en los últimos " + claimPeriodDays + " días en esta organización.");
+        }
+    }
+
+    private void checkFinderClaimerCollusion(String orgId, String currentUUID, UserEurekapp claimer, FoundObject foundObject) {
+        if (foundObject == null || foundObject.getObjectFinderUser() == null) return;
+        UserEurekapp finder = foundObject.getObjectFinderUser();
+        if (finder.getId().equals(claimer.getId())) return;
+
+        List<Reclamo> claimerHistory = reclamoRepository.findByUser_Id(claimer.getId()).stream()
+                .filter(r -> r.getOrganizationId().equals(orgId))
+                .filter(r -> !currentUUID.equals(r.getFoundObjectUUID()))
+                .toList();
+
+        long collusionCount = claimerHistory.stream()
+                .filter(r -> r.getFoundObjectUUID() != null)
+                .filter(r -> {
+                    try {
+                        FoundObject prev = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
+                        return prev != null && prev.getObjectFinderUser() != null
+                                && prev.getObjectFinderUser().getId().equals(finder.getId());
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .count();
+
+        if (collusionCount + 1 >= finderClaimerCollusionThreshold) {
+            createAlertIfAbsent(orgId, currentUUID, claimer,
+                    "FINDER_CLAIMER_COLLUSION",
+                    "El usuario " + claimer.getUsername() + " reclamó " + (collusionCount + 1)
+                            + " objetos encontrados por el mismo usuario (" + finder.getUsername()
+                            + ") en esta organización. Posible acuerdo entre registrador y reclamante.");
+        }
+    }
+
+    private void checkRepeatedRejections(String orgId, UserEurekapp claimer) {
+        long rejected = reclamoRepository.countByOrganizationIdAndUserAndStatus(orgId, claimer, ClaimStatus.RECHAZADO);
+        if (rejected >= maxRejectedClaims) {
+            createAlertIfAbsent(orgId, null, claimer,
+                    "REPEATED_REJECTIONS",
+                    "El usuario " + claimer.getUsername() + " acumula " + rejected
+                            + " reclamos rechazados en esta organización.");
         }
     }
 
@@ -75,6 +140,7 @@ public class FraudDetectionService {
                 .build();
         alertRepository.save(alert);
         notifyOwner(orgId, alert);
+        notifyOrgStaffInApp(orgId, alert);
     }
 
     private void notifyOwner(String orgId, FraudAlert alert) {
@@ -90,6 +156,26 @@ public class FraudDetectionService {
             });
         } catch (Exception e) {
             // No bloquear el flujo principal si falla la notificación
+        }
+    }
+
+    private void notifyOrgStaffInApp(String orgId, FraudAlert alert) {
+        try {
+            organizationRepository.findById(Long.parseLong(orgId)).ifPresent(org -> {
+                List<UserEurekapp> staff = userRepository.findByOrganizationAndRoleIn(
+                        org, List.of(Role.ORGANIZATION_OWNER, Role.ENCARGADO));
+                for (UserEurekapp member : staff) {
+                    inAppNotificationService.createNotification(
+                            member,
+                            "Nueva alerta de fraude",
+                            "Motivo: " + alert.getReason() + ". " + alert.getDetails(),
+                            "FRAUD_ALERT",
+                            alert.getId()
+                    );
+                }
+            });
+        } catch (Exception e) {
+            // No bloquear el flujo principal si falla la notificación in-app
         }
     }
 

@@ -20,6 +20,7 @@ const TYPE_LABELS = {
     ROLE_CHANGED: "Cambio de rol",
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
+    FRAUD_ALERT: "Alerta de fraude",
 };
 
 const formatDate = (isoString) => {
@@ -28,7 +29,7 @@ const formatDate = (isoString) => {
     return d.toLocaleDateString("es-AR") + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 };
 
-const Notifications = ({ navigation }) => {
+const Notifications = ({ navigation, route }) => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -133,6 +134,22 @@ const Notifications = ({ navigation }) => {
                             onPress={() => handleReject(item.related_request_id, item.id)}
                         >
                             <Text style={styles.actionButtonText}>Rechazar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {item.type === "FRAUD_ALERT" && item.related_request_id != null && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.fraudButton}
+                            onPress={() => {
+                                markAsRead(item.id);
+                                navigation.navigate("FraudAlertsStack", {
+                                    screen: "FraudAlertDetail",
+                                    params: { alertId: item.related_request_id },
+                                });
+                            }}
+                        >
+                            <Text style={styles.actionButtonText}>Ver alerta</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -250,6 +267,12 @@ const styles = StyleSheet.create({
     },
     rejectButton: {
         backgroundColor: "#CC4444",
+        paddingVertical: 7,
+        paddingHorizontal: 18,
+        borderRadius: 6,
+    },
+    fraudButton: {
+        backgroundColor: "#b45309",
         paddingVertical: 7,
         paddingHorizontal: 18,
         borderRadius: 6,
