@@ -1,6 +1,7 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.SubmitFeedbackRequestDto;
+import com.eurekapp.backend.dto.response.FeedbackRecordDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.FeedbackService;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/feedback")
@@ -47,6 +49,18 @@ public class FeedbackController {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy, wasFound));
+    }
+
+    @GetMapping("/records")
+    @Operation(summary = "Obtener registros de feedback", description = "Devuelve registros individuales de feedback del período. Solo ORGANIZATION_OWNER.")
+    public ResponseEntity<List<FeedbackRecordDto>> getRecords(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) Boolean wasFound) {
+        LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
+        LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
+        return ResponseEntity.ok(feedbackService.getRecords(user, fromDate, toDate, wasFound));
     }
 
     @GetMapping("/report/export")

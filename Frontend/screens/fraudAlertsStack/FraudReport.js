@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Platform,
     ScrollView,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
@@ -19,6 +21,8 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const REASON_LABELS = {
     MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes',
     HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
+    FINDER_CLAIMER_COLLUSION: 'Acuerdo registrador/reclamante',
+    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
 };
 
 const STATUS_OPTIONS = [
@@ -52,6 +56,7 @@ const FraudReport = () => {
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedUser, setExpandedUser] = useState(null);
 
     const fetchReport = async () => {
@@ -104,6 +109,23 @@ const FraudReport = () => {
             }
         }
         setExporting(false);
+    };
+
+    const handleExportPdf = async () => {
+        setExportingPdf(true);
+        try {
+            const html = buildFraudReportHtml(entries, {
+                fromDate: formatDate(fromDate),
+                toDate: formatDate(toDate),
+                statusFilter,
+            });
+            await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
+        } catch (e) {
+            console.warn('Error exportando PDF:', e);
+            Alert.alert('Error', 'No se pudo exportar el PDF. Intentá nuevamente.');
+        } finally {
+            setExportingPdf(false);
+        }
     };
 
     const toggleExpand = (userId) => {
@@ -217,9 +239,14 @@ const FraudReport = () => {
             </ScrollView>
 
             {entries.length > 0 && (
-                <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
-                    {exporting ? <ActivityIndicator color="#111818" /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
-                </TouchableOpacity>
+                <View style={styles.exportRow}>
+                    <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
+                        {exporting ? <ActivityIndicator color="#111818" /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
+                        {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
+                    </TouchableOpacity>
+                </View>
             )}
 
             <FlatList
@@ -310,14 +337,23 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
     },
-    exportBtn: {
+    exportRow: {
+        flexDirection: 'row',
+        gap: 10,
         marginHorizontal: 16,
         marginBottom: 8,
+    },
+    exportBtn: {
+        flex: 1,
         borderWidth: 1,
         borderColor: '#111818',
         borderRadius: 24,
         paddingVertical: 10,
         alignItems: 'center',
+    },
+    exportBtnPdf: {
+        backgroundColor: '#b45309',
+        borderColor: '#b45309',
     },
     exportBtnText: {
         fontFamily: 'PlusJakartaSans-Bold',
