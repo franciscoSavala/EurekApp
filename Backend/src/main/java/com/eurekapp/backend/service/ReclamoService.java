@@ -39,7 +39,7 @@ public class ReclamoService {
     private final IOrganizationRepository organizationRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
 
-    public void createReclamo(SearchFeedback feedback, FoundObject foundObject) {
+    public void createReclamo(SearchFeedback feedback, FoundObject foundObject, String claimDescription) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
                 || feedback.getOrganizationId() == null) {
             return;
@@ -58,6 +58,7 @@ public class ReclamoService {
                 .user(feedback.getUser())
                 .comment(feedback.getComment())
                 .starRating(feedback.getStarRating())
+                .claimDescription(claimDescription)
                 .status(ClaimStatus.PENDIENTE)
                 .createdAt(feedback.getCreatedAt())
                 .updatedAt(feedback.getCreatedAt())
@@ -199,6 +200,7 @@ public class ReclamoService {
                 .createdAt(reclamo.getCreatedAt())
                 .updatedAt(reclamo.getUpdatedAt())
                 .comment(reclamo.getComment())
+                .claimDescription(reclamo.getClaimDescription())
                 .starRating(reclamo.getStarRating())
                 .confidenceLevel(confidence)
                 .isSuspicious(suspicious)

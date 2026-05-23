@@ -42,6 +42,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
     const [policy, setPolicy] = useState(null);
+    const [isSuspicious, setIsSuspicious] = useState(false);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -64,7 +65,22 @@ const ReturnObjectForm = ({ route, navigation}) => {
                 // ignorar si no hay política configurada
             }
         };
+        const fetchSuspiciousStatus = async () => {
+            try {
+                const jwt = await AsyncStorage.getItem('jwt');
+                const res = await axiosInstance.get(`${BACK_URL}/reclamos`, {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                    params: { status: 'APROBADO' },
+                });
+                const reclamos = res.data?.reclamos ?? res.data ?? [];
+                const match = reclamos.find(r => r.foundObjectUUID === objectId);
+                if (match?.isSuspicious) setIsSuspicious(true);
+            } catch (e) {
+                // ignorar si falla
+            }
+        };
         fetchPolicy();
+        fetchSuspiciousStatus();
     }, []);
 
     const validatePhotoUploaded = () => {
@@ -298,6 +314,14 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
                         </Text>
                     </View>
+
+                    {isSuspicious && (
+                        <View style={styles.fraudWarning}>
+                            <Text style={styles.fraudWarningText}>
+                                ⚠ El reclamante tiene alertas de fraude confirmadas. Verificá la identidad con cuidado.
+                            </Text>
+                        </View>
+                    )}
 
                     {policy && (
                         <View style={styles.policyBlock}>
@@ -598,6 +622,21 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: '#b45309',
         marginBottom: 4,
+    },
+    fraudWarning: {
+        alignSelf: 'stretch',
+        backgroundColor: '#fef3c7',
+        borderLeftWidth: 4,
+        borderLeftColor: '#b45309',
+        borderRadius: 8,
+        padding: 12,
+        marginHorizontal: 10,
+        marginBottom: 12,
+    },
+    fraudWarningText: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 14,
+        color: '#92400e',
     },
     centeredView: {
         flex: 1,

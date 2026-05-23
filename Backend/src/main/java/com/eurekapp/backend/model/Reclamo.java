@@ -36,6 +36,9 @@ public class Reclamo {
     @Column(length = 500)
     private String comment;
 
+    @Column(name = "claim_description", length = 500)
+    private String claimDescription;
+
     private Integer starRating;
 
     @Enumerated(EnumType.STRING)

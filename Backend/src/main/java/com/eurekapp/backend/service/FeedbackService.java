@@ -3,14 +3,17 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.request.SubmitFeedbackRequestDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.dto.response.FeedbackTimeSeriesPointDto;
+import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.SearchFeedback;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
+import com.eurekapp.backend.repository.IReclamoRepository;
 import com.eurekapp.backend.repository.ISearchFeedbackRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -28,8 +31,18 @@ public class FeedbackService {
     private final FraudDetectionService fraudDetectionService;
     private final ReclamoService reclamoService;
     private final FoundObjectRepository foundObjectRepository;
+    private final IReclamoRepository reclamoRepository;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
+        if (Boolean.TRUE.equals(dto.getWasFound()) && user != null) {
+            long recent = reclamoRepository.countByUserAndCreatedAtAfter(user, LocalDateTime.now().minusMinutes(1));
+            if (recent >= 5) {
+                throw new ApiException("rate_limit_exceeded", "Demasiados reclamos en poco tiempo", HttpStatus.TOO_MANY_REQUESTS);
+            }
+            if (dto.getClaimDescription() == null || dto.getClaimDescription().isBlank()) {
+                throw new ApiException("claim_description_required", "Debés describir el objeto para reclamarlo", HttpStatus.BAD_REQUEST);
+            }
+        }
         SearchFeedback fb = SearchFeedback.builder()
                 .organizationId(dto.getOrganizationId())
                 .foundObjectUUID(dto.getFoundObjectUUID())
@@ -43,8 +56,8 @@ public class FeedbackService {
         if (Boolean.TRUE.equals(dto.getWasFound()) && dto.getFoundObjectUUID() != null
                 && dto.getOrganizationId() != null && user != null) {
             FoundObject fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
-            reclamoService.createReclamo(saved, fo);
-            fraudDetectionService.checkForFraud(dto.getOrganizationId(), dto.getFoundObjectUUID(), user);
+            reclamoService.createReclamo(saved, fo, dto.getClaimDescription());
+            fraudDetectionService.checkForFraud(dto.getOrganizationId(), dto.getFoundObjectUUID(), user, dto.getClaimDescription(), fo);
         }
     }
 
