@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     Linking,
     Pressable,
     ScrollView,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { buildUsageReportHtml, exportPdf } from "../../utils/pdfExport";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
@@ -32,7 +34,9 @@ const Reports = ({ navigation }) => {
     const [wasFoundFilter, setWasFoundFilter] = useState(null); // null=todos, true=encontró, false=no encontró
     const [data, setData] = useState(null);
     const [feedbackData, setFeedbackData] = useState(null);
+    const [feedbackRecords, setFeedbackRecords] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const [error, setError] = useState(null);
 
     const fetchReports = async () => {
@@ -48,14 +52,36 @@ const Reports = ({ navigation }) => {
                 const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
                 const fbRes = await axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams });
                 setFeedbackData(fbRes.data);
+                const recParams = { from: formatDate(fromDate), to: formatDate(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+                const recRes = await axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams });
+                setFeedbackRecords(recRes.data || []);
             } catch {
-                setFeedbackData(null); // usuario sin permiso o sin datos
+                setFeedbackData(null);
+                setFeedbackRecords([]);
             }
         } catch (e) {
             setError("No se pudieron cargar los reportes.");
             console.error(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleExportPdf = async () => {
+        setExportingPdf(true);
+        try {
+            const html = buildUsageReportHtml(data, feedbackData, feedbackRecords, {
+                fromDate: formatDate(fromDate),
+                toDate: formatDate(toDate),
+                groupBy,
+                wasFoundFilter,
+            });
+            await exportPdf(html, `Reporte_Uso_${formatDate(new Date())}.pdf`);
+        } catch (e) {
+            console.warn('Error exportando PDF:', e);
+            Alert.alert('Error', 'No se pudo exportar el PDF. Intentá nuevamente.');
+        } finally {
+            setExportingPdf(false);
         }
     };
 
@@ -310,10 +336,17 @@ const Reports = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Botón de exportar CSV */}
-                                <TouchableOpacity style={styles.exportBtn} onPress={handleExportCsv}>
-                                    <Text style={styles.exportBtnText}>Exportar CSV</Text>
-                                </TouchableOpacity>
+                                {/* Botones de exportación */}
+                                <View style={styles.exportRow}>
+                                    <TouchableOpacity style={styles.exportBtn} onPress={handleExportCsv}>
+                                        <Text style={styles.exportBtnText}>Exportar CSV</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
+                                        {exportingPdf
+                                            ? <ActivityIndicator color="white" size="small" />
+                                            : <Text style={styles.exportBtnText}>Exportar PDF</Text>}
+                                    </TouchableOpacity>
+                                </View>
                             </>
                         )}
 
@@ -501,14 +534,23 @@ const styles = StyleSheet.create({
         textAlign: "center",
         marginTop: 20,
     },
-    exportBtn: {
+    exportRow: {
+        flexDirection: 'row',
+        gap: 10,
         marginTop: 12,
         marginBottom: 20,
+    },
+    exportBtn: {
         paddingVertical: 12,
         paddingHorizontal: 24,
         backgroundColor: '#19b8b8',
         borderRadius: 10,
         alignSelf: 'flex-start',
+        minWidth: 130,
+        alignItems: 'center',
+    },
+    exportBtnPdf: {
+        backgroundColor: '#b45309',
     },
     exportBtnText: {
         color: 'white',

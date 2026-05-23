@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.request.SubmitFeedbackRequestDto;
+import com.eurekapp.backend.dto.response.FeedbackRecordDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.dto.response.FeedbackTimeSeriesPointDto;
 import com.eurekapp.backend.exception.ApiException;
@@ -96,6 +97,27 @@ public class FeedbackService {
                 .starDistribution(dist)
                 .timeSeries(timeSeries)
                 .build();
+    }
+
+    public List<FeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {
+        if (user.getRole() != Role.ORGANIZATION_OWNER) {
+            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los registros de feedback");
+        }
+        String orgId = user.getOrganization().getId().toString();
+        List<SearchFeedback> feedbacks = feedbackRepository.findByOrganizationIdAndCreatedAtBetween(
+                orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        if (wasFound != null) {
+            feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
+        }
+        return feedbacks.stream().map(f -> FeedbackRecordDto.builder()
+                .id(f.getId())
+                .organizationId(f.getOrganizationId())
+                .foundObjectUUID(f.getFoundObjectUUID())
+                .starRating(f.getStarRating())
+                .wasFound(f.getWasFound())
+                .createdAt(f.getCreatedAt())
+                .comment(f.getComment())
+                .build()).collect(Collectors.toList());
     }
 
     public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {
