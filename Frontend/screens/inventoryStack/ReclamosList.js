@@ -21,6 +21,23 @@ const STATUS_FILTERS = [
     { label: 'En revisión', value: 'EN_REVISION' },
     { label: 'Aprobado', value: 'APROBADO' },
     { label: 'Rechazado', value: 'RECHAZADO' },
+    { label: 'Devuelto', value: 'DEVUELTO' },
+];
+
+const CATEGORY_FILTERS = [
+    { label: 'Todas', value: null },
+    { label: 'Electrónica', value: 'ELECTRONICA' },
+    { label: 'Ropa', value: 'ROPA' },
+    { label: 'Documentos', value: 'DOCUMENTOS' },
+    { label: 'Llaves', value: 'LLAVES' },
+    { label: 'Accesorios', value: 'ACCESORIOS' },
+    { label: 'Otros', value: 'OTROS' },
+];
+
+const SORT_OPTIONS = [
+    { label: 'Fecha', value: 'date' },
+    { label: 'Estado', value: 'status' },
+    { label: 'Prioridad', value: 'priority' },
 ];
 
 const STATUS_COLORS = {
@@ -28,6 +45,7 @@ const STATUS_COLORS = {
     EN_REVISION: '#3b82f6',
     APROBADO: '#22c55e',
     RECHAZADO: '#ED4337',
+    DEVUELTO: '#7c3aed',
 };
 
 const STATUS_LABELS = {
@@ -35,19 +53,23 @@ const STATUS_LABELS = {
     EN_REVISION: 'En revisión',
     APROBADO: 'Aprobado',
     RECHAZADO: 'Rechazado',
+    DEVUELTO: 'Devuelto',
 };
 
 const ReclamosList = ({ navigation }) => {
     const [reclamos, setReclamos] = useState([]);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null);
+    const [categoryFilter, setCategoryFilter] = useState(null);
+    const [sortBy, setSortBy] = useState('date');
 
-    const fetchReclamos = async (status) => {
+    const fetchReclamos = async (status, category, sort) => {
         setLoading(true);
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const params = {};
+            const params = { sortBy: sort };
             if (status) params.status = status;
+            if (category) params.category = category;
             const res = await axiosInstance.get(`${BACK_URL}/reclamos`, {
                 headers: { Authorization: `Bearer ${jwt}` },
                 params,
@@ -62,8 +84,8 @@ const ReclamosList = ({ navigation }) => {
 
     useFocusEffect(
         useCallback(() => {
-            fetchReclamos(statusFilter);
-        }, [statusFilter])
+            fetchReclamos(statusFilter, categoryFilter, sortBy);
+        }, [statusFilter, categoryFilter, sortBy])
     );
 
     const handleFilterChange = (value) => {
@@ -135,17 +157,46 @@ const ReclamosList = ({ navigation }) => {
     return (
         <View style={styles.container}>
             {/* Filtros */}
-            <View style={styles.filtersRow}>
-                {STATUS_FILTERS.map(f => (
-                    <TouchableOpacity
-                        key={String(f.value)}
-                        style={[styles.filterBtn, statusFilter === f.value && styles.filterBtnActive]}
-                        onPress={() => handleFilterChange(f.value)}>
-                        <Text style={[styles.filterBtnText, statusFilter === f.value && styles.filterBtnTextActive]}>
-                            {f.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+            <View style={styles.filtersSection}>
+                <Text style={styles.filterLabel}>Estado</Text>
+                <View style={styles.filtersRow}>
+                    {STATUS_FILTERS.map(f => (
+                        <TouchableOpacity
+                            key={String(f.value)}
+                            style={[styles.filterBtn, statusFilter === f.value && styles.filterBtnActive]}
+                            onPress={() => handleFilterChange(f.value)}>
+                            <Text style={[styles.filterBtnText, statusFilter === f.value && styles.filterBtnTextActive]}>
+                                {f.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={styles.filterLabel}>Categoría</Text>
+                <View style={styles.filtersRow}>
+                    {CATEGORY_FILTERS.map(f => (
+                        <TouchableOpacity
+                            key={String(f.value)}
+                            style={[styles.filterBtn, categoryFilter === f.value && styles.filterBtnActive]}
+                            onPress={() => setCategoryFilter(f.value)}>
+                            <Text style={[styles.filterBtnText, categoryFilter === f.value && styles.filterBtnTextActive]}>
+                                {f.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+                <Text style={styles.filterLabel}>Ordenar por</Text>
+                <View style={styles.filtersRow}>
+                    {SORT_OPTIONS.map(o => (
+                        <TouchableOpacity
+                            key={o.value}
+                            style={[styles.filterBtn, sortBy === o.value && styles.filterBtnActive]}
+                            onPress={() => setSortBy(o.value)}>
+                            <Text style={[styles.filterBtnText, sortBy === o.value && styles.filterBtnTextActive]}>
+                                {o.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </View>
 
             {loading ? (
@@ -174,14 +225,25 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#fff',
     },
+    filtersSection: {
+        paddingHorizontal: 10,
+        paddingTop: 8,
+        paddingBottom: 4,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f4f4',
+    },
+    filterLabel: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 11,
+        color: '#638888',
+        marginBottom: 4,
+        marginTop: 6,
+    },
     filtersRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        paddingHorizontal: 10,
-        paddingVertical: 8,
         gap: 6,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f4f4',
+        marginBottom: 2,
     },
     filterBtn: {
         borderWidth: 1,
