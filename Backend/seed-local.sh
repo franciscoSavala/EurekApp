@@ -9,7 +9,7 @@ warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
 error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
 
-MYSQL_EXEC="docker exec -i eurekapp-mysql mysql -u eurekapp -peurekapp eurekapp"
+MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
 WEAVIATE_URL="http://localhost:8081"
 
 echo ""
