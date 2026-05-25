@@ -292,10 +292,9 @@ const submitData = async () => {
                 setResponseOk(false);
                 setShowSubmitButton(true);
                 const errorData = await response.json();
-                setError('ObjectFinderUsername', {
-                    type: 'manual',
-                    message: errorData.message
-                })
+                const msg = (errorData.details && errorData.details[0]) || errorData.message || 'No se pudo registrar el objeto. Revisá los datos ingresados.';
+                setError('ObjectFinderUsername', { type: 'manual', message: msg });
+                Alert.alert('Error', msg);
             }
         } else {
             // Enviar datos usando react-native-blob-util en móviles
@@ -322,8 +321,16 @@ const submitData = async () => {
             if (response.respInfo.status >= 200 && response.respInfo.status < 300) {
                 setResponseOk(true);
                 setSuccessModal(true);
-            }else{
+            } else {
                 setResponseOk(false);
+                setShowSubmitButton(true);
+                try {
+                    const errorData = JSON.parse(response.data);
+                    const msg = (errorData.details && errorData.details[0]) || errorData.message || 'No se pudo registrar el objeto. Revisá los datos ingresados.';
+                    Alert.alert('Error', msg);
+                } catch {
+                    Alert.alert('Error', 'No se pudo registrar el objeto. Revisá los datos ingresados.');
+                }
             }
         }
     } catch (error) {
