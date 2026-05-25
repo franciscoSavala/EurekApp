@@ -292,7 +292,13 @@ public class ReturnFoundObjectService {
         }
 
         // Obtenemos la imagen de la persona a la que se devolvió el objeto
-        byte[] imageBytes = s3Service.getObjectBytes(rfo.getPersonPhotoUUID());
+        String photoB64 = null;
+        try {
+            byte[] imageBytes = s3Service.getObjectBytes(rfo.getPersonPhotoUUID());
+            if (imageBytes != null) {
+                photoB64 = Base64.getEncoder().encodeToString(imageBytes);
+            }
+        } catch (Exception ignored) {}
 
         // Como es posible que el usuario sea null, hacemos esta validación.
         String rfoUsername = null;
@@ -305,7 +311,7 @@ public class ReturnFoundObjectService {
                 .foundObjectId(foundObjectUUID)
                 .returnDateTime(rfo.getDatetimeOfReturn())
                 .phoneNumber(rfo.getPhoneNumber())
-                .personPhoto_b64Json(Base64.getEncoder().encodeToString(imageBytes))
+                .personPhoto_b64Json(photoB64)
                 .build();
     }
 }
