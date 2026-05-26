@@ -136,15 +136,18 @@ const ReturnObjectForm = ({ route, navigation}) => {
                 setResponseOk(true);
                 console.log("Se ejecutó el if de status 200");
             }else{
-                const errorData = await res.json();
+                let userMessage = 'Error al registrar la devolución.';
+                try {
+                    const errorData = await res.json();
+                    userMessage = errorData.error === 'found_object'
+                        ? 'Este objeto ya fue devuelto anteriormente.'
+                        : (errorData.message || userMessage);
+                } catch (_) { /* respuesta sin cuerpo JSON válido */ }
                 setResponseOk(false);
-                const userMessage = errorData.error === 'found_object'
-                    ? 'Este objeto ya fue devuelto anteriormente.'
-                    : (errorData.message || 'Error al registrar la devolución.');
                 setError('ObjectOwnerUsername', {
                     type: 'manual',
                     message: userMessage
-                })
+                });
             }
             /*if(res.status === '404'){
                 console.log(res);
@@ -159,6 +162,10 @@ const ReturnObjectForm = ({ route, navigation}) => {
         } catch (error) {
             console.error(error);
             setResponseOk(false);
+            setError('ObjectOwnerUsername', {
+                type: 'manual',
+                message: 'Error de conexión. Por favor, intentá de nuevo más tarde.'
+            });
         } finally {
             setLoading(false);
         }
