@@ -17,6 +17,7 @@ import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.RerankService;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -36,6 +38,9 @@ import java.util.concurrent.Future;
 public class FoundObjectService implements IFoundObjectService {
     private static final double MIN_SCORE = 0.3;
     private static final int GRACE_HOURS = 6;
+
+    @Value("${search.rerank.enabled:false}")
+    private boolean rerankEnabled;
 
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
             Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER);
@@ -53,6 +58,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final FoundObjectRepository foundObjectRepository;
     private final IUserRepository userRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
+    private final RerankService rerankService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -63,7 +69,8 @@ public class FoundObjectService implements IFoundObjectService {
                               ExecutorService executorService,
                               FoundObjectRepository foundObjectRepository,
                               IUserRepository userRepository,
-                              IRewardExclusionRepository rewardExclusionRepository) {
+                              IRewardExclusionRepository rewardExclusionRepository,
+                              RerankService rerankService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -74,6 +81,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.foundObjectRepository = foundObjectRepository;
         this.userRepository = userRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
+        this.rerankService = rerankService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -224,8 +232,12 @@ public class FoundObjectService implements IFoundObjectService {
         /*
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
         * */
-        List<Float> embeddings = (command.getQuery() != null && !command.getQuery().isBlank())
-                ? embeddingService.getTextVectorRepresentation(command.getQuery())
+        String expandedQuery = (command.getQuery() != null && !command.getQuery().isBlank())
+                ? descriptionService.expandSearchQuery(command.getQuery())
+                : null;
+        log.info("Query expansion: original='{}' expanded='{}'", command.getQuery(), expandedQuery);
+        List<Float> embeddings = (expandedQuery != null)
+                ? embeddingService.getTextVectorRepresentation(expandedQuery)
                 : null;
 
         /*
@@ -272,12 +284,15 @@ public class FoundObjectService implements IFoundObjectService {
         *  Dependiendo de si la búsqueda es por organización o por coordenadas, u "orgId" o "coordinates" valdrán null.
         * */
         List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
+                                                                    command.getQuery(),
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
                                                                     command.getLostDateTo(),
                                                                     false,
-                                                                    command.getCategory());
+                                                                    command.getCategory(),
+                                                                    null,
+                                                                    null);
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -307,7 +322,19 @@ public class FoundObjectService implements IFoundObjectService {
                 .map(this::foundObjectToDto)
                 .filter(dto -> dto.getScore() != null && dto.getScore() >= MIN_SCORE)
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+
+        if (rerankEnabled && result.size() > 1 && command.getQuery() != null && !command.getQuery().isBlank()) {
+            try {
+                List<String> rankedIds = rerankService.rerank(command.getQuery(),
+                        result.subList(0, Math.min(10, result.size())));
+                Map<String, Integer> rankMap = new HashMap<>();
+                for (int i = 0; i < rankedIds.size(); i++) rankMap.put(rankedIds.get(i), i);
+                result.sort(Comparator.comparingInt(dto -> rankMap.getOrDefault(dto.getId(), Integer.MAX_VALUE)));
+            } catch (Exception e) {
+                log.warn("Reranking falló, manteniendo orden original: {}", e.getMessage());
+            }
+        }
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)

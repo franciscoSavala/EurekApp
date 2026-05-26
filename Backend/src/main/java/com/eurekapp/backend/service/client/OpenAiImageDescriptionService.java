@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service.client;
 
 import com.eurekapp.backend.dto.request.ChatCompletionRequest;
+import com.eurekapp.backend.dto.request.TextChatCompletionRequest;
 import com.eurekapp.backend.dto.response.ChatCompletionResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
@@ -58,5 +59,23 @@ public class OpenAiImageDescriptionService implements ImageDescriptionService {
 
         // Finalmente, si no se lanzó una excepción, devolvemos la descripción textual de la foto.
         return textDescriptionResponse.getBody().getChoices().getFirst().getMessage().getContent();
+    }
+
+    @SneakyThrows
+    public String expandSearchQuery(String query) {
+        String requestBody = objectMapper.writeValueAsString(new TextChatCompletionRequest(query));
+
+        ResponseEntity<ChatCompletionResponse> response = completitionClient.post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .toEntity(ChatCompletionResponse.class);
+
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            log.warn("Query expansion falló, usando query original");
+            return query;
+        }
+
+        return response.getBody().getChoices().getFirst().getMessage().getContent();
     }
 }
