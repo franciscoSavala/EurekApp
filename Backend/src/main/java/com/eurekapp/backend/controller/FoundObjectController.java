@@ -17,6 +17,7 @@ import org.hibernate.validator.constraints.Length;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -38,7 +39,7 @@ public class FoundObjectController {
     @Operation(summary = "Cargar objeto encontrado",
             description = "Registra un objeto encontrado en el inventario de una organización. La imagen es analizada por IA para generar una descripción automática.")
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
-            @RequestParam("title") @Length(max = 30, message = "Max description size is 30") String title,
+            @RequestParam("title") @Length(max = 100, message = "El título no puede superar los 100 caracteres") String title,
             @RequestParam("object_finder_username") String objectFinderUsername,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
@@ -119,7 +120,9 @@ public class FoundObjectController {
     @PostMapping(value = "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Registrar devolución de objeto",
             description = "Asienta la devolución de un objeto encontrado a su dueño, registrando DNI, teléfono y foto de la persona que lo retira.")
+    @PreAuthorize("hasAuthority('ENCARGADO') or hasAuthority('ORGANIZATION_OWNER')")
     public ResponseEntity<ReturnFoundObjectDto> returnLostObject(
+            @AuthenticationPrincipal UserEurekapp caller,
             @RequestParam(value = "username", required = false) String eurekappUser,
             @RequestParam(value = "dni") String dni,
             @RequestParam(value = "phoneNumber") String phoneNumber,
@@ -134,7 +137,7 @@ public class FoundObjectController {
                 .username(eurekappUser)
                 .image(file)
                 .build();
-        return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command));
+        return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command, caller));
     }
 
     @PostMapping("/getDetail")

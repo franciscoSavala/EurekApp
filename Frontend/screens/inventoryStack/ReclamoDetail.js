@@ -20,6 +20,7 @@ const STATUS_COLORS = {
     EN_REVISION: '#3b82f6',
     APROBADO: '#22c55e',
     RECHAZADO: '#ED4337',
+    DEVUELTO: '#7c3aed',
 };
 
 const STATUS_LABELS = {
@@ -27,6 +28,7 @@ const STATUS_LABELS = {
     EN_REVISION: 'En revisión',
     APROBADO: 'Aprobado',
     RECHAZADO: 'Rechazado',
+    DEVUELTO: 'Devuelto',
 };
 
 const ReclamoDetail = ({ route }) => {
@@ -164,12 +166,23 @@ const ReclamoDetail = ({ route }) => {
                 )}
             </View>
 
+            {/* Registrador del objeto */}
+            {(reclamo.finderFullName || reclamo.finderEmail) && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Registrador del objeto</Text>
+                    <InfoRow label="Nombre" value={reclamo.finderFullName} />
+                    <InfoRow label="Email" value={reclamo.finderEmail} />
+                    <InfoRow label="Rol" value={reclamo.finderRole} />
+                </View>
+            )}
+
             {/* Info del reclamo */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
                 <InfoRow label="Fecha del reclamo" value={formatDate(reclamo.createdAt)} />
                 <InfoRow label="Última actualización" value={formatDate(reclamo.updatedAt)} />
                 <InfoRow label="Puntuación" value={renderStars(reclamo.starRating)} />
+                <InfoRow label="Descripción del reclamo" value={reclamo.claimDescription} />
                 <InfoRow label="Comentario" value={reclamo.comment} />
             </View>
 

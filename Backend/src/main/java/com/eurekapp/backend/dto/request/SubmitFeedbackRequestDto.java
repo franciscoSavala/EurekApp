@@ -16,4 +16,6 @@ public class SubmitFeedbackRequestDto {
     private Boolean wasFound;
     @Size(max = 500)
     private String comment;             // nullable — comentario opcional
+    @Size(max = 500)
+    private String claimDescription;    // requerido si wasFound=true
 }

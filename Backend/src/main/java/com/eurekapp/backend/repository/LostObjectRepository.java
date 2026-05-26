@@ -16,6 +16,7 @@ import io.weaviate.client.v1.filters.Operator;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -65,7 +66,7 @@ public class LostObjectRepository {
                 .className("LostObject")
                 .properties(Map.of(
                         "username", lostObject.getUsername(),
-                        "lost_date", lostObject.getLostDate().toString()+":00Z",
+                        "lost_date", lostObject.getLostDate().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                         "description", lostObject.getDescription(),
                         "organization_id", lostObject.getOrganizationId(),
                         "coordinates", coordinatesMap

@@ -18,6 +18,7 @@ public class ReclamoDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String comment;
+    private String claimDescription;
     private Integer starRating;
     private String confidenceLevel;
     private Boolean isSuspicious;

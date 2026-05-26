@@ -33,7 +33,7 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
                     username: username,
                     lost_date: lostDate,
                     coordinates: coordinates,
-                    organization_id: organizationId
+                    organization_id: organizationId != null ? String(organizationId) : null
                 },
                 config );
             setResponseOk(true);

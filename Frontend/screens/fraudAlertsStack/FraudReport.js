@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Platform,
     ScrollView,
@@ -9,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
@@ -19,6 +21,8 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const REASON_LABELS = {
     MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes',
     HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
+    FINDER_CLAIMER_COLLUSION: 'Acuerdo registrador/reclamante',
+    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
 };
 
 const STATUS_OPTIONS = [
@@ -43,6 +47,23 @@ const defaultFrom = () => {
     return d;
 };
 
+const AVATAR_COLORS = ['#19b8b8', '#b45309', '#4caf50', '#7c4dff', '#e53935', '#f0a500'];
+
+const UserAvatar = ({ fullName }) => {
+    const initials = (fullName || '?')
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(w => w[0].toUpperCase())
+        .join('');
+    const idx = (fullName || '').charCodeAt(0) % AVATAR_COLORS.length;
+    return (
+        <View style={[styles.avatar, { backgroundColor: AVATAR_COLORS[idx] }]}>
+            <Text style={styles.avatarText}>{initials}</Text>
+        </View>
+    );
+};
+
 const FraudReport = () => {
     const [fromDate, setFromDate] = useState(defaultFrom());
     const [toDate, setToDate] = useState(new Date());
@@ -52,7 +73,16 @@ const FraudReport = () => {
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedUser, setExpandedUser] = useState(null);
+    const [sortBy, setSortBy] = useState('confirmedFraudCount');
+
+    const sortedEntries = useMemo(() => {
+        return [...entries].sort((a, b) => {
+            if (sortBy === 'fullName') return (a.fullName || '').localeCompare(b.fullName || '');
+            return (b[sortBy] || 0) - (a[sortBy] || 0);
+        });
+    }, [entries, sortBy]);
 
     const fetchReport = async () => {
         setLoading(true);
@@ -106,6 +136,23 @@ const FraudReport = () => {
         setExporting(false);
     };
 
+    const handleExportPdf = async () => {
+        setExportingPdf(true);
+        try {
+            const html = buildFraudReportHtml(entries, {
+                fromDate: formatDate(fromDate),
+                toDate: formatDate(toDate),
+                statusFilter,
+            });
+            await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
+        } catch (e) {
+            console.warn('Error exportando PDF:', e);
+            Alert.alert('Error', 'No se pudo exportar el PDF. Intentá nuevamente.');
+        } finally {
+            setExportingPdf(false);
+        }
+    };
+
     const toggleExpand = (userId) => {
         setExpandedUser(prev => prev === userId ? null : userId);
     };
@@ -116,7 +163,8 @@ const FraudReport = () => {
         return (
             <TouchableOpacity style={styles.card} onPress={() => toggleExpand(item.userId)}>
                 <View style={styles.cardHeader}>
-                    <View style={styles.userInfo}>
+                    <UserAvatar fullName={item.fullName} />
+                    <View style={[styles.userInfo, { marginLeft: 10 }]}>
                         <Text style={styles.userName}>{item.fullName}</Text>
                         <Text style={styles.userEmail}>{item.email}</Text>
                     </View>
@@ -211,19 +259,42 @@ const FraudReport = () => {
                     ))}
                 </View>
 
+                <Text style={styles.filterLabel}>Ordenar por</Text>
+                <View style={styles.statusRow}>
+                    {[
+                        { label: 'Fraudes confirmados', value: 'confirmedFraudCount' },
+                        { label: 'Total alertas', value: 'fraudCount' },
+                        { label: 'Nombre A-Z', value: 'fullName' },
+                    ].map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            style={[styles.statusBtn, sortBy === opt.value && styles.statusBtnActive]}
+                            onPress={() => setSortBy(opt.value)}>
+                            <Text style={[styles.statusBtnText, sortBy === opt.value && styles.statusBtnTextActive]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
             </ScrollView>
 
             {entries.length > 0 && (
-                <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
-                    {exporting ? <ActivityIndicator color="#111818" /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
-                </TouchableOpacity>
+                <View style={styles.exportRow}>
+                    <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
+                        {exporting ? <ActivityIndicator color="#111818" /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
+                        {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
+                    </TouchableOpacity>
+                </View>
             )}
 
             <FlatList
-                data={entries}
+                data={sortedEntries}
                 keyExtractor={(item) => item.userId.toString()}
                 renderItem={renderEntry}
                 contentContainerStyle={styles.listContent}
@@ -310,14 +381,23 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
     },
-    exportBtn: {
+    exportRow: {
+        flexDirection: 'row',
+        gap: 10,
         marginHorizontal: 16,
         marginBottom: 8,
+    },
+    exportBtn: {
+        flex: 1,
         borderWidth: 1,
         borderColor: '#111818',
         borderRadius: 24,
         paddingVertical: 10,
         alignItems: 'center',
+    },
+    exportBtnPdf: {
+        backgroundColor: '#b45309',
+        borderColor: '#b45309',
     },
     exportBtnText: {
         fontFamily: 'PlusJakartaSans-Bold',
@@ -340,6 +420,19 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         marginBottom: 8,
+    },
+    avatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
+    },
+    avatarText: {
+        color: 'white',
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 15,
     },
     userInfo: {
         flex: 1,

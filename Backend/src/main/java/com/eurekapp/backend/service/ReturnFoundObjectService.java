@@ -70,7 +70,7 @@ public class ReturnFoundObjectService {
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
      *   una descripción textual provista por el usuario, y el ID del establecimiento en el que se encontró, */
     @SneakyThrows
-    public ReturnFoundObjectDto returnFoundObject(ReturnFoundObjectCommand command)
+    public ReturnFoundObjectDto returnFoundObject(ReturnFoundObjectCommand command, UserEurekapp caller)
     {
         if(command.getDNI() == null || command.getPhoneNumber() == null || command.getPhoneNumber().isEmpty()){
             throw new BadRequestException("incomplete_data", "");
@@ -79,6 +79,11 @@ public class ReturnFoundObjectService {
         // Verificamos si la organización existe
         if (command.getOrganizationId() == null || !organizationRepository.existsById(command.getOrganizationId())) {
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
+        }
+        // Verificamos que el llamante pertenezca a la organización
+        if (caller == null || caller.getOrganization() == null
+                || !caller.getOrganization().getId().equals(command.getOrganizationId())) {
+            throw new ForbiddenException("unauthorized", "No pertenece a esta organización");
         }
 
 
@@ -287,7 +292,13 @@ public class ReturnFoundObjectService {
         }
 
         // Obtenemos la imagen de la persona a la que se devolvió el objeto
-        byte[] imageBytes = s3Service.getObjectBytes(rfo.getPersonPhotoUUID());
+        String photoB64 = null;
+        try {
+            byte[] imageBytes = s3Service.getObjectBytes(rfo.getPersonPhotoUUID());
+            if (imageBytes != null) {
+                photoB64 = Base64.getEncoder().encodeToString(imageBytes);
+            }
+        } catch (Exception ignored) {}
 
         // Como es posible que el usuario sea null, hacemos esta validación.
         String rfoUsername = null;
@@ -300,7 +311,7 @@ public class ReturnFoundObjectService {
                 .foundObjectId(foundObjectUUID)
                 .returnDateTime(rfo.getDatetimeOfReturn())
                 .phoneNumber(rfo.getPhoneNumber())
-                .personPhoto_b64Json(Base64.getEncoder().encodeToString(imageBytes))
+                .personPhoto_b64Json(photoB64)
                 .build();
     }
 }
