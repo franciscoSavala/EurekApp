@@ -120,7 +120,7 @@ public class FoundObjectController {
     @PostMapping(value = "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Registrar devolución de objeto",
             description = "Asienta la devolución de un objeto encontrado a su dueño, registrando DNI, teléfono y foto de la persona que lo retira.")
-    @PreAuthorize("hasAnyRole('ENCARGADO', 'ORGANIZATION_OWNER')")
+    @PreAuthorize("hasAuthority('ENCARGADO') or hasAuthority('ORGANIZATION_OWNER')")
     public ResponseEntity<ReturnFoundObjectDto> returnLostObject(
             @AuthenticationPrincipal UserEurekapp caller,
             @RequestParam(value = "username", required = false) String eurekappUser,
