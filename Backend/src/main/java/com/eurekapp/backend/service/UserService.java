@@ -193,7 +193,7 @@ public class UserService {
     /*
     * Método usado para que un usuario acepte una solicitud de una organización para convertirse en empleado.
     */
-    public void acceptAddEmployeeRequest(UserEurekapp user, Long addEmployeeRequestId) {
+    public LoginResponseDto acceptAddEmployeeRequest(UserEurekapp user, Long addEmployeeRequestId) {
 
         // Si el rol del usuario no es USER, lanzamos excepción.
         if(!user.getRole().equals(Role.USER)){
@@ -225,6 +225,8 @@ public class UserService {
             req.setStatus(AddEmployeeRequestStatus.DECLINED);
         }
         addEmployeeRequestRepository.saveAllAndFlush(otherRequests);
+
+        return refreshUserDetails(user);
     }
 
     /*
