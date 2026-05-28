@@ -302,7 +302,7 @@ const Profile = ({ route, navigation }) => {
                 style={styles.feedbackButton}
                 onPress={() => setUsabilityModalVisible(true)}>
                 <Ionicons name="chatbubble-ellipses-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.feedbackButtonText}>Dar feedback sobre la app</Text>
+                <Text style={styles.feedbackButtonText}>Dar feedback de usabilidad</Text>
             </TouchableOpacity>
             <UsabilityFeedbackModal
                 visible={usabilityModalVisible}
