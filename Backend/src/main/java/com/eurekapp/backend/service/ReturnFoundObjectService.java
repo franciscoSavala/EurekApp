@@ -308,6 +308,26 @@ public class ReturnFoundObjectService {
         String rfoUsername = null;
         if(rfo.getUserEurekapp() != null){rfoUsername = rfo.getUserEurekapp().getUsername();}
 
+        // Datos del finder y motivo de exclusión de recompensa
+        String finderEmail = null;
+        String finderFullName = null;
+        String finderRole = null;
+        Boolean rewardExcluded = null;
+        String rewardExclusionMessage = null;
+
+        if (fo.getObjectFinderUser() != null) {
+            UserEurekapp finder = fo.getObjectFinderUser();
+            finderEmail = finder.getUsername();
+            finderFullName = finder.getFirstName() + " " + finder.getLastName();
+            finderRole = finder.getRole() != null ? finder.getRole().name() : null;
+
+            boolean hasExclusion = rewardExclusionRepository.existsByFoundObjectUUID(foundObjectUUID);
+            rewardExcluded = hasExclusion;
+            rewardExclusionMessage = hasExclusion
+                    ? "El usuario que encontró el objeto no puede recibir recompensas de puntos por ser un miembro activo de la organización"
+                    : "El usuario que encontró el objeto puede recibir recompensas de puntos";
+        }
+
         return ReturnFoundObjectDto.builder()
                 .id(String.valueOf(rfo.getId()))
                 .username(rfoUsername)
@@ -316,6 +336,11 @@ public class ReturnFoundObjectService {
                 .returnDateTime(rfo.getDatetimeOfReturn())
                 .phoneNumber(rfo.getPhoneNumber())
                 .personPhoto_b64Json(photoB64)
+                .finderEmail(finderEmail)
+                .finderFullName(finderFullName)
+                .finderRole(finderRole)
+                .rewardExcluded(rewardExcluded)
+                .rewardExclusionMessage(rewardExclusionMessage)
                 .build();
     }
 }

@@ -19,5 +19,10 @@ public class ReturnFoundObjectDto {
     private String personPhoto_b64Json;
     private String foundObjectId;
     private LocalDateTime returnDateTime;
+    private String finderEmail;
+    private String finderFullName;
+    private String finderRole;
+    private Boolean rewardExcluded;
+    private String rewardExclusionMessage;
 }
 
