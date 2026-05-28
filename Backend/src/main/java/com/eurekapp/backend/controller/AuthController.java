@@ -1,6 +1,8 @@
 package com.eurekapp.backend.controller;
 
+import com.eurekapp.backend.dto.request.ForgotPasswordRequestDto;
 import com.eurekapp.backend.dto.request.LoginRequestDto;
+import com.eurekapp.backend.dto.request.ResetPasswordRequestDto;
 import com.eurekapp.backend.dto.request.SocialLoginRequestDto;
 import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
@@ -42,5 +44,19 @@ public class AuthController {
     @Operation(summary = "Login social", description = "Autentica o registra un usuario mediante Google o Facebook")
     public ResponseEntity<LoginResponseDto> socialLogin(@Valid @RequestBody SocialLoginRequestDto socialLoginRequestDto) {
         return ResponseEntity.ok(authService.socialLogin(socialLoginRequestDto));
+    }
+
+    @PostMapping("/forgot-password")
+    @Operation(summary = "Solicitar recuperación de contraseña", description = "Envía un código de 6 dígitos al email registrado")
+    public ResponseEntity<Void> forgotPassword(@Valid @RequestBody ForgotPasswordRequestDto dto) {
+        authService.forgotPassword(dto.getEmail());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Restablecer contraseña", description = "Valida el código y establece una nueva contraseña")
+    public ResponseEntity<Void> resetPassword(@Valid @RequestBody ResetPasswordRequestDto dto) {
+        authService.resetPassword(dto.getEmail(), dto.getToken(), dto.getNewPassword());
+        return ResponseEntity.ok().build();
     }
 }

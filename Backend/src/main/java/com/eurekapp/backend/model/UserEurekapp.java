@@ -12,6 +12,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -74,6 +75,12 @@ public class UserEurekapp implements UserDetails {
 
     @Column(name = "provider_id", nullable = true, length = 255)
     private String providerId;
+
+    @Column(name = "password_reset_token", nullable = true, length = 10)
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_token_expiry", nullable = true)
+    private LocalDateTime passwordResetTokenExpiry;
 
     // Implementación de los métodos de la interfaz UserDetails
     @Override

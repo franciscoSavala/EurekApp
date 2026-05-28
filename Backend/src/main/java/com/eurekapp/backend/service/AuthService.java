@@ -28,8 +28,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -208,6 +210,60 @@ public class AuthService {
         } catch (RestClientException e) {
             throw new BadRequestException(ValidationError.INVALID_SOCIAL_TOKEN);
         }
+    }
+
+    public void forgotPassword(String email) {
+        UserEurekapp user = userRepository.findByUsername(email)
+                .orElseThrow(() -> new NotFoundException(
+                        ValidationError.USER_NOT_FOUND.getCode(),
+                        String.format(ValidationError.USER_NOT_FOUND.getError(), email)));
+
+        String code = String.format("%06d", new Random().nextInt(999999));
+        user.setPasswordResetToken(code);
+        user.setPasswordResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
+        userRepository.save(user);
+
+        String subject = "Recuperación de contraseña — EurekApp";
+        String content = "<div style='font-family:sans-serif;max-width:600px;margin:auto;padding:24px'>"
+                + "<h2 style='color:#017575'>Recuperá tu contraseña</h2>"
+                + "<p>Hola, <strong>" + user.getFirstName() + "</strong>.</p>"
+                + "<p>Recibimos una solicitud para recuperar la contraseña de tu cuenta en <strong>EurekApp</strong>.</p>"
+                + "<p>Tu código de recuperación es:</p>"
+                + "<div style='background:#f0f4f4;border-radius:8px;padding:16px;text-align:center;margin:16px 0'>"
+                + "<span style='font-size:32px;font-weight:bold;letter-spacing:8px;color:#017575'>" + code + "</span>"
+                + "</div>"
+                + "<p>Ingresá este código en la aplicación para establecer una nueva contraseña.</p>"
+                + "<p style='color:#e53935'><strong>Este código expira en 30 minutos.</strong></p>"
+                + "<p style='margin-top:32px;color:#638888;font-size:13px'>Si no solicitaste recuperar tu contraseña, ignorá este mensaje.</p>"
+                + "</div>";
+
+        try {
+            notificationService.sendNotification(email, subject, content);
+        } catch (Exception e) {
+            log.warn("[action:forgotPassword] No se pudo enviar el email de recuperación a {}: {}", email, e.getMessage());
+        }
+    }
+
+    public void resetPassword(String email, String token, String newPassword) {
+        UserEurekapp user = userRepository.findByUsername(email)
+                .orElseThrow(() -> new NotFoundException(
+                        ValidationError.USER_NOT_FOUND.getCode(),
+                        String.format(ValidationError.USER_NOT_FOUND.getError(), email)));
+
+        if (user.getPasswordResetToken() == null || !token.equals(user.getPasswordResetToken())) {
+            throw new BadRequestException(ValidationError.PASSWORD_RESET_TOKEN_INVALID);
+        }
+
+        if (LocalDateTime.now().isAfter(user.getPasswordResetTokenExpiry())) {
+            throw new BadRequestException(ValidationError.PASSWORD_RESET_TOKEN_EXPIRED);
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiry(null);
+        userRepository.save(user);
+
+        log.info("[action:resetPassword] Contraseña restablecida para {}", email);
     }
 
     // Metodo auxiliar para crear la respuesta del token JWT

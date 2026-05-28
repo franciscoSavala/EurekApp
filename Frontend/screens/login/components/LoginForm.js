@@ -107,6 +107,10 @@ export default function LoginForm(props) {
                 />
             </View>
 
+            <TouchableOpacity style={styles.linkButton} onPress={() => props.nav.navigate('ForgotPasswordScreen')}>
+                <Text style={styles.linkButtonText}>¿Olvidaste tu contraseña?</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.linkButton} onPress={() => props.nav.navigate('RegistrationScreen')}>
                 <Text style={styles.linkButtonText}>¿No tenés cuenta? Registrate</Text>
             </TouchableOpacity>
