@@ -27,6 +27,8 @@ import Inventory from "./screens/inventoryStack/Inventory";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ReturnObjectForm from "./screens/inventoryStack/ReturnObjectForm";
 import RegistrationScreen from "./screens/login/RegistrationScreen";
+import ForgotPasswordScreen from "./screens/login/ForgotPasswordScreen";
+import ResetPasswordScreen from "./screens/login/ResetPasswordScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
@@ -71,6 +73,16 @@ const AuthStackScreen = () => {
                 name="RegistrationScreen"
                 component={RegistrationScreen}
                 options={{ headerShown: false , title: 'EurekApp - Registro'}}
+            />
+            <AuthStack.Screen
+                name="ForgotPasswordScreen"
+                component={ForgotPasswordScreen}
+                options={{ headerShown: false, title: 'EurekApp - Recuperar contraseña' }}
+            />
+            <AuthStack.Screen
+                name="ResetPasswordScreen"
+                component={ResetPasswordScreen}
+                options={{ headerShown: false, title: 'EurekApp - Nueva contraseña' }}
             />
         </AuthStack.Navigator>
     );
