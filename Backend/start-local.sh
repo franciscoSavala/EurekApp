@@ -159,8 +159,10 @@ create_class_if_missing "FoundObject" '{
     { "name": "human_description", "dataType": ["string"] },
     { "name": "ai_description",    "dataType": ["string"] },
     { "name": "organization_id",   "dataType": ["text"] },
-    { "name": "coordinates",       "dataType": ["geoCoordinates"] },
-    { "name": "was_returned",      "dataType": ["boolean"] }
+    { "name": "coordinates",            "dataType": ["geoCoordinates"] },
+    { "name": "was_returned",           "dataType": ["boolean"] },
+    { "name": "object_finder_user_id",  "dataType": ["text"] },
+    { "name": "category",               "dataType": ["text"] }
   ]
 }'
 

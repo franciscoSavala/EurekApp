@@ -237,7 +237,9 @@ insert_found_object() {
         \"organization_id\": \"$ORG_ID\",
         \"found_date\": \"${DATE}T10:00:00Z\",
         \"coordinates\": { \"latitude\": $LAT, \"longitude\": $LNG },
-        \"was_returned\": $RETURNED
+        \"was_returned\": $RETURNED,
+        \"object_finder_user_id\": \"0\",
+        \"category\": \"\"
       }
     }")
   [[ "$HTTP" == "200" ]] || warn "  FoundObject '$TITLE' → HTTP $HTTP"
