@@ -217,7 +217,11 @@ const Organization = ({ route, navigation }) => {
                         <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
                     ) : (
                         responseOk ? (
-                            <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
+                            <View style={{alignItems: 'center'}}>
+                                <Icon style={{marginVertical: 10}} name={'circle-check'} size={50} color={'#008000'}/>
+                                <Text style={{textAlign: 'center', color: '#008000', fontWeight: 'bold', fontSize: 15}}>¡Solicitud enviada correctamente!</Text>
+                                <Text style={{textAlign: 'center', color: '#444', marginTop: 4, fontSize: 13}}>El usuario recibirá una notificación para unirse a la organización.</Text>
+                            </View>
                         ) : (
                             <Icon style={{marginVertical: 10}} name={'circle-xmark'} size={50} color={'#ED4337'}/>
                         )
