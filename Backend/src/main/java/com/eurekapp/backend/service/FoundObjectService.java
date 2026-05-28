@@ -34,7 +34,7 @@ import java.util.concurrent.Future;
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
-    private static final double MIN_SCORE = 0.3;
+    private static final double MIN_SCORE = 0.45;
     private static final int GRACE_HOURS = 6;
 
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
