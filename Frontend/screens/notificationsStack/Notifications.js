@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
@@ -73,15 +74,27 @@ const Notifications = ({ navigation, route }) => {
     const handleAccept = async (requestId, notifId) => {
         try {
             const jwt = await AsyncStorage.getItem("jwt");
-            await axiosInstance.post(
+            const res = await axiosInstance.post(
                 BACK_URL + "/organizations/acceptAddEmployeeRequest",
                 { requestId },
                 { headers: { Authorization: "Bearer " + jwt } }
             );
+            if (res.data?.user) {
+                await AsyncStorage.setItem('user.first_name', res.data.user.firstName.toString());
+                await AsyncStorage.setItem('user', JSON.stringify(res.data.user));
+            }
+            if (res.data?.organization) {
+                await AsyncStorage.setItem('org.id', res.data.organization.id.toString());
+                await AsyncStorage.setItem('org.name', res.data.organization.name);
+                await AsyncStorage.setItem('organization', JSON.stringify(res.data.organization));
+            }
             await markAsRead(notifId);
             fetchNotifications();
+            const orgName = res.data?.organization?.name ?? "la organización";
+            Alert.alert("¡Solicitud aceptada!", `Ahora formas parte de ${orgName}.`);
         } catch (e) {
             console.log("Error accepting request", e);
+            Alert.alert("Error", "No se pudo aceptar la solicitud. Intentá de nuevo.");
         }
     };
 
