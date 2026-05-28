@@ -1,6 +1,7 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.command.UpdateClaimStatusCommand;
+import com.eurekapp.backend.dto.request.CreateReclamoRequestDto;
 import com.eurekapp.backend.dto.response.ReclamoDto;
 import com.eurekapp.backend.model.ClaimStatus;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +29,15 @@ public class ReclamoController {
 
     public ReclamoController(ReclamoService reclamoService) {
         this.reclamoService = reclamoService;
+    }
+
+    @PostMapping
+    @Operation(summary = "Registrar reclamo",
+            description = "Registra el reclamo del usuario sobre un objeto encontrado. Accesible para usuarios autenticados.")
+    public ResponseEntity<ReclamoDto> createReclamo(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestBody CreateReclamoRequestDto dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(reclamoService.createReclamoForUser(user, dto));
     }
 
     @GetMapping
