@@ -1,8 +1,11 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.command.UpdateClaimStatusCommand;
+import com.eurekapp.backend.dto.request.CreateReclamoRequestDto;
 import com.eurekapp.backend.dto.response.ReclamoDto;
 import com.eurekapp.backend.dto.response.ReclamoHistoryDto;
+import com.eurekapp.backend.exception.ApiException;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
@@ -17,6 +20,8 @@ import com.eurekapp.backend.repository.ObjectStorage;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
+import org.springframework.http.HttpStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -65,6 +70,39 @@ public class ReclamoService {
                 .searchFeedbackId(feedback.getId())
                 .build();
         reclamoRepository.save(reclamo);
+    }
+
+    public ReclamoDto createReclamoForUser(UserEurekapp user, CreateReclamoRequestDto dto) {
+        if (dto.getClaimDescription() == null || dto.getClaimDescription().isBlank()) {
+            throw new BadRequestException("claim_description_required", "Debés describir el objeto para reclamarlo");
+        }
+        if (dto.getFoundObjectUUID() == null || dto.getOrganizationId() == null) {
+            throw new BadRequestException("incomplete_data", "Se requiere foundObjectUUID y organizationId");
+        }
+        long recent = reclamoRepository.countByUserAndCreatedAtAfter(user, LocalDateTime.now().minusMinutes(1));
+        if (recent >= 5) {
+            throw new ApiException("rate_limit_exceeded", "Demasiados reclamos en poco tiempo", HttpStatus.TOO_MANY_REQUESTS);
+        }
+        Optional<Reclamo> existing = reclamoRepository.findByOrganizationIdAndFoundObjectUUIDAndUser_Id(
+                dto.getOrganizationId(), dto.getFoundObjectUUID(), user.getId());
+        if (existing.isPresent()) {
+            return toDto(existing.get(), false);
+        }
+        FoundObject fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
+        String category = fo != null ? fo.getCategory() : null;
+        LocalDateTime now = LocalDateTime.now();
+        Reclamo reclamo = Reclamo.builder()
+                .organizationId(dto.getOrganizationId())
+                .foundObjectUUID(dto.getFoundObjectUUID())
+                .foundObjectCategory(category)
+                .user(user)
+                .claimDescription(dto.getClaimDescription())
+                .status(ClaimStatus.PENDIENTE)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+        Reclamo saved = reclamoRepository.save(reclamo);
+        return toDto(saved, false);
     }
 
     public List<ReclamoDto> getReclamos(UserEurekapp user,
