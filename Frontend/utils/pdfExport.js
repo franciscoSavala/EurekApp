@@ -276,6 +276,89 @@ ${incidentBlocks || '<p style="color:#888">Sin incidentes en el período selecci
 </body></html>`;
 }
 
+const ASPECT_LABELS_PDF = {
+    FACILIDAD_USO: 'Facilidad de uso',
+    CLARIDAD: 'Claridad de interfaz',
+    TIEMPO_RESPUESTA: 'Tiempo de respuesta',
+    NAVEGACION: 'Navegación',
+};
+const ASPECT_ORDER_PDF = ['FACILIDAD_USO', 'CLARIDAD', 'TIEMPO_RESPUESTA', 'NAVEGACION'];
+
+export function buildUsabilityFeedbackReportHtml(reportData, records, filters) {
+    const { fromDate, toDate, groupBy } = filters;
+    const generatedAt = new Date().toLocaleString('es-AR');
+    const groupByLabel = { DAY: 'Día', WEEK: 'Semana', MONTH: 'Mes' }[groupBy] || groupBy;
+
+    const starBars = reportData && reportData.star_distribution
+        ? makeBarChart([5, 4, 3, 2, 1].map(s => ({
+            label: '★'.repeat(s),
+            value: reportData.star_distribution[s] || 0,
+            color: '#f0a500',
+        })), undefined)
+        : '';
+
+    const aspectBars = reportData && reportData.aspect_distribution
+        ? makeBarChart(ASPECT_ORDER_PDF.map(k => ({
+            label: ASPECT_LABELS_PDF[k] || k,
+            value: reportData.aspect_distribution[k] || 0,
+            color: '#19b8b8',
+        })), undefined)
+        : '';
+
+    const trendRows = reportData && reportData.time_series ? reportData.time_series.map(p =>
+        `<tr><td>${p.label}</td><td>${(p.avg_rating || 0).toFixed(1)} ★</td><td>${p.total}</td></tr>`
+    ).join('') : '';
+
+    const commentsWithText = (records || []).filter(r => r.comment && r.comment.trim().length > 0);
+    const commentRows = commentsWithText.length > 0 ? commentsWithText.map(r =>
+        `<tr>
+            <td>${'★'.repeat(r.star_rating || 0)}</td>
+            <td style="font-size:11px">${(r.aspects || []).map(a => ASPECT_LABELS_PDF[a] || a).join(', ') || '—'}</td>
+            <td>${r.context || '—'}</td>
+            <td>${(r.comment || '').replace(/</g, '&lt;')}</td>
+            <td>${r.created_at ? new Date(r.created_at).toLocaleDateString('es-AR') : '—'}</td>
+        </tr>`
+    ).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">Sin comentarios en el período</td></tr>';
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Reporte de Usabilidad</title><style>${baseStyle}</style></head>
+<body>
+<h1>Reporte de feedback de usabilidad</h1>
+<div class="meta">
+    Generado: ${generatedAt}<br>
+    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Agrupado por: ${groupByLabel}
+</div>
+
+${reportData ? `
+<h2>Métricas generales</h2>
+<table>
+    <tr><th>Indicador</th><th>Valor</th></tr>
+    <tr><td>Calificación promedio</td><td><b>${(reportData.average_rating || 0).toFixed(1)} ★</b></td></tr>
+    <tr><td>Total de feedbacks</td><td><b>${reportData.total_feedback}</b></td></tr>
+</table>
+
+<h2>Distribución de calificaciones</h2>
+${starBars}
+
+<h2>Aspectos más seleccionados</h2>
+${aspectBars}
+
+${reportData.time_series && reportData.time_series.length > 0 ? `
+<h2>Evolución temporal</h2>
+<table>
+    <tr><th>Período</th><th>Calif. promedio</th><th>Total</th></tr>
+    ${trendRows}
+</table>` : ''}
+` : ''}
+
+<h2>Comentarios de usuarios</h2>
+<table>
+    <tr><th>Puntaje</th><th>Aspectos</th><th>Contexto</th><th>Comentario</th><th>Fecha</th></tr>
+    ${commentRows}
+</table>
+</body></html>`;
+}
+
 export async function exportPdf(htmlContent, filename) {
     if (Platform.OS === 'web') {
         const iframe = document.createElement('iframe');

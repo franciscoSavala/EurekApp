@@ -38,6 +38,7 @@ import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectD
 import Achievements from "./screens/AchievementsStack/Achievements";
 import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 import Reports from "./screens/reportsStack/Reports";
+import UsabilityFeedbackReport from "./screens/reportsStack/UsabilityFeedbackReport";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
@@ -182,6 +183,10 @@ const ReportsStackScreen = () => {
                 name='Reports'
                 component={Reports}
                 options={{headerShown: false, title: 'EurekApp - Reportes'}} />
+            <ReportsStack.Screen
+                name='UsabilityFeedbackReport'
+                component={UsabilityFeedbackReport}
+                options={{headerShown: false, title: 'EurekApp - Reporte de usabilidad'}} />
         </ReportsStack.Navigator>
     );
 }
