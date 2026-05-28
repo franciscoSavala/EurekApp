@@ -61,16 +61,17 @@ public class LostObjectRepository {
             coordinatesMap.put("latitude", lostObject.getCoordinates().getLatitude());
         }
 
+        HashMap<String, Object> properties = new HashMap<>();
+        properties.put("username", lostObject.getUsername());
+        properties.put("lost_date", lostObject.getLostDate().toInstant(ZoneOffset.UTC).toString());
+        properties.put("description", lostObject.getDescription());
+        properties.put("organization_id", lostObject.getOrganizationId());
+        properties.put("coordinates", coordinatesMap);
+
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
                 .className("LostObject")
-                .properties(Map.of(
-                        "username", lostObject.getUsername(),
-                        "lost_date", lostObject.getLostDate().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
-                        "description", lostObject.getDescription(),
-                        "organization_id", lostObject.getOrganizationId(),
-                        "coordinates", coordinatesMap
-                ))
+                .properties(properties)
                 .vector(lostObject.getEmbeddings().toArray(new Float[0]))
                 .build();
 

@@ -284,6 +284,10 @@ public class ReturnFoundObjectService {
 
         // Validamos que el usuario pertenezca a la organización que retiene el objeto. Si no lo es, lanzamos una excepción.
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUUID);
+        if (fo == null) {
+            throw new NotFoundException("found_object_not_found",
+                String.format("Found object with UUID '%s' not found.", foundObjectUUID));
+        }
         if (user.getOrganization() == null) {
             throw new ForbiddenException("no_organization", "User does not belong to any organization.");
         }
