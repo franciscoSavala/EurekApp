@@ -5,9 +5,11 @@ import com.eurekapp.backend.dto.response.FeedbackRecordDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.dto.response.FeedbackTimeSeriesPointDto;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.SearchFeedback;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.ISearchFeedbackRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,8 @@ import java.util.stream.Collectors;
 public class FeedbackService {
 
     private final ISearchFeedbackRepository feedbackRepository;
+    private final ReclamoService reclamoService;
+    private final FoundObjectRepository foundObjectRepository;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
         SearchFeedback fb = SearchFeedback.builder()
@@ -36,6 +40,11 @@ public class FeedbackService {
                 .user(user)
                 .build();
         feedbackRepository.save(fb);
+
+        if (Boolean.TRUE.equals(dto.getWasFound()) && dto.getFoundObjectUUID() != null) {
+            FoundObject fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
+            reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
+        }
     }
 
     public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {
