@@ -6,6 +6,7 @@ import com.eurekapp.backend.dto.command.AssignEncargadoCommand;
 import com.eurekapp.backend.dto.command.DeleteEmployeeCommand;
 import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
+import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationPolicyDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
@@ -86,10 +87,9 @@ public class OrganizationController {
     @PostMapping("/acceptAddEmployeeRequest")
     @Operation(summary = "Aceptar solicitud de vinculación",
             description = "El usuario acepta unirse a una organización como empleado. Su rol cambia a ORGANIZATION_EMPLOYEE.")
-    public ResponseEntity<Void> acceptAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
+    public ResponseEntity<LoginResponseDto> acceptAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
                                                          @RequestBody AddEmployeeRequestCommand command) {
-        userService.acceptAddEmployeeRequest(user, command.getId());
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(userService.acceptAddEmployeeRequest(user, command.getId()));
     }
 
     @PostMapping("/assign_encargado")
