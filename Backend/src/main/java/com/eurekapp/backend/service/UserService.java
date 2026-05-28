@@ -81,8 +81,14 @@ public class UserService {
         }
         UserEurekapp employee = userRepository.findById(employeeUserId)
                 .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
-        if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ORGANIZATION_EMPLOYEE) {
-            throw new ForbiddenException("forbidden", "El usuario no pertenece a esta organización o ya es encargado.");
+        if (!orgAdmin.getOrganization().equals(employee.getOrganization())) {
+            throw new ForbiddenException("forbidden", "El usuario no pertenece a esta organización.");
+        }
+        if (employee.getRole() == Role.ENCARGADO) {
+            return;
+        }
+        if (employee.getRole() != Role.ORGANIZATION_EMPLOYEE) {
+            throw new ForbiddenException("forbidden", "El usuario no puede ser asignado como encargado.");
         }
         employee.setRole(Role.ENCARGADO);
         userRepository.saveAndFlush(employee);
@@ -111,8 +117,14 @@ public class UserService {
         }
         UserEurekapp employee = userRepository.findById(employeeUserId)
                 .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
-        if (!orgAdmin.getOrganization().equals(employee.getOrganization()) || employee.getRole() != Role.ENCARGADO) {
-            throw new ForbiddenException("forbidden", "El usuario no es encargado en esta organización.");
+        if (!orgAdmin.getOrganization().equals(employee.getOrganization())) {
+            throw new ForbiddenException("forbidden", "El usuario no pertenece a esta organización.");
+        }
+        if (employee.getRole() == Role.ORGANIZATION_EMPLOYEE) {
+            return;
+        }
+        if (employee.getRole() != Role.ENCARGADO) {
+            throw new ForbiddenException("forbidden", "El usuario no tiene rol de encargado.");
         }
         employee.setRole(Role.ORGANIZATION_EMPLOYEE);
         userRepository.saveAndFlush(employee);
