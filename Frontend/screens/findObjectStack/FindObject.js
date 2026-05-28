@@ -37,6 +37,11 @@ const CATEGORIES = [
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
 
+const toLocalISO = (date) => {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
 const FindObject = ({ navigation, route }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
@@ -103,14 +108,14 @@ const FindObject = ({ navigation, route }) => {
             let config = {
                 params: {
                     ...(effectiveQuery ? { query: effectiveQuery } : {}),
-                    'lost_date': lostDate.toISOString().split('.')[0],
+                    'lost_date': toLocalISO(lostDate),
                 },
                 headers: {
                     'Authorization': authHeader
                 }
             }
             if (filterCategory) config.params.category = filterCategory;
-            if (filterLostDateTo) config.params.lost_date_to = filterLostDateTo.toISOString().split('.')[0];
+            if (filterLostDateTo) config.params.lost_date_to = toLocalISO(filterLostDateTo);
             const routeParams = {
                 query: queryObjects,
                 lostDate: lostDate,
