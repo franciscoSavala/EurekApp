@@ -5,6 +5,7 @@ import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
+import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.slf4j.Logger;
@@ -29,6 +30,7 @@ public class LostObjectService {
     private final LostObjectRepository lostObjectRepository;
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
+    private final IReclamoRepository reclamoRepository;
 
     public LostObjectService(
             EmbeddingService embeddingService,
@@ -38,7 +40,8 @@ public class LostObjectService {
             ObjectStorage objectStorage,
             LostObjectRepository lostObjectRepository,
             IUserRepository userRepository,
-            InAppNotificationService inAppNotificationService) {
+            InAppNotificationService inAppNotificationService,
+            IReclamoRepository reclamoRepository) {
         this.embeddingService = embeddingService;
         this.simpleEmailContentBuilder = simpleEmailContentBuilder;
         this.notificationService = notificationService;
@@ -47,6 +50,7 @@ public class LostObjectService {
         this.lostObjectRepository = lostObjectRepository;
         this.userRepository = userRepository;
         this.inAppNotificationService = inAppNotificationService;
+        this.reclamoRepository = reclamoRepository;
     }
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
@@ -67,6 +71,22 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
+
+        if (command.getOrganizationId() != null && command.getUsername() != null) {
+            userRepository.findByUsername(command.getUsername()).ifPresent(user -> {
+                LocalDateTime now = LocalDateTime.now();
+                Reclamo reclamo = Reclamo.builder()
+                        .organizationId(command.getOrganizationId())
+                        .foundObjectUUID(null)
+                        .user(user)
+                        .claimDescription(command.getDescription())
+                        .status(ClaimStatus.PENDIENTE)
+                        .createdAt(now)
+                        .updatedAt(now)
+                        .build();
+                reclamoRepository.save(reclamo);
+            });
+        }
     }
 
     // TODO: Agregar a los argumentos la ubicación y la fecha en la que fue encontrado.
