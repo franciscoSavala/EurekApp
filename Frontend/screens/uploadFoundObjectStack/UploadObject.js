@@ -253,6 +253,11 @@ const validateConstraints = () => {
     }
     return true;
 }
+const toLocalISO = (date) => {
+    const pad = n => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+};
+
 const submitData = async () => {
     if(!validateConstraints()) return;
     setLoading(true);
@@ -269,7 +274,7 @@ const submitData = async () => {
             const formData = new FormData();
             formData.append('object_finder_username', objectFinderUsername)
             formData.append('title', objectTitle);
-            formData.append('found_date', foundDate.toISOString().split('.')[0]);
+            formData.append('found_date', toLocalISO(foundDate));
             formData.append('detailed_description', detailedDescription);
             if (category) formData.append('category', category);
             if (useCoordinates){
@@ -299,7 +304,7 @@ const submitData = async () => {
         } else {
             // Enviar datos usando react-native-blob-util en móviles
             let body = [{name: 'title', data: objectTitle},
-                {name: 'found_date', data: foundDate.toISOString().split('.')[0]},
+                {name: 'found_date', data: toLocalISO(foundDate)},
                 {name: 'detailed_description', data: detailedDescription},
                 {name: 'file', filename: 'found_object.jpg',
                     data: String(image.base64)}];
