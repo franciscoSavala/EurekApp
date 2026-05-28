@@ -23,6 +23,7 @@ public interface IReclamoRepository extends JpaRepository<Reclamo, Long> {
     List<Reclamo> findByOrganizationIdAndStatusAndCreatedAtBetween(String orgId, ClaimStatus status, LocalDateTime from, LocalDateTime to);
     List<Reclamo> findByOrganizationIdAndFoundObjectCategory(String orgId, String category);
     Optional<Reclamo> findByOrganizationIdAndFoundObjectUUIDAndUser_Id(String orgId, String foundObjectUUID, Long userId);
+    Optional<Reclamo> findByFoundObjectUUIDAndUser_Id(String foundObjectUUID, Long userId);
     Optional<Reclamo> findByFoundObjectUUIDAndStatus(String foundObjectUUID, ClaimStatus status);
     List<Reclamo> findByFoundObjectUUID(String foundObjectUUID);
     List<Reclamo> findByUser_Id(Long userId);

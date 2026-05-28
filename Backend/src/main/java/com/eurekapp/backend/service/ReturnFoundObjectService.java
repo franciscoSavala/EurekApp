@@ -107,8 +107,7 @@ public class ReturnFoundObjectService {
 
             // Verificamos que el usuario tenga un reclamo previo sobre este objeto
             boolean hasPriorClaim = reclamoRepository
-                    .findByOrganizationIdAndFoundObjectUUIDAndUser_Id(
-                            command.getOrganizationId().toString(),
+                    .findByFoundObjectUUIDAndUser_Id(
                             command.getFoundObjectUUID(),
                             user.getId()
                     ).isPresent();
