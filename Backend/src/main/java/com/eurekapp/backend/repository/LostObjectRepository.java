@@ -83,6 +83,16 @@ public class LostObjectRepository {
                                    String orgId,
                                    LocalDateTime lostDateFrom,
                                    LocalDateTime lostDateTo){
+        return query(vector, username, orgId, lostDateFrom, lostDateTo, null, null);
+    }
+
+    public List<LostObject> query(List<Float> vector,
+                                   String username,
+                                   String orgId,
+                                   LocalDateTime lostDateFrom,
+                                   LocalDateTime lostDateTo,
+                                   Integer limit,
+                                   Integer offset){
 
         // Lista de filtros
         List<WhereFilter> filters = new ArrayList<>();
@@ -150,7 +160,9 @@ public class LostObjectRepository {
                         "description",
                         "lost_date",
                         "organization_id",
-                        "coordinates")
+                        "coordinates"),
+                limit,
+                offset
         );
 
         // Convertir List<WeaviateObject> a List<FoundObject>

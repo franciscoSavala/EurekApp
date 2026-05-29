@@ -31,7 +31,7 @@ const ASPECT_LABELS = {
 const ASPECT_ORDER = ["FACILIDAD_USO", "CLARIDAD", "TIEMPO_RESPUESTA", "NAVEGACION"];
 const ASPECT_COLOR = "#19b8b8";
 
-const UsabilityFeedbackReport = () => {
+const UsabilityFeedbackReport = ({ navigation }) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -131,6 +131,9 @@ const UsabilityFeedbackReport = () => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.content}>
+                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+                    <Text style={styles.backButtonText}>← Volver al reporte</Text>
+                </TouchableOpacity>
                 <Text style={styles.title}>Reporte de usabilidad</Text>
 
                 {/* Date range */}
@@ -351,6 +354,8 @@ const UsabilityFeedbackReport = () => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#fff" },
     content: { padding: 16, maxWidth: 800, alignSelf: "center", width: "100%" },
+    backButton: { marginBottom: 8, alignSelf: 'flex-start' },
+    backButtonText: { color: '#19b8b8', fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold' },
     title: {
         fontSize: 22,
         fontWeight: "bold",

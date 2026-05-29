@@ -34,10 +34,10 @@ public class ReportsService {
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
         // Obtener FoundObjects del org en el rango
-        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, fromDt, toDt, null, null);
+        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, fromDt, toDt, null, null, 10_000, null);
 
         // Obtener LostObjects del org en el rango
-        List<LostObject> lostObjects = lostObjectRepository.query(null, null, orgId, fromDt, toDt);
+        List<LostObject> lostObjects = lostObjectRepository.query(null, null, orgId, fromDt, toDt, 10_000, null);
 
         // Obtener ReturnFoundObjects del org en el rango
         List<String> foundObjectUUIDs = foundObjects.stream()

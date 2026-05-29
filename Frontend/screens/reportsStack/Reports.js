@@ -37,12 +37,13 @@ const Reports = ({ navigation }) => {
     const [data, setData] = useState(null);
     const [feedbackData, setFeedbackData] = useState(null);
     const [feedbackRecords, setFeedbackRecords] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loadingMain, setLoadingMain] = useState(false);
+    const [loadingFeedback, setLoadingFeedback] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [error, setError] = useState(null);
 
-    const fetchReports = async () => {
-        setLoading(true);
+    const fetchMainReport = async () => {
+        setLoadingMain(true);
         setError(null);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
@@ -50,22 +51,33 @@ const Reports = ({ navigation }) => {
             const headers = { Authorization: `Bearer ${jwt}` };
             const res = await axiosInstance.get(`${BACK_URL}/reports`, { headers, params });
             setData(res.data);
-            try {
-                const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-                const fbRes = await axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams });
-                setFeedbackData(fbRes.data);
-                const recParams = { from: formatDate(fromDate), to: formatDate(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-                const recRes = await axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams });
-                setFeedbackRecords(recRes.data || []);
-            } catch {
-                setFeedbackData(null);
-                setFeedbackRecords([]);
-            }
         } catch (e) {
             setError("No se pudieron cargar los reportes.");
             console.error(e);
         } finally {
-            setLoading(false);
+            setLoadingMain(false);
+        }
+    };
+
+    const fetchFeedback = async () => {
+        setLoadingFeedback(true);
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            const params = { from: formatDate(fromDate), to: formatDate(toDate), groupBy };
+            const headers = { Authorization: `Bearer ${jwt}` };
+            const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+            const recParams = { from: formatDate(fromDate), to: formatDate(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+            const [fbRes, recRes] = await Promise.all([
+                axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams }),
+                axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams }),
+            ]);
+            setFeedbackData(fbRes.data);
+            setFeedbackRecords(recRes.data || []);
+        } catch {
+            setFeedbackData(null);
+            setFeedbackRecords([]);
+        } finally {
+            setLoadingFeedback(false);
         }
     };
 
@@ -123,9 +135,8 @@ const Reports = ({ navigation }) => {
         }
     };
 
-    useEffect(() => {
-        fetchReports();
-    }, [fromDate, toDate, groupBy, wasFoundFilter]);
+    useEffect(() => { fetchMainReport(); }, [fromDate, toDate, groupBy]);
+    useEffect(() => { fetchFeedback(); }, [fromDate, toDate, groupBy, wasFoundFilter]);
 
     const maxValue = data?.time_series
         ? Math.max(
@@ -235,10 +246,10 @@ const Reports = ({ navigation }) => {
                     ))}
                 </View>
 
-                {loading && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
+                {loadingMain && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
                 {error && <Text style={styles.errorText}>{error}</Text>}
 
-                {data && !loading && (
+                {data && (
                     <>
                         {/* Summary cards */}
                         <View style={styles.cardsRow}>
@@ -305,7 +316,8 @@ const Reports = ({ navigation }) => {
                         )}
 
                         {/* Sección de feedback (solo para ORGANIZATION_OWNER) */}
-                        {feedbackData && (
+                        {loadingFeedback && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
+                        {!loadingFeedback && feedbackData && (
                             <>
                                 <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Feedback de búsquedas</Text>
                                 <View style={[styles.row, { marginBottom: 8 }]}>
