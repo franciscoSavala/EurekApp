@@ -62,6 +62,30 @@ function makeBarChart(rows, maxVal) {
     return `<svg width="480" height="${height}" viewBox="0 0 480 ${height}" font-family="sans-serif">${bars}</svg>`;
 }
 
+// SVG line chart from time series points [{label, avg_recovery_hours}]
+function makeLineChart(points, color = '#7c4dff') {
+    const pts = (points || []).filter(p => p.avg_recovery_hours > 0);
+    if (!pts || pts.length < 2) return '<p style="color:#888">Sin datos suficientes</p>';
+    const W = 480, H = 140, padL = 48, padB = 24, padR = 16, padT = 10;
+    const vals = pts.map(p => p.avg_recovery_hours);
+    const maxVal = Math.max(...vals, 1);
+    const xs = pts.map((_, i) => padL + (i / (pts.length - 1)) * (W - padL - padR));
+    const ys = vals.map(v => padT + (1 - v / maxVal) * (H - padT - padB));
+    const polyline = xs.map((x, i) => `${x.toFixed(1)},${ys[i].toFixed(1)}`).join(' ');
+    const dots = xs.map((x, i) => `<circle cx="${x.toFixed(1)}" cy="${ys[i].toFixed(1)}" r="4" fill="${color}"/>`).join('');
+    const step = Math.ceil(pts.length / 6);
+    const xlabels = pts
+        .filter((_, i) => i % step === 0 || i === pts.length - 1)
+        .map((p, _, arr) => {
+            const idx = pts.indexOf(p);
+            return `<text x="${xs[idx].toFixed(1)}" y="${H}" text-anchor="middle" font-size="9" fill="#638888">${p.label}</text>`;
+        }).join('');
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="sans-serif">
+        <polyline points="${polyline}" fill="none" stroke="${color}" stroke-width="2"/>
+        ${dots}${xlabels}
+    </svg>`;
+}
+
 const baseStyle = `
     body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 24px; font-size: 14px; }
     h1 { font-size: 22px; color: #111818; margin-bottom: 4px; }
@@ -74,6 +98,12 @@ const baseStyle = `
     .chip { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; }
     @media print { body { margin: 12px; } }
 `;
+
+function formatHoursHtml(h) {
+    if (h == null) return '—';
+    if (h >= 24) return `${(h / 24).toFixed(1)} días`;
+    return `${h.toFixed(1)} hs`;
+}
 
 export function buildUsageReportHtml(data, feedbackData, records, filters) {
     const { fromDate, toDate, groupBy, wasFoundFilter } = filters;
@@ -110,8 +140,10 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
           )
         : '';
 
+    const lineChart = data && data.time_series ? makeLineChart(data.time_series) : '';
+
     const trendRows = data && data.time_series ? data.time_series.map(p =>
-        `<tr><td>${p.label}</td><td>${p.found_objects}</td><td>${p.lost_objects}</td><td>${p.returned_objects}</td></tr>`
+        `<tr><td>${p.label}</td><td>${p.found_objects}</td><td>${p.lost_objects}</td><td>${p.returned_objects}</td><td>${p.avg_recovery_hours > 0 ? formatHoursHtml(p.avg_recovery_hours) : '—'}</td></tr>`
     ).join('') : '';
 
     const fbTrendRows = feedbackData && feedbackData.time_series ? feedbackData.time_series.map(p =>
@@ -148,6 +180,7 @@ ${data ? `
     <tr><td>Objetos devueltos</td><td><b>${data.returned_objects}</b></td></tr>
     <tr><td>Usuarios activos</td><td><b>${data.active_users}</b></td></tr>
     <tr><td>Tasa de recuperación</td><td><b>${recoveryRate}%</b></td></tr>
+    ${data.avg_recovery_hours != null ? `<tr><td>Tiempo prom. de recuperación</td><td><b>${formatHoursHtml(data.avg_recovery_hours)}</b> &nbsp;(mín: ${formatHoursHtml(data.min_recovery_hours)}, máx: ${formatHoursHtml(data.max_recovery_hours)})</td></tr>` : ''}
 </table>
 
 <h2>Gráfico: Recuperación de objetos</h2>
@@ -158,9 +191,11 @@ ${topCategoriesChart ? `<h2>Objetos más reportados</h2>${topCategoriesChart}` :
 ${data.time_series && data.time_series.length > 0 ? `
 <h2>Tendencias de uso</h2>
 <table>
-    <tr><th>Período</th><th>Encontrados</th><th>Perdidos</th><th>Devueltos</th></tr>
+    <tr><th>Período</th><th>Encontrados</th><th>Perdidos</th><th>Devueltos</th><th>T. Recup.</th></tr>
     ${trendRows}
 </table>` : ''}
+
+${lineChart ? `<h2>Evolución del tiempo de recuperación</h2>${lineChart}` : ''}
 ` : ''}
 
 ${feedbackData ? `

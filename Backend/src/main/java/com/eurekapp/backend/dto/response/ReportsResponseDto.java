@@ -31,4 +31,13 @@ public class ReportsResponseDto {
 
     @JsonProperty("top_categories")
     private List<CategoryCountDto> topCategories;
+
+    @JsonProperty("avg_recovery_hours")
+    private Double avgRecoveryHours;
+
+    @JsonProperty("min_recovery_hours")
+    private Double minRecoveryHours;
+
+    @JsonProperty("max_recovery_hours")
+    private Double maxRecoveryHours;
 }

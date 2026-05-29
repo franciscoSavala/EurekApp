@@ -51,8 +51,31 @@ public class ReportsService {
         long activeUsers = userRepository.findByOrganizationAndRole(user.getOrganization(), Role.ORGANIZATION_OWNER).size()
                 + userRepository.findByOrganizationAndRole(user.getOrganization(), Role.ORGANIZATION_EMPLOYEE).size();
 
+        // Mapa UUID → FoundObject para calcular tiempos de recuperación
+        Map<String, FoundObject> foundByUUID = foundObjects.stream()
+                .collect(Collectors.toMap(FoundObject::getUuid, fo -> fo));
+
+        // Calcular duraciones de recuperación en horas (solo objetos devueltos con foundDate conocida)
+        List<Double> recoveryHours = returnedObjects.stream()
+                .filter(ro -> ro.getDatetimeOfReturn() != null)
+                .filter(ro -> foundByUUID.containsKey(ro.getFoundObjectUUID()))
+                .filter(ro -> foundByUUID.get(ro.getFoundObjectUUID()).getFoundDate() != null)
+                .map(ro -> {
+                    LocalDateTime found = foundByUUID.get(ro.getFoundObjectUUID()).getFoundDate();
+                    return java.time.Duration.between(found, ro.getDatetimeOfReturn()).toMinutes() / 60.0;
+                })
+                .filter(h -> h >= 0)
+                .collect(Collectors.toList());
+
+        Double avgRecovery = recoveryHours.isEmpty() ? null
+                : recoveryHours.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        Double minRecovery = recoveryHours.isEmpty() ? null
+                : recoveryHours.stream().mapToDouble(Double::doubleValue).min().orElse(0);
+        Double maxRecovery = recoveryHours.isEmpty() ? null
+                : recoveryHours.stream().mapToDouble(Double::doubleValue).max().orElse(0);
+
         // Construir time series
-        List<TimeSeriesPointDto> timeSeries = buildTimeSeries(foundObjects, lostObjects, returnedObjects, groupBy, from, to);
+        List<TimeSeriesPointDto> timeSeries = buildTimeSeries(foundObjects, lostObjects, returnedObjects, foundByUUID, groupBy, from, to);
 
         // Top categorías de objetos encontrados, ordenadas de mayor a menor
         List<CategoryCountDto> topCategories = foundObjects.stream()
@@ -71,6 +94,9 @@ public class ReportsService {
                 .activeUsers(activeUsers)
                 .timeSeries(timeSeries)
                 .topCategories(topCategories)
+                .avgRecoveryHours(avgRecovery)
+                .minRecoveryHours(minRecovery)
+                .maxRecoveryHours(maxRecovery)
                 .build();
     }
 
@@ -78,6 +104,7 @@ public class ReportsService {
             List<FoundObject> foundObjects,
             List<LostObject> lostObjects,
             List<ReturnFoundObject> returnedObjects,
+            Map<String, FoundObject> foundByUUID,
             String groupBy,
             LocalDate from,
             LocalDate to) {
@@ -106,6 +133,19 @@ public class ReportsService {
                         Collectors.counting()
                 ));
 
+        // Calcular promedio de horas de recuperación por período
+        Map<String, Double> avgRecoveryByPeriod = returnedObjects.stream()
+                .filter(ro -> ro.getDatetimeOfReturn() != null
+                        && foundByUUID.containsKey(ro.getFoundObjectUUID())
+                        && foundByUUID.get(ro.getFoundObjectUUID()).getFoundDate() != null)
+                .collect(Collectors.groupingBy(
+                        ro -> getPeriodLabel(ro.getDatetimeOfReturn().toLocalDate(), groupBy),
+                        Collectors.averagingDouble(ro -> {
+                            LocalDateTime found = foundByUUID.get(ro.getFoundObjectUUID()).getFoundDate();
+                            return java.time.Duration.between(found, ro.getDatetimeOfReturn()).toMinutes() / 60.0;
+                        })
+                ));
+
         // Unir todos los labels presentes
         Set<String> allLabels = new TreeSet<>();
         allLabels.addAll(foundByPeriod.keySet());
@@ -118,6 +158,7 @@ public class ReportsService {
                         .foundObjects(foundByPeriod.getOrDefault(label, 0L))
                         .lostObjects(lostByPeriod.getOrDefault(label, 0L))
                         .returnedObjects(returnedByPeriod.getOrDefault(label, 0L))
+                        .avgRecoveryHours(avgRecoveryByPeriod.getOrDefault(label, 0.0))
                         .build())
                 .collect(Collectors.toList());
     }

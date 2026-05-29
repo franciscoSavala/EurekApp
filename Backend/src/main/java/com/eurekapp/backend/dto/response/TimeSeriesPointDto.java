@@ -23,4 +23,7 @@ public class TimeSeriesPointDto {
 
     @JsonProperty("returned_objects")
     private Long returnedObjects;
+
+    @JsonProperty("avg_recovery_hours")
+    private Double avgRecoveryHours;
 }
