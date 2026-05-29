@@ -17,6 +17,7 @@ import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
 import StarRating from "../components/StarRating";
+import DonutChart from "../components/DonutChart";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -247,6 +248,17 @@ const Reports = ({ navigation }) => {
                             <MetricCard label="Objetos devueltos" value={data.returned_objects} color="#4caf50" />
                             <MetricCard label="Usuarios activos" value={data.active_users} color="#7c4dff" />
                         </View>
+
+                        {/* Gráfico de recuperación de objetos */}
+                        {data.found_objects > 0 && (
+                            <View style={styles.tableContainer}>
+                                <Text style={styles.sectionTitle}>Tasa de recuperación</Text>
+                                <DonutChart
+                                    recovered={data.returned_objects || 0}
+                                    total={data.found_objects}
+                                />
+                            </View>
+                        )}
 
                         {/* Sección de feedback (solo para ORGANIZATION_OWNER) */}
                         {feedbackData && (
