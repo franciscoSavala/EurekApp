@@ -103,6 +103,13 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
         })), undefined)
         : '';
 
+    const topCategoriesChart = data && data.top_categories && data.top_categories.length > 0
+        ? makeBarChart(
+            data.top_categories.map(c => ({ label: c.category, value: c.count, color: '#19b8b8' })),
+            undefined
+          )
+        : '';
+
     const trendRows = data && data.time_series ? data.time_series.map(p =>
         `<tr><td>${p.label}</td><td>${p.found_objects}</td><td>${p.lost_objects}</td><td>${p.returned_objects}</td></tr>`
     ).join('') : '';
@@ -145,6 +152,8 @@ ${data ? `
 
 <h2>Gráfico: Recuperación de objetos</h2>
 ${pieRecovery}
+
+${topCategoriesChart ? `<h2>Objetos más reportados</h2>${topCategoriesChart}` : ''}
 
 ${data.time_series && data.time_series.length > 0 ? `
 <h2>Tendencias de uso</h2>

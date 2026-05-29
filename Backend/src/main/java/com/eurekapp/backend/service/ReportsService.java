@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.dto.response.CategoryCountDto;
 import com.eurekapp.backend.dto.response.ReportsResponseDto;
 import com.eurekapp.backend.dto.response.TimeSeriesPointDto;
 import com.eurekapp.backend.exception.BadRequestException;
@@ -53,12 +54,23 @@ public class ReportsService {
         // Construir time series
         List<TimeSeriesPointDto> timeSeries = buildTimeSeries(foundObjects, lostObjects, returnedObjects, groupBy, from, to);
 
+        // Top categorías de objetos encontrados, ordenadas de mayor a menor
+        List<CategoryCountDto> topCategories = foundObjects.stream()
+                .filter(fo -> fo.getCategory() != null && !fo.getCategory().isBlank())
+                .collect(Collectors.groupingBy(FoundObject::getCategory, Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(10)
+                .map(e -> CategoryCountDto.builder().category(e.getKey()).count(e.getValue()).build())
+                .collect(Collectors.toList());
+
         return ReportsResponseDto.builder()
                 .foundObjects((long) foundObjects.size())
                 .lostObjects((long) lostObjects.size())
                 .returnedObjects((long) returnedObjects.size())
                 .activeUsers(activeUsers)
                 .timeSeries(timeSeries)
+                .topCategories(topCategories)
                 .build();
     }
 
