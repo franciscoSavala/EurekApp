@@ -18,6 +18,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
 import StarRating from "../components/StarRating";
 import DonutChart from "../components/DonutChart";
+import RecoveryTimeChart, { formatHours } from "../components/RecoveryTimeChart";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -280,6 +281,29 @@ const Reports = ({ navigation }) => {
                             </View>
                         )}
 
+                        {/* Tiempo promedio de recuperación — KPI */}
+                        {data.avg_recovery_hours != null && (
+                            <View style={styles.tableContainer}>
+                                <Text style={styles.sectionTitle}>Tiempo promedio de recuperación</Text>
+                                <View style={[styles.card, { borderLeftColor: '#7c4dff' }]}>
+                                    <Text style={styles.cardLabel}>Promedio</Text>
+                                    <Text style={[styles.cardValue, { color: '#7c4dff' }]}>{formatHours(data.avg_recovery_hours)}</Text>
+                                    <View style={{ flexDirection: 'row', marginTop: 8, gap: 16 }}>
+                                        <Text style={styles.cardLabel}>mínimo: {formatHours(data.min_recovery_hours)}</Text>
+                                        <Text style={styles.cardLabel}>máximo: {formatHours(data.max_recovery_hours)}</Text>
+                                    </View>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* Tiempo promedio de recuperación — Gráfico de líneas */}
+                        {data.time_series && data.time_series.some(p => p.avg_recovery_hours > 0) && (
+                            <View style={styles.tableContainer}>
+                                <Text style={styles.sectionTitle}>Evolución del tiempo de recuperación</Text>
+                                <RecoveryTimeChart data={data.time_series} />
+                            </View>
+                        )}
+
                         {/* Sección de feedback (solo para ORGANIZATION_OWNER) */}
                         {feedbackData && (
                             <>
@@ -395,6 +419,7 @@ const Reports = ({ navigation }) => {
                                             <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>Encontrados</Text>
                                             <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>Perdidos</Text>
                                             <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>Devueltos</Text>
+                                            <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>T. Recup.</Text>
                                         </View>
                                         {data.time_series.map((point) => (
                                             <View key={point.label} style={styles.tableRow}>
@@ -410,6 +435,9 @@ const Reports = ({ navigation }) => {
                                                 <View style={[styles.tableCell, { width: 90 }]}>
                                                     <Text style={styles.barValue}>{point.returned_objects}</Text>
                                                     <View style={[styles.bar, { width: `${(point.returned_objects / maxValue) * 100}%`, backgroundColor: "#4caf50" }]} />
+                                                </View>
+                                                <View style={[styles.tableCell, { width: 90 }]}>
+                                                    <Text style={styles.barValue}>{point.avg_recovery_hours > 0 ? formatHours(point.avg_recovery_hours) : '—'}</Text>
                                                 </View>
                                             </View>
                                         ))}
