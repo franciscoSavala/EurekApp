@@ -28,4 +28,7 @@ public class ReportsResponseDto {
 
     @JsonProperty("time_series")
     private List<TimeSeriesPointDto> timeSeries;
+
+    @JsonProperty("top_categories")
+    private List<CategoryCountDto> topCategories;
 }

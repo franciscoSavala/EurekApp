@@ -260,6 +260,26 @@ const Reports = ({ navigation }) => {
                             </View>
                         )}
 
+                        {/* Objetos más reportados por categoría */}
+                        {data.top_categories && data.top_categories.length > 0 && (
+                            <View style={styles.tableContainer}>
+                                <Text style={styles.sectionTitle}>Objetos más reportados</Text>
+                                {data.top_categories.map((item) => {
+                                    const maxCount = data.top_categories[0].count;
+                                    const pct = Math.round((item.count / maxCount) * 100);
+                                    return (
+                                        <View key={item.category} style={[styles.tableRow, { alignItems: 'center' }]}>
+                                            <Text style={[styles.tableCell, { width: 110 }]} numberOfLines={1}>{item.category}</Text>
+                                            <View style={[styles.tableCell, { flex: 1 }]}>
+                                                <Text style={styles.barValue}>{item.count}</Text>
+                                                <View style={[styles.bar, { width: `${pct}%`, backgroundColor: '#19b8b8', minWidth: 2 }]} />
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </View>
+                        )}
+
                         {/* Sección de feedback (solo para ORGANIZATION_OWNER) */}
                         {feedbackData && (
                             <>
