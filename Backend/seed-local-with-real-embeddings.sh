@@ -1,0 +1,384 @@
+#!/usr/bin/env bash
+
+# ─── Colores ─────────────────────────────────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'
+BOLD='\033[1m'; NC='\033[0m'
+info()    { echo -e "${CYAN}[INFO]${NC}  $*"; }
+success() { echo -e "${GREEN}[OK]${NC}    $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error()   { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
+header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
+
+MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
+WEAVIATE_URL="http://localhost:8081"
+
+echo ""
+echo -e "${CYAN}${BOLD}╔══════════════════════════════════════╗${NC}"
+echo -e "${CYAN}${BOLD}║    EurekApp — Seed Base de Datos     ║${NC}"
+echo -e "${CYAN}${BOLD}╚══════════════════════════════════════╝${NC}"
+echo ""
+
+# ─── 1. Verificar que los contenedores estan corriendo ───────────────────────
+header "Verificando contenedores"
+
+docker inspect eurekapp-mysql  --format='{{.State.Status}}' 2>/dev/null | grep -q "running" \
+  || error "MySQL no esta corriendo. Ejecuta primero: bash start-local.sh"
+docker inspect eurekapp-weaviate --format='{{.State.Status}}' 2>/dev/null | grep -q "running" \
+  || error "Weaviate no esta corriendo. Ejecuta primero: bash start-local.sh"
+
+success "Contenedores OK"
+
+# ─── 2. Generar hash BCrypt para la contrasena de seed ───────────────────────
+header "Generando hash de contrasena"
+
+SEED_PASSWORD="Eurekapp1!"
+
+# Detectar python funcional (en Windows, python3 puede ser un stub de la Store)
+PYTHON_CMD=""
+for _py in python python3; do
+  if command -v "$_py" &>/dev/null && "$_py" -c "import sys; sys.exit(0)" &>/dev/null; then
+    PYTHON_CMD="$_py"
+    break
+  fi
+done
+BCRYPT_HASH=$(${PYTHON_CMD} - <<'PYEOF' 2>/dev/null
+import sys
+try:
+    import bcrypt
+except ImportError:
+    import subprocess
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'bcrypt', '-q'],
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    import bcrypt
+
+pw = b'Eurekapp1!'
+print(bcrypt.hashpw(pw, bcrypt.gensalt(10)).decode())
+PYEOF
+)
+
+# Fallback: hash BCrypt precalculado para la contrasena "Eurekapp1!".
+# (Verificado con bcrypt.checkpw → True. NO degradar a otra contrasena.)
+if [[ -z "$BCRYPT_HASH" ]]; then
+  warn "python3/bcrypt no disponible. Usando hash de fallback para 'Eurekapp1!'."
+  BCRYPT_HASH='$2b$10$ZH9ybHk6M3hzkYnpVH3FLudxIpTFnNxabcjxe.iQdvmZ7RBI.tCvW'
+fi
+
+info "Contrasena de todos los usuarios seed: ${BOLD}${SEED_PASSWORD}${NC}"
+success "Hash generado"
+
+# ─── 3. Verificar archivos de datos de Weaviate ──────────────────────────────
+header "Verificando datos de Weaviate (embeddings reales)"
+
+# Los objetos de Weaviate (FoundObject / LostObject) ya no usan vectores dummy:
+# fueron cargados via la API real (OpenAI text-embedding-3-small) y exportados a NDJSON.
+# Cada linea de estos archivos es un objeto listo para POST a /v1/objects.
+SEED_DATA_DIR="$(dirname "$0")/seed-data"
+FOUND_NDJSON="$SEED_DATA_DIR/FoundObject.ndjson"
+LOST_NDJSON="$SEED_DATA_DIR/LostObject.ndjson"
+
+[[ -f "$FOUND_NDJSON" ]] || error "No se encontro $FOUND_NDJSON"
+[[ -f "$LOST_NDJSON"  ]] || error "No se encontro $LOST_NDJSON"
+
+FOUND_COUNT=$(grep -c '[^[:space:]]' "$FOUND_NDJSON")
+LOST_COUNT=$(grep -c '[^[:space:]]' "$LOST_NDJSON")
+success "Datos OK — FoundObjects: $FOUND_COUNT, LostObjects: $LOST_COUNT"
+
+# ─── 4. Confirmar reset ──────────────────────────────────────────────────────
+echo ""
+echo -e "${YELLOW}${BOLD}⚠  Esto va a BORRAR todos los datos actuales y reemplazarlos con datos de seed.${NC}"
+if [[ "${1:-}" != "--force" ]]; then
+  read -rp "Continuar? (s/N): " CONFIRM
+  [[ "$CONFIRM" =~ ^[sS]$ ]] || { echo "Cancelado."; exit 0; }
+fi
+
+# ─── 5. Verificar y corregir ENUM de role ───────────────────────────────────
+header "Verificando ENUM de columna 'role'"
+
+ENUM_OK=$($MYSQL_EXEC 2>/dev/null <<'SQL'
+SELECT COLUMN_TYPE FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'users' AND COLUMN_NAME = 'role';
+SQL
+)
+
+if echo "$ENUM_OK" | grep -q "ENCARGADO"; then
+  success "ENUM de 'role' contiene ENCARGADO — OK"
+else
+  warn "ENUM de 'role' no contiene ENCARGADO. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<'SQL'
+ALTER TABLE users
+  MODIFY COLUMN role ENUM('USER','ORGANIZATION_OWNER','ORGANIZATION_EMPLOYEE','ENCARGADO','ADMIN');
+SQL
+  success "ENUM corregido"
+fi
+
+# ─── 6. Limpiar MySQL ────────────────────────────────────────────────────────
+header "Limpiando MySQL"
+
+$MYSQL_EXEC 2>/dev/null <<'SQL'
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE reclamo_history;
+TRUNCATE TABLE reclamos;
+TRUNCATE TABLE search_feedback;
+TRUNCATE TABLE usability_feedback;
+TRUNCATE TABLE fraud_alert;
+TRUNCATE TABLE reward_exclusions;
+TRUNCATE TABLE return_found_objects;
+TRUNCATE TABLE add_employee_request;
+TRUNCATE TABLE organization_request;
+TRUNCATE TABLE users;
+TRUNCATE TABLE organizations;
+SET FOREIGN_KEY_CHECKS = 1;
+SQL
+success "MySQL limpio"
+
+# ─── 7. Limpiar Weaviate ─────────────────────────────────────────────────────
+header "Limpiando Weaviate"
+
+for CLASS in FoundObject LostObject; do
+  curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"match\": {
+        \"class\": \"$CLASS\",
+        \"where\": {
+          \"path\": [\"title\"],
+          \"operator\": \"Like\",
+          \"valueText\": \"*\"
+        }
+      }
+    }" >/dev/null 2>&1 || true
+done
+
+curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "match": {
+      "class": "LostObject",
+      "where": {
+        "path": ["description"],
+        "operator": "Like",
+        "valueText": "*"
+      }
+    }
+  }' >/dev/null 2>&1 || true
+
+success "Weaviate limpio"
+
+# ─── 8. Insertar Organizaciones ──────────────────────────────────────────────
+header "Insertando Organizaciones"
+
+$MYSQL_EXEC 2>/dev/null <<'SQL'
+INSERT INTO organizations (id, name, contact_data, latitude, longitude) VALUES
+(1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',     -31.4377, -64.1829),
+(2, 'Terminal de Omnibus Cordoba',        'objetos@terminalcordoba.com',          -31.4201, -64.1888),
+(3, 'Aeropuerto Internacional Cordoba',   'objetosperdidos@aa2000.com.ar',        -31.3233, -64.2081);
+SQL
+success "3 organizaciones insertadas"
+
+# ─── 9. Insertar Usuarios ────────────────────────────────────────────────────
+header "Insertando Usuarios"
+
+HASH_ESCAPED="${BCRYPT_HASH//\'/\'\'}"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO users (id, username, password, active, first_name, last_name, role, organization_id, XP, returned_objects) VALUES
+(1,  'admin@eurekapp.com',          '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 500, 10),
+(2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'Gonzalez',  'ORGANIZATION_OWNER',     1,    150,  3),
+(3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernandez', 'ORGANIZATION_OWNER',     2,    80,   2),
+(4,  'encargado.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Carlos',   'Mendoza',   'ENCARGADO',              1,    0,    0),
+(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucia',    'Perez',     'ORGANIZATION_EMPLOYEE',  1,    30,   1),
+(6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomas',    'Ramirez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
+(7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
+(8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 10,   0),
+(9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0),
+(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0);
+SQL
+success "10 usuarios insertados"
+
+# ─── 10. Insertar FoundObjects en Weaviate (desde NDJSON con embeddings reales) ─
+header "Insertando FoundObjects en Weaviate"
+
+# Cada linea del NDJSON ya es un objeto completo (class, id, properties, vector)
+# listo para POST a /v1/objects. Los vectores son embeddings reales de OpenAI.
+FO_INSERTED=0
+while IFS= read -r line; do
+  [[ -z "${line// }" ]] && continue
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST "$WEAVIATE_URL/v1/objects" \
+    -H "Content-Type: application/json" \
+    --data-binary "$line")
+  if [[ "$HTTP" == "200" ]]; then
+    FO_INSERTED=$((FO_INSERTED + 1))
+  else
+    warn "  FoundObject → HTTP $HTTP"
+  fi
+done < "$FOUND_NDJSON"
+success "  $FO_INSERTED FoundObjects insertados"
+
+# UUID reales de cada FoundObject. Como insertamos directo en Weaviate con un "id"
+# que elegimos nosotros, estos UUID son fijos y conocidos: son los mismos que
+# figuran en el campo "id" de FoundObject.ndjson, y apuntan a las imagenes que ya
+# existen en S3. Las secciones MySQL (retornos, fraud_alerts, feedback, reclamos)
+# referencian estos UUID directamente, sin depender de titulos.
+# (FO_UUID_7 no existe: la "Tarjeta universitaria" fue descartada del dataset.)
+FO_UUID_1="7ea43eba-7343-4cd8-b5d0-b736e3d575a3"   # Billetera negra de cuero      (org 1)
+FO_UUID_2="df2aa6a0-d15c-46e8-902a-e5394538a43e"   # Llave con llavero azul        (org 1)
+FO_UUID_3="25e71dcb-9d0d-4b75-96f2-df60b7d99261"   # Auriculares inalambricos      (org 2)
+FO_UUID_4="494ddbc4-b4d8-4935-a77c-1d3e7363b67d"   # Mochila azul con libros       (org 1)
+FO_UUID_5="18da5796-50dc-4383-8b1f-27e524b04b5d"   # Celular Samsung negro         (org 3)
+FO_UUID_6="4b43a1d8-1491-4077-9c1c-463e5906cdeb"   # Paraguas negro plegable       (org 1)
+FO_UUID_8="85c55156-216f-4b6c-aa65-782e066567b6"   # Notebook Dell gris            (org 2)
+FO_UUID_9="ebaa9336-e9fd-4556-a96e-9c1538d165cb"   # Billetera marron con DNI      (org 2)
+FO_UUID_10="498d742e-49e6-4c88-bf8d-f0313581dfaa"  # Cargador USB-C blanco         (org 3)
+FO_UUID_11="a1047f2f-0fcd-41b1-92ad-485dd04cb5d8"  # Anteojos de sol negros        (org 1)
+
+# ─── 11. Insertar LostObjects en Weaviate (desde NDJSON con embeddings reales) ──
+header "Insertando LostObjects en Weaviate"
+
+LO_INSERTED=0
+while IFS= read -r line; do
+  [[ -z "${line// }" ]] && continue
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X POST "$WEAVIATE_URL/v1/objects" \
+    -H "Content-Type: application/json" \
+    --data-binary "$line")
+  if [[ "$HTTP" == "200" ]]; then
+    LO_INSERTED=$((LO_INSERTED + 1))
+  else
+    warn "  LostObject → HTTP $HTTP"
+  fi
+done < "$LOST_NDJSON"
+success "  $LO_INSERTED LostObjects insertados"
+
+# ─── 12. (Retornos omitidos) ─────────────────────────────────────────────────
+# No se insertan return_found_objects: todos los FoundObjects tienen
+# was_returned=false en Weaviate, de modo que registrar retornos seria
+# incoherente. Si en el futuro se marca algun objeto como retornado, agregar
+# aqui el return_found_objects correspondiente (key person_photo_* en S3).
+
+# ─── 13. Insertar exclusiones de recompensa ──────────────────────────────────
+header "Insertando exclusiones de recompensa"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO reward_exclusions
+  (found_objectuuid, user_id, user_role, reason, excluded_at, organization_id)
+VALUES
+('$FO_UUID_4', 4, 'ENCARGADO', 'INCOMPATIBLE_ROLE', '2026-05-10 09:15:00', '1');
+SQL
+success "1 exclusion de recompensa registrada (encargado)"
+
+# ─── 14. Insertar SearchFeedback ─────────────────────────────────────────────
+header "Insertando SearchFeedback"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO search_feedback (organization_id, found_object_uuid, star_rating, was_found, comment, created_at, user_id) VALUES
+('1', '$FO_UUID_1', 5, 1, 'Lo encontre rapido, excelente sistema',             '2026-04-29 11:00:00', 7),
+('1', NULL,          2, 0, 'No encontre mi objeto, poca descripcion disponible', '2026-05-03 09:30:00', 8),
+('2', '$FO_UUID_3',  4, 1, NULL,                                                 '2026-05-06 15:00:00', 8),
+('1', NULL,          1, 0, 'La busqueda no funciono bien',                       '2026-05-07 10:00:00', 9),
+('1', '$FO_UUID_4',  3, 1, 'Tardo un poco pero lo encontre',                    '2026-05-08 14:00:00', 9),
+('3', NULL,          5, 0, NULL,                                                 '2026-05-10 08:00:00', 7),
+('1', '$FO_UUID_2',  4, 1, 'Muy util la app',                                   '2026-05-11 16:00:00', 7),
+('2', NULL,          2, 0, 'No habia resultados precisos',                       '2026-05-12 12:00:00', 9),
+('2', '$FO_UUID_9',  5, 1, 'Recupere mi billetera al dia siguiente!',            '2026-05-13 10:00:00', 7),
+('1', NULL,          3, 0, NULL,                                                 '2026-05-15 09:00:00', 8);
+SQL
+success "10 registros de search_feedback insertados"
+
+# ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
+header "Insertando UsabilityFeedback"
+
+$MYSQL_EXEC 2>/dev/null <<'SQL'
+INSERT INTO usability_feedback (star_rating, aspects, comment, context, created_at, user_id) VALUES
+(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                     'search',        '2026-04-20 10:00:00', 5),
+(4, 'CLARIDAD',                  NULL,                                    'profile',       '2026-04-25 11:00:00', 6),
+(2, 'NAVEGACION',               'Me confundi con los menus',              'upload_object', '2026-05-01 09:00:00', 5),
+(5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',                  'search',        '2026-05-05 14:00:00', 2),
+(3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',     'profile',       '2026-05-10 16:00:00', 6),
+(4, 'CLARIDAD',                  NULL,                                    'upload_object', '2026-05-14 08:00:00', 5),
+(1, 'NAVEGACION',               'No entendi como reportar un objeto',     'upload_object', '2026-05-18 10:00:00', 6);
+SQL
+success "7 registros de usability_feedback insertados"
+
+# ─── 16. Insertar FraudAlerts ────────────────────────────────────────────────
+header "Insertando FraudAlerts"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
+('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
+('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
+('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
+('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
+SQL
+success "4 fraud_alerts insertados (2 PENDING, 1 CONFIRMED_FRAUD, 1 FALSE_POSITIVE)"
+
+# ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
+header "Insertando Reclamos"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
+('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
+('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', NULL),
+('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
+('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', NULL),
+('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
+SQL
+success "5 reclamos insertados"
+
+# ─── 18. Insertar ReclamoHistory ─────────────────────────────────────────────
+header "Insertando ReclamoHistory"
+
+$MYSQL_EXEC 2>/dev/null <<'SQL'
+INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
+(1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
+SQL
+success "1 entrada de reclamo_history insertada"
+
+# ─── 19. Upload de imagenes a S3 (solo fotos de retorno) ─────────────────────
+header "Imagenes S3"
+
+# No se sube ninguna imagen desde este script:
+#  - FoundObjects: cada uno se carga a Weaviate con su UUID real, que ya apunta a
+#    una imagen existente en S3 (subida por la API al cargar via endpoints).
+#  - person-photo (retornos): se omitieron los return_found_objects, asi que no
+#    hay fotos de retorno que subir.
+info "Sin uploads de imagenes (FoundObjects ya tienen su imagen en S3 por UUID)."
+
+# ─── 20. Resumen ─────────────────────────────────────────────────────────────
+echo ""
+echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}${BOLD}║          EurekApp — Seed completado exitosamente         ║${NC}"
+echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 3                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 10                            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 0                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 1                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 1                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                                ${GREEN}${BOLD}║${NC}"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  FoundObjects          : ${FO_INSERTED} (embeddings reales)"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  LostObjects           : ${LO_INSERTED}"
+echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  S3                                                      ${GREEN}${BOLD}║${NC}"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  Imagenes subidas      : 0 (ya existen por UUID)"
+echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Contrasena de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Usuarios disponibles:                                   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    admin@eurekapp.com          → ADMIN                   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.utn@eurekapp.com      → OWNER  (UTN FRC)        ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.term@eurekapp.com     → OWNER  (Terminal)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    encargado.utn@eurekapp.com  → ENCARGADO (UTN FRC)     ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp2.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.aero@eurekapp.com      → EMPLOYEE (Aeropuerto)   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    julia@mail.com              → USER  (XP: 30)          ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    pedro@mail.com              → USER  (XP: 20)          ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    valeria@mail.com            → USER  (XP: 0)           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
+echo ""
