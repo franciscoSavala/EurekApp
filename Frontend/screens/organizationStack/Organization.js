@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import EurekappButton from "../components/Button";
+import LoadingOverlay from "../components/LoadingOverlay";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
@@ -66,6 +67,7 @@ const Organization = ({ route, navigation }) => {
     const [encargadoAction, setEncargadoAction] = useState(null); // 'assign' | 'revoke'
     const [encargadoResultModal, setEncargadoResultModal] = useState(false);
     const [encargadoResultOk, setEncargadoResultOk] = useState(false);
+    const [encargadoLoading, setEncargadoLoading] = useState(false);
 
     useEffect(() => {
         const fetchOrganizationData = async () => {
@@ -109,6 +111,7 @@ const Organization = ({ route, navigation }) => {
 
     const handleEncargadoAction = async () => {
         setEncargadoConfirmModal(false);
+        setEncargadoLoading(true);
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             const endpoint = encargadoAction === 'assign'
@@ -123,6 +126,7 @@ const Organization = ({ route, navigation }) => {
             console.error(error);
             setEncargadoResultOk(false);
         } finally {
+            setEncargadoLoading(false);
             setEncargadoResultModal(true);
         }
     };
@@ -422,6 +426,8 @@ const Organization = ({ route, navigation }) => {
                     </View>
                 </View>
             </Modal>
+
+            <LoadingOverlay visible={encargadoLoading} message="Procesando..." />
 
             <Modal
                 animationType="none"
