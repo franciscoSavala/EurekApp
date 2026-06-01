@@ -26,9 +26,15 @@ const REASON_LABELS = {
     REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
 };
 
+const STATUS_LABELS = {
+    PENDING:          'En revisión',
+    CONFIRMED_FRAUD:  'Confirmado',
+    FALSE_POSITIVE:   'Falso positivo',
+};
+
 const STATUS_OPTIONS = [
     { label: 'Todos', value: '' },
-    { label: 'Pendiente', value: 'PENDING' },
+    { label: 'En revisión', value: 'PENDING' },
     { label: 'Confirmado', value: 'CONFIRMED_FRAUD' },
     { label: 'Falso positivo', value: 'FALSE_POSITIVE' },
 ];
@@ -77,7 +83,7 @@ const FraudReport = () => {
     const [exporting, setExporting] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedUser, setExpandedUser] = useState(null);
-    const [sortBy, setSortBy] = useState('confirmedFraudCount');
+    const [sortBy, setSortBy] = useState('gravityLevel');
 
     const sortedEntries = useMemo(() => {
         return [...entries].sort((a, b) => {
@@ -172,8 +178,9 @@ const FraudReport = () => {
                     </View>
                 </View>
                 <View style={styles.statsRow}>
-                    <Text style={styles.statText}>Total alertas: <Text style={styles.statValue}>{item.fraudCount}</Text></Text>
+                    <Text style={styles.statText}>Total: <Text style={styles.statValue}>{item.fraudCount}</Text></Text>
                     <Text style={styles.statText}>Confirmadas: <Text style={styles.statValue}>{item.confirmedFraudCount}</Text></Text>
+                    <Text style={styles.statText}>En revisión: <Text style={styles.statValue}>{item.pendingCount ?? 0}</Text></Text>
                 </View>
                 <Text style={styles.reasonsText}>
                     {item.reasons.map(r => REASON_LABELS[r] || r).join(', ')}
@@ -187,7 +194,7 @@ const FraudReport = () => {
                                     {inc.createdAt ? new Date(inc.createdAt).toLocaleString('es-AR') : '-'}
                                 </Text>
                                 <Text style={styles.incidentReason}>{REASON_LABELS[inc.reason] || inc.reason}</Text>
-                                <Text style={styles.incidentStatus}>{inc.status}</Text>
+                                <Text style={styles.incidentStatus}>{STATUS_LABELS[inc.status] || inc.status}</Text>
                             </View>
                         ))}
                     </View>
@@ -261,6 +268,7 @@ const FraudReport = () => {
                 <Text style={styles.filterLabel}>Ordenar por</Text>
                 <View style={styles.statusRow}>
                     {[
+                        { label: 'Gravedad', value: 'gravityLevel' },
                         { label: 'Fraudes confirmados', value: 'confirmedFraudCount' },
                         { label: 'Total alertas', value: 'fraudCount' },
                         { label: 'Nombre A-Z', value: 'fullName' },
