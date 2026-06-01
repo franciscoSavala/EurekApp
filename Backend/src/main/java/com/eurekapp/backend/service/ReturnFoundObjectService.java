@@ -206,9 +206,11 @@ public class ReturnFoundObjectService {
                 UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
                 if (finder == null) {
                     log.warn("Finder user id={} not found in DB", finderProxy.getId());
-                } else if (rewardExclusionRepository.existsByFoundObjectUUID(foundObject.getUuid())) {
-                    // Exclusión ya registrada al momento de la carga del objeto
-                    log.info("Reward already excluded for uuid={} (registered at upload time)", foundObject.getUuid());
+                } else if (rewardExclusionRepository.existsByFoundObjectUUID(foundObject.getUuid())
+                        || (finder.getRole() != null && ROLE_LABELS.containsKey(finder.getRole().name()))) {
+                    // Exclusión ya registrada, o rol incompatible sin registro previo (e.g. seed data)
+                    log.info("Reward excluded for uuid={}: record exists or incompatible role {}",
+                            foundObject.getUuid(), finder.getRole());
                 } else {
                     // Guardar el destinatario para posible reprocesamiento futuro
                     rfo.setNotificationRecipient(finder.getUsername());
@@ -337,15 +339,23 @@ public class ReturnFoundObjectService {
             String roleLabel = ROLE_LABELS.getOrDefault(exclusion.getUserRole().name(), exclusion.getUserRole().name());
             rewardExclusionMessage = "Sin recompensa de puntos: incompatibilidad de funciones (" + roleLabel + ")";
         } else if (fo.getObjectFinderUser() != null) {
-            // Finder sin exclusión: resolverlo desde la BD directamente (evita proxy lazy)
+            // Finder sin exclusión registrada: resolverlo desde la BD directamente (evita proxy lazy)
             Long finderId = fo.getObjectFinderUser().getId();
             UserEurekapp finder = finderId != null ? userRepository.findById(finderId).orElse(null) : null;
             if (finder != null) {
                 finderEmail = finder.getUsername();
                 finderFullName = finder.getFirstName() + " " + finder.getLastName();
                 finderRole = finder.getRole() != null ? finder.getRole().name() : null;
+
+                if (finder.getRole() != null && ROLE_LABELS.containsKey(finder.getRole().name())) {
+                    // Rol incompatible sin exclusión registrada (e.g. datos de seed insertados por SQL)
+                    rewardExcluded = true;
+                    String roleLabel = ROLE_LABELS.getOrDefault(finder.getRole().name(), finder.getRole().name());
+                    rewardExclusionMessage = "Sin recompensa de puntos: incompatibilidad de funciones (" + roleLabel + ")";
+                } else {
+                    rewardExcluded = false;
+                }
             }
-            rewardExcluded = false;
         }
 
         return ReturnFoundObjectDto.builder()
