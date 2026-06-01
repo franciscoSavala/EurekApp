@@ -26,6 +26,13 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
+const ROLE_LABELS = {
+    ORGANIZATION_EMPLOYEE: 'Empleado',
+    ENCARGADO: 'Encargado',
+    ORGANIZATION_OWNER: 'Responsable de organización',
+    USER: 'Usuario',
+};
+
 const ReturnedObjectDetail = ({route}) => {
     // ReturnFoundObject data (rfo)
     const [rfo, setRfo] = useState(null);
@@ -119,6 +126,40 @@ const ReturnedObjectDetail = ({route}) => {
                 <View style={styles.textAreaContainer}>
                     <Text style={styles.label}>Devuelto el {returnDateTime.getDate()}/{returnDateTime.getMonth() + 1}/{returnDateTime.getFullYear()} a las {returnDateTime.toLocaleTimeString()}</Text>
                 </View>
+
+                {!!rfo.finderFullName && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.title}>Registrador del objeto</Text>
+                    </View>
+                )}
+                {!!rfo.finderFullName && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Nombre: </Text>
+                        <Text style={styles.label}>{rfo.finderFullName}</Text>
+                    </View>
+                )}
+                {!!rfo.finderEmail && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Email: </Text>
+                        <Text style={styles.label}>{rfo.finderEmail}</Text>
+                    </View>
+                )}
+                {!!rfo.finderRole && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Rol: </Text>
+                        <Text style={styles.label}>{ROLE_LABELS[rfo.finderRole] || rfo.finderRole}</Text>
+                    </View>
+                )}
+                {rfo.rewardExcluded === false && (
+                    <View style={styles.textAreaContainer}>
+                        <Text style={styles.label}>Puntos otorgados: 10 XP</Text>
+                    </View>
+                )}
+                {rfo.rewardExcluded === true && (
+                    <View style={[styles.textAreaContainer, { backgroundColor: '#fef3c7', borderRadius: 8, marginHorizontal: 10 }]}>
+                        <Text style={[styles.label, { color: '#b45309' }]}>{rfo.rewardExclusionMessage}</Text>
+                    </View>
+                )}
 
             </ScrollView>
             <EurekappButton text="Volver" onPress={handleClose} />
