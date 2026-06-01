@@ -295,7 +295,7 @@ public class FraudDetectionService {
         List<FraudClaimantDto> claimants = List.of();
         if (a.getFoundObjectUUID() != null && a.getOrganizationId() != null) {
             try {
-                claimants = feedbackRepository
+                List<FraudClaimantDto> sfClaimants = feedbackRepository
                         .findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(
                                 a.getOrganizationId(), a.getFoundObjectUUID())
                         .stream()
@@ -306,6 +306,23 @@ public class FraudDetectionService {
                                 .fullName(f.getUser().getFirstName() + " " + f.getUser().getLastName())
                                 .build())
                         .collect(Collectors.toList());
+
+                List<FraudClaimantDto> reclamoClaimants = reclamoRepository
+                        .findByFoundObjectUUID(a.getFoundObjectUUID())
+                        .stream()
+                        .filter(r -> a.getOrganizationId().equals(r.getOrganizationId()))
+                        .filter(r -> r.getUser() != null)
+                        .map(r -> FraudClaimantDto.builder()
+                                .userId(r.getUser().getId())
+                                .email(r.getUser().getUsername())
+                                .fullName(r.getUser().getFirstName() + " " + r.getUser().getLastName())
+                                .build())
+                        .collect(Collectors.toList());
+
+                Map<Long, FraudClaimantDto> merged = new java.util.LinkedHashMap<>();
+                sfClaimants.forEach(c -> merged.put(c.getUserId(), c));
+                reclamoClaimants.forEach(c -> merged.putIfAbsent(c.getUserId(), c));
+                claimants = new java.util.ArrayList<>(merged.values());
             } catch (Exception ignored) {}
         }
 
