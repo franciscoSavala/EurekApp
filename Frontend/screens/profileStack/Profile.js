@@ -4,6 +4,7 @@ import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
 import {
     ActivityIndicator,
+    Alert,
     FlatList,
     Image,
     Modal,
@@ -119,21 +120,22 @@ const Profile = ({ route, navigation }) => {
     const handleAcceptAddEmployeeRequest = async (id) => {
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(BACK_URL + `/organizations/acceptAddEmployeeRequest`,
-                {requestId: id} ,config );
-            console.log(res.data);
+            let config = { headers: { 'Authorization': authHeader } }
+            let res = await axiosInstance.post(
+                BACK_URL + `/organizations/acceptAddEmployeeRequest`,
+                { requestId: id },
+                config
+            );
             setAddEmployeeRequests('');
             await refreshUserDetails();
             const raw = await AsyncStorage.getItem('user');
             if (raw) setUserRole(JSON.parse(raw).role);
+            const orgName = res.data?.organization?.name ?? 'la organización';
+            Alert.alert('¡Solicitud aceptada!', `Ahora formas parte de ${orgName}.`);
             navigation.replace("Profile");
         } catch (error) {
-            console.log(error)
+            console.log(error);
+            Alert.alert('Error', 'No se pudo aceptar la solicitud. Intentá de nuevo.');
         }
     }
 
