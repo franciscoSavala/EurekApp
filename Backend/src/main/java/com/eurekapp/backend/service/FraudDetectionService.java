@@ -25,6 +25,7 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -220,52 +221,71 @@ public class FraudDetectionService {
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
-        List<FraudAlert> alerts = status != null
+        // Paso 1: alertas filtradas (status + fecha) para determinar qué usuarios aparecen
+        List<FraudAlert> filteredAlerts = status != null
                 ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgId, status, fromDt, toDt)
                 : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
 
-        Map<Long, List<FraudAlert>> byUser = alerts.stream()
+        // Paso 2: IDs únicos de usuarios del conjunto filtrado
+        Set<Long> suspectIds = filteredAlerts.stream()
                 .filter(a -> a.getSuspectUser() != null)
-                .collect(Collectors.groupingBy(a -> a.getSuspectUser().getId()));
+                .map(a -> a.getSuspectUser().getId())
+                .collect(Collectors.toSet());
 
-        return byUser.values().stream()
-                .map(group -> {
-                    UserEurekapp suspect = group.get(0).getSuspectUser();
-                    long confirmedCount = group.stream()
-                            .filter(a -> a.getStatus() == FraudAlertStatus.CONFIRMED_FRAUD).count();
-                    List<String> reasons = group.stream()
-                            .map(FraudAlert::getReason).distinct().collect(Collectors.toList());
-                    String suggested = confirmedCount >= 4 ? "Bloqueo"
-                            : confirmedCount >= 2 ? "Suspensión temporal"
-                            : confirmedCount == 1 ? "Advertencia"
-                            : "Sin acción sugerida";
-                    return FraudUserReportEntryDto.builder()
-                            .userId(suspect.getId())
-                            .email(suspect.getUsername())
-                            .fullName(suspect.getFirstName() + " " + suspect.getLastName())
-                            .fraudCount(group.size())
-                            .confirmedFraudCount(confirmedCount)
-                            .reasons(reasons)
-                            .suggestedAction(suggested)
-                            .incidents(group.stream().map(this::toDto).collect(Collectors.toList()))
-                            .build();
-                })
-                .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
-                        .thenComparingLong(FraudUserReportEntryDto::getFraudCount).reversed())
-                .collect(Collectors.toList());
+        // Paso 3: para cada usuario, cargar TODOS sus casos en la org (historial completo)
+        return suspectIds.stream().map(userId -> {
+            List<FraudAlert> all = alertRepository
+                    .findByOrganizationIdAndSuspectUser_Id(orgId, userId);
+            UserEurekapp suspect = all.get(0).getSuspectUser();
+
+            long confirmed = all.stream()
+                    .filter(a -> a.getStatus() == FraudAlertStatus.CONFIRMED_FRAUD).count();
+            long pending = all.stream()
+                    .filter(a -> a.getStatus() == FraudAlertStatus.PENDING).count();
+            List<String> reasons = all.stream()
+                    .map(FraudAlert::getReason).distinct().collect(Collectors.toList());
+
+            int gravity = confirmed >= 4 ? 3 : confirmed >= 2 ? 2 : confirmed == 1 ? 1 : 0;
+            String action = gravity == 3 ? "Bloqueo"
+                    : gravity == 2 ? "Suspensión temporal"
+                    : gravity == 1 ? "Advertencia"
+                    : "Sin acción sugerida";
+
+            return FraudUserReportEntryDto.builder()
+                    .userId(suspect.getId())
+                    .email(suspect.getUsername())
+                    .fullName(suspect.getFirstName() + " " + suspect.getLastName())
+                    .fraudCount(all.size())
+                    .confirmedFraudCount(confirmed)
+                    .pendingCount(pending)
+                    .gravityLevel(gravity)
+                    .reasons(reasons)
+                    .suggestedAction(action)
+                    .incidents(all.stream()
+                            .sorted(Comparator.comparing(FraudAlert::getCreatedAt).reversed())
+                            .map(this::toDto)
+                            .collect(Collectors.toList()))
+                    .build();
+        }).sorted(Comparator.comparingInt(FraudUserReportEntryDto::getGravityLevel)
+                .thenComparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
+                .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
+                .reversed())
+          .collect(Collectors.toList());
     }
 
     public byte[] exportFraudReportCsv(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
         StringBuilder sb = new StringBuilder(
-                "userId,email,fullName,fraudCount,confirmedFraudCount,reasons,suggestedAction\n");
+                "userId,email,fullName,fraudCount,confirmedFraudCount,pendingCount,gravityLevel,reasons,suggestedAction\n");
         for (FraudUserReportEntryDto entry : report) {
             sb.append(entry.getUserId()).append(',')
               .append(entry.getEmail()).append(',')
               .append(entry.getFullName().replace(",", " ")).append(',')
               .append(entry.getFraudCount()).append(',')
               .append(entry.getConfirmedFraudCount()).append(',')
+              .append(entry.getPendingCount()).append(',')
+              .append(entry.getGravityLevel()).append(',')
               .append(String.join("|", entry.getReasons())).append(',')
               .append(entry.getSuggestedAction()).append('\n');
         }
