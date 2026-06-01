@@ -215,9 +215,9 @@ INSERT INTO users (id, username, password, active, first_name, last_name, role, 
 (5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucia',    'Perez',     'ORGANIZATION_EMPLOYEE',  1,    30,   1),
 (6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomas',    'Ramirez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
 (7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
-(8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 10,   0),
+(8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 20,   1),
 (9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0),
-(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0);
+(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    10,   1);
 SQL
 success "10 usuarios insertados"
 
@@ -258,6 +258,33 @@ FO_UUID_9="ebaa9336-e9fd-4556-a96e-9c1538d165cb"   # Billetera marron con DNI   
 FO_UUID_10="498d742e-49e6-4c88-bf8d-f0313581dfaa"  # Cargador USB-C blanco         (org 3)
 FO_UUID_11="a1047f2f-0fcd-41b1-92ad-485dd04cb5d8"  # Anteojos de sol negros        (org 1)
 
+# ─── 10b. Asignar finders a FoundObjects ─────────────────────────────────────
+header "Asignando finders a FoundObjects (object_finder_user_id)"
+
+# Todos los objetos donde el finder tiene cuenta en la app.
+# FO_UUID_2 (Llave) queda con finder_id="0" (anonimo, sin cuenta — caso de uso alternativo).
+declare -A FO_FINDERS=(
+  ["$FO_UUID_1"]="9"    # Billetera negra de cuero → valeria
+  ["$FO_UUID_3"]="9"    # Auriculares              → valeria
+  ["$FO_UUID_4"]="6"    # Mochila azul             → emp2.utn  (Tomas Ramirez)
+  ["$FO_UUID_5"]="8"    # Celular Samsung          → pedro
+  ["$FO_UUID_6"]="5"    # Paraguas                 → emp1.utn  (Lucia Perez)
+  ["$FO_UUID_8"]="8"    # Notebook Dell            → pedro
+  ["$FO_UUID_9"]="10"   # Billetera marron con DNI → emp1.aero (Sofia Herrera)
+  ["$FO_UUID_10"]="7"   # Cargador USB-C           → julia
+  ["$FO_UUID_11"]="7"   # Anteojos                 → julia
+)
+for UUID in "${!FO_FINDERS[@]}"; do
+  USER_ID="${FO_FINDERS[$UUID]}"
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
+    -H "Content-Type: application/json" \
+    -d "{\"properties\": {\"object_finder_user_id\": \"$USER_ID\"}}")
+  [[ "$HTTP" == "200" ]] \
+    && success "  finder=$USER_ID → $UUID" \
+    || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
+done
+
 # ─── 11. Insertar LostObjects en Weaviate (desde NDJSON con embeddings reales) ──
 header "Insertando LostObjects en Weaviate"
 
@@ -276,11 +303,31 @@ while IFS= read -r line; do
 done < "$LOST_NDJSON"
 success "  $LO_INSERTED LostObjects insertados"
 
-# ─── 12. (Retornos omitidos) ─────────────────────────────────────────────────
-# No se insertan return_found_objects: todos los FoundObjects tienen
-# was_returned=false en Weaviate, de modo que registrar retornos seria
-# incoherente. Si en el futuro se marca algun objeto como retornado, agregar
-# aqui el return_found_objects correspondiente (key person_photo_* en S3).
+# ─── 12. Insertar Retornos ───────────────────────────────────────────────────
+header "Insertando Retornos"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO return_found_objects
+  (found_objectuuid, user_id, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
+VALUES
+('$FO_UUID_6',  7,    '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
+('$FO_UUID_11', NULL, '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', NULL,                  NULL),
+('$FO_UUID_2',  NULL, '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
+('$FO_UUID_8',  8,    '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
+('$FO_UUID_9',  7,    '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
+SQL
+success "5 retornos insertados (3 UTN, 2 Terminal)"
+
+header "Marcando objetos devueltos en Weaviate (was_returned=true)"
+for UUID in "$FO_UUID_6" "$FO_UUID_11" "$FO_UUID_2" "$FO_UUID_8" "$FO_UUID_9"; do
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
+    -H "Content-Type: application/json" \
+    -d '{"properties": {"was_returned": true}}')
+  [[ "$HTTP" == "200" ]] \
+    && success "  was_returned=true → $UUID" \
+    || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
+done
 
 # ─── 13. Insertar exclusiones de recompensa ──────────────────────────────────
 header "Insertando exclusiones de recompensa"
@@ -344,9 +391,9 @@ header "Insertando Reclamos"
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
 ('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
-('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', NULL),
+('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
 ('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
-('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', NULL),
+('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
 ('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
 SQL
 success "5 reclamos insertados"
@@ -427,7 +474,7 @@ echo -e "${GREEN}${BOLD}╠═════════════════�
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 10                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 0                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 1                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
