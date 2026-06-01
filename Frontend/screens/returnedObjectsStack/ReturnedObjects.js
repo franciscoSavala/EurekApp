@@ -81,7 +81,7 @@ const ReturnedObjects = ({ navigation }) => {
                 <View style={{width:5}}></View>
 
                 <AppImage
-                    b64Json={item.b64Json}
+                    imageUrl={item.imageUrl}
                     style={styles.image}
                     resizeMode="cover"
                 />
