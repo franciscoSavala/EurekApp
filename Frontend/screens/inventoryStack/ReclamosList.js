@@ -8,10 +8,11 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import { useFocusEffect } from '@react-navigation/native';
+import EmptyState from '../components/EmptyState';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -57,6 +58,7 @@ const STATUS_LABELS = {
 };
 
 const ReclamosList = ({ navigation }) => {
+    const { authFetch } = useAuthFetch();
     const [reclamos, setReclamos] = useState([]);
     const [loading, setLoading] = useState(false);
     const [statusFilter, setStatusFilter] = useState(null);
@@ -66,15 +68,11 @@ const ReclamosList = ({ navigation }) => {
     const fetchReclamos = async (status, category, sort) => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const params = { sortBy: sort };
-            if (status) params.status = status;
-            if (category) params.category = category;
-            const res = await axiosInstance.get(`${BACK_URL}/reclamos`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-                params,
-            });
-            setReclamos(res.data);
+            const params = new URLSearchParams({ sortBy: sort });
+            if (status) params.append('status', status);
+            if (category) params.append('category', category);
+            const data = await authFetch('get', `${BACK_URL}/reclamos?${params.toString()}`);
+            setReclamos(data);
         } catch (e) {
             console.error(e);
         } finally {
@@ -210,9 +208,7 @@ const ReclamosList = ({ navigation }) => {
                     renderItem={renderItem}
                     contentContainerStyle={styles.listContent}
                     ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No hay reclamos registrados</Text>
-                        </View>
+                        <EmptyState icon="inbox" title="No hay reclamos registrados" />
                     }
                 />
             )}
@@ -223,7 +219,7 @@ const ReclamosList = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     filtersSection: {
         paddingHorizontal: 10,
@@ -235,7 +231,7 @@ const styles = StyleSheet.create({
     filterLabel: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 11,
-        color: '#638888',
+        color: colors.textMuted,
         marginBottom: 4,
         marginTop: 6,
     },
@@ -253,16 +249,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
     },
     filterBtnActive: {
-        backgroundColor: '#111818',
+        backgroundColor: colors.text,
         borderColor: '#111818',
     },
     filterBtnText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#111818',
+        color: colors.text,
     },
     filterBtnTextActive: {
-        color: '#fff',
+        color: colors.background,
     },
     loadingContainer: {
         flex: 1,
@@ -273,7 +269,7 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     card: {
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 14,
         padding: 12,
         marginBottom: 10,
@@ -318,18 +314,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
     },
     statusBadgeText: {
-        color: '#fff',
+        color: colors.background,
         fontSize: 12,
         fontFamily: 'PlusJakartaSans-Bold',
     },
     suspiciousIcon: {
         fontSize: 14,
-        color: '#b45309',
+        color: colors.warning,
     },
     objectTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     categoryBadge: {
         backgroundColor: '#e0f7f7',
@@ -346,17 +342,17 @@ const styles = StyleSheet.create({
     userName: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
     },
     userEmail: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     dateText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 11,
-        color: '#638888',
+        color: colors.textMuted,
     },
     chevron: {
         fontSize: 24,
@@ -370,7 +366,7 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 16,
-        color: '#638888',
+        color: colors.textMuted,
     },
 });
 

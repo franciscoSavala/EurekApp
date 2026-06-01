@@ -13,6 +13,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import { useFocusEffect } from "@react-navigation/native";
+import EmptyState from "../components/EmptyState";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -195,11 +196,8 @@ const Notifications = ({ navigation, route }) => {
                     />
                 }
                 ListEmptyComponent={
-                    <View style={styles.centered}>
-                        <Text style={styles.emptyText}>No tenés notificaciones.</Text>
-                    </View>
+                    <EmptyState icon="bell-slash" title="No tenés notificaciones." />
                 }
-                contentContainerStyle={notifications.length === 0 && styles.emptyContainer}
             />
         </View>
     );

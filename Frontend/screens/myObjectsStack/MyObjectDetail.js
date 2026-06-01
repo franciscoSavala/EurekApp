@@ -8,23 +8,17 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from '../../utils/axiosInstance';
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/FontAwesome6';
+import { ROLE_LABELS } from '../../utils/constants';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const ROLE_LABELS = {
-    EMPLOYEE: 'Empleado',
-    ENCARGADO: 'Encargado',
-    ORGANIZATION_OWNER: 'Responsable de organización',
-    USER: 'Usuario',
-};
-
 const STATUS_CONFIG = {
     PENDIENTE:   { label: 'Pendiente',               color: '#888',    bg: '#f0f0f0', icon: 'clock' },
-    EN_REVISION: { label: 'En revisión',             color: '#b45309', bg: '#fef3c7', icon: 'magnifying-glass' },
+    EN_REVISION: { label: 'En revisión',             color: colors.warning, bg: '#fef3c7', icon: 'magnifying-glass' },
     APROBADO:    { label: 'Coincidencia encontrada', color: '#065f46', bg: '#d1fae5', icon: 'circle-check' },
     RECHAZADO:   { label: 'Cerrado',                 color: '#991b1b', bg: '#fee2e2', icon: 'circle-xmark' },
     DEVUELTO:    { label: 'Devuelto',                color: '#1d4ed8', bg: '#dbeafe', icon: 'box-open' },
@@ -52,24 +46,22 @@ const InfoRow = ({ icon, label, value }) => (
 
 const MyObjectDetail = ({ route, navigation }) => {
     const { reclamoId } = route.params;
+    const { authFetch } = useAuthFetch();
     const [reclamo, setReclamo] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const fetch = async () => {
+        const load = async () => {
             try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(`${BACK_URL}/reclamos/my/${reclamoId}`, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                setReclamo(res.data);
+                const data = await authFetch('get', `${BACK_URL}/reclamos/my/${reclamoId}`);
+                setReclamo(data);
             } catch (e) {
                 console.warn('Error cargando detalle:', e);
             } finally {
                 setLoading(false);
             }
         };
-        fetch();
+        load();
     }, [reclamoId]);
 
     const formatDate = (isoString) => {
@@ -186,7 +178,7 @@ const MyObjectDetail = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     content: {
         paddingBottom: 32,
@@ -195,19 +187,19 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     errorText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 15,
-        color: '#638888',
+        color: colors.textMuted,
     },
     backButton: {
         padding: 16,
         paddingBottom: 8,
     },
     backButtonText: {
-        color: '#638888',
+        color: colors.textMuted,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
@@ -218,7 +210,7 @@ const styles = StyleSheet.create({
     imagePlaceholder: {
         width: '100%',
         height: 160,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         justifyContent: 'center',
         alignItems: 'center',
         gap: 8,
@@ -236,12 +228,12 @@ const styles = StyleSheet.create({
     title: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 20,
-        color: '#111818',
+        color: colors.text,
     },
     sectionTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 4,
     },
     descText: {
@@ -273,12 +265,12 @@ const styles = StyleSheet.create({
     infoLabel: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     infoValue: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     historyItem: {
         flexDirection: 'row',
@@ -297,12 +289,12 @@ const styles = StyleSheet.create({
     historyStatus: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
     },
     historyDate: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     historyNote: {
         fontFamily: 'PlusJakartaSans-Regular',
@@ -312,7 +304,7 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
     warningBox: {
-        backgroundColor: '#fef3c7',
+        backgroundColor: colors.warningBg,
         borderRadius: 10,
         padding: 12,
         marginTop: 8,
@@ -320,7 +312,7 @@ const styles = StyleSheet.create({
     warningText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#b45309',
+        color: colors.warning,
     },
 });
 

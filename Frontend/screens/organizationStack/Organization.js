@@ -17,8 +17,9 @@ import {Controller, useForm} from "react-hook-form";
 import EurekappButton from "../components/Button";
 import LoadingOverlay from "../components/LoadingOverlay";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
 import Icon from "react-native-vector-icons/FontAwesome6";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -26,7 +27,7 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const InputForm = ({text, valueName, value, autoComplete = 'off', keyboardType = 'default', editable, setValue, clearErrors, onChange}) => (
     <TextInput
         placeholder={text}
-        placeholderTextColor={'#638888'}
+        placeholderTextColor={colors.textMuted}
         onChangeText={(v) => {
             clearErrors(valueName);
             onChange?.();
@@ -42,6 +43,7 @@ const InputForm = ({text, valueName, value, autoComplete = 'off', keyboardType =
 );
 
 const Organization = ({ route, navigation }) => {
+    const { authFetch } = useAuthFetch();
 
     const { control,
         handleSubmit,
@@ -83,18 +85,7 @@ const Organization = ({ route, navigation }) => {
     const queryEmployees = async () => {
         setLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                params: {
-                },
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let endpoint = "/organizations/employees";
-            let res = await axiosInstance.get( BACK_URL + endpoint, //esto es inseguro pero ok...
-                config );
-            let jsonData = res.data;
+            const jsonData = await authFetch('get', `${BACK_URL}/organizations/employees`);
             setEmployees(jsonData.users);
         } catch (error) {
             console.error(error);
@@ -113,12 +104,10 @@ const Organization = ({ route, navigation }) => {
         setEncargadoConfirmModal(false);
         setEncargadoLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             const endpoint = encargadoAction === 'assign'
                 ? '/organizations/assign_encargado'
                 : '/organizations/revoke_encargado';
-            await axiosInstance.post(`${BACK_URL}${endpoint}`, { userId: selectedEmployee },
-                { headers: { Authorization: authHeader } });
+            await authFetch('post', `${BACK_URL}${endpoint}`, { userId: selectedEmployee });
             const newRole = encargadoAction === 'assign' ? 'ENCARGADO' : 'ORGANIZATION_EMPLOYEE';
             setEmployees(prev => prev.map(e => e.id === selectedEmployee ? { ...e, role: newRole } : e));
             setEncargadoResultOk(true);
@@ -188,20 +177,8 @@ const Organization = ({ route, navigation }) => {
         setButtonWasPressed(true);
         setLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(`${BACK_URL}/organizations/add_employee`,
-                {
-                    employeeUsername: employeeUsername,
-                }, config );
-            console.log(res.data);
-            if(res.status === 200) {
-                setResponseOk(true);
-            }
+            await authFetch('post', `${BACK_URL}/organizations/add_employee`, { employeeUsername });
+            setResponseOk(true);
         } catch (error) {
             setResponseOk(false);
             setError('employeeUsername', {
@@ -237,21 +214,9 @@ const Organization = ({ route, navigation }) => {
     }
 
     const handleDeleteEmployee = async (id) => {
-        console.log("Eliminar empleado: " + id);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(`${BACK_URL}/organizations/delete_employee`,
-                {
-                    userId: id
-                }, config );
-            if (res.status === 200) {
-                setEmployees((prevEmployees) => prevEmployees.filter(employee => employee.id !== id));
-            }
+            await authFetch('post', `${BACK_URL}/organizations/delete_employee`, { userId: id });
+            setEmployees((prevEmployees) => prevEmployees.filter(employee => employee.id !== id));
         } catch (error) {
             console.error(error);
         } finally {
@@ -328,7 +293,7 @@ const Organization = ({ route, navigation }) => {
                 <Text style={styles.label}>{"\n"}Empleados: </Text>
 
                 <TouchableOpacity style={styles.addEmployeeButton} onPress={() => setAddEmployeeModal(true)}>
-                    <Icon name={'plus'} size={24} color={'#111818'} style={{paddingHorizontal: 20}} />
+                    <Icon name={'plus'} size={24} color={colors.text} style={{paddingHorizontal: 20}} />
                     <Text style={styles.addEmployeeButtonText}>Agregar un empleado</Text>
                 </TouchableOpacity>
 
@@ -336,7 +301,7 @@ const Organization = ({ route, navigation }) => {
                     <TouchableOpacity
                         style={[styles.addEmployeeButton, {marginTop: 8}]}
                         onPress={() => navigation.navigate('OrganizationPolicy')}>
-                        <Icon name={'gear'} size={24} color={'#111818'} style={{paddingHorizontal: 20}} />
+                        <Icon name={'gear'} size={24} color={colors.text} style={{paddingHorizontal: 20}} />
                         <Text style={styles.addEmployeeButtonText}>Configurar políticas</Text>
                     </TouchableOpacity>
                 )}
@@ -344,7 +309,7 @@ const Organization = ({ route, navigation }) => {
                 <View style={styles.employeesContainer}>
                     { loading ?
                         <View style={{flex: 1, justifyContent: 'center'}}>
-                            <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
+                            <ActivityIndicator size="large" style={{alignSelf: 'center'}} color={colors.text} />
                         </View>
                         : <FlatList
                             data={employees}
@@ -494,7 +459,7 @@ const styles = StyleSheet.create({
     },
     addEmployeeButtonText: {
         alignSelf: 'flex-start',
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Bold'
@@ -509,7 +474,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         justifyContent: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     actionButtons: {
         flexDirection: 'column',
@@ -591,7 +556,7 @@ const styles = StyleSheet.create({
     },
     item: {
         width:'100%',
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
@@ -605,14 +570,14 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     itemText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     label: {
         alignSelf: 'flex-start',
         marginLeft: 10,
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
@@ -624,7 +589,7 @@ const styles = StyleSheet.create({
     },
     modalView: {
         margin: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.background,
         borderRadius: 20,
         padding: 35,
         alignItems: 'center',
@@ -642,11 +607,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         alignSelf: 'stretch',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         fontSize: 16,
         fontWeight: 'normal',
-        placeholderTextColor: '#638888',
+        placeholderTextColor: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
         paddingVertical: 10,
         paddingHorizontal: 20,

@@ -15,26 +15,23 @@ import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import {CommonActions, useNavigation} from "@react-navigation/native";
-import axiosInstance from "../../utils/axiosInstance";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
 import MapViewComponent from "../components/MapViewComponent";
+import { ROLE_LABELS } from "../../utils/constants";
+import { formatDateTimeES } from "../../utils/dateFormatter";
+import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
-const ROLE_LABELS = {
-    EMPLOYEE: 'Empleado',
-    ENCARGADO: 'Encargado',
-    ORGANIZATION_OWNER: 'Responsable de organización',
-    USER: 'Usuario',
-};
-
 const FoundObjectDetail = ({route}) => {
+    const { authFetch } = useAuthFetch();
     // FoundObject data (fo)
     const [fo, setFo] = useState(null);
     const [objectMarker, setObjectMarker] = useState({
@@ -56,27 +53,15 @@ const FoundObjectDetail = ({route}) => {
     const fetchData = async () => {
         setIsLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             if (Platform.OS === 'web') {
-                // Enviar datos como JSON en la web
-                let config = {
-                    headers: {
-                        'Authorization': authHeader
-                    }
-                }
-                let response = await axiosInstance.post(`${BACK_URL}/found-objects/getDetail`, {
+                const data = await authFetch('post', `${BACK_URL}/found-objects/getDetail`, {
                     foundObjectUUID: route.params.foundObjectUUID.toString(),
-                }, config);
-
-                if (response.status === 200) {
-                    setFo(response.data)
-                    setObjectMarker({latitude:response.data.latitude, longitude:response.data.longitude} )
-                    setIsLoading(false);
-                } else {
-                }
+                });
+                setFo(data);
+                setObjectMarker({ latitude: data.latitude, longitude: data.longitude });
+                setIsLoading(false);
             } else {
                 // Enviar datos usando react-native-blob-util en móviles
-
             }
         } catch (error) {
             console.log(error);
@@ -96,7 +81,6 @@ const FoundObjectDetail = ({route}) => {
         );
     }
 
-    const foundDateTime = new Date(fo.found_date);
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>
             <ScrollView contentContainerStyle={styles.formContainer}>
@@ -112,10 +96,8 @@ const FoundObjectDetail = ({route}) => {
                 <View style={styles.textAreaContainer}>
                     <Text style={styles.label}>Foto: </Text>
                 </View>
-                <Image
-                    source={ fo.imageUrl
-                        ? { uri: fo.imageUrl }
-                        : require('../../assets/defaultImage.png') }
+                <AppImage
+                    imageUrl={fo.imageUrl}
                     style={styles.image}
                     resizeMode="cover"
                 />
@@ -130,7 +112,7 @@ const FoundObjectDetail = ({route}) => {
                 </View>
 
                 <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Encontrado el {foundDateTime.getDate()}/{foundDateTime.getMonth() + 1}/{foundDateTime.getFullYear()} a las {foundDateTime.toLocaleTimeString()}</Text>
+                    <Text style={styles.label}>Encontrado el {formatDateTimeES(fo.found_date)}</Text>
                 </View>
 
                 <View style={styles.mapContainer}>
@@ -253,15 +235,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#bdc1c1',
-        backgroundColor: '#fff',
+        borderColor: colors.border,
+        backgroundColor: colors.background,
         paddingVertical: 16,
         paddingHorizontal: 12,
     },
     imageLoadText: {
         fontSize: 16,
         fontWeight: 'normal',
-        color: '#638888',
+        color: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular'
     },
     mapContainer: {
@@ -281,8 +263,8 @@ const styles = StyleSheet.create({
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         padding: 16,
         fontSize: 16,
         fontWeight: 'normal',
@@ -296,7 +278,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start'
     },
     headerText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 24,
         fontWeight: 'bold',
         textAlign: 'center',
@@ -304,12 +286,12 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         margin: 10,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         padding: 8,
         borderRadius: 24
     },
     label: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
@@ -323,7 +305,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     title: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Bold',

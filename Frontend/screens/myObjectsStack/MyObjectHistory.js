@@ -8,11 +8,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import axiosInstance from '../../utils/axiosInstance';
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/FontAwesome6';
+import EmptyState from '../components/EmptyState';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -35,6 +36,7 @@ const StatusChip = ({ status }) => {
 };
 
 const MyObjectHistory = ({ navigation }) => {
+    const { authFetch } = useAuthFetch();
     const [reclamos, setReclamos] = useState([]);
     const [lostObjects, setLostObjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -42,14 +44,12 @@ const MyObjectHistory = ({ navigation }) => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const headers = { Authorization: `Bearer ${jwt}` };
             const [reclamosRes, lostRes] = await Promise.allSettled([
-                axiosInstance.get(`${BACK_URL}/reclamos/my`, { headers }),
-                axiosInstance.get(`${BACK_URL}/lost-objects/my`, { headers }),
+                authFetch('get', `${BACK_URL}/reclamos/my`),
+                authFetch('get', `${BACK_URL}/lost-objects/my`),
             ]);
-            if (reclamosRes.status === 'fulfilled') setReclamos(reclamosRes.value.data);
-            if (lostRes.status === 'fulfilled') setLostObjects(lostRes.value.data);
+            if (reclamosRes.status === 'fulfilled') setReclamos(reclamosRes.value);
+            if (lostRes.status === 'fulfilled') setLostObjects(lostRes.value);
         } catch (e) {
             console.warn('Error cargando historial:', e);
         } finally {
@@ -124,13 +124,11 @@ const MyObjectHistory = ({ navigation }) => {
     if (isEmpty) {
         return (
             <View style={styles.container}>
-                <View style={styles.emptyContainer}>
-                    <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
-                    <Text style={styles.emptyTitle}>Sin búsquedas guardadas</Text>
-                    <Text style={styles.emptyDesc}>
-                        Cuando guardes una búsqueda, aparecerá acá con su estado actualizado.
-                    </Text>
-                </View>
+                <EmptyState
+                    icon="magnifying-glass"
+                    title="Sin búsquedas guardadas"
+                    description="Cuando guardes una búsqueda, aparecerá acá con su estado actualizado."
+                />
             </View>
         );
     }
@@ -171,7 +169,7 @@ const MyObjectHistory = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingTop: 16,
     },
     scrollContent: {
@@ -181,12 +179,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     heading: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 22,
-        color: '#111818',
+        color: colors.text,
         paddingHorizontal: 16,
         marginBottom: 12,
     },
@@ -210,14 +208,14 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 15,
-        color: '#111818',
+        color: colors.text,
         flex: 1,
         marginRight: 8,
     },
     cardDesc: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         marginBottom: 8,
         lineHeight: 18,
     },
@@ -228,7 +226,7 @@ const styles = StyleSheet.create({
     cardDate: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     chip: {
         borderRadius: 20,
@@ -249,13 +247,13 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 18,
-        color: '#111818',
+        color: colors.text,
         textAlign: 'center',
     },
     emptyDesc: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#638888',
+        color: colors.textMuted,
         textAlign: 'center',
         lineHeight: 20,
     },

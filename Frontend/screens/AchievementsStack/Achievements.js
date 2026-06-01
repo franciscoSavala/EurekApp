@@ -13,14 +13,14 @@ import {
     TextInput, TouchableOpacity,
     View
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
 import AchievementBar from "./AchievementBar";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const Achievements = ({ route, navigation }) => {
+    const { authFetch } = useAuthFetch();
 
 const [currentLevel, setCurrentLevel] = useState('');
     const [nextLevel, setNextLevel] = useState('');
@@ -45,17 +45,7 @@ const [currentLevel, setCurrentLevel] = useState('');
 
     const fetchUserAchievementsData = async () => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let endpoint = '/user/achievements';
-            let res = await axiosInstance.get(BACK_URL + endpoint, //esto es inseguro pero ok...
-                config );
-            let jsonData = res.data;
-
+            const jsonData = await authFetch('get', `${BACK_URL}/user/achievements`);
             setCurrentLevel(jsonData.currentLevel);
             setNextLevel(jsonData.nextLevel);
             setReturnedObjects(jsonData.returnedObjects);

@@ -11,9 +11,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import { useFocusEffect } from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -56,6 +56,7 @@ const orgTypeLabel = value => {
 };
 
 const OrganizationPolicy = () => {
+    const { authFetch } = useAuthFetch();
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [saveOk, setSaveOk] = useState(null);
@@ -72,11 +73,7 @@ const OrganizationPolicy = () => {
     const fetchPolicy = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-            });
-            const p = res.data;
+            const p = await authFetch('get', `${BACK_URL}/organizations/policy`);
             setMaxStorageDays(p.maxStorageDays != null ? String(p.maxStorageDays) : '');
             setRequiresIdentityValidation(p.requiresIdentityValidation === true);
             setRequiresAdditionalEvidence(p.requiresAdditionalEvidence === true);
@@ -100,18 +97,13 @@ const OrganizationPolicy = () => {
         setSaving(true);
         setSaveOk(null);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            await axiosInstance.put(
-                `${BACK_URL}/organizations/policy`,
-                {
-                    maxStorageDays: maxStorageDays ? parseInt(maxStorageDays, 10) : null,
-                    requiresIdentityValidation,
-                    requiresAdditionalEvidence,
-                    additionalEvidenceDetails: additionalEvidenceDetails || null,
-                    organizationType: organizationType || null,
-                },
-                { headers: { Authorization: `Bearer ${jwt}` } }
-            );
+            await authFetch('put', `${BACK_URL}/organizations/policy`, {
+                maxStorageDays: maxStorageDays ? parseInt(maxStorageDays, 10) : null,
+                requiresIdentityValidation,
+                requiresAdditionalEvidence,
+                additionalEvidenceDetails: additionalEvidenceDetails || null,
+                organizationType: organizationType || null,
+            });
             setSaveOk(true);
             fetchPolicy();
         } catch (error) {
@@ -133,7 +125,7 @@ const OrganizationPolicy = () => {
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#111818" />
+                <ActivityIndicator size="large" color={colors.text} />
             </View>
         );
     }
@@ -146,7 +138,7 @@ const OrganizationPolicy = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Sin límite"
-                placeholderTextColor="#638888"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="numeric"
                 value={maxStorageDays}
                 onChangeText={v => setMaxStorageDays(v.replace(/[^0-9]/g, ''))}
@@ -190,8 +182,8 @@ const OrganizationPolicy = () => {
                 <Switch
                     value={requiresIdentityValidation}
                     onValueChange={setRequiresIdentityValidation}
-                    trackColor={{ false: '#d1d5db', true: '#111818' }}
-                    thumbColor="#fff"
+                    trackColor={{ false: '#d1d5db', true: colors.text }}
+                    thumbColor={colors.background}
                 />
             </View>
             {requiresIdentityValidation && (
@@ -204,8 +196,8 @@ const OrganizationPolicy = () => {
                 <Switch
                     value={requiresAdditionalEvidence}
                     onValueChange={setRequiresAdditionalEvidence}
-                    trackColor={{ false: '#d1d5db', true: '#111818' }}
-                    thumbColor="#fff"
+                    trackColor={{ false: '#d1d5db', true: colors.text }}
+                    thumbColor={colors.background}
                 />
             </View>
             {requiresAdditionalEvidence && (
@@ -214,7 +206,7 @@ const OrganizationPolicy = () => {
                     <TextInput
                         style={[styles.input, styles.inputMultiline]}
                         placeholder="Ej: foto del objeto con el dueño"
-                        placeholderTextColor="#638888"
+                        placeholderTextColor={colors.textMuted}
                         multiline
                         value={additionalEvidenceDetails}
                         onChangeText={setAdditionalEvidenceDetails}
@@ -263,52 +255,52 @@ const OrganizationPolicy = () => {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     container: {
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingBottom: 24,
     },
     footer: {
         padding: 16,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         borderTopWidth: 1,
-        borderTopColor: '#f0f4f4',
+        borderTopColor: colors.surface,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     sectionTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 15,
-        color: '#111818',
+        color: colors.text,
         marginTop: 20,
         marginBottom: 8,
     },
     fieldLabel: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         marginBottom: 4,
     },
     helperText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         marginBottom: 4,
     },
     input: {
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 12,
         paddingVertical: 10,
         paddingHorizontal: 14,
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 4,
     },
     inputMultiline: {
@@ -325,11 +317,11 @@ const styles = StyleSheet.create({
         flex: 1,
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
         marginRight: 12,
     },
     dropdown: {
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 12,
         paddingVertical: 12,
         paddingHorizontal: 14,
@@ -341,11 +333,11 @@ const styles = StyleSheet.create({
     dropdownText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     dropdownChevron: {
         fontSize: 14,
-        color: '#638888',
+        color: colors.textMuted,
     },
     modalBackdrop: {
         flex: 1,
@@ -355,7 +347,7 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     modalCard: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         borderRadius: 16,
         padding: 16,
         width: '100%',
@@ -365,7 +357,7 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 16,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 12,
     },
     modalList: {
@@ -377,25 +369,25 @@ const styles = StyleSheet.create({
         borderRadius: 10,
     },
     modalOptionActive: {
-        backgroundColor: '#111818',
+        backgroundColor: colors.text,
     },
     modalOptionText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     modalOptionTextActive: {
-        color: '#fff',
+        color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
     },
     saveBtn: {
-        backgroundColor: '#111818',
+        backgroundColor: colors.text,
         borderRadius: 24,
         paddingVertical: 14,
         alignItems: 'center',
     },
     saveBtnText: {
-        color: '#fff',
+        color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
     },
@@ -426,22 +418,22 @@ const styles = StyleSheet.create({
     },
     historyToggle: {
         fontSize: 14,
-        color: '#638888',
+        color: colors.textMuted,
     },
     historyItem: {
         paddingVertical: 8,
         borderBottomWidth: 1,
-        borderBottomColor: '#f0f4f4',
+        borderBottomColor: colors.surface,
     },
     historyDate: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
     },
     historyUser: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
 });
 

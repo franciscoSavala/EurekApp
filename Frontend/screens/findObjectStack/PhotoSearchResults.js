@@ -5,6 +5,10 @@ import Icon from 'react-native-vector-icons/FontAwesome6';
 import UploadLostObjectModal from './UploadLostObjectModal';
 import StarRating from '../components/StarRating';
 import submitFeedback from '../../services/FeedbackService';
+import { formatDateES } from '../../utils/dateFormatter';
+import AppImage from '../components/AppImage';
+import BaseModal from '../components/BaseModal';
+import { colors } from '../../styles/globalStyles';
 
 const PhotoSearchResults = ({ route, navigation }) => {
     const { objectsFound } = route.params;
@@ -55,7 +59,6 @@ const PhotoSearchResults = ({ route, navigation }) => {
 
     const renderItem = ({ item }) => {
         const isSelected = item.id === objectSelectedId;
-        const date = new Date(item.found_date);
         return (
             <Pressable
                 style={[styles.item, isSelected && styles.highlightedObjectFound]}
@@ -65,18 +68,14 @@ const PhotoSearchResults = ({ route, navigation }) => {
                         {item.title}
                     </Text>
                     <Text style={styles.itemText}>
-                        {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
+                        {formatDateES(item.found_date)}
                     </Text>
                     <Text style={styles.itemText}>
                         {item.organization ? item.organization.name : ''}
                     </Text>
                 </View>
-                <Image
-                    source={
-                        item.b64Json
-                            ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
-                            : require('../../assets/defaultImage.png')
-                    }
+                <AppImage
+                    b64Json={item.b64Json}
                     style={styles.image}
                     resizeMode="cover"
                 />
@@ -92,7 +91,7 @@ const PhotoSearchResults = ({ route, navigation }) => {
                     <View style={styles.prettyNotFoundContainer}>
                         <View style={styles.prettyCardNotFound}>
                             <View style={styles.magnifyingIcon}>
-                                <Icon name={'magnifying-glass'} size={24} color={'#111818'} />
+                                <Icon name={'magnifying-glass'} size={24} color={colors.text} />
                             </View>
                             <View style={styles.labelPrettyNotFound}>
                                 <Text style={styles.prettyTitleNotFound}>
@@ -126,19 +125,19 @@ const PhotoSearchResults = ({ route, navigation }) => {
             <View style={styles.buttonContainer}>
                 <EurekappButton
                     onPress={() => openFeedback(true)}
-                    backgroundColor={'#f0f4f4'}
-                    textColor={'#111818'}
+                    backgroundColor={colors.surface}
+                    textColor={colors.text}
                     text="Este es mi objeto" />
                 <EurekappButton
                     onPress={() => openFeedback(false)}
-                    backgroundColor={'#fff'}
-                    textColor={'#111818'}
+                    backgroundColor={colors.background}
+                    textColor={colors.text}
                     text="No encontré mi objeto" />
                 <EurekappButton
                     text="Nueva búsqueda"
                     onPress={() => navigation.goBack()}
-                    backgroundColor={'#fff'}
-                    textColor={'#638888'} />
+                    backgroundColor={colors.background}
+                    textColor={colors.textMuted} />
             </View>
 
             <UploadLostObjectModal
@@ -149,17 +148,11 @@ const PhotoSearchResults = ({ route, navigation }) => {
                 organizationId={null}
                 coordinates={null} />
 
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={feedbackModal}
-                onRequestClose={() => onFeedbackDone(true)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
+            <BaseModal visible={feedbackModal} onClose={() => onFeedbackDone(true)}>
                         <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>
                             ¿Qué tan útiles fueron las coincidencias?
                         </Text>
-                        <Text style={[styles.modalText, { color: '#638888', fontSize: 13 }]}>
+                        <Text style={[styles.modalText, { color: colors.textMuted, fontSize: 13 }]}>
                             Tu calificación nos ayuda a mejorar los resultados.
                         </Text>
                         <StarRating rating={starRating} onRate={setStarRating} size={32} />
@@ -174,9 +167,9 @@ const PhotoSearchResults = ({ route, navigation }) => {
                         />
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
                             <TouchableOpacity
-                                style={[styles.feedbackBtn, { backgroundColor: '#f0f4f4' }]}
+                                style={[styles.feedbackBtn, { backgroundColor: colors.surface }]}
                                 onPress={() => onFeedbackDone(true)}>
-                                <Text style={[styles.feedbackBtnText, { color: '#638888' }]}>Omitir</Text>
+                                <Text style={[styles.feedbackBtnText, { color: colors.textMuted }]}>Omitir</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.feedbackBtn, { backgroundColor: starRating > 0 ? '#19b8b8' : '#ccc' }]}
@@ -185,18 +178,10 @@ const PhotoSearchResults = ({ route, navigation }) => {
                                 <Text style={[styles.feedbackBtnText, { color: 'white' }]}>Enviar</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
-                </View>
-            </Modal>
+            </BaseModal>
 
-            <Modal
-                animationType="none"
-                transparent={true}
-                visible={organizationInformationModal}
-                onRequestClose={() => setOrganizationInformationModal(false)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
-                        <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'} />
+            <BaseModal visible={organizationInformationModal} onClose={() => setOrganizationInformationModal(false)}>
+                        <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={colors.text} />
                         <Text style={styles.modalText}>
                             Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}
                             {foundObjectsMap.has(objectSelectedId) ? (
@@ -209,16 +194,14 @@ const PhotoSearchResults = ({ route, navigation }) => {
                             Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto, y te tomarán una foto.
                         </Text>
                         <EurekappButton text='Cerrar' onPress={handleClaimConfirmed} />
-                    </View>
-                </View>
-            </Modal>
+            </BaseModal>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         flex: 1,
         flexDirection: 'column',
     },
@@ -235,7 +218,7 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     headerText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 22,
         fontFamily: 'PlusJakartaSans-Bold',
         paddingLeft: 10,
@@ -243,7 +226,7 @@ const styles = StyleSheet.create({
     },
     item: {
         height: 150,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
@@ -252,7 +235,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     highlightedObjectFound: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
     },
     itemTextContainer: {
         flex: 2,
@@ -261,7 +244,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     itemText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
@@ -287,7 +270,7 @@ const styles = StyleSheet.create({
     },
     modalView: {
         margin: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.background,
         borderRadius: 20,
         padding: 35,
         alignItems: 'center',
@@ -324,7 +307,7 @@ const styles = StyleSheet.create({
         padding: 10,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#111818',
+        color: colors.text,
         minHeight: 60,
         textAlignVertical: 'top',
     },
@@ -345,7 +328,7 @@ const styles = StyleSheet.create({
     magnifyingIcon: {
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 16,
         margin: 10,
         padding: 20,
@@ -356,14 +339,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     prettyTitleNotFound: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         lineHeight: 22,
         marginBottom: 4,
     },
     prettyDescriptionNotFound: {
-        color: '#638888',
+        color: colors.textMuted,
         fontSize: 14,
         fontWeight: '400',
         lineHeight: 20,

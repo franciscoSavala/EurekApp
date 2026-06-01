@@ -1,8 +1,7 @@
 import {Controller, useForm} from "react-hook-form";
 import React, {useState} from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import {ActivityIndicator, StyleSheet, TextInput, View} from "react-native";
+import useAuthFetch from "../../utils/useAuthFetch";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Input, Text} from "react-native-elements";
 import EurekappButton from "../components/Button";
@@ -11,6 +10,7 @@ import Constants from "expo-constants";
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const OrganizationSignupForm = () => {
+    const { authFetch } = useAuthFetch();
     const { control,
         handleSubmit,
         formState: {errors},
@@ -27,18 +27,10 @@ const OrganizationSignupForm = () => {
         const requestData = getValues('RequestData');
         setLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(`${BACK_URL}/organizations`,
-                {
-                    contact_email: organizationEmail,
-                    request_data: requestData,
-                }, config );
-            console.log(res.data);
+            await authFetch('post', `${BACK_URL}/organizations`, {
+                contact_email: organizationEmail,
+                request_data: requestData,
+            });
             setResponseOk(true);
         } catch (error) {
             setResponseOk(false);

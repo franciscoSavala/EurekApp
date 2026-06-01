@@ -18,13 +18,15 @@ import {
 } from "react-native";
 import {Controller, useForm} from "react-hook-form";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
 import {LoginContext} from "../../hooks/useUser";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const Profile = ({ route, navigation }) => {
+    const { authFetch } = useAuthFetch();
 
     const { control,
         handleSubmit,
@@ -60,7 +62,7 @@ const Profile = ({ route, navigation }) => {
         return (
             <TextInput
                 placeholder={text}
-                placeholderTextColor={'#638888'}
+                placeholderTextColor={colors.textMuted}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
                 style={styles.textArea}
@@ -75,19 +77,11 @@ const Profile = ({ route, navigation }) => {
     const getPendingAddEmployeeRequests = async () => {
         setLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.get(BACK_URL + `/organizations/getPendingAddEmployeeRequests`, config );
-            let jsonData = res.data;
+            const jsonData = await authFetch('get', `${BACK_URL}/organizations/getPendingAddEmployeeRequests`);
             setAddEmployeeRequests(jsonData.requests);
-            console.log(res.data);
-            setLoading(false);
         } catch (error) {
-            console.log(error)
+            console.log(error);
+        } finally {
             setLoading(false);
         }
     }
@@ -119,18 +113,12 @@ const Profile = ({ route, navigation }) => {
 
     const handleAcceptAddEmployeeRequest = async (id) => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = { headers: { 'Authorization': authHeader } }
-            let res = await axiosInstance.post(
-                BACK_URL + `/organizations/acceptAddEmployeeRequest`,
-                { requestId: id },
-                config
-            );
+            const result = await authFetch('post', `${BACK_URL}/organizations/acceptAddEmployeeRequest`, { requestId: id });
             setAddEmployeeRequests('');
             await refreshUserDetails();
             const raw = await AsyncStorage.getItem('user');
             if (raw) setUserRole(JSON.parse(raw).role);
-            const orgName = res.data?.organization?.name ?? 'la organización';
+            const orgName = result?.organization?.name ?? 'la organización';
             Alert.alert('¡Solicitud aceptada!', `Ahora formas parte de ${orgName}.`);
             navigation.replace("Profile");
         } catch (error) {
@@ -141,46 +129,26 @@ const Profile = ({ route, navigation }) => {
 
     const handleDeclineAddEmployeeRequest = async (id) => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(BACK_URL + `/organizations/declineAddEmployeeRequest`,
-                {requestId: id} ,config );
-            console.log(res.data);
-            if (res.status === 200) {
-                setAddEmployeeRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
-
-            }
+            await authFetch('post', `${BACK_URL}/organizations/declineAddEmployeeRequest`, { requestId: id });
+            setAddEmployeeRequests((prevRequests) => prevRequests.filter(request => request.id !== id));
         } catch (error) {
-            console.log(error)
+            console.log(error);
         }
     }
 
     const refreshUserDetails = async () => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.get(BACK_URL + `/user/refreshUserDetails`,config );
-            console.log(res.data);
-            if (res.status === 200) {
-                await AsyncStorage.setItem('username', res.data.user.username.toString());
-                await AsyncStorage.setItem('user.first_name', res.data.user.firstName.toString());
-                await AsyncStorage.setItem('user', JSON.stringify(res.data.user));
-                if(res.data.organization != null) {
-                    await AsyncStorage.setItem('org.id', res.data.organization.id.toString());
-                    await AsyncStorage.setItem('org.name', res.data.organization.name);
-                    await AsyncStorage.setItem('organization', JSON.stringify(res.data.organization));
-                }
+            const data = await authFetch('get', `${BACK_URL}/user/refreshUserDetails`);
+            await AsyncStorage.setItem('username', data.user.username.toString());
+            await AsyncStorage.setItem('user.first_name', data.user.firstName.toString());
+            await AsyncStorage.setItem('user', JSON.stringify(data.user));
+            if (data.organization != null) {
+                await AsyncStorage.setItem('org.id', data.organization.id.toString());
+                await AsyncStorage.setItem('org.name', data.organization.name);
+                await AsyncStorage.setItem('organization', JSON.stringify(data.organization));
             }
         } catch (error) {
-            console.log(error)
+            console.log(error);
         }
     }
 
@@ -279,7 +247,7 @@ const Profile = ({ route, navigation }) => {
                     <View style={styles.addEmployeeRequestsContainer}>
                     { loading ?(
                          <View style={{flex: 1, justifyContent: 'center'}}>
-                             <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
+                             <ActivityIndicator size="large" style={{alignSelf: 'center'}} color={colors.text} />
                          </View>
 
                     ) : addEmployeeRequests.length>0 ? (
@@ -332,7 +300,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         justifyContent: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     rejectButton: {
         backgroundColor: 'red',
@@ -354,7 +322,7 @@ const styles = StyleSheet.create({
     },
     item: {
         width:'100%',
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
         padding: 20,
@@ -370,7 +338,7 @@ const styles = StyleSheet.create({
     label: {
         alignSelf: 'flex-start',
         marginLeft: 10,
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
@@ -384,11 +352,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         alignSelf: 'stretch',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         fontSize: 16,
         fontWeight: 'normal',
-        placeholderTextColor: '#638888',
+        placeholderTextColor: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
         paddingVertical: 10,
         paddingHorizontal: 20,

@@ -3,39 +3,32 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import EurekappButton from "../components/Button";
 import React, {useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
 import {CommonActions, useNavigation} from '@react-navigation/native';
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate, coordinates, organizationId }) => {
+    const { authFetch } = useAuthFetch();
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [loading, setLoading] = useState(false);
     const [responseOk, setResponseOk] = useState(false);
-    const navigation = useNavigation(); // Obtén el objeto navigation
+    const navigation = useNavigation();
 
     const uploadLostObject = async () => {
         setLoading(true);
-        setButtonWasPressed(true); // Aquí ocultamos el botón después de presionarlo
+        setButtonWasPressed(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let username = await AsyncStorage.getItem('username');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.post(`${BACK_URL}/lost-objects`, //esto es inseguro pero ok...
-                {
-                    description: query,
-                    username: username,
-                    lost_date: lostDate,
-                    coordinates: coordinates,
-                    organization_id: organizationId != null ? String(organizationId) : null
-                },
-                config );
+            const username = await AsyncStorage.getItem('username');
+            await authFetch('post', `${BACK_URL}/lost-objects`, {
+                description: query,
+                username: username,
+                lost_date: lostDate,
+                coordinates: coordinates,
+                organization_id: organizationId != null ? String(organizationId) : null
+            });
             setResponseOk(true);
         } catch (error) {
             console.error(error);

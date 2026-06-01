@@ -11,14 +11,18 @@ import {
     View
 } from "react-native";
 import React, {useEffect, useState} from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappButton from "../components/Button";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
+import { formatDateES } from "../../utils/dateFormatter";
+import EmptyState from "../components/EmptyState";
+import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const ReturnedObjects = ({ navigation }) => {
+    const { authFetch } = useAuthFetch();
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [foundObjects, setFoundObjects] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -26,16 +30,7 @@ const ReturnedObjects = ({ navigation }) => {
 
     const fetchReturnedObjects = async () => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-            let config = {
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            let res = await axiosInstance.get(
-                `${BACK_URL}/found-objects/getReturnedObjects`,
-                config );
-            let jsonData = res.data;
+            const jsonData = await authFetch('get', `${BACK_URL}/found-objects/getReturnedObjects`);
             setFoundObjects(jsonData.found_objects);
         } catch (error) {
             console.error(error);
@@ -56,7 +51,6 @@ const ReturnedObjects = ({ navigation }) => {
 
     const renderItem = ({item}) => {
         const isSelected = item.id === objectSelectedId;
-        const date = new Date(item.found_date);
         return (
             <Pressable style={styles.item}
                        onPress={() => setObjectSelectedId(item.id)}>
@@ -68,7 +62,7 @@ const ReturnedObjects = ({ navigation }) => {
                         Descripción: {item.humanDescription}
                     </Text>
                     <Text style={styles.itemText}>
-                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
+                        Encontrado el {formatDateES(item.found_date)}
                     </Text>
                     <View style={styles.buttonsContainer}>
                         <TouchableOpacity style={styles.seeDetailsButton} onPress={() => {navigation.navigate('FoundObjectDetail', {
@@ -86,10 +80,8 @@ const ReturnedObjects = ({ navigation }) => {
 
                 <View style={{width:5}}></View>
 
-                <Image
-                    source={ item.b64Json
-                        ? { uri: `data:image/jpeg;base64,${item.b64Json}` }
-                        : require('../../assets/defaultImage.png') }
+                <AppImage
+                    b64Json={item.b64Json}
                     style={styles.image}
                     resizeMode="cover"
                 />
@@ -99,13 +91,7 @@ const ReturnedObjects = ({ navigation }) => {
 
     const NotFoundComponent = () => {
         return (
-            <View style={{height: 200, justifyContent: 'center', alignItems: 'center'}}>
-                <Text style={{
-                    fontFamily: 'PlusJakartaSans-Regular',
-                    fontSize: 20,
-                    alignSelf: "center",
-                }}>Tu organización no ha devuelto ningún objeto aún.</Text>
-            </View>
+            <EmptyState icon="box-open" title="Tu organización no ha devuelto ningún objeto aún." />
         );
     }
     return (
@@ -138,7 +124,7 @@ const ReturnedObjects = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         flexDirection: 'column',
         justifyContent: 'center',
     },
@@ -155,7 +141,7 @@ const styles = StyleSheet.create({
     },
     item: {
         height: 175,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
@@ -164,7 +150,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     highlightedOrganizationObject: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
     },
     image: {
         width: '100%',     // La imagen ocupará el 100% del ancho del contenedor
@@ -186,25 +172,25 @@ const styles = StyleSheet.create({
 
     },
     itemTitle: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-Bold',
     },
     itemText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
         marginVertical: 5
     },
     organizationHeader: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 24,
         fontWeight: 'bold',
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
     seeDetailsButton: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
         paddingVertical: 8,
         paddingHorizontal: 5,
         borderRadius: 12,
@@ -216,7 +202,7 @@ const styles = StyleSheet.create({
         maxWidth:"40%"
     },
     seeReturnButton: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
         paddingVertical: 8,
         paddingHorizontal: 5,
         borderRadius: 12,
@@ -228,7 +214,7 @@ const styles = StyleSheet.create({
         maxWidth:"59%"
     },
     buttonText: {
-        color: '#111818',
+        color: colors.text,
         fontWeight: 'bold',
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Bold',

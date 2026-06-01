@@ -14,14 +14,6 @@ import {
 
 const MAX_IMAGE_SIZE_MB = 10;
 
-const CATEGORIES = [
-    { value: 'ELECTRONICA', label: 'Electrónica' },
-    { value: 'ROPA', label: 'Ropa' },
-    { value: 'DOCUMENTOS', label: 'Documentos' },
-    { value: 'LLAVES', label: 'Llaves' },
-    { value: 'ACCESORIOS', label: 'Accesorios' },
-    { value: 'OTROS', label: 'Otros' },
-];
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
@@ -35,6 +27,7 @@ import {CommonActions, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 import { isWeb, isIOS } from "../../utils/platform";
+import { CATEGORIES } from "../../utils/constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];

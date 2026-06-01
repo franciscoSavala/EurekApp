@@ -1,35 +1,27 @@
 import React, {useEffect, useState} from "react";
 import {Picker} from "@react-native-picker/picker";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {Text, View} from "react-native";
+import useAuthFetch from "../../utils/useAuthFetch";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const InstitutePicker = ({ setSelected, selectedValue = "" }) => {
+    const { authFetch } = useAuthFetch();
     const [institutionList, setInstitutionList] = useState([]);
     const [pickerFocused, setPickerFocused] = useState(false);
-    const [jwt, setJwt] = useState(null);
 
     useEffect(() => {
-        AsyncStorage.getItem('jwt').then(token => { if (token) setJwt(token); });
-    }, []);
-
-    useEffect(() => {
-        if (!jwt) return;
         const fetchInstitutes = async () => {
             try {
-                let res = await axiosInstance.get(BACK_URL + "/organizations", {
-                    headers: { Authorization: 'Bearer ' + jwt }
-                });
-                setInstitutionList(res.data.organizations);
+                const data = await authFetch('get', `${BACK_URL}/organizations`);
+                setInstitutionList(data.organizations);
             } catch (error) {
                 if (__DEV__) console.error(error);
             }
-        }
+        };
         fetchInstitutes();
-    }, [jwt]);
+    }, []);
 
     const onValueChange = (itemValue) => {
         setSelected(institutionList.find(org => org.id === Number(itemValue)));

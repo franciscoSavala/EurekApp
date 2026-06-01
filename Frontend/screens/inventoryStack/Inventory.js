@@ -15,14 +15,19 @@ import React, {useCallback, useEffect, useState} from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {useFocusEffect} from "@react-navigation/native";
 import EurekappButton from "../components/Button";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
+import { formatDateES } from "../../utils/dateFormatter";
+import EmptyState from "../components/EmptyState";
+import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const PAGE_SIZE = 20;
 
 const Inventory = ({ navigation }) => {
+    const { authFetch } = useAuthFetch();
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [institutesObject, setInstitutesObject] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,12 +41,9 @@ const Inventory = ({ navigation }) => {
     useEffect(() => {
         const fetchPolicy = async () => {
             try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                if (res.data.maxStorageDays != null) {
-                    setMaxStorageDays(res.data.maxStorageDays);
+                const data = await authFetch('get', `${BACK_URL}/organizations/policy`);
+                if (data.maxStorageDays != null) {
+                    setMaxStorageDays(data.maxStorageDays);
                 }
             } catch (e) {
                 if (__DEV__) console.warn('fetchPolicy error:', e);
@@ -67,15 +69,8 @@ const Inventory = ({ navigation }) => {
 
     const fetchFoundObjectsFromOrganization = async (institute, pageNum = 0, append = false) => {
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(
-                `${BACK_URL}/found-objects/organizations/all/${institute.id}`,
-                {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                    params: { page: pageNum, pageSize: PAGE_SIZE },
-                }
-            );
-            const { found_objects = [], has_more = false } = res.data;
+            const data = await authFetch('get', `${BACK_URL}/found-objects/organizations/all/${institute.id}?page=${pageNum}&pageSize=${PAGE_SIZE}`);
+            const { found_objects = [], has_more = false } = data;
             setInstitutesObject(prev => append ? [...prev, ...found_objects] : found_objects);
             setHasMore(has_more);
             setPage(pageNum);
@@ -115,7 +110,6 @@ const Inventory = ({ navigation }) => {
     );
 
     const renderItem = ({item}) => {
-        const date = new Date(item.found_date);
         const storageStatus = getStorageStatus(item.found_date);
         return (
             <Pressable style={styles.item}>
@@ -124,7 +118,7 @@ const Inventory = ({ navigation }) => {
                         {item.title}
                     </Text>
                     <Text style={styles.itemText}>
-                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()}
+                        Encontrado el {formatDateES(item.found_date)}
                     </Text>
                     {storageStatus === 'expired' && (
                         <View style={styles.expiredBadge}>
@@ -152,10 +146,8 @@ const Inventory = ({ navigation }) => {
 
                 <View style={{width:5}}></View>
 
-                <Image
-                    source={item.imageUrl
-                        ? { uri: item.imageUrl }
-                        : require('../../assets/defaultImage.png')}
+                <AppImage
+                    imageUrl={item.imageUrl}
                     style={styles.image}
                     resizeMode="cover"
                     accessibilityLabel="Imagen del objeto"
@@ -166,12 +158,7 @@ const Inventory = ({ navigation }) => {
 
     const NotFoundComponent = () => {
         return (
-            <View style={{height: 200, justifyContent: 'center', alignSelf: 'center'}}>
-                <Text style={{
-                    fontFamily: 'PlusJakartaSans-Regular',
-                    fontSize: 20
-                }}>¡Tu organización no tiene objetos!</Text>
-            </View>
+            <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />
         );
     }
     return (
@@ -213,7 +200,7 @@ const Inventory = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff'
+        backgroundColor: colors.background
     },
     organizationObjectsContainer: {
         flex: 1,
@@ -225,7 +212,7 @@ const styles = StyleSheet.create({
     },
     item: {
         height: 150,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
         paddingHorizontal: 10,
@@ -234,7 +221,7 @@ const styles = StyleSheet.create({
         borderRadius: 16,
     },
     highlightedOrganizationObject: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
     },
     image: {
         width: '100%',     // La imagen ocupará el 100% del ancho del contenedor
@@ -252,19 +239,19 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
     },
     itemText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-Regular'
     },
     organizationHeader: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 24,
         fontWeight: 'bold',
         textAlign: 'center',
         fontFamily: 'PlusJakartaSans-Bold'
     },
     seeDetailsButton: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
         paddingVertical: 8,
         paddingHorizontal: 5,
         borderRadius: 12,
@@ -276,7 +263,7 @@ const styles = StyleSheet.create({
         maxWidth:"40%"
     },
     seeReturnButton: {
-        backgroundColor: '#19e6e6',
+        backgroundColor: colors.primary,
         paddingVertical: 8,
         paddingHorizontal: 5,
         borderRadius: 12,
@@ -288,7 +275,7 @@ const styles = StyleSheet.create({
         maxWidth:"59%"
     },
     buttonText: {
-        color: '#111818',
+        color: colors.text,
         fontWeight: 'bold',
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Bold',
@@ -310,7 +297,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     expiredBadgeText: {
-        color: '#fff',
+        color: colors.background,
         fontSize: 11,
         fontFamily: 'PlusJakartaSans-Bold',
     },
@@ -323,7 +310,7 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     expiringBadgeText: {
-        color: '#fff',
+        color: colors.background,
         fontSize: 11,
         fontFamily: 'PlusJakartaSans-Bold',
     },
@@ -339,7 +326,7 @@ const styles = StyleSheet.create({
         alignSelf: 'center',
     },
     reclamosBtnText: {
-        color: '#fff',
+        color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
     },

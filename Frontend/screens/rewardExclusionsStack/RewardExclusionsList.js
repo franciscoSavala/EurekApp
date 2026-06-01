@@ -8,40 +8,32 @@ import {
     View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from '../../utils/axiosInstance';
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome6';
+import { ROLE_LABELS } from '../../utils/constants';
+import EmptyState from '../components/EmptyState';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const ROLE_LABELS = {
-    ORGANIZATION_EMPLOYEE: 'Empleado',
-    ENCARGADO: 'Encargado',
-    ORGANIZATION_OWNER: 'Responsable de organización',
-};
-
 const RewardExclusionsList = () => {
+    const { authFetch } = useAuthFetch();
     const [exclusions, setExclusions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     const fetchExclusions = async () => {
         try {
-            const [jwt, raw] = await Promise.all([
-                AsyncStorage.getItem('jwt'),
-                AsyncStorage.getItem('user'),
-            ]);
+            const raw = await AsyncStorage.getItem('user');
             if (!raw) return;
             const user = JSON.parse(raw);
             const orgId = user?.organization?.id;
             if (!orgId) return;
 
-            const res = await axiosInstance.get(
-                `${BACK_URL}/found-objects/reward-exclusions/organizations/${orgId}`,
-                { headers: { Authorization: `Bearer ${jwt}` } }
-            );
-            setExclusions(res.data?.exclusions ?? res.data ?? []);
+            const data = await authFetch('get', `${BACK_URL}/found-objects/reward-exclusions/organizations/${orgId}`);
+            setExclusions(data?.exclusions ?? data ?? []);
         } catch (e) {
             console.warn('Error cargando exclusiones:', e);
         }
@@ -112,13 +104,11 @@ const RewardExclusionsList = () => {
                 Registros de objetos cargados por encargados, empleados o responsables que no reciben puntos.
             </Text>
             {exclusions.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                    <Icon name="circle-check" size={40} color="#c0d0d0" />
-                    <Text style={styles.emptyTitle}>Sin exclusiones registradas</Text>
-                    <Text style={styles.emptyDesc}>
-                        No hay casos de exclusión de recompensa en tu organización.
-                    </Text>
-                </View>
+                <EmptyState
+                    icon="circle-check"
+                    title="Sin exclusiones registradas"
+                    description="No hay casos de exclusión de recompensa en tu organización."
+                />
             ) : (
                 <FlatList
                     data={exclusions}
@@ -137,26 +127,26 @@ const RewardExclusionsList = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingTop: 16,
     },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     heading: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 22,
-        color: '#111818',
+        color: colors.text,
         paddingHorizontal: 16,
         marginBottom: 4,
     },
     subheading: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         paddingHorizontal: 16,
         marginBottom: 16,
         lineHeight: 18,
@@ -187,7 +177,7 @@ const styles = StyleSheet.create({
     cardUser: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     cardMeta: {
         flexDirection: 'row',
@@ -201,7 +191,7 @@ const styles = StyleSheet.create({
     metaText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     reasonBadge: {
         backgroundColor: '#fee2e2',
@@ -226,13 +216,13 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 18,
-        color: '#111818',
+        color: colors.text,
         textAlign: 'center',
     },
     emptyDesc: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#638888',
+        color: colors.textMuted,
         textAlign: 'center',
         lineHeight: 20,
     },

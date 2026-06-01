@@ -7,9 +7,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -34,6 +34,7 @@ const STATUS_LABELS = {
 
 const FraudAlertDetail = ({ route }) => {
     const { alertId } = route.params;
+    const { authFetch } = useAuthFetch();
     const [alert, setAlert] = useState(null);
     const [loading, setLoading] = useState(true);
     const [resolving, setResolving] = useState(false);
@@ -45,11 +46,8 @@ const FraudAlertDetail = ({ route }) => {
     const fetchDetail = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(`${BACK_URL}/fraud-alerts/${alertId}`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-            });
-            setAlert(res.data);
+            const data = await authFetch('get', `${BACK_URL}/fraud-alerts/${alertId}`);
+            setAlert(data);
         } catch (error) {
             console.log(error);
         } finally {
@@ -60,12 +58,7 @@ const FraudAlertDetail = ({ route }) => {
     const resolve = async (resolution) => {
         setResolving(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            await axiosInstance.post(
-                `${BACK_URL}/fraud-alerts/${alertId}/resolve`,
-                { resolution },
-                { headers: { Authorization: `Bearer ${jwt}` } }
-            );
+            await authFetch('post', `${BACK_URL}/fraud-alerts/${alertId}/resolve`, { resolution });
             await fetchDetail();
         } catch (error) {
             console.log(error);
@@ -182,7 +175,7 @@ const FraudAlertDetail = ({ route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     content: {
         padding: 20,
@@ -208,30 +201,30 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 13,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#638888',
+        color: colors.textMuted,
         marginTop: 16,
         marginBottom: 2,
     },
     value: {
         fontSize: 15,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#111818',
+        color: colors.text,
     },
     metaText: {
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#638888',
+        color: colors.textMuted,
     },
     infoBox: {
         marginTop: 24,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 10,
         padding: 14,
     },
     infoText: {
         fontSize: 13,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#638888',
+        color: colors.textMuted,
     },
     buttonsRow: {
         flexDirection: 'row',

@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from 'expo-constants';
+import useAuthFetch from '../../utils/useAuthFetch';
+import { colors } from '../../styles/globalStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -65,6 +66,7 @@ const UserAvatar = ({ fullName }) => {
 };
 
 const FraudReport = () => {
+    const { authFetch } = useAuthFetch();
     const [fromDate, setFromDate] = useState(defaultFrom());
     const [toDate, setToDate] = useState(new Date());
     const [showFrom, setShowFrom] = useState(false);
@@ -87,12 +89,9 @@ const FraudReport = () => {
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
             const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
-            const res = await axiosInstance.get(`${BACK_URL}/fraud-alerts/report?${params}`, {
-                headers: { Authorization: `Bearer ${jwt}` },
-            });
-            setEntries(res.data);
+            const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
+            setEntries(data);
         } catch (error) {
             console.log(error);
         } finally {
@@ -278,14 +277,14 @@ const FraudReport = () => {
                 </View>
 
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
-                    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
+                    {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
             </ScrollView>
 
             {entries.length > 0 && (
                 <View style={styles.exportRow}>
                     <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
-                        {exporting ? <ActivityIndicator color="#111818" /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                        {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
                         {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
@@ -313,7 +312,7 @@ const FraudReport = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     filtersContainer: {
         padding: 16,
@@ -330,7 +329,7 @@ const styles = StyleSheet.create({
     filterLabel: {
         fontSize: 13,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: '#638888',
+        color: colors.textMuted,
         marginBottom: 4,
     },
     dateButton: {
@@ -343,7 +342,7 @@ const styles = StyleSheet.create({
     dateButtonText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     statusRow: {
         flexDirection: 'row',
@@ -359,25 +358,25 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
     },
     statusBtnActive: {
-        backgroundColor: '#111818',
-        borderColor: '#111818',
+        backgroundColor: colors.text,
+        borderColor: colors.text,
     },
     statusBtnText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
     },
     statusBtnTextActive: {
-        color: '#fff',
+        color: colors.background,
     },
     generateBtn: {
-        backgroundColor: '#111818',
+        backgroundColor: colors.text,
         borderRadius: 24,
         paddingVertical: 12,
         alignItems: 'center',
     },
     generateBtnText: {
-        color: '#fff',
+        color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
     },
@@ -390,19 +389,19 @@ const styles = StyleSheet.create({
     exportBtn: {
         flex: 1,
         borderWidth: 1,
-        borderColor: '#111818',
+        borderColor: colors.text,
         borderRadius: 24,
         paddingVertical: 10,
         alignItems: 'center',
     },
     exportBtnPdf: {
-        backgroundColor: '#b45309',
-        borderColor: '#b45309',
+        backgroundColor: colors.warning,
+        borderColor: colors.warning,
     },
     exportBtnText: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
     },
     listContent: {
         padding: 16,
@@ -410,7 +409,7 @@ const styles = StyleSheet.create({
         flexGrow: 1,
     },
     card: {
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 16,
         padding: 16,
         marginBottom: 10,
@@ -441,12 +440,12 @@ const styles = StyleSheet.create({
     userName: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 15,
-        color: '#111818',
+        color: colors.text,
     },
     userEmail: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
     },
     actionChip: {
         borderRadius: 12,
@@ -466,16 +465,16 @@ const styles = StyleSheet.create({
     statText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
     },
     statValue: {
         fontFamily: 'PlusJakartaSans-Bold',
-        color: '#111818',
+        color: colors.text,
     },
     reasonsText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
     },
     incidentsContainer: {
         marginTop: 12,
@@ -486,7 +485,7 @@ const styles = StyleSheet.create({
     incidentsTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 6,
     },
     incidentRow: {
@@ -499,19 +498,19 @@ const styles = StyleSheet.create({
     incidentDate: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     incidentReason: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#111818',
+        color: colors.text,
         flex: 1,
         textAlign: 'center',
     },
     incidentStatus: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 12,
-        color: '#638888',
+        color: colors.textMuted,
     },
     emptyContainer: {
         flex: 1,
@@ -522,7 +521,7 @@ const styles = StyleSheet.create({
     emptyText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 15,
-        color: '#638888',
+        color: colors.textMuted,
         textAlign: 'center',
     },
 });

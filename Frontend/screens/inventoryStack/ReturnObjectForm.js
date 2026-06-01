@@ -17,8 +17,9 @@ import {Input, Text} from "react-native-elements";
 import React, {useEffect, useRef, useState} from "react";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Buffer} from "buffer";
 import * as ImagePicker from "expo-image-picker";
@@ -27,6 +28,7 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const isWeb = Platform.OS === 'web';
 
 const ReturnObjectForm = ({ route, navigation}) => {
+    const { authFetch } = useAuthFetch();
     const { control,
         handleSubmit,
         formState: {errors},
@@ -56,23 +58,16 @@ const ReturnObjectForm = ({ route, navigation}) => {
     useEffect(() => {
         const fetchPolicy = async () => {
             try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(`${BACK_URL}/organizations/policy`, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                setPolicy(res.data);
+                const data = await authFetch('get', `${BACK_URL}/organizations/policy`);
+                setPolicy(data);
             } catch (e) {
                 // ignorar si no hay política configurada
             }
         };
         const fetchSuspiciousStatus = async () => {
             try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(`${BACK_URL}/reclamos`, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                    params: { status: 'APROBADO' },
-                });
-                const reclamos = res.data?.reclamos ?? res.data ?? [];
+                const data = await authFetch('get', `${BACK_URL}/reclamos?status=APROBADO`);
+                const reclamos = data?.reclamos ?? data ?? [];
                 const match = reclamos.find(r => r.foundObjectUUID === objectId);
                 if (match?.isSuspicious) setIsSuspicious(true);
             } catch (e) {
@@ -176,7 +171,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
             <View>
                 {buttonWasPressed ? (
                     loading ? (
-                        <ActivityIndicator style={{marginVertical: 10}} size="large" color="#111818" />
+                        <ActivityIndicator style={{marginVertical: 10}} size="large" color={colors.text} />
                     ) : (
                         responseOk ? (
                             <View style={{alignItems: 'center', gap: 8, marginVertical: 10}}>
@@ -212,7 +207,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
         return (
             <TextInput
                 placeholder={text}
-                placeholderTextColor={'#638888'}
+                placeholderTextColor={colors.textMuted}
                 onChangeText={handleTextChange}
                 //onChangeText={onChange}
                 //onChangeText={(value) => setValue(valueName, value)}
@@ -386,13 +381,13 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         <Pressable onPress={pickImage}
                                    style={styles.imageLoadPressable}>
                             <Text style={styles.imageLoadText}>Seleccionar foto</Text>
-                            <Icon name={'upload'} size={24} color={'#bdc1c1'}/>
+                            <Icon name={'upload'} size={24} color={colors.border}/>
                         </Pressable>
                         <View style={{width: 10}}></View>
                         <Pressable onPress={takePhoto}
                                    style={styles.imageLoadPressable}>
                             <Text style={styles.imageLoadText}>Sacar Foto</Text>
-                            <Icon name={'camera'} size={24} color={'#bdc1c1'}/>
+                            <Icon name={'camera'} size={24} color={colors.border}/>
                         </Pressable>
                     </View>
                     <Text style={styles.textError}>{imageRequiredMessage}</Text>
@@ -505,8 +500,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         <EurekappButton text="Capturar foto" onPress={captureFrame} />
                         <EurekappButton
                             text="Cancelar"
-                            backgroundColor={'#f0f4f4'}
-                            textColor={'#111818'}
+                            backgroundColor={colors.surface}
+                            textColor={colors.text}
                             onPress={stopCamera} />
                     </View>
                 </View>
@@ -521,7 +516,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         justifyContent: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     formContainer: {
         flex: 1,
@@ -534,7 +529,7 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         margin: 10,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         padding: 8,
         borderRadius: 24
     },
@@ -564,15 +559,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#bdc1c1',
-        backgroundColor: '#fff',
+        borderColor: colors.border,
+        backgroundColor: colors.background,
         paddingVertical: 16,
         paddingHorizontal: 12,
     },
     imageLoadText: {
         fontSize: 16,
         fontWeight: 'normal',
-        color: '#638888',
+        color: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular'
     },
     textError: {
@@ -585,11 +580,11 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         alignSelf: 'stretch',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         fontSize: 16,
         fontWeight: 'normal',
-        placeholderTextColor: '#638888',
+        placeholderTextColor: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
         paddingVertical: 10,
         paddingHorizontal: 20,
@@ -599,14 +594,14 @@ const styles = StyleSheet.create({
     label: {
         alignSelf: 'flex-start',
         marginLeft: 10,
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
     },
     policyBlock: {
         alignSelf: 'stretch',
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 12,
         padding: 14,
         marginHorizontal: 10,
@@ -615,26 +610,26 @@ const styles = StyleSheet.create({
     policyTitle: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 8,
     },
     policyItem: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
-        color: '#111818',
+        color: colors.text,
         marginBottom: 4,
     },
     policyItemStrict: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
-        color: '#b45309',
+        color: colors.warning,
         marginBottom: 4,
     },
     fraudWarning: {
         alignSelf: 'stretch',
-        backgroundColor: '#fef3c7',
+        backgroundColor: colors.warningBg,
         borderLeftWidth: 4,
-        borderLeftColor: '#b45309',
+        borderLeftColor: colors.warning,
         borderRadius: 8,
         padding: 12,
         marginHorizontal: 10,
@@ -653,7 +648,7 @@ const styles = StyleSheet.create({
     },
     modalView: {
         margin: 20,
-        backgroundColor: 'white',
+        backgroundColor: colors.background,
         borderRadius: 20,
         padding: 35,
         alignItems: 'center',

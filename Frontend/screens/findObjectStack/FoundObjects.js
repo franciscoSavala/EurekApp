@@ -6,11 +6,10 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
 import StarRating from "../components/StarRating";
 import submitFeedback from "../../services/FeedbackService";
-
-const CATEGORY_LABELS = {
-    ELECTRONICA: 'Electrónica', ROPA: 'Ropa', DOCUMENTOS: 'Documentos',
-    LLAVES: 'Llaves', ACCESORIOS: 'Accesorios', OTROS: 'Otros',
-};
+import { CATEGORY_LABELS } from "../../utils/constants";
+import { formatDateTimeES } from "../../utils/dateFormatter";
+import AppImage from "../components/AppImage";
+import BaseModal from "../components/BaseModal";
 
 
 const FoundObjects = ({ route, navigation }) => {
@@ -70,7 +69,6 @@ const FoundObjects = ({ route, navigation }) => {
             </Pressable>
         );*/}
         const isSelected = item.id === objectSelectedId;
-        const date = new Date(item.found_date);
         return (
             <Pressable style={[styles.item, isSelected && styles.highlightedObjectFound]}
                        onPress={() => setObjectSelectedId(item.id)}>
@@ -84,13 +82,11 @@ const FoundObjects = ({ route, navigation }) => {
                     </Text>
                     <Text></Text>
                     <Text style={styles.itemText}>
-                        Encontrado el {date.getDate()}/{date.getMonth() + 1}/{date.getFullYear()} a las {date.toLocaleTimeString()}, a {(item.distance / 1000).toFixed(2)} km
+                        Encontrado el {formatDateTimeES(item.found_date)}, a {(item.distance / 1000).toFixed(2)} km
                     </Text>
                 </View>
-                <Image
-                    source={item.imageUrl
-                        ? { uri: item.imageUrl }
-                        : require('../../assets/defaultImage.png')}
+                <AppImage
+                    imageUrl={item.imageUrl}
                     style={styles.image}
                     resizeMode="cover"
                     accessibilityLabel="Imagen del objeto encontrado"
@@ -159,13 +155,7 @@ const FoundObjects = ({ route, navigation }) => {
                                    organizationId={organizationId}
                                    coordinates={coordinates}/>
             {/* Modal de feedback */}
-            <Modal
-                animationType="fade"
-                transparent={true}
-                visible={feedbackModal}
-                onRequestClose={() => onFeedbackDone(true)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
+            <BaseModal visible={feedbackModal} onClose={() => onFeedbackDone(true)}>
                         <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>
                             ¿Qué tan útiles fueron las coincidencias?
                         </Text>
@@ -195,17 +185,11 @@ const FoundObjects = ({ route, navigation }) => {
                                 <Text style={[styles.feedbackBtnText, { color: 'white' }]}>Enviar</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
-                </View>
-            </Modal>
+            </BaseModal>
 
-            <Modal
-                animationType="none"
-                transparent={true}
+            <BaseModal
                 visible={organizationInformationModal}
-                onRequestClose={() => setOrganizationInformationModal(!organizationInformationModal)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
+                onClose={() => setOrganizationInformationModal(!organizationInformationModal)}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                         <Text style={styles.modalText}>
                             Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}
@@ -221,9 +205,7 @@ const FoundObjects = ({ route, navigation }) => {
                         </Text>
                         <EurekappButton text='Cerrar'
                                         onPress={handleClaimConfirmed}/>
-                    </View>
-                </View>
-            </Modal>
+            </BaseModal>
         </View>
     );
 }

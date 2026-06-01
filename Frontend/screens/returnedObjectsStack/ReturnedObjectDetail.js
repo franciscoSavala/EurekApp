@@ -15,25 +15,22 @@ import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from "buffer";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import ReactNativeBlobUtil from "react-native-blob-util";
 import {CommonActions, useNavigation} from "@react-navigation/native";
-import axiosInstance from "../../utils/axiosInstance";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
+import { ROLE_LABELS } from "../../utils/constants";
+import { formatDateTimeES } from "../../utils/dateFormatter";
+import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const FormData = global.FormData;
 
-const ROLE_LABELS = {
-    ORGANIZATION_EMPLOYEE: 'Empleado',
-    ENCARGADO: 'Encargado',
-    ORGANIZATION_OWNER: 'Responsable de organización',
-    USER: 'Usuario',
-};
-
 const ReturnedObjectDetail = ({route}) => {
+    const { authFetch } = useAuthFetch();
     // ReturnFoundObject data (rfo)
     const [rfo, setRfo] = useState(null);
     const [error, setError] = useState(false);
@@ -48,25 +45,13 @@ const ReturnedObjectDetail = ({route}) => {
 
     const fetchData = async () => {
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             if (Platform.OS === 'web') {
-                // Enviar datos como JSON en la web
-                let config = {
-                    headers: {
-                        'Authorization': authHeader
-                    }
-                }
-                let response = await axiosInstance.post(`${BACK_URL}/found-objects/getReturnedObject`, {
+                const data = await authFetch('post', `${BACK_URL}/found-objects/getReturnedObject`, {
                     foundObjectUUID: route.params.foundObjectUUID.toString(),
-                }, config);
-
-                if (response.status === 200) {
-                    setRfo(response.data)
-                } else {
-                }
+                });
+                setRfo(data);
             } else {
                 // Enviar datos usando react-native-blob-util en móviles
-
             }
         } catch (error) {
             console.log(error);
@@ -95,7 +80,6 @@ const ReturnedObjectDetail = ({route}) => {
         );
     }
 
-    const returnDateTime = new Date(rfo.returnDateTime);
     return (
         <View style={{flex: 1, backgroundColor: '#fff'}}>
             <ScrollView contentContainerStyle={styles.formContainer}>
@@ -105,10 +89,8 @@ const ReturnedObjectDetail = ({route}) => {
                 <View style={styles.textAreaContainer}>
                     <Text style={styles.label}>Foto: </Text>
                 </View>
-                <Image
-                    source={ rfo.personPhoto_b64Json
-                        ? { uri: `data:image/jpeg;base64,${rfo.personPhoto_b64Json}` }
-                        : require('../../assets/defaultImage.png') }
+                <AppImage
+                    b64Json={rfo.personPhoto_b64Json}
                     style={styles.image}
                     resizeMode="cover"
                 />
@@ -124,7 +106,7 @@ const ReturnedObjectDetail = ({route}) => {
 
 
                 <View style={styles.textAreaContainer}>
-                    <Text style={styles.label}>Devuelto el {returnDateTime.getDate()}/{returnDateTime.getMonth() + 1}/{returnDateTime.getFullYear()} a las {returnDateTime.toLocaleTimeString()}</Text>
+                    <Text style={styles.label}>Devuelto el {formatDateTimeES(rfo.returnDateTime)}</Text>
                 </View>
 
                 {!!rfo.finderFullName && (
@@ -256,15 +238,15 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         borderRadius: 12,
         borderWidth: 2,
-        borderColor: '#bdc1c1',
-        backgroundColor: '#fff',
+        borderColor: colors.border,
+        backgroundColor: colors.background,
         paddingVertical: 16,
         paddingHorizontal: 12,
     },
     imageLoadText: {
         fontSize: 16,
         fontWeight: 'normal',
-        color: '#638888',
+        color: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular'
     },
     textAreaContainer: {
@@ -278,8 +260,8 @@ const styles = StyleSheet.create({
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         padding: 16,
         fontSize: 16,
         fontWeight: 'normal',
@@ -293,7 +275,7 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start'
     },
     headerText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 24,
         fontWeight: 'bold',
         textAlign: 'center',
@@ -301,12 +283,12 @@ const styles = StyleSheet.create({
     },
     iconContainer: {
         margin: 10,
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         padding: 8,
         borderRadius: 24
     },
     label: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
@@ -320,7 +302,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     title: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Bold',
@@ -329,12 +311,12 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         paddingHorizontal: 24,
         gap: 16,
     },
     errorText: {
-        color: '#638888',
+        color: colors.textMuted,
         fontSize: 16,
         fontFamily: 'PlusJakartaSans-Regular',
         textAlign: 'center',

@@ -13,25 +13,17 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import EurekappButton from "../components/Button";
 import InstitutePicker from "../components/InstitutePicker";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import useAuthFetch from "../../utils/useAuthFetch";
+import { colors } from "../../styles/globalStyles";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import {useFocusEffect} from "@react-navigation/native";
 import MapViewComponent from "../components/MapViewComponent";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import Icon from "react-native-vector-icons/FontAwesome6";
-
-const CATEGORIES = [
-    { value: 'ELECTRONICA', label: 'Electrónica' },
-    { value: 'ROPA', label: 'Ropa' },
-    { value: 'DOCUMENTOS', label: 'Documentos' },
-    { value: 'LLAVES', label: 'Llaves' },
-    { value: 'ACCESORIOS', label: 'Accesorios' },
-    { value: 'OTROS', label: 'Otros' },
-];
+import { CATEGORIES } from "../../utils/constants";
 
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -43,6 +35,7 @@ const toLocalISO = (date) => {
 };
 
 const FindObject = ({ navigation, route }) => {
+    const { authFetch } = useAuthFetch();
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
@@ -101,21 +94,14 @@ const FindObject = ({ navigation, route }) => {
         setLoading(true);
         setButtonWasPressed(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             const effectiveQuery = filterColor
                 ? `${filterColor} ${queryObjects}`.trim()
                 : queryObjects;
-            let config = {
-                params: {
-                    ...(effectiveQuery ? { query: effectiveQuery } : {}),
-                    'lost_date': toLocalISO(lostDate),
-                },
-                headers: {
-                    'Authorization': authHeader
-                }
-            }
-            if (filterCategory) config.params.category = filterCategory;
-            if (filterLostDateTo) config.params.lost_date_to = toLocalISO(filterLostDateTo);
+            const params = new URLSearchParams({ lost_date: toLocalISO(lostDate) });
+            if (effectiveQuery) params.append('query', effectiveQuery);
+            if (filterCategory) params.append('category', filterCategory);
+            if (filterLostDateTo) params.append('lost_date_to', toLocalISO(filterLostDateTo));
+
             const routeParams = {
                 query: queryObjects,
                 lostDate: lostDate,
@@ -123,18 +109,15 @@ const FindObject = ({ navigation, route }) => {
                 filterCategory,
                 filterColor,
                 filterLostDateTo,
-            }
-            // Incluimos las coordenadas solo si se seleccionó una organización.
+            };
             if (!selectedInstitute) {
-                config.params.latitude = objectMarker.latitude;  // Incluye latitud
-                config.params.longitude = objectMarker.longitude; // Incluye longitud
+                params.append('latitude', objectMarker.latitude);
+                params.append('longitude', objectMarker.longitude);
                 routeParams.longitude = objectMarker.longitude;
                 routeParams.latitude = objectMarker.latitude;
             }
-            let endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
-            let res = await axiosInstance.get(BACK_URL + endpoint, //esto es inseguro pero ok...
-                config );
-            let jsonData = res.data;
+            const endpoint = '/found-objects' + (selectedInstitute ? `/organizations/${selectedInstitute.id}` : '');
+            const jsonData = await authFetch('get', `${BACK_URL}${endpoint}?${params.toString()}`);
             const foundObjects = jsonData.found_objects ?? [];
             routeParams.objectsFound = foundObjects;
 
@@ -248,7 +231,7 @@ const FindObject = ({ navigation, route }) => {
                 )}
 
                 {buttonWasPressed ? (
-                    loading ? <ActivityIndicator size="large" color="#111818" />: null
+                    loading ? <ActivityIndicator size="large" color={colors.text} />: null
                 ) : null
                 }
             </ScrollView>
@@ -256,8 +239,8 @@ const FindObject = ({ navigation, route }) => {
             <EurekappButton
                 text="Buscar por foto"
                 onPress={() => navigation.navigate('SearchByPhoto')}
-                backgroundColor={'#f0f4f4'}
-                textColor={'#111818'}
+                backgroundColor={colors.surface}
+                textColor={colors.text}
             />
         </View>
     );
@@ -266,7 +249,7 @@ const FindObject = ({ navigation, route }) => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     formContainer: {
         flexGrow: 1,
@@ -288,7 +271,7 @@ const styles = StyleSheet.create({
         marginVertical: 10,
     },
     labelText: {
-        color: '#111818',
+        color: colors.text,
         fontSize: 16,
         fontWeight: '500',
         fontFamily: 'PlusJakartaSans-Regular'
@@ -305,12 +288,12 @@ const styles = StyleSheet.create({
         resize: 'none',
         overflow: 'hidden',
         borderRadius: 12,
-        color: '#111818',
-        backgroundColor: '#f0f4f4',
+        color: colors.text,
+        backgroundColor: colors.surface,
         padding: 16,
         fontSize: 16,
         fontWeight: 'normal',
-        placeholderTextColor: '#638888',
+        placeholderTextColor: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
         marginBottom: 10,
     },
@@ -326,13 +309,13 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start',
     },
     filterToggleText: {
-        color: '#638888',
+        color: colors.textMuted,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     filtersContainer: {
         alignSelf: 'stretch',
-        backgroundColor: '#f0f4f4',
+        backgroundColor: colors.surface,
         borderRadius: 12,
         padding: 12,
         marginBottom: 10,
@@ -348,14 +331,14 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 14,
         borderRadius: 20,
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
     },
     categoryChipActive: {
         backgroundColor: '#19b8b8',
     },
     categoryChipText: {
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     categoryChipTextActive: {
@@ -363,23 +346,23 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Bold',
     },
     colorInput: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         borderRadius: 10,
         paddingVertical: 10,
         paddingHorizontal: 14,
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     dateButton: {
-        backgroundColor: '#fff',
+        backgroundColor: colors.background,
         borderRadius: 10,
         paddingVertical: 10,
         paddingHorizontal: 14,
     },
     dateButtonText: {
         fontSize: 14,
-        color: '#111818',
+        color: colors.text,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     clearFiltersButton: {
@@ -391,7 +374,7 @@ const styles = StyleSheet.create({
     },
     clearFiltersText: {
         fontSize: 13,
-        color: '#638888',
+        color: colors.textMuted,
         fontFamily: 'PlusJakartaSans-Regular',
     },
 });
