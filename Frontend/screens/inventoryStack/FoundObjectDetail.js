@@ -113,8 +113,8 @@ const FoundObjectDetail = ({route}) => {
                     <Text style={styles.label}>Foto: </Text>
                 </View>
                 <Image
-                    source={ fo.b64Json
-                        ? { uri: `data:image/jpeg;base64,${fo.b64Json}` }
+                    source={ fo.imageUrl
+                        ? { uri: fo.imageUrl }
                         : require('../../assets/defaultImage.png') }
                     style={styles.image}
                     resizeMode="cover"
