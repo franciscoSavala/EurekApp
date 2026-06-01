@@ -199,7 +199,7 @@ public class ReclamoService {
         if (reclamo.getUser() == null || !reclamo.getUser().getId().equals(user.getId())) {
             throw new ForbiddenException("forbidden", "No tenés permiso para ver este reclamo");
         }
-        return toDto(reclamo, true);
+        return toDto(reclamo, true, false);
     }
 
     // --- helpers ---
@@ -221,6 +221,10 @@ public class ReclamoService {
     }
 
     private ReclamoDto toDto(Reclamo reclamo, boolean includeDetail) {
+        return toDto(reclamo, includeDetail, true);
+    }
+
+    private ReclamoDto toDto(Reclamo reclamo, boolean includeDetail, boolean includeInternalInfo) {
         String orgId = reclamo.getOrganizationId();
         Long userId = reclamo.getUser() != null ? reclamo.getUser().getId() : null;
 
@@ -278,7 +282,7 @@ public class ReclamoService {
                                             .foundObjectStreetNumber(org.getStreetNumber()));
                         } catch (NumberFormatException ignored) {}
                     }
-                    if (fo.getObjectFinderUser() != null) {
+                    if (includeInternalInfo && fo.getObjectFinderUser() != null) {
                         UserEurekapp finder = fo.getObjectFinderUser();
                         builder.finderEmail(finder.getUsername())
                                 .finderFullName(finder.getFirstName() + " " + finder.getLastName())
@@ -307,7 +311,7 @@ public class ReclamoService {
                                 .id(h.getId())
                                 .previousStatus(h.getPreviousStatus() != null ? h.getPreviousStatus().name() : null)
                                 .newStatus(h.getNewStatus().name())
-                                .changedByEmail(h.getChangedBy() != null ? h.getChangedBy().getUsername() : null)
+                                .changedByEmail(includeInternalInfo && h.getChangedBy() != null ? h.getChangedBy().getUsername() : null)
                                 .changedAt(h.getChangedAt())
                                 .note(h.getNote())
                                 .build())
