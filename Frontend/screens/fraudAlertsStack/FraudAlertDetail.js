@@ -130,7 +130,7 @@ const FraudAlertDetail = ({ route }) => {
                     ) : null}
                 </View>
             ) : (
-                <Text style={styles.value}>{alert.foundObjectUUID || 'No especificado'}</Text>
+                <Text style={styles.value}>Objeto no especificado</Text>
             )}
 
             <Text style={styles.sectionLabel}>Fecha de detección</Text>
