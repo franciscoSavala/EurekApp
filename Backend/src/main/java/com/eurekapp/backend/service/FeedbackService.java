@@ -41,7 +41,9 @@ public class FeedbackService {
                 .build();
         feedbackRepository.save(fb);
 
-        if (Boolean.TRUE.equals(dto.getWasFound()) && dto.getFoundObjectUUID() != null) {
+        if (Boolean.TRUE.equals(dto.getWasFound())
+                && dto.getFoundObjectUUID() != null
+                && !dto.getFoundObjectUUID().isBlank()) {
             FoundObject fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
             reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
         }
