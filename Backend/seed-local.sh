@@ -223,12 +223,12 @@ INSERT INTO users (id, username, password, active, first_name, last_name, role, 
 (2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'González',  'ORGANIZATION_OWNER',     1,    150,  3),
 (3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernández', 'ORGANIZATION_OWNER',     2,    80,   2),
 (4,  'encargado.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Carlos',   'Mendoza',   'ENCARGADO',              1,    0,    0),
-(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucía',    'Pérez',     'ORGANIZATION_EMPLOYEE',  1,    30,   1),
+(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucía',    'Pérez',     'ORGANIZATION_EMPLOYEE',  1,    20,   0),
 (6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomás',    'Ramírez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
 (7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
 (8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 20,   1),
 (9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 10,   1),
-(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    10,   1);
+(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0);
 SQL
 success "10 usuarios insertados"
 
@@ -464,9 +464,12 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reward_exclusions
   (found_objectuuid, user_id, user_role, reason, excluded_at, organization_id)
 VALUES
-('$FO_UUID_4', 4, 'ENCARGADO', 'INCOMPATIBLE_ROLE', '2026-05-10 09:15:00', '1');
+('$FO_UUID_4',  6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 09:00:00', '1'),
+('$FO_UUID_6',  5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 09:00:00', '1'),
+('$FO_UUID_7',  10,'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-22 09:00:00', '1'),
+('$FO_UUID_11', 6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-20 09:00:00', '1');
 SQL
-success "1 exclusión de recompensa registrada (encargado)"
+success "4 exclusiones de recompensa registradas (empleados internos)"
 
 # ─── 14. Insertar SearchFeedback ─────────────────────────────────────────────
 header "Insertando SearchFeedback"
@@ -591,7 +594,7 @@ echo -e "${GREEN}${BOLD}║${NC}  MySQL                                         
 echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 1                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 4                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
