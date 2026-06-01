@@ -46,18 +46,28 @@ public class ReclamoService {
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject, String claimDescription) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
-                || feedback.getOrganizationId() == null) {
+                || feedback.getFoundObjectUUID().isBlank()) {
             return;
         }
+
+        // Derivar organizationId del FoundObject si el feedback no lo incluye
+        String orgId = (feedback.getOrganizationId() != null && !feedback.getOrganizationId().isBlank())
+                ? feedback.getOrganizationId()
+                : (foundObject != null ? foundObject.getOrganizationId() : null);
+
+        if (orgId == null) {
+            return;
+        }
+
         // Evitar duplicados: un usuario solo puede tener un reclamo por objeto
         Optional<Reclamo> existing = reclamoRepository.findByOrganizationIdAndFoundObjectUUIDAndUser_Id(
-                feedback.getOrganizationId(), feedback.getFoundObjectUUID(), feedback.getUser().getId());
+                orgId, feedback.getFoundObjectUUID(), feedback.getUser().getId());
         if (existing.isPresent()) {
             return;
         }
         String category = foundObject != null ? foundObject.getCategory() : null;
         Reclamo reclamo = Reclamo.builder()
-                .organizationId(feedback.getOrganizationId())
+                .organizationId(orgId)
                 .foundObjectUUID(feedback.getFoundObjectUUID())
                 .foundObjectCategory(category)
                 .user(feedback.getUser())

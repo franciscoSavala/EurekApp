@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
+import {Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -27,6 +27,13 @@ const FoundObjects = ({ route, navigation }) => {
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const openFeedback = (wasFound) => {
+        if (wasFound && !objectSelectedId) {
+            Alert.alert(
+                'Seleccioná tu objeto',
+                'Tocá la coincidencia que es tuya antes de continuar.'
+            );
+            return;
+        }
         setPendingWasFound(wasFound);
         setStarRating(0);
         setComment('');
