@@ -171,12 +171,11 @@ public class FoundObjectController {
         return ResponseEntity.ok(returnFoundObjectService.getReturnFoundObject(user, command.getFoundObjectUUID()));
     }
 
-    @GetMapping("/reward-exclusions/organizations/{organizationId}")
+    @GetMapping("/reward-exclusions")
     @Operation(summary = "Consultar exclusiones de recompensa",
             description = "Devuelve los casos en que no se otorgó recompensa por incompatibilidad de funciones (encargado/empleado). Solo accesible por el responsable de la organización.")
     public ResponseEntity<RewardExclusionListDto> getRewardExclusions(
-            @AuthenticationPrincipal UserEurekapp user,
-            @PathVariable Long organizationId) {
-        return ResponseEntity.ok(returnFoundObjectService.getRewardExclusions(user, organizationId));
+            @AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(returnFoundObjectService.getRewardExclusions(user));
     }
 }

@@ -16,11 +16,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import jakarta.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.List;
-
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +33,11 @@ public class ReturnFoundObjectService {
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectService.class);
     private static final DateTimeFormatter DISPLAY_FORMATTER = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final Map<String, String> ROLE_LABELS = Map.of(
+            "ORGANIZATION_EMPLOYEE", "Empleado",
+            "ENCARGADO", "Encargado",
+            "ORGANIZATION_OWNER", "Responsable"
+    );
 
 
     private final IOrganizationRepository organizationRepository;
@@ -257,14 +264,16 @@ public class ReturnFoundObjectService {
      * Devuelve todos los casos en que no se otorgó recompensa por incompatibilidad de funciones,
      * para auditoría por parte del responsable de la organización.
      */
-    public RewardExclusionListDto getRewardExclusions(UserEurekapp user, Long organizationId) {
+    @Transactional
+    public RewardExclusionListDto getRewardExclusions(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de recompensa");
         }
-        if (user.getOrganization() == null || !user.getOrganization().getId().equals(organizationId)) {
-            throw new ForbiddenException("forbidden", "No pertenece a esta organización");
+        if (user.getOrganization() == null) {
+            throw new ForbiddenException("forbidden", "No pertenece a ninguna organización");
         }
-        List<RewardExclusion> exclusions = rewardExclusionRepository.findByOrganizationId(organizationId.toString());
+        String orgId = user.getOrganization().getId().toString();
+        List<RewardExclusion> exclusions = rewardExclusionRepository.findByOrganizationId(orgId);
         List<RewardExclusionDto> dtos = exclusions.stream().map(RewardExclusionDto::from).toList();
         return new RewardExclusionListDto(dtos);
     }
@@ -307,24 +316,36 @@ public class ReturnFoundObjectService {
         String rfoUsername = null;
         if(rfo.getUserEurekapp() != null){rfoUsername = rfo.getUserEurekapp().getUsername();}
 
-        // Datos del finder y motivo de exclusión de recompensa
+        // Datos del finder y motivo de exclusión de recompensa.
+        // La exclusión de MySQL es la fuente primaria: evita depender del proxy Hibernate de Weaviate.
         String finderEmail = null;
         String finderFullName = null;
         String finderRole = null;
         Boolean rewardExcluded = null;
         String rewardExclusionMessage = null;
 
-        if (fo.getObjectFinderUser() != null) {
-            UserEurekapp finder = fo.getObjectFinderUser();
-            finderEmail = finder.getUsername();
-            finderFullName = finder.getFirstName() + " " + finder.getLastName();
-            finderRole = finder.getRole() != null ? finder.getRole().name() : null;
-
-            boolean hasExclusion = rewardExclusionRepository.existsByFoundObjectUUID(foundObjectUUID);
-            rewardExcluded = hasExclusion;
-            rewardExclusionMessage = hasExclusion
-                    ? "El usuario que encontró el objeto no puede recibir recompensas de puntos por ser un miembro activo de la organización"
-                    : "El usuario que encontró el objeto puede recibir recompensas de puntos";
+        Optional<RewardExclusion> exclusionOpt = rewardExclusionRepository.findByFoundObjectUUID(foundObjectUUID);
+        if (exclusionOpt.isPresent()) {
+            RewardExclusion exclusion = exclusionOpt.get();
+            UserEurekapp finder = userRepository.findById(exclusion.getUser().getId()).orElse(null);
+            if (finder != null) {
+                finderEmail = finder.getUsername();
+                finderFullName = finder.getFirstName() + " " + finder.getLastName();
+                finderRole = exclusion.getUserRole().name();
+            }
+            rewardExcluded = true;
+            String roleLabel = ROLE_LABELS.getOrDefault(exclusion.getUserRole().name(), exclusion.getUserRole().name());
+            rewardExclusionMessage = "Sin recompensa de puntos: incompatibilidad de funciones (" + roleLabel + ")";
+        } else if (fo.getObjectFinderUser() != null) {
+            // Finder sin exclusión: resolverlo desde la BD directamente (evita proxy lazy)
+            Long finderId = fo.getObjectFinderUser().getId();
+            UserEurekapp finder = finderId != null ? userRepository.findById(finderId).orElse(null) : null;
+            if (finder != null) {
+                finderEmail = finder.getUsername();
+                finderFullName = finder.getFirstName() + " " + finder.getLastName();
+                finderRole = finder.getRole() != null ? finder.getRole().name() : null;
+            }
+            rewardExcluded = false;
         }
 
         return ReturnFoundObjectDto.builder()

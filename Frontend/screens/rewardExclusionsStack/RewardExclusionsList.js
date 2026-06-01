@@ -7,7 +7,6 @@ import {
     Text,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
@@ -26,13 +25,7 @@ const RewardExclusionsList = () => {
 
     const fetchExclusions = async () => {
         try {
-            const raw = await AsyncStorage.getItem('user');
-            if (!raw) return;
-            const user = JSON.parse(raw);
-            const orgId = user?.organization?.id;
-            if (!orgId) return;
-
-            const data = await authFetch('get', `${BACK_URL}/found-objects/reward-exclusions/organizations/${orgId}`);
+            const data = await authFetch('get', `${BACK_URL}/found-objects/reward-exclusions`);
             setExclusions(data?.exclusions ?? data ?? []);
         } catch (e) {
             console.warn('Error cargando exclusiones:', e);
