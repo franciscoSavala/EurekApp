@@ -58,8 +58,7 @@ public class FraudDetectionService {
     }
 
     private void checkMultipleClaimers(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription) {
-        long count = feedbackRepository
-                .countByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(orgId, foundObjectUUID);
+        long count = reclamoRepository.countByOrganizationIdAndFoundObjectUUID(orgId, foundObjectUUID);
         if (count > 1) {
             String details = "Múltiples usuarios reclamaron ser dueños del objeto con UUID: "
                     + foundObjectUUID + ". Total de reclamantes: " + count;
@@ -330,7 +329,7 @@ public class FraudDetectionService {
                 List<FraudClaimantDto> reclamoClaimants = reclamoRepository
                         .findByFoundObjectUUID(a.getFoundObjectUUID())
                         .stream()
-                        .filter(r -> a.getOrganizationId().equals(r.getOrganizationId()))
+                        .filter(r -> r.getOrganizationId() == null || a.getOrganizationId().equals(r.getOrganizationId()))
                         .filter(r -> r.getUser() != null)
                         .map(r -> FraudClaimantDto.builder()
                                 .userId(r.getUser().getId())

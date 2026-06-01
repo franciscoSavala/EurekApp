@@ -43,6 +43,7 @@ public class ReclamoService {
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final IOrganizationRepository organizationRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
+    private final FraudDetectionService fraudDetectionService;
 
     public void createReclamo(SearchFeedback feedback, FoundObject foundObject, String claimDescription) {
         if (feedback.getUser() == null || feedback.getFoundObjectUUID() == null
@@ -112,6 +113,7 @@ public class ReclamoService {
                 .updatedAt(now)
                 .build();
         Reclamo saved = reclamoRepository.save(reclamo);
+        fraudDetectionService.checkForFraud(dto.getOrganizationId(), dto.getFoundObjectUUID(), user, dto.getClaimDescription(), fo);
         return toDto(saved, false);
     }
 

@@ -28,10 +28,20 @@ public class FeedbackService {
     private final ISearchFeedbackRepository feedbackRepository;
     private final ReclamoService reclamoService;
     private final FoundObjectRepository foundObjectRepository;
+    private final FraudDetectionService fraudDetectionService;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
+        FoundObject fo = null;
+        if (dto.getFoundObjectUUID() != null && !dto.getFoundObjectUUID().isBlank()) {
+            fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
+        }
+
+        String orgId = (dto.getOrganizationId() != null && !dto.getOrganizationId().isBlank())
+                ? dto.getOrganizationId()
+                : (fo != null ? fo.getOrganizationId() : null);
+
         SearchFeedback fb = SearchFeedback.builder()
-                .organizationId(dto.getOrganizationId())
+                .organizationId(orgId)
                 .foundObjectUUID(dto.getFoundObjectUUID())
                 .starRating(dto.getStarRating())
                 .wasFound(dto.getWasFound())
@@ -44,8 +54,10 @@ public class FeedbackService {
         if (Boolean.TRUE.equals(dto.getWasFound())
                 && dto.getFoundObjectUUID() != null
                 && !dto.getFoundObjectUUID().isBlank()) {
-            FoundObject fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
             reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
+            if (orgId != null) {
+                fraudDetectionService.checkForFraud(orgId, dto.getFoundObjectUUID(), user, dto.getClaimDescription(), fo);
+            }
         }
     }
 
