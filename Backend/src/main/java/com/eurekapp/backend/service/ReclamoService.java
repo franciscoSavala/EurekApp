@@ -266,9 +266,12 @@ public class ReclamoService {
                         builder.foundObjectLatitude(fo.getCoordinates().getLatitude())
                                 .foundObjectLongitude(fo.getCoordinates().getLongitude());
                     }
-                    if (fo.getOrganizationId() != null) {
+                    String effectiveOrgId = fo.getOrganizationId() != null
+                            ? fo.getOrganizationId()
+                            : reclamo.getOrganizationId();
+                    if (effectiveOrgId != null) {
                         try {
-                            organizationRepository.findById(Long.parseLong(fo.getOrganizationId()))
+                            organizationRepository.findById(Long.parseLong(effectiveOrgId))
                                     .ifPresent(org -> builder
                                             .foundObjectOrganizationName(org.getName())
                                             .foundObjectStreet(org.getStreet())
