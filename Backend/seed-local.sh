@@ -148,38 +148,58 @@ SET FOREIGN_KEY_CHECKS = 1;
 SQL
 success "MySQL limpio"
 
-# ─── 7. Limpiar Weaviate ─────────────────────────────────────────────────────
-header "Limpiando Weaviate"
+# ─── 7. Limpiar Weaviate (nuke total) ────────────────────────────────────────
+header "Limpiando Weaviate (nuke total)"
 
 for CLASS in FoundObject LostObject; do
-  curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"match\": {
-        \"class\": \"$CLASS\",
-        \"where\": {
-          \"path\": [\"title\"],
-          \"operator\": \"Like\",
-          \"valueText\": \"*\"
-        }
-      }
-    }" >/dev/null 2>&1 || true
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X DELETE "$WEAVIATE_URL/v1/schema/$CLASS")
+  if [[ "$HTTP" == "200" ]]; then
+    success "  Clase $CLASS eliminada"
+  else
+    warn "  DELETE /v1/schema/$CLASS → HTTP $HTTP (puede que no existiera)"
+  fi
 done
 
-curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
+sleep 2
+
+curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
   -H "Content-Type: application/json" \
   -d '{
-    "match": {
-      "class": "LostObject",
-      "where": {
-        "path": ["description"],
-        "operator": "Like",
-        "valueText": "*"
-      }
-    }
-  }' >/dev/null 2>&1 || true
+    "class": "FoundObject",
+    "description": "Clase para representar objetos encontrados.",
+    "vectorIndexType": "hnsw",
+    "vectorIndexConfig": {"distance": "cosine"},
+    "properties": [
+      {"name": "found_date",            "dataType": ["date"]},
+      {"name": "title",                 "dataType": ["string"]},
+      {"name": "human_description",     "dataType": ["string"]},
+      {"name": "ai_description",        "dataType": ["string"]},
+      {"name": "organization_id",       "dataType": ["text"]},
+      {"name": "coordinates",           "dataType": ["geoCoordinates"]},
+      {"name": "was_returned",          "dataType": ["boolean"]},
+      {"name": "object_finder_user_id", "dataType": ["text"]},
+      {"name": "category",              "dataType": ["text"]}
+    ]
+  }' >/dev/null && success "  Schema FoundObject recreado" || warn "  No se pudo recrear FoundObject"
 
-success "Weaviate limpio"
+curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "LostObject",
+    "description": "Clase para representar busquedas abiertas de un objeto perdido.",
+    "vectorIndexType": "hnsw",
+    "vectorIndexConfig": {"distance": "cosine"},
+    "properties": [
+      {"name": "lost_date",       "dataType": ["date"]},
+      {"name": "description",     "dataType": ["string"]},
+      {"name": "username",        "dataType": ["string"]},
+      {"name": "organization_id", "dataType": ["text"]},
+      {"name": "coordinates",     "dataType": ["geoCoordinates"]}
+    ]
+  }' >/dev/null && success "  Schema LostObject recreado" || warn "  No se pudo recrear LostObject"
+
+success "Weaviate limpio y schema recreado"
 
 # ─── 8. Insertar Organizaciones ──────────────────────────────────────────────
 header "Insertando Organizaciones"

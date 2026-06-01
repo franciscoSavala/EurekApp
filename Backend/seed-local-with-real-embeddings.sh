@@ -12,6 +12,12 @@ header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
 MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
 WEAVIATE_URL="http://localhost:8081"
 
+# Cargar credenciales AWS desde .env.local si existe y AWS CLI no tiene sesión activa
+ENV_LOCAL="$(dirname "$0")/.env.local"
+if [[ -f "$ENV_LOCAL" ]]; then
+  set -a; source "$ENV_LOCAL"; set +a
+fi
+
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════╗${NC}"
 echo -e "${CYAN}${BOLD}║    EurekApp — Seed Base de Datos     ║${NC}"
@@ -131,38 +137,58 @@ SET FOREIGN_KEY_CHECKS = 1;
 SQL
 success "MySQL limpio"
 
-# ─── 7. Limpiar Weaviate ─────────────────────────────────────────────────────
-header "Limpiando Weaviate"
+# ─── 7. Limpiar Weaviate (nuke total) ────────────────────────────────────────
+header "Limpiando Weaviate (nuke total)"
 
 for CLASS in FoundObject LostObject; do
-  curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"match\": {
-        \"class\": \"$CLASS\",
-        \"where\": {
-          \"path\": [\"title\"],
-          \"operator\": \"Like\",
-          \"valueText\": \"*\"
-        }
-      }
-    }" >/dev/null 2>&1 || true
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X DELETE "$WEAVIATE_URL/v1/schema/$CLASS")
+  if [[ "$HTTP" == "200" ]]; then
+    success "  Clase $CLASS eliminada"
+  else
+    warn "  DELETE /v1/schema/$CLASS → HTTP $HTTP (puede que no existiera)"
+  fi
 done
 
-curl -sf -X POST "$WEAVIATE_URL/v1/batch/objects/delete" \
+sleep 2
+
+curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
   -H "Content-Type: application/json" \
   -d '{
-    "match": {
-      "class": "LostObject",
-      "where": {
-        "path": ["description"],
-        "operator": "Like",
-        "valueText": "*"
-      }
-    }
-  }' >/dev/null 2>&1 || true
+    "class": "FoundObject",
+    "description": "Clase para representar objetos encontrados.",
+    "vectorIndexType": "hnsw",
+    "vectorIndexConfig": {"distance": "cosine"},
+    "properties": [
+      {"name": "found_date",            "dataType": ["date"]},
+      {"name": "title",                 "dataType": ["string"]},
+      {"name": "human_description",     "dataType": ["string"]},
+      {"name": "ai_description",        "dataType": ["string"]},
+      {"name": "organization_id",       "dataType": ["text"]},
+      {"name": "coordinates",           "dataType": ["geoCoordinates"]},
+      {"name": "was_returned",          "dataType": ["boolean"]},
+      {"name": "object_finder_user_id", "dataType": ["text"]},
+      {"name": "category",              "dataType": ["text"]}
+    ]
+  }' >/dev/null && success "  Schema FoundObject recreado" || warn "  No se pudo recrear FoundObject"
 
-success "Weaviate limpio"
+curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "class": "LostObject",
+    "description": "Clase para representar busquedas abiertas de un objeto perdido.",
+    "vectorIndexType": "hnsw",
+    "vectorIndexConfig": {"distance": "cosine"},
+    "properties": [
+      {"name": "lost_date",       "dataType": ["date"]},
+      {"name": "description",     "dataType": ["string"]},
+      {"name": "username",        "dataType": ["string"]},
+      {"name": "organization_id", "dataType": ["text"]},
+      {"name": "coordinates",     "dataType": ["geoCoordinates"]}
+    ]
+  }' >/dev/null && success "  Schema LostObject recreado" || warn "  No se pudo recrear LostObject"
+
+success "Weaviate limpio y schema recreado"
 
 # ─── 8. Insertar Organizaciones ──────────────────────────────────────────────
 header "Insertando Organizaciones"
@@ -334,15 +360,64 @@ INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by
 SQL
 success "1 entrada de reclamo_history insertada"
 
-# ─── 19. Upload de imagenes a S3 (solo fotos de retorno) ─────────────────────
+# ─── 19. Upload de imagenes a S3 ─────────────────────────────────────────────
 header "Imagenes S3"
 
-# No se sube ninguna imagen desde este script:
-#  - FoundObjects: cada uno se carga a Weaviate con su UUID real, que ya apunta a
-#    una imagen existente en S3 (subida por la API al cargar via endpoints).
-#  - person-photo (retornos): se omitieron los return_found_objects, asi que no
-#    hay fotos de retorno que subir.
-info "Sin uploads de imagenes (FoundObjects ya tienen su imagen en S3 por UUID)."
+S3_BUCKET="eurekapp-temp-local"
+S3_REGION="sa-east-1"
+IMG_DIR="$(dirname "$0")/seed-data/images"
+mkdir -p "$IMG_DIR"
+
+FO_KEYS=(
+  "$FO_UUID_1" "$FO_UUID_2" "$FO_UUID_3" "$FO_UUID_4"
+  "$FO_UUID_5" "$FO_UUID_6" "$FO_UUID_8" "$FO_UUID_9"
+  "$FO_UUID_10" "$FO_UUID_11"
+)
+PERSON_KEYS=("person-photo-001" "person-photo-002" "person-photo-003" "person-photo-004" "person-photo-005")
+
+S3_UPLOADED=0
+
+upload_image() {
+  local KEY="$1" SEED="$2" IS_PORTRAIT="${3:-false}"
+  local CACHED="$IMG_DIR/${KEY}.jpg"
+
+  # Si ya existe en S3, saltear
+  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
+    info "  S3 ✓ $KEY (ya existia)"
+    S3_UPLOADED=$((S3_UPLOADED + 1))
+    return
+  fi
+
+  # Descargar solo si no esta cacheada localmente
+  if [[ ! -f "$CACHED" ]]; then
+    local SIZE="400/300"
+    [[ "$IS_PORTRAIT" == "true" ]] && SIZE="300/400"
+    curl -sL "https://picsum.photos/seed/${SEED}/${SIZE}" -o "$CACHED" 2>/dev/null \
+      || { warn "  No se pudo descargar imagen para $KEY"; return; }
+  fi
+
+  aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
+    && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
+    || warn "  S3 ✗ $KEY"
+}
+
+if command -v aws &>/dev/null && aws sts get-caller-identity --region "$S3_REGION" >/dev/null 2>&1; then
+  info "AWS CLI detectado — verificando/subiendo imagenes..."
+  i=1
+  for KEY in "${FO_KEYS[@]}"; do
+    upload_image "$KEY" "fo$(printf '%02d' $i)"
+    i=$((i + 1))
+  done
+  i=1
+  for KEY in "${PERSON_KEYS[@]}"; do
+    upload_image "$KEY" "pp$(printf '%02d' $i)" "true"
+    i=$((i + 1))
+  done
+  success "$S3_UPLOADED imagenes OK en S3 (bucket: $S3_BUCKET)"
+else
+  warn "AWS CLI no disponible o sin credenciales — se omite upload de imagenes"
+  warn "Al tener credenciales, correr el script de nuevo para subir las imagenes"
+fi
 
 # ─── 20. Resumen ─────────────────────────────────────────────────────────────
 echo ""
