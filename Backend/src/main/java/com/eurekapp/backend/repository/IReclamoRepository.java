@@ -28,4 +28,5 @@ public interface IReclamoRepository extends JpaRepository<Reclamo, Long> {
     List<Reclamo> findByFoundObjectUUID(String foundObjectUUID);
     List<Reclamo> findByUser_Id(Long userId);
     long countByOrganizationIdAndUserAndStatus(String orgId, UserEurekapp user, ClaimStatus status);
+    long countByOrganizationIdAndFoundObjectUUID(String organizationId, String foundObjectUUID);
 }
