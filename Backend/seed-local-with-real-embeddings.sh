@@ -194,12 +194,15 @@ success "Weaviate limpio y schema recreado"
 header "Insertando Organizaciones"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
-INSERT INTO organizations (id, name, contact_data, latitude, longitude) VALUES
-(1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',     -31.4377, -64.1829),
-(2, 'Terminal de Omnibus Cordoba',        'objetos@terminalcordoba.com',          -31.4201, -64.1888),
-(3, 'Aeropuerto Internacional Cordoba',   'objetosperdidos@aa2000.com.ar',        -31.3233, -64.2081);
+INSERT INTO organizations (id, name, contact_data, street, street_number, latitude, longitude) VALUES
+(1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',  'Maestro Marcelo López',      '3814', -31.4377, -64.1829),
+(2, 'Terminal de Omnibus Cordoba',        'objetos@terminalcordoba.com',       'Bvd. Perón',                 '380',  -31.4201, -64.1888),
+(3, 'Aeropuerto Internacional Cordoba',   'objetosperdidos@aa2000.com.ar',     'Av. Fuerza Aérea Argentina', '6900', -31.3233, -64.2081),
+(4, 'Shopping Patio Olmos',               'objetos@patioolomos.com.ar',        'Vélez Sársfield',            '361',  -31.4163, -64.1885),
+(5, 'UNC Ciudad Universitaria',           'objetosperdidos@unc.edu.ar',        'Av. Vélez Sársfield',        '5000', -31.4384, -64.1917),
+(6, 'Dinosaurio Mall',                    'objetos@dinosauriomall.com.ar',     'Av. Ejército Argentino',     '6050', -31.3693, -64.2254);
 SQL
-success "3 organizaciones insertadas"
+success "6 organizaciones insertadas"
 
 # ─── 9. Insertar Usuarios ────────────────────────────────────────────────────
 header "Insertando Usuarios"
@@ -217,9 +220,15 @@ INSERT INTO users (id, username, password, active, first_name, last_name, role, 
 (7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
 (8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 20,   1),
 (9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0),
-(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',    'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0);
+(10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',     'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0),
+(11, 'owner.patio@eurekapp.com',    '$HASH_ESCAPED', 1, 'Camila',    'Vargas',    'ORGANIZATION_OWNER',     4,    0,    0),
+(12, 'emp1.patio@eurekapp.com',     '$HASH_ESCAPED', 1, 'Ignacio',   'Molina',    'ORGANIZATION_EMPLOYEE',  4,    0,    0),
+(13, 'owner.unc@eurekapp.com',      '$HASH_ESCAPED', 1, 'Diego',     'Salinas',   'ORGANIZATION_OWNER',     5,    0,    0),
+(14, 'emp1.unc@eurekapp.com',       '$HASH_ESCAPED', 1, 'Florencia', 'Torres',    'ORGANIZATION_EMPLOYEE',  5,    0,    0),
+(15, 'owner.dino@eurekapp.com',     '$HASH_ESCAPED', 1, 'Sebastián', 'Romero',    'ORGANIZATION_OWNER',     6,    0,    0),
+(16, 'emp1.dino@eurekapp.com',      '$HASH_ESCAPED', 1, 'Natalia',   'Gutiérrez', 'ORGANIZATION_EMPLOYEE',  6,    0,    0);
 SQL
-success "10 usuarios insertados"
+success "16 usuarios insertados"
 
 # ─── 10. Insertar FoundObjects en Weaviate (desde NDJSON con embeddings reales) ─
 header "Insertando FoundObjects en Weaviate"
@@ -311,7 +320,7 @@ INSERT INTO return_found_objects
   (found_objectuuid, user_id, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
 ('$FO_UUID_6',  7,    '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
-('$FO_UUID_11', NULL, '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', NULL,                  NULL),
+('$FO_UUID_11', NULL, '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
 ('$FO_UUID_2',  NULL, '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
 ('$FO_UUID_8',  8,    '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
 ('$FO_UUID_9',  7,    '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
@@ -474,8 +483,8 @@ echo -e "${GREEN}${BOLD}╔═════════════════�
 echo -e "${GREEN}${BOLD}║          EurekApp — Seed completado exitosamente         ║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 3                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 10                            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 6                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
@@ -501,6 +510,12 @@ echo -e "${GREEN}${BOLD}║${NC}    encargado.utn@eurekapp.com  → ENCARGADO (U
 echo -e "${GREEN}${BOLD}║${NC}    emp1.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    emp2.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    emp1.aero@eurekapp.com      → EMPLOYEE (Aeropuerto)   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.patio@eurekapp.com   → OWNER  (Patio Olmos)    ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.patio@eurekapp.com    → EMPLOYEE (Patio Olmos)  ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.unc@eurekapp.com     → OWNER  (UNC)            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.unc@eurekapp.com      → EMPLOYEE (UNC)          ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    owner.dino@eurekapp.com    → OWNER  (Dinosaurio Mall)${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.dino@eurekapp.com     → EMPLOYEE (Dinosaurio)   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    julia@mail.com              → USER  (XP: 30)          ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    pedro@mail.com              → USER  (XP: 20)          ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    valeria@mail.com            → USER  (XP: 0)           ${GREEN}${BOLD}║${NC}"
