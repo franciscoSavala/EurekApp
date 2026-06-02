@@ -17,4 +17,6 @@ public class FoundObjectsListDto {
     private List<FoundObjectDto> foundObjects;
     @JsonProperty("has_more")
     private Boolean hasMore;
+    @JsonProperty("generated_description")
+    private String generatedDescription;
 }

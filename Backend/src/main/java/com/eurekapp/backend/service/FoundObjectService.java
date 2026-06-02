@@ -401,6 +401,7 @@ public class FoundObjectService implements IFoundObjectService {
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
+                .generatedDescription(description)
                 .build();
     }
 

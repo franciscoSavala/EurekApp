@@ -85,6 +85,7 @@ const SearchByPhoto = ({ navigation }) => {
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let objectsFound;
+            let generatedDescription;
 
             if (isWeb) {
                 const formData = new FormData();
@@ -99,6 +100,7 @@ const SearchByPhoto = ({ navigation }) => {
                 }
                 const json = await response.json();
                 objectsFound = json.found_objects;
+                generatedDescription = json.generated_description;
             } else {
                 const response = await ReactNativeBlobUtil.fetch(
                     'POST',
@@ -114,9 +116,10 @@ const SearchByPhoto = ({ navigation }) => {
                 }
                 const json = response.json();
                 objectsFound = json.found_objects;
+                generatedDescription = json.generated_description;
             }
 
-            navigation.navigate('PhotoSearchResults', { objectsFound });
+            navigation.navigate('PhotoSearchResults', { objectsFound, generatedDescription });
         } catch (error) {
             console.error(error);
             Toast.show({ type: 'error', text1: 'Error', text2: 'Hubo un problema al cargar la foto. Intenta de nuevo.' });

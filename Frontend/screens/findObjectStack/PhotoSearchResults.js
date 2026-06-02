@@ -11,7 +11,7 @@ import BaseModal from '../components/BaseModal';
 import { colors } from '../../styles/globalStyles';
 
 const PhotoSearchResults = ({ route, navigation }) => {
-    const { objectsFound } = route.params;
+    const { objectsFound, generatedDescription } = route.params;
     const results = objectsFound.slice(0, 5);
     const foundObjectsMap = new Map(results.map(obj => [obj.id, obj]));
 
@@ -104,7 +104,19 @@ const PhotoSearchResults = ({ route, navigation }) => {
                         </View>
                     </View>
                 </View>
-                <EurekappButton text="Nueva búsqueda" onPress={() => navigation.goBack()} />
+                <EurekappButton text="Guardar búsqueda" onPress={() => setUploadLostObjectModal(true)} />
+                <EurekappButton
+                    text="Nueva búsqueda"
+                    onPress={() => navigation.goBack()}
+                    backgroundColor={colors.background}
+                    textColor={colors.textMuted} />
+                <UploadLostObjectModal
+                    modalVisible={uploadLostObjectModal}
+                    setModalVisible={setUploadLostObjectModal}
+                    query={generatedDescription}
+                    lostDate={null}
+                    organizationId={null}
+                    coordinates={null} />
             </View>
         );
     }
@@ -143,7 +155,7 @@ const PhotoSearchResults = ({ route, navigation }) => {
             <UploadLostObjectModal
                 modalVisible={uploadLostObjectModal}
                 setModalVisible={setUploadLostObjectModal}
-                query={null}
+                query={generatedDescription}
                 lostDate={null}
                 organizationId={null}
                 coordinates={null} />
