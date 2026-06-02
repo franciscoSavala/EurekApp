@@ -16,6 +16,7 @@ import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { isIOS } from '../../utils/platform';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -223,7 +224,7 @@ const FraudReport = () => {
                                     autoFocus
                                 />
                             ) : (
-                                <DateTimePicker value={fromDate} mode="date" display="default"
+                                <DateTimePicker value={fromDate} mode="date" display={isIOS ? 'inline' : 'default'}
                                     onChange={(_, d) => { setShowFrom(false); if (d) setFromDate(d); }} />
                             )
                         )}
@@ -244,7 +245,7 @@ const FraudReport = () => {
                                     autoFocus
                                 />
                             ) : (
-                                <DateTimePicker value={toDate} mode="date" display="default"
+                                <DateTimePicker value={toDate} mode="date" display={isIOS ? 'inline' : 'default'}
                                     onChange={(_, d) => { setShowTo(false); if (d) setToDate(d); }} />
                             )
                         )}
