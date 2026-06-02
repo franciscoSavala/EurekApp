@@ -49,6 +49,7 @@ import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
 import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import Notifications from "./screens/notificationsStack/Notifications";
+import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
 
@@ -573,12 +574,15 @@ const App = () => {
     if (!fontsLoaded || sessionLoading) return (<View></View>);
 
     return (
-        <NavigationContainer>
-            <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
-                <AxiosSetup />
-                {user ? <EurekappTab /> : <AuthStackScreen />}
-            </LoginContext.Provider>
-        </NavigationContainer>
+        <>
+            <NavigationContainer>
+                <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
+                    <AxiosSetup />
+                    {user ? <EurekappTab /> : <AuthStackScreen />}
+                </LoginContext.Provider>
+            </NavigationContainer>
+            <Toast />
+        </>
     );
 }
 

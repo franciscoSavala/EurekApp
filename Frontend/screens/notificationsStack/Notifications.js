@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     RefreshControl,
     StyleSheet,
@@ -9,6 +8,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import Toast from 'react-native-toast-message';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
@@ -92,10 +92,18 @@ const Notifications = ({ navigation, route }) => {
             await markAsRead(notifId);
             fetchNotifications();
             const orgName = res.data?.organization?.name ?? "la organización";
-            Alert.alert("¡Solicitud aceptada!", `Ahora formas parte de ${orgName}.`);
+            Toast.show({
+                type: 'success',
+                text1: '¡Solicitud aceptada!',
+                text2: `Ahora formas parte de ${orgName}.`,
+            });
         } catch (e) {
             console.log("Error accepting request", e);
-            Alert.alert("Error", "No se pudo aceptar la solicitud. Intentá de nuevo.");
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudo aceptar la solicitud. Intentá de nuevo.',
+            });
         }
     };
 
