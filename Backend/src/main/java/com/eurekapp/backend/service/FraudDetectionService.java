@@ -276,19 +276,32 @@ public class FraudDetectionService {
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
         StringBuilder sb = new StringBuilder(
-                "userId,email,fullName,fraudCount,confirmedFraudCount,pendingCount,gravityLevel,reasons,suggestedAction\n");
+                "userId;email;fullName;fraudCount;confirmedFraudCount;pendingCount;gravityLevel;reasons;suggestedAction\n");
         for (FraudUserReportEntryDto entry : report) {
-            sb.append(entry.getUserId()).append(',')
-              .append(entry.getEmail()).append(',')
-              .append(entry.getFullName().replace(",", " ")).append(',')
-              .append(entry.getFraudCount()).append(',')
-              .append(entry.getConfirmedFraudCount()).append(',')
-              .append(entry.getPendingCount()).append(',')
-              .append(entry.getGravityLevel()).append(',')
-              .append(String.join("|", entry.getReasons())).append(',')
-              .append(entry.getSuggestedAction()).append('\n');
+            sb.append(entry.getUserId()).append(';')
+              .append(csvField(entry.getEmail())).append(';')
+              .append(csvField(entry.getFullName())).append(';')
+              .append(entry.getFraudCount()).append(';')
+              .append(entry.getConfirmedFraudCount()).append(';')
+              .append(entry.getPendingCount()).append(';')
+              .append(entry.getGravityLevel()).append(';')
+              .append(csvField(String.join("|", entry.getReasons()))).append(';')
+              .append(csvField(entry.getSuggestedAction())).append('\n');
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
+        byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] result = new byte[bom.length + content.length];
+        System.arraycopy(bom, 0, result, 0, bom.length);
+        System.arraycopy(content, 0, result, bom.length, content.length);
+        return result;
+    }
+
+    private static String csvField(String v) {
+        if (v == null) return "";
+        if (v.contains(";") || v.contains("\"") || v.contains("\n")) {
+            return "\"" + v.replace("\"", "\"\"") + "\"";
+        }
+        return v;
     }
 
     private void validateAccess(UserEurekapp user) {
