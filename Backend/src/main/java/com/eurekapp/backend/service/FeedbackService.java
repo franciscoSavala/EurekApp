@@ -131,17 +131,30 @@ public class FeedbackService {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
 
-        StringBuilder sb = new StringBuilder("id,organizationId,foundObjectUUID,starRating,wasFound,createdAt,comment\n");
+        StringBuilder sb = new StringBuilder("id;organizationId;foundObjectUUID;starRating;wasFound;createdAt;comment\n");
         for (SearchFeedback f : feedbacks) {
-            sb.append(f.getId()).append(',')
-              .append(f.getOrganizationId() != null ? f.getOrganizationId() : "").append(',')
-              .append(f.getFoundObjectUUID() != null ? f.getFoundObjectUUID() : "").append(',')
-              .append(f.getStarRating()).append(',')
-              .append(f.getWasFound()).append(',')
-              .append(f.getCreatedAt()).append(',')
-              .append(f.getComment() != null ? f.getComment().replace(",", ";") : "").append('\n');
+            sb.append(f.getId()).append(';')
+              .append(f.getOrganizationId() != null ? f.getOrganizationId() : "").append(';')
+              .append(f.getFoundObjectUUID() != null ? f.getFoundObjectUUID() : "").append(';')
+              .append(f.getStarRating()).append(';')
+              .append(f.getWasFound()).append(';')
+              .append(f.getCreatedAt()).append(';')
+              .append(csvField(f.getComment())).append('\n');
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
+        byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] result = new byte[bom.length + content.length];
+        System.arraycopy(bom, 0, result, 0, bom.length);
+        System.arraycopy(content, 0, result, bom.length, content.length);
+        return result;
+    }
+
+    private static String csvField(String v) {
+        if (v == null) return "";
+        if (v.contains(";") || v.contains("\"") || v.contains("\n")) {
+            return "\"" + v.replace("\"", "\"\"") + "\"";
+        }
+        return v;
     }
 
     private List<FeedbackTimeSeriesPointDto> buildTimeSeries(List<SearchFeedback> feedbacks, String groupBy) {

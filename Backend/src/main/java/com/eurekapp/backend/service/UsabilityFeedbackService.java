@@ -112,16 +112,29 @@ public class UsabilityFeedbackService {
         List<UsabilityFeedback> feedbacks = repository.findByUser_Organization_IdAndCreatedAtBetween(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
 
-        StringBuilder sb = new StringBuilder("id,starRating,aspects,comment,context,createdAt\n");
+        StringBuilder sb = new StringBuilder("id;starRating;aspects;comment;context;createdAt\n");
         for (UsabilityFeedback f : feedbacks) {
-            sb.append(f.getId()).append(',')
-              .append(f.getStarRating()).append(',')
-              .append(f.getAspects() != null ? f.getAspects().replace(",", ";") : "").append(',')
-              .append(f.getComment() != null ? f.getComment().replace(",", ";") : "").append(',')
-              .append(f.getContext() != null ? f.getContext() : "").append(',')
+            sb.append(f.getId()).append(';')
+              .append(f.getStarRating()).append(';')
+              .append(csvField(f.getAspects())).append(';')
+              .append(csvField(f.getComment())).append(';')
+              .append(f.getContext() != null ? f.getContext() : "").append(';')
               .append(f.getCreatedAt()).append('\n');
         }
-        return sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
+        byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
+        byte[] result = new byte[bom.length + content.length];
+        System.arraycopy(bom, 0, result, 0, bom.length);
+        System.arraycopy(content, 0, result, bom.length, content.length);
+        return result;
+    }
+
+    private static String csvField(String v) {
+        if (v == null) return "";
+        if (v.contains(";") || v.contains("\"") || v.contains("\n")) {
+            return "\"" + v.replace("\"", "\"\"") + "\"";
+        }
+        return v;
     }
 
     private List<UsabilityTimeSeriesPointDto> buildTimeSeries(List<UsabilityFeedback> feedbacks, String groupBy) {
