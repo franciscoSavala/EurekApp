@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
     View,
     Text,
@@ -30,6 +31,15 @@ const SearchByPhoto = ({ navigation }) => {
     const [imageByte, setImageByte] = useState(new Buffer('something'));
     const [imageUploaded, setImageUploaded] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            setImage({});
+            setImageByte(new Buffer('something'));
+            setImageUploaded(false);
+            setLoading(false);
+        }, [])
+    );
 
     const imagePickerConfig = {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
