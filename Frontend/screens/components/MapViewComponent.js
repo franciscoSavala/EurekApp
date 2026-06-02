@@ -3,7 +3,7 @@ import {Text, TextInput, View, StyleSheet, Platform} from "react-native";
 import React, {useEffect, useRef, useState} from "react";
 import {MapContainer, TileLayer, Marker as LeafletMarker, useMap} from 'react-leaflet';
 import * as Location from "expo-location";
-import { Alert } from 'react-native';
+import Toast from 'react-native-toast-message';
 import "leaflet/dist/leaflet.css";
 import L from 'leaflet';
 
@@ -30,7 +30,7 @@ const MapViewComponent = ({objectMarker, setObjectMarker, labelText, markerIsDra
         const getUserLocation = async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission to access location was denied');
+                Toast.show({ type: 'error', text1: 'Permiso de ubicación denegado' });
                 return;
             }
             let location = await Location.getCurrentPositionAsync({});

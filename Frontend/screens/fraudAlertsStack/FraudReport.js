@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
+import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Platform,
     ScrollView,
@@ -152,7 +152,7 @@ const FraudReport = () => {
             await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
-            Alert.alert('Error', 'No se pudo exportar el PDF. Intentá nuevamente.');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo exportar el PDF. Intentá nuevamente.' });
         } finally {
             setExportingPdf(false);
         }

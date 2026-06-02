@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from "react";
+import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
-    Alert,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -69,21 +69,13 @@ const FindObject = ({ navigation, route }) => {
         }, [])
     );
 
-    const showAlert = (message) => {
-        if (Platform.OS === 'web') {
-            window.alert(message);
-        } else {
-            Alert.alert("", message);
-        }
-    };
-
     const validateInputConstraints = () => {
         if (!queryObjects.trim() && !filterCategory) {
-            showAlert("Debes ingresar una descripción o seleccionar una categoría para realizar la búsqueda.");
+            Toast.show({ type: 'error', text1: 'Campos requeridos', text2: 'Debes ingresar una descripción o seleccionar una categoría para realizar la búsqueda.' });
             return false;
         }
         if (queryObjects.length > 255) {
-            showAlert("La descripción del objeto es muy larga");
+            Toast.show({ type: 'error', text1: 'Error', text2: 'La descripción del objeto es muy larga' });
             return false;
         }
         return true;
@@ -129,7 +121,7 @@ const FindObject = ({ navigation, route }) => {
 
         } catch (error) {
             if (__DEV__) console.error(error);
-            showAlert('No se pudo realizar la búsqueda. Verificá tu conexión.');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo realizar la búsqueda. Verificá tu conexión.' });
         } finally {
             setLoading(false);
         }

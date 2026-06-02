@@ -1,6 +1,7 @@
 import React, {useState} from "react";
 
-import {Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
+import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
+import Toast from 'react-native-toast-message';
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import UploadLostObjectModal from "./UploadLostObjectModal";
@@ -28,10 +29,7 @@ const FoundObjects = ({ route, navigation }) => {
 
     const openFeedback = (wasFound) => {
         if (wasFound && !objectSelectedId) {
-            Alert.alert(
-                'Seleccioná tu objeto',
-                'Tocá la coincidencia que es tuya antes de continuar.'
-            );
+            Toast.show({ type: 'info', text1: 'Seleccioná tu objeto', text2: 'Tocá la coincidencia que es tuya antes de continuar.' });
             return;
         }
         setPendingWasFound(wasFound);

@@ -8,8 +8,8 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    Alert,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from 'buffer';
 import EurekappButton from '../components/Button';
@@ -42,12 +42,12 @@ const SearchByPhoto = ({ navigation }) => {
         if (!result.canceled) {
             const asset = result.assets[0];
             if (!ALLOWED_MIME_TYPES.includes(asset.mimeType)) {
-                Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+                Toast.show({ type: 'error', text1: 'Formato no permitido', text2: 'Solo se permiten imágenes .jpg, .jpeg o .png' });
                 return;
             }
             const bytes = Buffer.from(asset.base64, 'base64');
             if (bytes.length / 1024 / 1024 > MAX_SIZE_MB) {
-                Alert.alert('Imagen muy grande', `La foto no debe superar los ${MAX_SIZE_MB} MB`);
+                Toast.show({ type: 'error', text1: 'Imagen muy grande', text2: `La foto no debe superar los ${MAX_SIZE_MB} MB` });
                 return;
             }
             setImage(asset);
@@ -68,7 +68,7 @@ const SearchByPhoto = ({ navigation }) => {
 
     const searchByPhoto = async () => {
         if (!imageUploaded) {
-            Alert.alert('Error', 'Por favor seleccioná una foto para buscar');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'Por favor seleccioná una foto para buscar' });
             return;
         }
         setLoading(true);
@@ -109,7 +109,7 @@ const SearchByPhoto = ({ navigation }) => {
             navigation.navigate('PhotoSearchResults', { objectsFound });
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Hubo un problema al cargar la foto. Intenta de nuevo.');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'Hubo un problema al cargar la foto. Intenta de nuevo.' });
         } finally {
             setLoading(false);
         }

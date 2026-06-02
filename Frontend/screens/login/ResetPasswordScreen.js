@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
+import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
-    Alert,
     ImageBackground,
-    Platform,
     StyleSheet,
     Text,
     TextInput,
@@ -27,11 +26,6 @@ const ResetPasswordScreen = ({ navigation, route }) => {
     const [resending, setResending] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-
-    const showAlert = (msg) => {
-        if (Platform.OS === 'web') window.alert(msg);
-        else Alert.alert('', msg);
-    };
 
     const validate = () => {
         if (!token.trim() || token.trim().length !== 6) {
@@ -86,7 +80,7 @@ const ResetPasswordScreen = ({ navigation, route }) => {
         setErrorMessage('');
         try {
             await axiosInstance.post(`${BACK_URL}/forgot-password`, { email });
-            showAlert('Código reenviado. Revisá tu correo.');
+            Toast.show({ type: 'success', text1: 'Código reenviado', text2: 'Revisá tu correo.' });
         } catch (e) {
             setErrorMessage('No se pudo reenviar el código.');
         } finally {

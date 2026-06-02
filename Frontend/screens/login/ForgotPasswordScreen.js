@@ -2,13 +2,11 @@ import React, { useState } from 'react';
 import {
     ActivityIndicator,
     ImageBackground,
-    Platform,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
-    Alert,
 } from 'react-native';
 import { Image } from 'react-native-elements';
 import axiosInstance from '../../utils/axiosInstance';
@@ -20,11 +18,6 @@ const ForgotPasswordScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
-
-    const showAlert = (msg) => {
-        if (Platform.OS === 'web') window.alert(msg);
-        else Alert.alert('', msg);
-    };
 
     const handleSend = async () => {
         if (!email.trim()) {

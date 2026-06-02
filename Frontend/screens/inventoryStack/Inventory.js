@@ -1,6 +1,6 @@
+import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Image,
     Modal,
@@ -76,7 +76,7 @@ const Inventory = ({ navigation }) => {
             setPage(pageNum);
         } catch (error) {
             if (__DEV__) console.error(error);
-            Alert.alert('Error', 'No se pudo cargar el inventario. Verificá tu conexión.');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo cargar el inventario. Verificá tu conexión.' });
         } finally {
             setLoading(false);
             setLoadingMore(false);

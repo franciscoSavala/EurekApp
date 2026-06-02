@@ -9,8 +9,9 @@ import {
     ActivityIndicator,
     ImageBackground,
     ScrollView,
-    KeyboardAvoidingView, Modal, Alert, TouchableOpacity, Switch
+    KeyboardAvoidingView, Modal, TouchableOpacity, Switch
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 
 const MAX_IMAGE_SIZE_MB = 10;
 
@@ -133,7 +134,7 @@ const handleImagePicked = (result) => {
     if (!result.canceled) {
         const asset = result.assets[0];
         if (!ALLOWED_MIME_TYPES.includes(asset.mimeType)) {
-            Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+            Toast.show({ type: 'error', text1: 'Formato no permitido', text2: 'Solo se permiten imágenes .jpg, .jpeg o .png' });
             return;
         }
         setImage(asset);
@@ -155,7 +156,7 @@ const handleWebFileInput = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-        Alert.alert('Formato no permitido', 'Solo se permiten imágenes .jpg, .jpeg o .png');
+        Toast.show({ type: 'error', text1: 'Formato no permitido', text2: 'Solo se permiten imágenes .jpg, .jpeg o .png' });
         return;
     }
     const reader = new FileReader();
@@ -227,21 +228,21 @@ const stopCamera = () => {
 
 const validateConstraints = () => {
     if (!imageUploaded){
-        Alert.alert('Error', 'Por favor sube una imagen');
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Por favor sube una imagen' });
         return false;
     }
     const trimmedTitle = objectTitle.trim();
     if (!trimmedTitle) {
-        Alert.alert('Error', 'Por favor escribí un título para la publicación');
+        Toast.show({ type: 'error', text1: 'Error', text2: 'Por favor escribí un título para la publicación' });
         return false;
     }
     if (trimmedTitle.length > 100) {
-        Alert.alert('Error', 'El título no puede superar los 100 caracteres');
+        Toast.show({ type: 'error', text1: 'Error', text2: 'El título no puede superar los 100 caracteres' });
         return false;
     }
     setObjectTitle(trimmedTitle);
     if(imageByte.length / 1024 / 1024 > MAX_IMAGE_SIZE_MB){
-        Alert.alert('Error', `Por favor sube una imagen de menos de ${MAX_IMAGE_SIZE_MB}MB`);
+        Toast.show({ type: 'error', text1: 'Error', text2: `Por favor sube una imagen de menos de ${MAX_IMAGE_SIZE_MB}MB` });
         return false;
     }
     return true;
@@ -292,7 +293,7 @@ const submitData = async () => {
                 const errorData = await response.json();
                 const msg = (errorData.details && errorData.details[0]) || errorData.message || 'No se pudo registrar el objeto. Revisá los datos ingresados.';
                 setError('ObjectFinderUsername', { type: 'manual', message: msg });
-                Alert.alert('Error', msg);
+                Toast.show({ type: 'error', text1: 'Error', text2: msg });
             }
         } else {
             // Enviar datos usando react-native-blob-util en móviles
@@ -325,15 +326,15 @@ const submitData = async () => {
                 try {
                     const errorData = JSON.parse(response.data);
                     const msg = (errorData.details && errorData.details[0]) || errorData.message || 'No se pudo registrar el objeto. Revisá los datos ingresados.';
-                    Alert.alert('Error', msg);
+                    Toast.show({ type: 'error', text1: 'Error', text2: msg });
                 } catch {
-                    Alert.alert('Error', 'No se pudo registrar el objeto. Revisá los datos ingresados.');
+                    Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo registrar el objeto. Revisá los datos ingresados.' });
                 }
             }
         }
     } catch (error) {
         if (__DEV__) console.error(error);
-        Alert.alert('Error', 'No se pudo subir el objeto. Verificá tu conexión.');
+        Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo subir el objeto. Verificá tu conexión.' });
         setResponseOk(false);
         setShowSubmitButton(true);
     } finally {

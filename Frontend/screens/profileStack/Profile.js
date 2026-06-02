@@ -2,9 +2,9 @@ import React, {useContext, useEffect, useState} from "react";
 import { Ionicons } from '@expo/vector-icons';
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 
+import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     Image,
     Modal,
@@ -119,11 +119,11 @@ const Profile = ({ route, navigation }) => {
             const raw = await AsyncStorage.getItem('user');
             if (raw) setUserRole(JSON.parse(raw).role);
             const orgName = result?.organization?.name ?? 'la organización';
-            Alert.alert('¡Solicitud aceptada!', `Ahora formas parte de ${orgName}.`);
+            Toast.show({ type: 'success', text1: '¡Solicitud aceptada!', text2: `Ahora formas parte de ${orgName}.` });
             navigation.replace("Profile");
         } catch (error) {
             console.log(error);
-            Alert.alert('Error', 'No se pudo aceptar la solicitud. Intentá de nuevo.');
+            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo aceptar la solicitud. Intentá de nuevo.' });
         }
     }
 
