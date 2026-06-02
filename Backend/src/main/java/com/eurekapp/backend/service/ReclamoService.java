@@ -343,6 +343,10 @@ public class ReclamoService {
             }
         }
 
+        if (reclamo.getFoundObjectUUID() == null && reclamo.getClaimDescription() != null) {
+            builder.foundObjectTitle(reclamo.getClaimDescription());
+        }
+
         return builder.build();
     }
 }
