@@ -142,6 +142,7 @@ TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
 TRUNCATE TABLE organization_request;
+TRUNCATE TABLE in_app_notifications;
 TRUNCATE TABLE users;
 TRUNCATE TABLE organizations;
 SET FOREIGN_KEY_CHECKS = 1;
