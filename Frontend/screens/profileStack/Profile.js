@@ -117,10 +117,15 @@ const Profile = ({ route, navigation }) => {
             setAddEmployeeRequests('');
             await refreshUserDetails();
             const raw = await AsyncStorage.getItem('user');
-            if (raw) setUserRole(JSON.parse(raw).role);
+            if (raw) {
+                const updatedUser = JSON.parse(raw);
+                setUserRole(updatedUser.role);
+                setUser(updatedUser);
+            }
+            const orgRaw = await AsyncStorage.getItem('organization');
+            if (orgRaw) setOrganization(JSON.parse(orgRaw));
             const orgName = result?.organization?.name ?? 'la organización';
             Toast.show({ type: 'success', text1: '¡Solicitud aceptada!', text2: `Ahora formas parte de ${orgName}.` });
-            navigation.replace("Profile");
         } catch (error) {
             console.log(error);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo aceptar la solicitud. Intentá de nuevo.' });
