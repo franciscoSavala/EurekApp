@@ -125,20 +125,30 @@ public class FeedbackService {
         }
 
         String orgId = user.getOrganization().getId().toString();
+        String orgName = user.getOrganization() != null ? csvField(user.getOrganization().getName()) : orgId;
+
         List<SearchFeedback> feedbacks = feedbackRepository.findByOrganizationIdAndCreatedAtBetween(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
 
-        StringBuilder sb = new StringBuilder("id;organizationId;foundObjectUUID;starRating;wasFound;createdAt;comment\n");
+        StringBuilder sb = new StringBuilder("ID;Organización;Objeto encontrado;Calificación;¿Encontró el objeto?;Fecha;Comentario\n");
         for (SearchFeedback f : feedbacks) {
+            String objTitle = "";
+            if (f.getFoundObjectUUID() != null) {
+                FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
+                objTitle = fo != null && fo.getTitle() != null ? fo.getTitle() : "";
+            }
+            String fechaStr = f.getCreatedAt() != null ? f.getCreatedAt().toLocalDate().toString() : "";
+            String encontroStr = Boolean.TRUE.equals(f.getWasFound()) ? "Sí" : "No";
+
             sb.append(f.getId()).append(';')
-              .append(f.getOrganizationId() != null ? f.getOrganizationId() : "").append(';')
-              .append(f.getFoundObjectUUID() != null ? f.getFoundObjectUUID() : "").append(';')
+              .append(orgName).append(';')
+              .append(csvField(objTitle)).append(';')
               .append(f.getStarRating()).append(';')
-              .append(f.getWasFound()).append(';')
-              .append(f.getCreatedAt()).append(';')
+              .append(encontroStr).append(';')
+              .append(fechaStr).append(';')
               .append(csvField(f.getComment())).append('\n');
         }
         byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
