@@ -8,6 +8,7 @@ import {
     FlatList,
     Image,
     Modal,
+    Platform,
     Pressable,
     RefreshControl,
     ScrollView,
@@ -126,6 +127,9 @@ const Profile = ({ route, navigation }) => {
             if (orgRaw) setOrganization(JSON.parse(orgRaw));
             const orgName = result?.organization?.name ?? 'la organización';
             Toast.show({ type: 'success', text1: '¡Solicitud aceptada!', text2: `Ahora formas parte de ${orgName}.` });
+            if (Platform.OS === 'web') {
+                setTimeout(() => window.location.reload(), 1500);
+            }
         } catch (error) {
             console.log(error);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo aceptar la solicitud. Intentá de nuevo.' });

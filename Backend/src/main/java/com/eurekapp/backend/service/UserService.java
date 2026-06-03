@@ -53,10 +53,18 @@ public class UserService {
         UserEurekapp employee = userRepository.findById(employeeUserId)
                 .orElseThrow(() -> new NotFoundException("user_not_found", "Employee not found"));
         if(isAuthorizedToRemoveEmployee(orgAdmin, employee)){
+            Organization org = employee.getOrganization();
             employee.setRole(Role.USER);
             employee.setOrganization(null);
             userRepository.saveAndFlush(employee);
             log.info("Removed employee from organization");
+            inAppNotificationService.createNotification(
+                employee,
+                "Fuiste desvinculado de " + org.getName(),
+                "La organización " + org.getName() + " te ha removido de su equipo.",
+                "ROLE_CHANGED",
+                null
+            );
             return true;
         }
         return false;
@@ -238,6 +246,29 @@ public class UserService {
         }
         addEmployeeRequestRepository.saveAllAndFlush(otherRequests);
 
+        String orgName = request.getOrganization().getName();
+        inAppNotificationService.resolveInvitationNotification(
+            addEmployeeRequestId,
+            "Solicitud aceptada",
+            "Aceptaste unirte a " + orgName + " como empleado."
+        );
+        for (AddEmployeeRequest req : otherRequests) {
+            inAppNotificationService.resolveInvitationNotification(
+                req.getId(),
+                "Solicitud rechazada",
+                "Rechazaste la invitación de " + req.getOrganization().getName() + "."
+            );
+        }
+        userRepository.findByOrganizationAndRole(request.getOrganization(), Role.ORGANIZATION_OWNER)
+            .stream().findFirst()
+            .ifPresent(owner -> inAppNotificationService.createNotification(
+                owner,
+                "Solicitud aceptada",
+                user.getFirstName() + " " + user.getLastName() + " aceptó unirse a " + orgName + ".",
+                "ROLE_CHANGED",
+                null
+            ));
+
         return refreshUserDetails(user);
     }
 
@@ -262,6 +293,22 @@ public class UserService {
         // Cambiamos el estado de la request a "Rechazada"
         request.setStatus(AddEmployeeRequestStatus.DECLINED);
         addEmployeeRequestRepository.saveAndFlush(request);
+
+        String orgName = request.getOrganization().getName();
+        inAppNotificationService.resolveInvitationNotification(
+            addEmployeeRequestId,
+            "Solicitud rechazada",
+            "Rechazaste la invitación de " + orgName + "."
+        );
+        userRepository.findByOrganizationAndRole(request.getOrganization(), Role.ORGANIZATION_OWNER)
+            .stream().findFirst()
+            .ifPresent(owner -> inAppNotificationService.createNotification(
+                owner,
+                "Solicitud rechazada",
+                user.getFirstName() + " " + user.getLastName() + " rechazó unirse a " + orgName + ".",
+                "ROLE_CHANGED",
+                null
+            ));
     }
 
     /*

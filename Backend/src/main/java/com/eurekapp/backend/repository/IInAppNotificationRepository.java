@@ -14,4 +14,6 @@ public interface IInAppNotificationRepository extends JpaRepository<InAppNotific
     long countByUserAndReadFalse(UserEurekapp user);
 
     Optional<InAppNotification> findByIdAndUser(Long id, UserEurekapp user);
+
+    Optional<InAppNotification> findByRelatedRequestId(Long relatedRequestId);
 }
