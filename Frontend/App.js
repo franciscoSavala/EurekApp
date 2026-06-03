@@ -1,4 +1,4 @@
-import React, {createContext, useCallback, useContext, useEffect, useState} from 'react';
+import React, {createContext, useCallback, useContext, useEffect, useRef, useState} from 'react';
 import {
     CommonActions,
     NavigationContainer,
@@ -365,6 +365,8 @@ const EurekappTab = () => {
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+    const prevCountRef = useRef(0);
+    const isFirstFetchRef = useRef(true);
 
     useEffect(() => {
         const fetchUnreadCount = async () => {
@@ -373,12 +375,24 @@ const EurekappTab = () => {
                 const res = await axiosInstance.get(BACK_URL + '/notifications/unread-count', {
                     headers: { Authorization: 'Bearer ' + jwt },
                 });
-                setUnreadNotifCount(res.data.count || 0);
+                const newCount = res.data.count || 0;
+                if (!isFirstFetchRef.current && newCount > prevCountRef.current) {
+                    Toast.show({
+                        type: 'info',
+                        text1: 'Nueva notificación',
+                        text2: 'Tenés notificaciones sin leer.',
+                    });
+                }
+                prevCountRef.current = newCount;
+                isFirstFetchRef.current = false;
+                setUnreadNotifCount(newCount);
             } catch (e) {
                 // silently ignore — badge is optional
             }
         };
         fetchUnreadCount();
+        const interval = setInterval(fetchUnreadCount, 30000);
+        return () => clearInterval(interval);
     }, []);
 
     const bellIcon = () => (
@@ -411,6 +425,7 @@ const EurekappTab = () => {
 
     return (
         <Drawer.Navigator
+            key={userRole}
             drawerContent={(props) => <CustomDrawerContent {...props} />} >
             <Drawer.Screen name="FindObjectStackScreen" options={{
                 title: 'Buscar un objeto',

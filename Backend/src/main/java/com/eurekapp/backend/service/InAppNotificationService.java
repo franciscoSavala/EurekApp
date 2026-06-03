@@ -41,6 +41,15 @@ public class InAppNotificationService {
         return repository.countByUserAndReadFalse(user);
     }
 
+    public void resolveInvitationNotification(Long requestId, String newTitle, String newDescription) {
+        repository.findByRelatedRequestId(requestId).ifPresent(n -> {
+            n.setRelatedRequestId(null);
+            n.setTitle(newTitle);
+            n.setDescription(newDescription);
+            repository.save(n);
+        });
+    }
+
     public void markAsRead(UserEurekapp user, Long notificationId) {
         InAppNotification notification = repository.findByIdAndUser(notificationId, user)
                 .orElseThrow(() -> new NotFoundException("notification_not_found", "Notification not found"));

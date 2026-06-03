@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Platform,
     RefreshControl,
     StyleSheet,
     Text,
@@ -74,6 +75,9 @@ const Notifications = ({ navigation, route }) => {
 
     const handleAccept = async (requestId, notifId) => {
         try {
+            setNotifications(prev => prev.map(n =>
+                n.id === notifId ? { ...n, related_request_id: null } : n
+            ));
             const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.post(
                 BACK_URL + "/organizations/acceptAddEmployeeRequest",
@@ -97,6 +101,9 @@ const Notifications = ({ navigation, route }) => {
                 text1: '¡Solicitud aceptada!',
                 text2: `Ahora formas parte de ${orgName}.`,
             });
+            if (Platform.OS === 'web') {
+                setTimeout(() => window.location.reload(), 1500);
+            }
         } catch (e) {
             console.log("Error accepting request", e);
             Toast.show({
@@ -109,6 +116,9 @@ const Notifications = ({ navigation, route }) => {
 
     const handleReject = async (requestId, notifId) => {
         try {
+            setNotifications(prev => prev.map(n =>
+                n.id === notifId ? { ...n, related_request_id: null } : n
+            ));
             const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.post(
                 BACK_URL + "/organizations/declineAddEmployeeRequest",
@@ -125,7 +135,7 @@ const Notifications = ({ navigation, route }) => {
     const renderItem = ({ item }) => {
         const isUnread = !item.is_read;
         const isPendingInvitation =
-            item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null && isUnread;
+            item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null;
 
         return (
             <TouchableOpacity
