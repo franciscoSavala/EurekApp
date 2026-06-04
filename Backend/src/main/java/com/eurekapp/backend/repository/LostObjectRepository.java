@@ -41,17 +41,18 @@ public class LostObjectRepository {
         // TODO: Preguntar a Fran por qué el command viene sin lost_date
         HashMap<String, Double> coordinatesMap = new HashMap<>();
         if (lostObject.getCoordinates() == null) {
-            if (lostObject.getOrganizationId() == null) {
-                throw new BadRequestException("missing_location",
-                        "Lost Object must have coordinates or organization");
-            }
-            Organization organization = organizationRepository
-                    .findById(Long.valueOf(lostObject.getOrganizationId()))
-                    .orElseThrow(() -> new BadRequestException("org_not_found",
-                            "Organization not found"));
-            if (organization.getCoordinates() != null) {
-                coordinatesMap.put("longitude", organization.getCoordinates().getLongitude());
-                coordinatesMap.put("latitude", organization.getCoordinates().getLatitude());
+            if (lostObject.getOrganizationId() != null) {
+                Organization organization = organizationRepository
+                        .findById(Long.valueOf(lostObject.getOrganizationId()))
+                        .orElseThrow(() -> new BadRequestException("org_not_found",
+                                "Organization not found"));
+                if (organization.getCoordinates() != null) {
+                    coordinatesMap.put("longitude", organization.getCoordinates().getLongitude());
+                    coordinatesMap.put("latitude", organization.getCoordinates().getLatitude());
+                } else {
+                    coordinatesMap.put("longitude", -64.1867);
+                    coordinatesMap.put("latitude", -31.4124);
+                }
             } else {
                 coordinatesMap.put("longitude", -64.1867);
                 coordinatesMap.put("latitude", -31.4124);
@@ -63,7 +64,10 @@ public class LostObjectRepository {
 
         HashMap<String, Object> properties = new HashMap<>();
         properties.put("username", lostObject.getUsername());
-        properties.put("lost_date", lostObject.getLostDate().toInstant(ZoneOffset.UTC).toString());
+        String lostDateStr = lostObject.getLostDate() != null
+                ? lostObject.getLostDate().toInstant(ZoneOffset.UTC).toString()
+                : LocalDateTime.now().toInstant(ZoneOffset.UTC).toString();
+        properties.put("lost_date", lostDateStr);
         properties.put("description", lostObject.getDescription());
         properties.put("organization_id", lostObject.getOrganizationId());
         properties.put("coordinates", coordinatesMap);
