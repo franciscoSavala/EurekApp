@@ -18,8 +18,12 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
     const navigation = useNavigation();
 
     const uploadLostObject = async () => {
-        setLoading(true);
         setButtonWasPressed(true);
+        if (!query || query.trim() === '') {
+            setResponseOk(false);
+            return;
+        }
+        setLoading(true);
         try {
             const username = await AsyncStorage.getItem('username');
             await authFetch('post', `${BACK_URL}/lost-objects`, {

@@ -3,6 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import java.time.LocalDateTime;
@@ -56,6 +57,9 @@ public class LostObjectService {
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
     // similar a la publicación.
     public void reportLostObject(ReportLostObjectCommand command) {
+        if (command.getDescription() == null || command.getDescription().isBlank()) {
+            throw new BadRequestException("description_required", "No se pudo analizar la imagen para guardar la búsqueda.");
+        }
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getDescription());
         String id = UUID.randomUUID().toString();
 
