@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class ReportLostObjectCommand {
-    @NotBlank(message = "La descripción de la búsqueda no puede estar vacía")
     @JsonProperty("description")
     private String description;
     @JsonProperty("username")
