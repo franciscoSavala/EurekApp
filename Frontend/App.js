@@ -205,7 +205,7 @@ const ReportsStackScreen = () => {
             <ReportsStack.Screen
                 name='UsabilityFeedbackReport'
                 component={UsabilityFeedbackReport}
-                options={{headerShown: false, title: 'EurekApp - Reporte de usabilidad'}} />
+                options={{headerShown: true, title: 'Reporte de usabilidad'}} />
         </ReportsStack.Navigator>
     );
 }
