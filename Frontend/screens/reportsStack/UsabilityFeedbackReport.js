@@ -137,11 +137,6 @@ const UsabilityFeedbackReport = ({ navigation }) => {
     return (
         <ScrollView style={styles.container}>
             <View style={styles.content}>
-                <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-                    <Text style={styles.backButtonText}>← Volver al reporte</Text>
-                </TouchableOpacity>
-                <Text style={styles.title}>Reporte de usabilidad</Text>
-
                 {/* Date range */}
                 <View style={styles.row}>
                     <View style={styles.dateBlock}>
@@ -360,15 +355,6 @@ const UsabilityFeedbackReport = ({ navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#fff" },
     content: { padding: 16, maxWidth: 800, alignSelf: "center", width: "100%" },
-    backButton: { marginBottom: 8, alignSelf: 'flex-start' },
-    backButtonText: { color: '#19b8b8', fontSize: 14, fontFamily: 'PlusJakartaSans-SemiBold' },
-    title: {
-        fontSize: 22,
-        fontWeight: "bold",
-        fontFamily: "PlusJakartaSans-Bold",
-        marginBottom: 16,
-        color: "#111818",
-    },
     row: { flexDirection: "row", gap: 10, marginBottom: 12 },
     dateBlock: { flex: 1 },
     label: { fontSize: 13, color: "#638888", fontFamily: "PlusJakartaSans-Regular", marginBottom: 4 },
