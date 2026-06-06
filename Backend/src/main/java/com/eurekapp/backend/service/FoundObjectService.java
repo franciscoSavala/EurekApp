@@ -53,6 +53,8 @@ public class FoundObjectService implements IFoundObjectService {
     private final FoundObjectRepository foundObjectRepository;
     private final IUserRepository userRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
+    private final NotificationService notificationService;
+    private final EmailTemplateService emailTemplateService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -63,7 +65,9 @@ public class FoundObjectService implements IFoundObjectService {
                               ExecutorService executorService,
                               FoundObjectRepository foundObjectRepository,
                               IUserRepository userRepository,
-                              IRewardExclusionRepository rewardExclusionRepository) {
+                              IRewardExclusionRepository rewardExclusionRepository,
+                              NotificationService notificationService,
+                              EmailTemplateService emailTemplateService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -74,6 +78,8 @@ public class FoundObjectService implements IFoundObjectService {
         this.foundObjectRepository = foundObjectRepository;
         this.userRepository = userRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
+        this.notificationService = notificationService;
+        this.emailTemplateService = emailTemplateService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -203,6 +209,23 @@ public class FoundObjectService implements IFoundObjectService {
         * */
         executorService.execute(() -> lostObjectService.findSimilarLostObject(
                 embeddings, command.getOrganizationId(), command.getTitle(), foundObjectId));
+
+        // Email de agradecimiento al finder (solo si es usuario EurekApp registrado)
+        if (objectFinderUser != null) {
+            try {
+                Organization finderOrg = organizationRepository.findById(command.getOrganizationId()).get();
+                notificationService.sendNotification(
+                        objectFinderUser.getUsername(),
+                        "¡Gracias por tu colaboración! — EurekApp",
+                        emailTemplateService.buildObjectReceivedEmail(
+                                objectFinderUser.getFirstName(),
+                                command.getTitle(),
+                                finderOrg.getName()));
+            } catch (Exception e) {
+                log.warn("No se pudo enviar email de agradecimiento al finder {}: {}",
+                        objectFinderUser.getUsername(), e.getMessage());
+            }
+        }
 
 
         return FoundObjectUploadedResponseDto.builder()
