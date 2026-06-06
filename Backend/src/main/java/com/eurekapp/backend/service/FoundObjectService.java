@@ -379,12 +379,13 @@ public class FoundObjectService implements IFoundObjectService {
     }
 
     @SneakyThrows
-    public FoundObjectsListDto searchByPhoto(MultipartFile image) {
+    public FoundObjectsListDto searchByPhoto(MultipartFile image, Long organizationId) {
         byte[] imageBytes = image.getBytes();
         String description = descriptionService.getImageTextRepresentation(imageBytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, null, null, null, null, false, null);
+        String orgIdStr = organizationId != null ? organizationId.toString() : null;
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, null, null, null, false, null);
 
         for (FoundObject fo : foundObjects) {
             double cosDistance = fo.getScore().doubleValue();

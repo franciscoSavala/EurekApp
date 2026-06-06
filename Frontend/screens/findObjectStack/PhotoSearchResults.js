@@ -75,7 +75,7 @@ const PhotoSearchResults = ({ route, navigation }) => {
                     </Text>
                 </View>
                 <AppImage
-                    b64Json={item.b64Json}
+                    imageUrl={item.imageUrl}
                     style={styles.image}
                     resizeMode="cover"
                 />
