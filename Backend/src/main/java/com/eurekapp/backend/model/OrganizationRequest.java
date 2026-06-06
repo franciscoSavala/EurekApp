@@ -73,4 +73,14 @@ public class OrganizationRequest {
 
     @Column(name = "created_at", nullable = false, columnDefinition = "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
+    @ManyToOne
+    @JoinColumn(name = "resolved_by_user_id")
+    private UserEurekapp resolvedBy;
+
+    @Column(name = "admin_note", length = 1000)
+    private String adminNote;
 }

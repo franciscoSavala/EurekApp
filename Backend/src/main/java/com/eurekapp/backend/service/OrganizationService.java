@@ -202,6 +202,12 @@ public class OrganizationService {
             throw new BadRequestException("already_resolved", "La solicitud ya fue procesada.");
         }
 
+        if (dto.getResolution() == OrganizationRequestStatus.REJECTED
+                && (dto.getAdminNote() == null || dto.getAdminNote().isBlank())) {
+            throw new BadRequestException("admin_note_required",
+                    "Debés ingresar un motivo al rechazar una solicitud.");
+        }
+
         if (dto.getResolution() == OrganizationRequestStatus.APPROVED) {
             Organization org = Organization.builder()
                     .name(request.getOrganizationName())
@@ -240,6 +246,9 @@ public class OrganizationService {
         }
 
         request.setStatus(dto.getResolution());
+        request.setResolvedAt(LocalDateTime.now());
+        request.setResolvedBy(admin);
+        request.setAdminNote(dto.getAdminNote());
         requestRepository.save(request);
 
         boolean approved = dto.getResolution() == OrganizationRequestStatus.APPROVED;
@@ -293,6 +302,9 @@ public class OrganizationService {
                 .requestingUserEmail(r.getRequestingUser().getUsername())
                 .requestingUserFirstName(r.getRequestingUser().getFirstName())
                 .requestingUserLastName(r.getRequestingUser().getLastName())
+                .resolvedAt(r.getResolvedAt())
+                .resolvedByEmail(r.getResolvedBy() != null ? r.getResolvedBy().getUsername() : null)
+                .adminNote(r.getAdminNote())
                 .build();
     }
 

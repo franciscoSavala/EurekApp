@@ -33,4 +33,7 @@ public class OrganizationRequestDetailDto {
     private String requestingUserEmail;
     private String requestingUserFirstName;
     private String requestingUserLastName;
+    private LocalDateTime resolvedAt;
+    private String resolvedByEmail;
+    private String adminNote;
 }
