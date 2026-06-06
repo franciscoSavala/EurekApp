@@ -449,15 +449,22 @@ const EurekappTab = () => {
     return (
         <Drawer.Navigator
             key={userRole}
+            initialRouteName={
+                (userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' || userRole === 'ENCARGADO')
+                    ? 'LostObjectReturnStackScreen'
+                    : 'FindObjectStackScreen'
+            }
             drawerContent={(props) => <CustomDrawerContent {...props} />} >
-            <Drawer.Screen name="FindObjectStackScreen" options={{
-                title: 'Buscar un objeto',
-                headerTitleAlign: 'center',
-                drawerIcon: searchIcon
-            }} listeners={{
-                drawerItemPress: () => resetAndNavigate(navigation, "FindObject")
-            }} component={FindObjectStackScreen}
-            />
+            {userRole !== 'ORGANIZATION_OWNER' && userRole !== 'ORGANIZATION_EMPLOYEE' && userRole !== 'ENCARGADO' ? (
+                <Drawer.Screen name="FindObjectStackScreen" options={{
+                    title: 'Buscar un objeto',
+                    headerTitleAlign: 'center',
+                    drawerIcon: searchIcon
+                }} listeners={{
+                    drawerItemPress: () => resetAndNavigate(navigation, "FindObject")
+                }} component={FindObjectStackScreen}
+                />
+            ) : null}
             {userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' || userRole === 'ENCARGADO' ?
                 <>
                     <Drawer.Screen name="UploadObject" options={{
