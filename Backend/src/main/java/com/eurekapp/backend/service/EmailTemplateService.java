@@ -149,6 +149,14 @@ public class EmailTemplateService {
         return templateEngine.process("email/object-recovered", ctx);
     }
 
+    public String buildObjectReceivedEmail(String firstName, String objectTitle, String orgName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("objectTitle", objectTitle);
+        ctx.setVariable("orgName", orgName);
+        return templateEngine.process("email/object-received", ctx);
+    }
+
     public String buildOrgDeactivatedEmail(String firstName, String orgName) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
