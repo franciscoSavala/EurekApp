@@ -4,12 +4,18 @@ import com.eurekapp.backend.dto.command.AddEmployeeCommand;
 import com.eurekapp.backend.dto.command.AddEmployeeRequestCommand;
 import com.eurekapp.backend.dto.command.AssignEncargadoCommand;
 import com.eurekapp.backend.dto.command.DeleteEmployeeCommand;
-import com.eurekapp.backend.dto.command.SignUpOrganizationCommand;
+import com.eurekapp.backend.dto.request.OrganizationRegistrationRequestDto;
+import com.eurekapp.backend.dto.request.ResolveOrganizationRequestDto;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
 import com.eurekapp.backend.dto.response.OrganizationPolicyDto;
+import com.eurekapp.backend.dto.response.OrganizationRegistrationResponseDto;
+import com.eurekapp.backend.dto.response.OrganizationRequestDetailDto;
+import com.eurekapp.backend.dto.response.OrganizationRequestSummaryDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
+
+import java.util.List;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.OrganizationService;
@@ -43,10 +49,14 @@ public class OrganizationController {
     }
 
     @PostMapping
-    @Operation(summary = "Registrar organización", description = "Da de alta una nueva organización en la plataforma.")
-    public ResponseEntity<Void> signUpOrganization(@RequestBody @Valid SignUpOrganizationCommand signUpOrganization) {
-        organizationService.signUpOrganization(signUpOrganization);
-        return ResponseEntity.ok().build();
+    @Operation(
+            summary = "Solicitar registro de organización",
+            description = "Un usuario autenticado solicita el alta de una organización como receptora de objetos perdidos. La solicitud queda pendiente de aprobación por un administrador."
+    )
+    public ResponseEntity<OrganizationRegistrationResponseDto> signUpOrganization(
+            @AuthenticationPrincipal UserEurekapp user,
+            @RequestBody @Valid OrganizationRegistrationRequestDto dto) {
+        return ResponseEntity.ok(organizationService.signUpOrganization(user, dto));
     }
 
     @GetMapping("/employees")
@@ -116,6 +126,52 @@ public class OrganizationController {
     public ResponseEntity<Void> declineAddEmployeeRequest(@AuthenticationPrincipal UserEurekapp user,
                                                           @RequestBody AddEmployeeRequestCommand command) {
         userService.declineAddEmployeeRequest(user, command.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/requests")
+    @Operation(summary = "Listar solicitudes de organización (admin)",
+            description = "Devuelve todas las solicitudes de registro. Solo para ADMIN.")
+    public ResponseEntity<List<OrganizationRequestSummaryDto>> getOrganizationRequests(
+            @AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(organizationService.getOrganizationRequests(user));
+    }
+
+    @GetMapping("/requests/my")
+    @Operation(summary = "Ver mi solicitud de organización",
+            description = "Devuelve la última solicitud del usuario autenticado.")
+    public ResponseEntity<OrganizationRequestDetailDto> getMyOrganizationRequest(
+            @AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(organizationService.getMyOrganizationRequest(user));
+    }
+
+    @DeleteMapping("/requests/{id}")
+    @Operation(summary = "Cancelar solicitud de organización",
+            description = "El solicitante cancela su propia solicitud pendiente de aprobación.")
+    public ResponseEntity<Void> cancelOrganizationRequest(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable Long id) {
+        organizationService.cancelOrganizationRequest(user, id);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/requests/{id}")
+    @Operation(summary = "Detalle de solicitud (admin)",
+            description = "Devuelve el detalle completo de una solicitud. Solo para ADMIN.")
+    public ResponseEntity<OrganizationRequestDetailDto> getOrganizationRequestDetail(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(organizationService.getOrganizationRequestDetail(user, id));
+    }
+
+    @PutMapping("/requests/{id}/resolve")
+    @Operation(summary = "Resolver solicitud de organización",
+            description = "El administrador aprueba o rechaza una solicitud. Solo para ADMIN.")
+    public ResponseEntity<Void> resolveOrganizationRequest(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable Long id,
+            @RequestBody @Valid ResolveOrganizationRequestDto dto) {
+        organizationService.resolveOrganizationRequest(user, id, dto);
         return ResponseEntity.ok().build();
     }
 
