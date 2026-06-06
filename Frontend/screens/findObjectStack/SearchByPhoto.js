@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from 'buffer';
 import EurekappButton from '../components/Button';
 import Icon from 'react-native-vector-icons/FontAwesome6';
+import InstitutePicker from '../components/InstitutePicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import ReactNativeBlobUtil from 'react-native-blob-util';
@@ -31,6 +32,7 @@ const SearchByPhoto = ({ navigation }) => {
     const [imageByte, setImageByte] = useState(new Buffer('something'));
     const [imageUploaded, setImageUploaded] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [selectedInstitute, setSelectedInstitute] = useState(null);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -38,6 +40,7 @@ const SearchByPhoto = ({ navigation }) => {
             setImageByte(new Buffer('something'));
             setImageUploaded(false);
             setLoading(false);
+            setSelectedInstitute(null);
         }, [])
     );
 
@@ -84,13 +87,15 @@ const SearchByPhoto = ({ navigation }) => {
         setLoading(true);
         try {
             let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
+            const orgId = selectedInstitute?.id ?? null;
+            const url = `${BACK_URL}/found-objects/search-by-photo${orgId ? `?organizationId=${orgId}` : ''}`;
             let objectsFound;
             let generatedDescription;
 
             if (isWeb) {
                 const formData = new FormData();
                 formData.append('file', new Blob([imageByte]));
-                const response = await fetch(`${BACK_URL}/found-objects/search-by-photo`, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Authorization': authHeader },
                     body: formData,
@@ -104,7 +109,7 @@ const SearchByPhoto = ({ navigation }) => {
             } else {
                 const response = await ReactNativeBlobUtil.fetch(
                     'POST',
-                    `${BACK_URL}/found-objects/search-by-photo`,
+                    url,
                     {
                         'Authorization': authHeader,
                         'Content-Type': 'multipart/form-data',
@@ -119,7 +124,7 @@ const SearchByPhoto = ({ navigation }) => {
                 generatedDescription = json.generated_description;
             }
 
-            navigation.navigate('PhotoSearchResults', { objectsFound, generatedDescription });
+            navigation.navigate('PhotoSearchResults', { objectsFound, generatedDescription, organizationId: orgId });
         } catch (error) {
             console.error(error);
             Toast.show({ type: 'error', text1: 'Error', text2: 'Hubo un problema al cargar la foto. Intenta de nuevo.' });
@@ -131,6 +136,11 @@ const SearchByPhoto = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={styles.formContainer}>
+                <Text style={styles.label}>¿En qué organización perdiste el objeto?</Text>
+                <InstitutePicker
+                    selectedValue={selectedInstitute?.id?.toString() ?? ''}
+                    setSelected={setSelectedInstitute}
+                />
                 <Text style={styles.label}>Foto de tu objeto perdido:</Text>
                 <View style={{ width: '100%', alignItems: 'center' }}>
                     {imageUploaded ? (

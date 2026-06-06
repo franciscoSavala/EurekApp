@@ -156,10 +156,11 @@ public class FoundObjectController {
 
     @PostMapping(value = "/search-by-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Buscar objeto perdido por foto",
-            description = "Recibe una foto del objeto perdido, genera una descripción con IA y busca coincidencias en todos los objetos encontrados.")
+            description = "Recibe una foto del objeto perdido, genera una descripción con IA y busca coincidencias. Si se indica organizationId, la búsqueda se limita a esa organización.")
     public ResponseEntity<FoundObjectsListDto> searchByPhoto(
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(foundObjectService.searchByPhoto(file));
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) Long organizationId) {
+        return ResponseEntity.ok(foundObjectService.searchByPhoto(file, organizationId));
     }
 
     @PostMapping("/getReturnedObject")
