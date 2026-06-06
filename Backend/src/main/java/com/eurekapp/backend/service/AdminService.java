@@ -1,14 +1,19 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.AdminOrganizationDto;
+import com.eurekapp.backend.dto.response.AdminStatsDto;
 import com.eurekapp.backend.dto.response.AdminUserDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Organization;
+import com.eurekapp.backend.model.OrganizationRequest;
+import com.eurekapp.backend.model.OrganizationRequestStatus;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
+import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.AllArgsConstructor;
@@ -26,9 +31,66 @@ public class AdminService {
 
     private final IUserRepository userRepository;
     private final IOrganizationRepository organizationRepository;
+    private final IOrganizationRequestRepository organizationRequestRepository;
+    private final FoundObjectRepository foundObjectRepository;
     private final InAppNotificationService inAppNotificationService;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
+
+    // ── Stats ─────────────────────────────────────────────────────────────────
+
+    public AdminStatsDto getAdminStats(UserEurekapp admin) {
+        if (admin.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("forbidden", "Solo el administrador puede acceder a esta sección.");
+        }
+
+        List<UserEurekapp> users = userRepository.findAll();
+        long totalUsers = users.size();
+        long activeUsers = 0, userUsers = 0, orgOwnerUsers = 0, orgEmployeeUsers = 0,
+                encargadoUsers = 0, adminUsers = 0;
+        for (UserEurekapp u : users) {
+            if (u.isActive()) activeUsers++;
+            switch (u.getRole()) {
+                case USER -> userUsers++;
+                case ORGANIZATION_OWNER -> orgOwnerUsers++;
+                case ORGANIZATION_EMPLOYEE -> orgEmployeeUsers++;
+                case ENCARGADO -> encargadoUsers++;
+                case ADMIN -> adminUsers++;
+            }
+        }
+
+        List<Organization> orgs = organizationRepository.findAll();
+        long totalOrgs = orgs.size();
+        long activeOrgs = orgs.stream().filter(Organization::isActive).count();
+
+        long returnedFoundObjects = foundObjectRepository
+                .query(null, null, null, null, null, true, null).size();
+        long unreturnedFoundObjects = foundObjectRepository
+                .query(null, null, null, null, null, false, null).size();
+        long totalFoundObjects = returnedFoundObjects + unreturnedFoundObjects;
+
+        List<OrganizationRequest> requests = organizationRequestRepository.findAll();
+        long orgRequestsPending  = requests.stream().filter(r -> r.getStatus() == OrganizationRequestStatus.PENDING_APPROVAL).count();
+        long orgRequestsApproved = requests.stream().filter(r -> r.getStatus() == OrganizationRequestStatus.APPROVED).count();
+        long orgRequestsRejected = requests.stream().filter(r -> r.getStatus() == OrganizationRequestStatus.REJECTED).count();
+
+        return AdminStatsDto.builder()
+                .totalUsers(totalUsers)
+                .activeUsers(activeUsers)
+                .userUsers(userUsers)
+                .orgOwnerUsers(orgOwnerUsers)
+                .orgEmployeeUsers(orgEmployeeUsers)
+                .encargadoUsers(encargadoUsers)
+                .adminUsers(adminUsers)
+                .totalOrgs(totalOrgs)
+                .activeOrgs(activeOrgs)
+                .totalFoundObjects(totalFoundObjects)
+                .returnedFoundObjects(returnedFoundObjects)
+                .orgRequestsPending(orgRequestsPending)
+                .orgRequestsApproved(orgRequestsApproved)
+                .orgRequestsRejected(orgRequestsRejected)
+                .build();
+    }
 
     // ── Usuarios ──────────────────────────────────────────────────────────────
 
