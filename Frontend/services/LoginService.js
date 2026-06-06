@@ -15,11 +15,15 @@ export default function login({ username, password }) {
         .then(async (res) => {
             if (!res.ok) {
                 let message = 'Usuario o contraseña incorrectos';
+                let code = null;
                 try {
                     const data = await res.json();
                     if (data?.message) message = data.message;
+                    if (data?.error) code = data.error;
                 } catch (_) {}
-                throw new Error(message);
+                const err = new Error(message);
+                err.code = code;
+                throw err;
             }
             return res.json();
         });

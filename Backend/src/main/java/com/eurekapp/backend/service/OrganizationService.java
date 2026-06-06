@@ -38,8 +38,8 @@ public class OrganizationService {
     private EmailTemplateService emailTemplateService;
 
     public OrganizationListResponseDto getAllOrganizations() {
-        List<Organization> organizations = organizationRepository.findAll();
-        List<OrganizationDto> organizationDtos = organizations.stream()
+        List<OrganizationDto> organizationDtos = organizationRepository.findAll().stream()
+                .filter(Organization::isActive)
                 .map(this::organizationToDto)
                 .toList();
         return new OrganizationListResponseDto(organizationDtos);

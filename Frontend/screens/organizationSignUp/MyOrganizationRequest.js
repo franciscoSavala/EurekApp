@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -14,6 +13,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import Toast from "react-native-toast-message";
+import InfoModal from "../components/InfoModal";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -46,6 +46,7 @@ const MyOrganizationRequest = () => {
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [notFound, setNotFound] = useState(false);
+    const [cancelModalVisible, setCancelModalVisible] = useState(false);
 
     const fetchRequest = async () => {
         setLoading(true);
@@ -65,33 +66,21 @@ const MyOrganizationRequest = () => {
 
     useFocusEffect(useCallback(() => { fetchRequest(); }, []));
 
-    const handleCancel = () => {
-        Alert.alert(
-            "Cancelar solicitud",
-            "¿Estás seguro de que querés cancelar tu solicitud?",
-            [
-                { text: "No", style: "cancel" },
-                {
-                    text: "Sí, cancelar",
-                    style: "destructive",
-                    onPress: async () => {
-                        setCancelling(true);
-                        try {
-                            const jwt = await AsyncStorage.getItem("jwt");
-                            await axiosInstance.delete(BACK_URL + `/organizations/requests/${request.id}`, {
-                                headers: { Authorization: "Bearer " + jwt },
-                            });
-                            Toast.show({ type: "success", text1: "Solicitud cancelada." });
-                            fetchRequest();
-                        } catch (e) {
-                            Toast.show({ type: "error", text1: "No se pudo cancelar la solicitud." });
-                        } finally {
-                            setCancelling(false);
-                        }
-                    },
-                },
-            ]
-        );
+    const confirmCancel = async () => {
+        setCancelModalVisible(false);
+        setCancelling(true);
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            await axiosInstance.delete(BACK_URL + `/organizations/requests/${request.id}`, {
+                headers: { Authorization: "Bearer " + jwt },
+            });
+            Toast.show({ type: "success", text1: "Solicitud cancelada." });
+            fetchRequest();
+        } catch (e) {
+            Toast.show({ type: "error", text1: "No se pudo cancelar la solicitud." });
+        } finally {
+            setCancelling(false);
+        }
     };
 
     if (loading) {
@@ -157,7 +146,7 @@ const MyOrganizationRequest = () => {
             {request?.status === "PENDING_APPROVAL" && (
                 <TouchableOpacity
                     style={styles.cancelButton}
-                    onPress={handleCancel}
+                    onPress={() => setCancelModalVisible(true)}
                     disabled={cancelling}
                 >
                     {cancelling
@@ -166,6 +155,17 @@ const MyOrganizationRequest = () => {
                     }
                 </TouchableOpacity>
             )}
+
+            <InfoModal
+                visible={cancelModalVisible}
+                onClose={() => setCancelModalVisible(false)}
+                type="warning"
+                title="¿Cancelar solicitud?"
+                message="Si cancelás la solicitud, deberás volver a iniciarla desde cero."
+                cancelLabel="No, mantener"
+                confirmLabel="Sí, cancelar"
+                onConfirm={confirmCancel}
+            />
         </ScrollView>
     );
 };

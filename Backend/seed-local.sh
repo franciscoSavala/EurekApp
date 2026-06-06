@@ -206,13 +206,13 @@ success "Weaviate limpio y schema recreado"
 header "Insertando Organizaciones"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
-INSERT INTO organizations (id, name, contact_data, street, street_number, city, province, country, organization_type, latitude, longitude) VALUES
-(1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',  'Maestro Marcelo López',      '3814', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4377, -64.1829),
-(2, 'Terminal de Ómnibus Córdoba',        'objetos@terminalcordoba.com',       'Bvd. Perón',                 '380',  'Córdoba', 'Córdoba', 'Argentina', 'BUS_TERMINAL',  -31.4201, -64.1888),
-(3, 'Aeropuerto Internacional Córdoba',   'objetosperdidos@aa2000.com.ar',     'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', 'AIRPORT',       -31.3233, -64.2081),
-(4, 'Shopping Patio Olmos',               'objetos@patioolomos.com.ar',        'Vélez Sársfield',            '361',  'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING',      -31.4163, -64.1885),
-(5, 'UNC Ciudad Universitaria',           'objetosperdidos@unc.edu.ar',        'Av. Vélez Sársfield',        '5000', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4384, -64.1917),
-(6, 'Dinosaurio Mall',                    'objetos@dinosauriomall.com.ar',     'Av. Ejército Argentino',     '6050', 'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING_MALL', -31.3693, -64.2254);
+INSERT INTO organizations (id, name, contact_data, street, street_number, city, province, country, organization_type, latitude, longitude, active) VALUES
+(1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',  'Maestro Marcelo López',      '3814', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4377, -64.1829, 1),
+(2, 'Terminal de Ómnibus Córdoba',        'objetos@terminalcordoba.com',       'Bvd. Perón',                 '380',  'Córdoba', 'Córdoba', 'Argentina', 'BUS_TERMINAL',  -31.4201, -64.1888, 1),
+(3, 'Aeropuerto Internacional Córdoba',   'objetosperdidos@aa2000.com.ar',     'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', 'AIRPORT',       -31.3233, -64.2081, 1),
+(4, 'Shopping Patio Olmos',               'objetos@patioolomos.com.ar',        'Vélez Sársfield',            '361',  'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING',      -31.4163, -64.1885, 1),
+(5, 'UNC Ciudad Universitaria',           'objetosperdidos@unc.edu.ar',        'Av. Vélez Sársfield',        '5000', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4384, -64.1917, 1),
+(6, 'Dinosaurio Mall',                    'objetos@dinosauriomall.com.ar',     'Av. Ejército Argentino',     '6050', 'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING_MALL', -31.3693, -64.2254, 1);
 SQL
 success "6 organizaciones insertadas"
 

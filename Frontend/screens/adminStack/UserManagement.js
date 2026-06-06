@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     FlatList,
     ScrollView,
     StyleSheet,
@@ -15,6 +14,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import Toast from "react-native-toast-message";
+import InfoModal from "../components/InfoModal";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -40,6 +40,8 @@ const UserManagement = () => {
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState(null);
     const [toggling, setToggling] = useState(null);
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [userConfirmVisible, setUserConfirmVisible] = useState(false);
 
     const fetchUsers = async (roleFilter) => {
         setLoading(true);
@@ -69,24 +71,10 @@ const UserManagement = () => {
         fetchUsers(activeFilter);
     }, [activeFilter]);
 
-    const handleToggleActive = (user) => {
-        const actionPast = user.active ? "desactivado" : "activado";
-        Alert.alert(
-            `¿${user.active ? "Desactivar" : "Activar"} usuario?`,
-            `Vas a ${user.active ? "desactivar" : "activar"} la cuenta de ${user.firstName} ${user.lastName} (${user.username}).`,
-            [
-                { text: "Cancelar", style: "cancel" },
-                {
-                    text: user.active ? "Desactivar" : "Activar",
-                    style: user.active ? "destructive" : "default",
-                    onPress: () => confirmToggle(user, actionPast),
-                },
-            ]
-        );
-    };
-
-    const confirmToggle = async (user, actionPast) => {
+    const confirmToggle = async (user) => {
+        setUserConfirmVisible(false);
         setToggling(user.id);
+        const actionPast = user.active ? "desactivado" : "activado";
         try {
             const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.put(
@@ -142,7 +130,7 @@ const UserManagement = () => {
                             styles.toggleBtn,
                             item.active ? styles.toggleBtnActive : styles.toggleBtnInactive,
                         ]}
-                        onPress={() => handleToggleActive(item)}
+                        onPress={() => { setSelectedUser(item); setUserConfirmVisible(true); }}
                         disabled={isToggling}
                     >
                         {isToggling ? (
@@ -190,6 +178,7 @@ const UserManagement = () => {
                     renderItem={renderUser}
                     style={{ flex: 1 }}
                     contentContainerStyle={styles.list}
+                    extraData={toggling}
                     onRefresh={() => fetchUsers(activeFilter)}
                     refreshing={loading}
                     ListEmptyComponent={
@@ -199,6 +188,21 @@ const UserManagement = () => {
                     }
                 />
             )}
+
+            <InfoModal
+                visible={userConfirmVisible}
+                onClose={() => setUserConfirmVisible(false)}
+                type="warning"
+                title={selectedUser?.active ? "¿Desactivar usuario?" : "¿Activar usuario?"}
+                message={
+                    selectedUser?.active
+                        ? `Al desactivar a ${selectedUser?.firstName} ${selectedUser?.lastName}, no podrá iniciar sesión en la plataforma.`
+                        : `Al activar a ${selectedUser?.firstName} ${selectedUser?.lastName}, podrá volver a iniciar sesión.`
+                }
+                cancelLabel="Cancelar"
+                confirmLabel={selectedUser?.active ? "Desactivar" : "Activar"}
+                onConfirm={() => selectedUser && confirmToggle(selectedUser)}
+            />
         </View>
     );
 };
