@@ -383,6 +383,17 @@ const Reports = ({ navigation }) => {
                                 {feedbackData.star_distribution && (
                                     <View style={styles.tableContainer}>
                                         <Text style={styles.sectionTitle}>Distribución de calificaciones</Text>
+
+                                        {/* Promedio dentro de la sección con divisor */}
+                                        <View style={styles.ratingAvgRow}>
+                                            <StarRating rating={Math.round(feedbackData.average_rating || 0)} size={20} disabled />
+                                            <Text style={styles.ratingAvgNumber}>
+                                                {feedbackData.average_rating?.toFixed(1) ?? '—'}
+                                            </Text>
+                                            <Text style={styles.ratingAvgLabel}>promedio</Text>
+                                        </View>
+                                        <View style={styles.divider} />
+
                                         {[5, 4, 3, 2, 1].map(star => {
                                             const count = feedbackData.star_distribution[star] || 0;
                                             const total = feedbackData.total_feedback || 1;
@@ -662,6 +673,27 @@ const styles = StyleSheet.create({
         color: 'white',
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
+    },
+    ratingAvgRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+    },
+    ratingAvgNumber: {
+        fontSize: 22,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: '#f0a500',
+    },
+    ratingAvgLabel: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#638888',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#e0e8e8',
+        marginBottom: 8,
     },
     navButton: {
         marginTop: 8,
