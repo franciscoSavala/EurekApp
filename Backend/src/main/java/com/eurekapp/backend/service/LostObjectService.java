@@ -5,6 +5,7 @@ import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.*;
+import java.util.Optional;
 import com.eurekapp.backend.repository.*;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
@@ -112,10 +113,20 @@ public class LostObjectService {
         List<LostObject> lostObjects = lostObjectRepository.query(embeddings, null, null, null, null);
 
         // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
-        if(lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) {
-            log.info("LostObjectService: Couldn't find any LostObjects similar to the uploaded FoundObject. ");
+        if (lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) {
+            log.info("LostObjectService: Couldn't find any LostObjects similar to the uploaded FoundObject.");
             return;
         }
+
+        String recipientUsername = lostObjects.getFirst().getUsername();
+
+        // Solo notificar a usuarios con rol USER; los roles internos de org no realizan búsquedas
+        Optional<UserEurekapp> recipientOpt = userRepository.findByUsername(recipientUsername);
+        if (recipientOpt.isEmpty() || recipientOpt.get().getRole() != Role.USER) {
+            log.info("LostObjectService: Skipping notification — recipient '{}' is not a USER.", recipientUsername);
+            return;
+        }
+        UserEurekapp recipient = recipientOpt.get();
 
         // Obtenemos la organización que está reteniendo actualmente el objeto encontrado.
         Organization organization = organizationRepository.findById(organizationId)
@@ -128,16 +139,14 @@ public class LostObjectService {
         String message = emailTemplateService.buildObjectFoundEmail(
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
-        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "¡Posible coincidencia encontrada! — EurekApp", message);
+        notificationService.sendNotification(recipientUsername, "¡Posible coincidencia encontrada! — EurekApp", message);
 
-        userRepository.findByUsername(lostObjects.getFirst().getUsername()).ifPresent(user ->
-                inAppNotificationService.createNotification(
-                        user,
-                        "¡Posible coincidencia encontrada!",
-                        "Se encontró un objeto en " + organization.getName() + " que podría ser el tuyo: " + description,
-                        "MATCH_FOUND",
-                        null
-                )
+        inAppNotificationService.createNotification(
+                recipient,
+                "¡Posible coincidencia encontrada!",
+                "Se encontró un objeto en " + organization.getName() + " que podría ser el tuyo: " + description,
+                "MATCH_FOUND",
+                null
         );
     }
 
