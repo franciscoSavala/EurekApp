@@ -189,6 +189,16 @@ public class UserService {
                 "EMPLOYEE_INVITATION",
                 newRequest.getId()
         );
+
+        try {
+            notificationService.sendNotification(
+                    employee.getUsername(),
+                    "EurekApp — Invitación para unirte a una organización",
+                    emailTemplateService.buildEmployeeInvitationEmail(
+                            employee.getFirstName(), orgAdmin.getOrganization().getName()));
+        } catch (Exception e) {
+            log.warn("No se pudo enviar email de invitación de empleado a {}: {}", employee.getUsername(), e.getMessage());
+        }
     }
 
 
