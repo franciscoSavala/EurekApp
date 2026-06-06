@@ -249,6 +249,22 @@ public class ReturnFoundObjectService {
             }
         }
 
+        // 8- EMAIL DE CONFIRMACIÓN AL RETIRADOR (solo si es usuario EurekApp registrado)
+        if (user != null) {
+            try {
+                notificationService.sendNotification(
+                        user.getUsername(),
+                        "¡Recuperaste tu objeto! — EurekApp",
+                        emailTemplateService.buildObjectRecoveredEmail(
+                                user.getFirstName(),
+                                foundObject.getTitle(),
+                                caller.getOrganization().getName(),
+                                rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER)));
+            } catch (Exception e) {
+                log.warn("No se pudo enviar email de confirmación al retirador {}: {}", user.getUsername(), e.getMessage());
+            }
+        }
+
         return ReturnFoundObjectDto.builder()
                 .id(String.valueOf(rfo.getId()))
                 .username(command.getUsername())
