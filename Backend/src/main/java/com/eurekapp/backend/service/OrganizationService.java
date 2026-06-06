@@ -35,6 +35,7 @@ public class OrganizationService {
     private IUserRepository userRepository;
     private NotificationService notificationService;
     private InAppNotificationService inAppNotificationService;
+    private EmailTemplateService emailTemplateService;
 
     public OrganizationListResponseDto getAllOrganizations() {
         List<Organization> organizations = organizationRepository.findAll();
@@ -107,6 +108,22 @@ public class OrganizationService {
                 .createdAt(LocalDateTime.now())
                 .build();
         requestRepository.save(request);
+
+        try {
+            notificationService.sendNotification(
+                    requestingUser.getUsername(),
+                    "EurekApp — Solicitud de organización recibida",
+                    emailTemplateService.buildOrgRequestSubmittedEmail(
+                            requestingUser.getFirstName(),
+                            dto.getOrganizationName(), dto.getOrganizationType().name(),
+                            dto.getCustomOrganizationType(),
+                            dto.getStreet(), dto.getStreetNumber(), dto.getCity(),
+                            dto.getProvince(), dto.getCountry(),
+                            dto.getOwnerFirstName(), dto.getOwnerLastName(),
+                            dto.getOwnerEmail(), dto.getOwnerPhone(), dto.getReason()));
+        } catch (Exception e) {
+            log.warn("No se pudo enviar email de confirmación a {}: {}", requestingUser.getUsername(), e.getMessage());
+        }
 
         notifyAdminsNewRequest(requestingUser, dto, request.getId());
 
@@ -214,7 +231,7 @@ public class OrganizationService {
                     try {
                         notificationService.sendNotification(owner.getUsername(),
                                 "EurekApp — Sos el responsable de una organización",
-                                buildOwnerApprovalEmailBody(owner, org));
+                                emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()));
                     } catch (Exception e) {
                         log.warn("No se pudo enviar email al owner {}: {}", owner.getUsername(), e.getMessage());
                     }
@@ -241,7 +258,10 @@ public class OrganizationService {
             notificationService.sendNotification(
                     request.getRequestingUser().getUsername(),
                     "EurekApp — Resolución de tu solicitud de organización",
-                    buildResolutionEmailBody(request, approved, dto.getAdminNote()));
+                    emailTemplateService.buildOrgRequestResolvedEmail(
+                            request.getRequestingUser().getFirstName(),
+                            request.getOrganizationName(),
+                            approved, dto.getAdminNote()));
         } catch (Exception e) {
             log.warn("No se pudo enviar email de resolución a {}: {}",
                     request.getRequestingUser().getUsername(), e.getMessage());
@@ -281,7 +301,14 @@ public class OrganizationService {
         List<UserEurekapp> admins = userRepository.findAllByRole(Role.ADMIN);
         String description = requestingUser.getFirstName() + " " + requestingUser.getLastName()
                 + " solicita registrar \"" + dto.getOrganizationName() + "\" como organización.";
-        String emailBody = buildAdminEmailBody(requestingUser, dto);
+        String emailBody = emailTemplateService.buildOrgRequestNewEmail(
+                requestingUser.getFirstName(), requestingUser.getLastName(), requestingUser.getUsername(),
+                dto.getOrganizationName(), dto.getOrganizationType().name(),
+                dto.getCustomOrganizationType(),
+                dto.getStreet(), dto.getStreetNumber(), dto.getCity(), dto.getProvince(), dto.getCountry(),
+                dto.getLatitude(), dto.getLongitude(),
+                dto.getOwnerFirstName(), dto.getOwnerLastName(),
+                dto.getOwnerEmail(), dto.getOwnerPhone(), dto.getReason());
 
         for (UserEurekapp admin : admins) {
             inAppNotificationService.createNotification(admin,
@@ -294,62 +321,6 @@ public class OrganizationService {
                 log.warn("No se pudo enviar email al admin {}: {}", admin.getUsername(), e.getMessage());
             }
         }
-    }
-
-    private String buildAdminEmailBody(UserEurekapp requestingUser, OrganizationRegistrationRequestDto dto) {
-        String customType = dto.getOrganizationType() == OrganizationType.OTHER
-                ? " (" + dto.getCustomOrganizationType() + ")" : "";
-        return """
-                <html><body>
-                  <h2>Nueva solicitud de registro de organización</h2>
-                  <p><strong>Solicitante:</strong> %s %s (%s)</p>
-                  <h3>Datos de la organización</h3>
-                  <p><strong>Nombre:</strong> %s</p>
-                  <p><strong>Tipo:</strong> %s%s</p>
-                  <p><strong>Dirección:</strong> %s %s, %s, %s, %s</p>
-                  <p><strong>Coordenadas:</strong> %.6f, %.6f</p>
-                  <h3>Responsable propuesto</h3>
-                  <p><strong>Nombre:</strong> %s %s</p>
-                  <p><strong>Email:</strong> %s</p>
-                  <p><strong>Teléfono:</strong> %s</p>
-                  <h3>Motivo</h3>
-                  <p>%s</p>
-                </body></html>
-                """.formatted(
-                requestingUser.getFirstName(), requestingUser.getLastName(), requestingUser.getUsername(),
-                dto.getOrganizationName(),
-                dto.getOrganizationType().name(), customType,
-                dto.getStreet(), dto.getStreetNumber(), dto.getCity(), dto.getProvince(), dto.getCountry(),
-                dto.getLatitude(), dto.getLongitude(),
-                dto.getOwnerFirstName(), dto.getOwnerLastName(),
-                dto.getOwnerEmail(),
-                dto.getOwnerPhone(),
-                dto.getReason()
-        );
-    }
-
-    private String buildOwnerApprovalEmailBody(UserEurekapp owner, Organization org) {
-        return """
-                <html><body>
-                  <h2>¡Felicitaciones, %s!</h2>
-                  <p>Tu cuenta fue asignada como responsable de <strong>"%s"</strong> en EurekApp.</p>
-                  <p>Ya podés ingresar y gestionar objetos encontrados.</p>
-                </body></html>
-                """.formatted(owner.getFirstName(), org.getName());
-    }
-
-    private String buildResolutionEmailBody(OrganizationRequest request, boolean approved, String adminNote) {
-        String status = approved ? "aprobada ✅" : "rechazada ❌";
-        String noteSection = (adminNote != null && !adminNote.isBlank())
-                ? "<p><strong>Nota del administrador:</strong> " + adminNote + "</p>" : "";
-        return """
-                <html><body>
-                  <h2>Resolución de tu solicitud de organización</h2>
-                  <p>Tu solicitud para registrar <strong>"%s"</strong> fue <strong>%s</strong>.</p>
-                  %s
-                  <p>Gracias por usar EurekApp.</p>
-                </body></html>
-                """.formatted(request.getOrganizationName(), status, noteSection);
     }
 
     // ── Políticas ─────────────────────────────────────────────────────────────

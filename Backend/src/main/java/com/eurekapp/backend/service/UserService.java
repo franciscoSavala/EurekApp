@@ -2,6 +2,7 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.*;
 import com.eurekapp.backend.dto.AddEmployeeRequestDto;
+import com.eurekapp.backend.service.EmailTemplateService;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
@@ -29,6 +30,7 @@ public class UserService {
     private IAddEmployeeRequestRepository addEmployeeRequestRepository;
     private NotificationService notificationService;
     private InAppNotificationService inAppNotificationService;
+    private EmailTemplateService emailTemplateService;
 
     /*
     * Método usado para obtener todos los empleados de una organización.
@@ -103,9 +105,9 @@ public class UserService {
         try {
             notificationService.sendNotification(
                     employee.getUsername(),
-                    "Rol de encargado asignado",
-                    "Has sido designado como encargado en " + orgAdmin.getOrganization().getName() + "."
-            );
+                    "Rol de encargado asignado — EurekApp",
+                    emailTemplateService.buildEncargadoAssignedEmail(
+                            employee.getFirstName(), orgAdmin.getOrganization().getName()));
         } catch (Exception e) {
             log.warn("No se pudo enviar notificación al encargado: {}", e.getMessage());
         }

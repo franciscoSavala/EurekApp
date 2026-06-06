@@ -44,14 +44,17 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final RestTemplate restTemplate;
     private final NotificationService notificationService;
+    private final EmailTemplateService emailTemplateService;
 
-    public AuthService(IUserRepository userRepository, JwtService jwtService, AuthenticationManager authenticationManager, NotificationService notificationService) {
+    public AuthService(IUserRepository userRepository, JwtService jwtService, AuthenticationManager authenticationManager,
+                       NotificationService notificationService, EmailTemplateService emailTemplateService) {
         this.userRepository = userRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.restTemplate = new RestTemplate();
         this.notificationService = notificationService;
+        this.emailTemplateService = emailTemplateService;
     }
 
 
@@ -111,14 +114,10 @@ public class AuthService {
 
         // Enviar email de bienvenida
         try {
-            String subject = "¡Bienvenido/a a EurekApp!";
-            String content = "<div style='font-family:sans-serif;max-width:600px;margin:auto;padding:24px'>"
-                    + "<h2 style='color:#017575'>¡Hola, " + newUser.getFirstName() + "!</h2>"
-                    + "<p>Tu cuenta en <strong>EurekApp</strong> fue creada exitosamente.</p>"
-                    + "<p>Ya podés buscar objetos perdidos, reportar objetos encontrados y mucho más.</p>"
-                    + "<p style='margin-top:32px;color:#638888;font-size:13px'>Si no creaste esta cuenta, ignorá este mensaje.</p>"
-                    + "</div>";
-            notificationService.sendNotification(newUser.getUsername(), subject, content);
+            notificationService.sendNotification(
+                    newUser.getUsername(),
+                    "¡Bienvenido/a a EurekApp!",
+                    emailTemplateService.buildWelcomeEmail(newUser.getFirstName()));
         } catch (Exception e) {
             log.warn("[action:register] No se pudo enviar el email de bienvenida a {}: {}", newUser.getUsername(), e.getMessage());
         }
@@ -223,22 +222,11 @@ public class AuthService {
         user.setPasswordResetTokenExpiry(LocalDateTime.now().plusMinutes(30));
         userRepository.save(user);
 
-        String subject = "Recuperación de contraseña — EurekApp";
-        String content = "<div style='font-family:sans-serif;max-width:600px;margin:auto;padding:24px'>"
-                + "<h2 style='color:#017575'>Recuperá tu contraseña</h2>"
-                + "<p>Hola, <strong>" + user.getFirstName() + "</strong>.</p>"
-                + "<p>Recibimos una solicitud para recuperar la contraseña de tu cuenta en <strong>EurekApp</strong>.</p>"
-                + "<p>Tu código de recuperación es:</p>"
-                + "<div style='background:#f0f4f4;border-radius:8px;padding:16px;text-align:center;margin:16px 0'>"
-                + "<span style='font-size:32px;font-weight:bold;letter-spacing:8px;color:#017575'>" + code + "</span>"
-                + "</div>"
-                + "<p>Ingresá este código en la aplicación para establecer una nueva contraseña.</p>"
-                + "<p style='color:#e53935'><strong>Este código expira en 30 minutos.</strong></p>"
-                + "<p style='margin-top:32px;color:#638888;font-size:13px'>Si no solicitaste recuperar tu contraseña, ignorá este mensaje.</p>"
-                + "</div>";
-
         try {
-            notificationService.sendNotification(email, subject, content);
+            notificationService.sendNotification(
+                    email,
+                    "Recuperación de contraseña — EurekApp",
+                    emailTemplateService.buildForgotPasswordEmail(user.getFirstName(), code));
         } catch (Exception e) {
             log.warn("[action:forgotPassword] No se pudo enviar el email de recuperación a {}: {}", email, e.getMessage());
         }
