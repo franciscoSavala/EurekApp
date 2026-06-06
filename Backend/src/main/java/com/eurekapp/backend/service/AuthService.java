@@ -16,6 +16,7 @@ import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
+import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -259,6 +260,29 @@ public class AuthService {
         log.info("[action:resetPassword] Contraseña restablecida para {}", email);
     }
 
+    public LoginResponseDto refreshToken(String refreshToken) {
+        String username;
+        try {
+            if (!jwtService.isRefreshToken(refreshToken)) {
+                throw new BadRequestException(ValidationError.INVALID_REFRESH_TOKEN);
+            }
+            username = jwtService.getUsername(refreshToken);
+        } catch (JwtException e) {
+            log.warn("[action:refreshToken] Refresh token inválido o expirado");
+            throw new BadRequestException(ValidationError.INVALID_REFRESH_TOKEN);
+        }
+
+        UserEurekapp user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new NotFoundException(
+                        ValidationError.USER_NOT_FOUND.getCode(),
+                        String.format(ValidationError.USER_NOT_FOUND.getError(), username)));
+
+        log.info("[action:refreshToken] Token renovado para el usuario {}", username);
+
+        String newJwt = jwtService.generateToken(user);
+        return createLoginResponse(user, newJwt);
+    }
+
     // Metodo auxiliar para crear la respuesta del token JWT
     private LoginResponseDto createLoginResponse(UserEurekapp user, String jwt) {
         UserDto userDto = UserDto.builder()
@@ -268,6 +292,13 @@ public class AuthService {
                 .role(user.getRole().toString())
                 .build();
 
+        String refreshToken = jwtService.generateRefreshToken(user);
+
+        LoginResponseDto.LoginResponseDtoBuilder builder = LoginResponseDto.builder()
+                .user(userDto)
+                .token(jwt)
+                .refreshToken(refreshToken);
+
         Organization organization = user.getOrganization();
         if (organization != null) {
             OrganizationDto organizationDto = OrganizationDto.builder()
@@ -275,9 +306,9 @@ public class AuthService {
                     .name(organization.getName())
                     .contactData(organization.getContactData())
                     .build();
-            return LoginResponseDto.builder().organization(organizationDto).user(userDto).token(jwt).build();
+            builder.organization(organizationDto);
         }
 
-        return LoginResponseDto.builder().user(userDto).token(jwt).build();
+        return builder.build();
     }
 }

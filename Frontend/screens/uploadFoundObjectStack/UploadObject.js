@@ -22,7 +22,7 @@ import Icon from "react-native-vector-icons/FontAwesome6";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
-import ReactNativeBlobUtil from "react-native-blob-util";
+import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
 import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
@@ -261,8 +261,6 @@ const submitData = async () => {
 
     try {
 
-        let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
-
         if (isWeb) {
             // Enviar datos como JSON en la web
             const formData = new FormData();
@@ -276,11 +274,8 @@ const submitData = async () => {
                 formData.append('longitude', objectMarker.longitude.toString());
             }
             formData.append("file", new Blob([imageByte]));
-            let response = await fetch(`${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`, {
+            let response = await fetchWithAuth(`${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': authHeader,
-                },
                 body: formData,
             });
 
@@ -311,9 +306,8 @@ const submitData = async () => {
                 );
             }
             let response =
-                await ReactNativeBlobUtil.fetch('POST',
+                await blobFetchWithAuth('POST',
                     `${BACK_URL}/found-objects/organizations/${selectedInstitute.id}`,{
-                        'Authorization': authHeader,
                         'Content-Type': 'multipart/form-data'
                     }, body);
             setLoading(false);
