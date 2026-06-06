@@ -52,6 +52,7 @@ import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
 import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import Notifications from "./screens/notificationsStack/Notifications";
+import UserManagement from "./screens/adminStack/UserManagement";
 import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
@@ -512,6 +513,11 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: organizationIcon
                 }} component={OrgRequestsAdminStackScreen} />
+                <Drawer.Screen name="UserManagement" options={{
+                    title: 'Usuarios',
+                    headerTitleAlign: 'center',
+                    drawerIcon: userIcon
+                }} component={UserManagement} />
             </> : null
             }
 
