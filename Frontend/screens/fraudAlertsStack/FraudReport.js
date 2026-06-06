@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
+import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
@@ -298,6 +299,13 @@ const FraudReport = () => {
                     <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
                         {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
                     </TouchableOpacity>
+                </View>
+            )}
+
+            {entries.length > 0 && (
+                <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                    <Text style={styles.filterLabel}>Evolución de casos</Text>
+                    <FraudEvolutionChart entries={entries} />
                 </View>
             )}
 
