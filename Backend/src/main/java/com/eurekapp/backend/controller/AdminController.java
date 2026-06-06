@@ -2,6 +2,7 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.ToggleActiveDto;
 import com.eurekapp.backend.dto.response.AdminOrganizationDto;
+import com.eurekapp.backend.dto.response.AdminStatsDto;
 import com.eurekapp.backend.dto.response.AdminUserDto;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.AdminService;
@@ -25,6 +26,13 @@ import java.util.List;
 public class AdminController {
 
     private final AdminService adminService;
+
+    @GetMapping("/stats")
+    @Operation(summary = "Estadísticas globales", description = "Devuelve métricas globales de la plataforma. Solo ADMIN.")
+    public ResponseEntity<AdminStatsDto> getAdminStats(
+            @AuthenticationPrincipal UserEurekapp admin) {
+        return ResponseEntity.ok(adminService.getAdminStats(admin));
+    }
 
     @GetMapping("/users")
     @Operation(summary = "Listar usuarios", description = "Devuelve todos los usuarios. Filtrable por rol. Solo ADMIN.")

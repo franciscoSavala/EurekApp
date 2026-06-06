@@ -54,6 +54,7 @@ import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import Notifications from "./screens/notificationsStack/Notifications";
 import UserManagement from "./screens/adminStack/UserManagement";
 import OrganizationManagement from "./screens/adminStack/OrganizationManagement";
+import GlobalStatisticsDashboard from "./screens/adminStack/GlobalStatisticsDashboard";
 import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
@@ -509,6 +510,11 @@ const EurekappTab = () => {
 
             {userRole === 'ADMIN' ?
             <>
+                <Drawer.Screen name="GlobalStatisticsDashboard" options={{
+                    title: 'Dashboard',
+                    headerTitleAlign: 'center',
+                    drawerIcon: chartIcon
+                }} component={GlobalStatisticsDashboard} />
                 <Drawer.Screen name="OrgRequestsAdminStackScreen" options={{
                     title: 'Solicitudes de alta',
                     headerTitleAlign: 'center',
