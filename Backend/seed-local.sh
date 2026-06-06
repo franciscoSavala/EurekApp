@@ -558,31 +558,32 @@ INSERT INTO organization_request
   (id, requesting_user_id, organization_name, organization_type, custom_organization_type,
    street, street_number, city, province, country, latitude, longitude,
    owner_first_name, owner_last_name, owner_email, owner_phone,
-   reason, status, created_at)
+   reason, status, created_at, resolved_at, resolved_by_user_id, admin_note)
 VALUES
 (1, 7,  'Club Atlético Belgrano',      'CLUB',            NULL,
    'Av. Patria',       '1600', 'Córdoba', 'Córdoba', 'Argentina', -31.3720, -64.2080,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Queremos gestionar objetos perdidos en los partidos del estadio.',
-   'PENDING_APPROVAL', '2026-06-01 09:00:00'),
+   'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL),
 
 (2, 8,  'Hospital Privado',            'HOSPITAL',        NULL,
    'Naciones Unidas',  '346',  'Córdoba', 'Córdoba', 'Argentina', -31.3876, -64.1803,
    'Pedro',   'Soria',   'pedro@mail.com',  '+54 9 351 333 4444',
    'El hospital necesita un sistema para devolver objetos a pacientes y familiares.',
-   'APPROVED',         '2026-05-20 10:30:00'),
+   'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL),
 
 (3, 9,  'Colegio Nacional de Monserrat','SCHOOL',          NULL,
    'Obispo Trejo',     '294',  'Córdoba', 'Córdoba', 'Argentina', -31.4155, -64.1841,
    'Valeria', 'Castro',  'valeria@mail.com', '+54 9 351 555 6666',
    'El colegio quiere digitalizar la gestión de objetos perdidos del alumnado.',
-   'REJECTED',         '2026-05-15 14:00:00'),
+   'REJECTED',         '2026-05-15 14:00:00', '2026-05-17 11:30:00', 1,
+   'La organización no cumple con los requisitos mínimos de infraestructura para gestionar objetos perdidos en la plataforma.'),
 
 (4, 7,  'Mercado Norte',               'OTHER',           'Mercado municipal',
    'Bvd. Illia',       '300',  'Córdoba', 'Córdoba', 'Argentina', -31.4125, -64.1862,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Los puestos del mercado frecuentemente reciben objetos olvidados por los clientes.',
-   'CANCELLED',        '2026-05-10 11:00:00');
+   'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL);
 SQL
 success "4 organization_requests insertados (1 PENDING, 1 APPROVED, 1 REJECTED, 1 CANCELLED)"
 

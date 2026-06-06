@@ -67,6 +67,10 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
     useFocusEffect(useCallback(() => { fetchDetail(); }, []));
 
     const resolve = async (resolution) => {
+        if (resolution === "REJECTED" && !adminNote.trim()) {
+            Toast.show({ type: "error", text1: "Debés ingresar un motivo para rechazar." });
+            return;
+        }
         setResolving(true);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
@@ -127,12 +131,29 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
             <Field label="Email" value={request?.ownerEmail} />
             <Field label="Teléfono" value={request?.ownerPhone} />
 
-            <Text style={styles.sectionTitle}>Motivo</Text>
+            <Text style={styles.sectionTitle}>Motivo de la solicitud</Text>
             <Text style={styles.reasonText}>{request?.reason}</Text>
+
+            {!isPending && (
+                <>
+                    <Text style={styles.sectionTitle}>Resolución</Text>
+                    <Field
+                        label="Fecha de resolución"
+                        value={request?.resolvedAt && new Date(request.resolvedAt).toLocaleString("es-AR")}
+                    />
+                    <Field label="Revisado por" value={request?.resolvedByEmail} />
+                    {request?.adminNote ? (
+                        <Field label="Nota del administrador" value={request.adminNote} />
+                    ) : null}
+                </>
+            )}
 
             {isPending && (
                 <>
-                    <Text style={styles.sectionTitle}>Nota del administrador (opcional)</Text>
+                    <Text style={styles.sectionTitle}>
+                        Nota del administrador{" "}
+                        <Text style={styles.requiredHint}>(obligatoria al rechazar)</Text>
+                    </Text>
                     <TextInput
                         style={styles.noteInput}
                         placeholder="Escribe una nota para el solicitante..."
@@ -204,6 +225,7 @@ const styles = StyleSheet.create({
     approveButton: { backgroundColor: "#4A9999" },
     rejectButton: { backgroundColor: "#CC4444" },
     actionButtonText: { color: "#fff", fontSize: 15, fontFamily: "PlusJakartaSans-Bold" },
+    requiredHint: { fontSize: 12, fontFamily: "PlusJakartaSans-Regular", color: "#CC4444" },
 });
 
 export default OrganizationRequestDetail;
