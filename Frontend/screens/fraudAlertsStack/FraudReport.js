@@ -13,6 +13,7 @@ import {
 import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
+import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -108,12 +109,11 @@ const FraudReport = () => {
 
     const exportCsv = async () => {
         setExporting(true);
-        const jwt = await AsyncStorage.getItem('jwt');
         const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
         const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
         if (Platform.OS === 'web') {
             try {
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+                const res = await fetchWithAuth(url);
                 const blob = await res.blob();
                 const objectUrl = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -129,9 +129,15 @@ const FraudReport = () => {
                 const FileSystem = require('expo-file-system');
                 const Sharing = require('expo-sharing');
                 const fileUri = FileSystem.cacheDirectory + 'fraud-report.csv';
-                const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
+                const download = async (jwt) => FileSystem.downloadAsync(url, fileUri, {
                     headers: { Authorization: `Bearer ${jwt}` },
                 });
+                let jwt = await AsyncStorage.getItem('jwt');
+                let downloadRes = await download(jwt);
+                if (downloadRes.status === 401 || downloadRes.status === 403) {
+                    const newToken = await refreshJwt();
+                    if (newToken) downloadRes = await download(newToken);
+                }
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(downloadRes.uri);
                 }

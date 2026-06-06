@@ -23,6 +23,7 @@ export default function useUser(callback, deps) {
             await AsyncStorage.removeItem('org.name');
             await AsyncStorage.removeItem('org.id');
             await AsyncStorage.removeItem('jwt');
+            await AsyncStorage.removeItem('refreshToken');
             //await AsyncStorage.removeItem('username');
             setState({loading: false, error: false, logged: false});
             setUser(null);
@@ -41,6 +42,9 @@ export default function useUser(callback, deps) {
                     try {
                         const organization = userContext.organization;
                         await AsyncStorage.setItem('jwt', userContext.token);
+                        if (userContext.refreshToken) {
+                            await AsyncStorage.setItem('refreshToken', userContext.refreshToken);
+                        }
                         await AsyncStorage.setItem('username', username);
                         await AsyncStorage.setItem('user.first_name', userContext.user.firstName.toString());
                         await AsyncStorage.setItem('user', JSON.stringify(userContext.user));
@@ -75,6 +79,9 @@ export default function useUser(callback, deps) {
                     try {
                         const organization = userContext.organization;
                         await AsyncStorage.setItem('jwt', userContext.token);
+                        if (userContext.refreshToken) {
+                            await AsyncStorage.setItem('refreshToken', userContext.refreshToken);
+                        }
                         await AsyncStorage.setItem('username', username);
                         await AsyncStorage.setItem('user.first_name', userContext.user.firstName.toString());
                         await AsyncStorage.setItem('user', JSON.stringify(userContext.user));
@@ -108,6 +115,9 @@ export default function useUser(callback, deps) {
                 const userContext = await socialAuthService({ provider, idToken });
                 const organization = userContext.organization;
                 await AsyncStorage.setItem('jwt', userContext.token);
+                if (userContext.refreshToken) {
+                    await AsyncStorage.setItem('refreshToken', userContext.refreshToken);
+                }
                 await AsyncStorage.setItem('username', userContext.user.username || '');
                 await AsyncStorage.setItem('user.first_name', userContext.user.firstName.toString());
                 await AsyncStorage.setItem('user', JSON.stringify(userContext.user));

@@ -18,6 +18,7 @@ import React, {useEffect, useRef, useState} from "react";
 import EurekappButton from "../components/Button";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { fetchWithAuth } from "../../utils/fetchWithAuth";
 import useAuthFetch from "../../utils/useAuthFetch";
 import { colors } from "../../styles/globalStyles";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -99,7 +100,6 @@ const ReturnObjectForm = ({ route, navigation}) => {
         };
         if(institute.id == null) return;
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             /*let config = {
                 headers: {
                     'Authorization': authHeader
@@ -119,11 +119,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
             formData.append('phoneNumber', phone);
             formData.append('found_object_uuid', objectId);
             formData.append("file", new Blob([imageByte]));
-            let res = await fetch(`${BACK_URL}/found-objects/return/${institute.id}`, {
+            let res = await fetchWithAuth(`${BACK_URL}/found-objects/return/${institute.id}`, {
                 method: 'POST',
-                headers: {
-                    'Authorization': authHeader,
-                },
                 body: formData,
             });
 

@@ -15,9 +15,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from 'buffer';
 import EurekappButton from '../components/Button';
 import Icon from 'react-native-vector-icons/FontAwesome6';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import ReactNativeBlobUtil from 'react-native-blob-util';
+import { fetchWithAuth, blobFetchWithAuth } from '../../utils/fetchWithAuth';
 import { isWeb } from '../../utils/platform';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -83,16 +82,14 @@ const SearchByPhoto = ({ navigation }) => {
         }
         setLoading(true);
         try {
-            let authHeader = 'Bearer ' + await AsyncStorage.getItem('jwt');
             let objectsFound;
             let generatedDescription;
 
             if (isWeb) {
                 const formData = new FormData();
                 formData.append('file', new Blob([imageByte]));
-                const response = await fetch(`${BACK_URL}/found-objects/search-by-photo`, {
+                const response = await fetchWithAuth(`${BACK_URL}/found-objects/search-by-photo`, {
                     method: 'POST',
-                    headers: { 'Authorization': authHeader },
                     body: formData,
                 });
                 if (!response.ok) {
@@ -102,11 +99,10 @@ const SearchByPhoto = ({ navigation }) => {
                 objectsFound = json.found_objects;
                 generatedDescription = json.generated_description;
             } else {
-                const response = await ReactNativeBlobUtil.fetch(
+                const response = await blobFetchWithAuth(
                     'POST',
                     `${BACK_URL}/found-objects/search-by-photo`,
                     {
-                        'Authorization': authHeader,
                         'Content-Type': 'multipart/form-data',
                     },
                     [{ name: 'file', filename: 'search_photo.jpg', data: String(image.base64) }]
