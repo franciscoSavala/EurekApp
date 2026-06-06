@@ -40,6 +40,7 @@ public class FraudDetectionService {
     private final InAppNotificationService inAppNotificationService;
     private final IReclamoRepository reclamoRepository;
     private final FoundObjectRepository foundObjectRepository;
+    private final EmailTemplateService emailTemplateService;
 
     @Value("${fraud.max-claims-per-period:3}")
     private int maxClaimsPerPeriod;
@@ -147,13 +148,11 @@ public class FraudDetectionService {
     private void notifyOwner(String orgId, FraudAlert alert) {
         try {
             organizationRepository.findById(Long.parseLong(orgId)).ifPresent(org -> {
-                String content = "Se detectó una posible actividad fraudulenta en su organización.\n\n"
-                        + "Motivo: " + alert.getReason() + "\n"
-                        + "Detalle: " + alert.getDetails() + "\n"
-                        + "Fecha: " + alert.getCreatedAt() + "\n\n"
-                        + "Ingrese a la aplicación para revisar y resolver la alerta.";
+                String content = emailTemplateService.buildFraudAlertEmail(
+                        org.getName(), alert.getReason(), alert.getDetails(),
+                        alert.getCreatedAt().toString());
                 notificationService.sendNotification(org.getContactData(),
-                        "Alerta de fraude detectada - EurekApp", content);
+                        "Alerta de fraude detectada — EurekApp", content);
             });
         } catch (Exception e) {
             // No bloquear el flujo principal si falla la notificación

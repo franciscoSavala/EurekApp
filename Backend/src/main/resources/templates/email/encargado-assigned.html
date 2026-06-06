@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">Nuevo rol asignado</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Fuiste designado/a como <strong>Encargado/a</strong> en la organización
+      <strong th:text="${orgName}">Organización</strong>.
+    </p>
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 24px 0;">
+      <p style="margin: 0; color: #555; line-height: 1.6;">
+        Como encargado/a, tenés acceso a funciones adicionales de gestión dentro de la organización.
+        Ingresá a EurekApp para comenzar.
+      </p>
+    </div>
+  </th:block>
+</div>
+</body>
+</html>

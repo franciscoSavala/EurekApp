@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">¡Bienvenido/a a EurekApp, <span th:text="${firstName}">Usuario</span>!</h2>
+    <p style="color: #333; line-height: 1.6;">Tu cuenta fue creada exitosamente.</p>
+    <p style="color: #333; line-height: 1.6;">
+      Ya podés buscar objetos perdidos, reportar objetos encontrados y contribuir con la comunidad de Córdoba.
+    </p>
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 24px 0;">
+      <p style="margin: 0; color: #017575; font-weight: bold;">¿Cómo empezar?</p>
+      <ul style="margin: 8px 0 0 0; color: #555; padding-left: 20px; line-height: 1.8;">
+        <li>Reportá un objeto perdido para recibir alertas de coincidencias.</li>
+        <li>Si encontraste algo, registralo para ayudar a quien lo perdió.</li>
+        <li>Ganá puntos de experiencia por cada devolución exitosa.</li>
+      </ul>
+    </div>
+    <p style="color: #888; font-size: 13px; margin-top: 32px;">Si no creaste esta cuenta, podés ignorar este mensaje.</p>
+  </th:block>
+</div>
+</body>
+</html>

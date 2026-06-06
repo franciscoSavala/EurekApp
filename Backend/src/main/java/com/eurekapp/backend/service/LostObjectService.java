@@ -24,7 +24,7 @@ public class LostObjectService {
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;
-    private final SimpleEmailContentBuilder simpleEmailContentBuilder;
+    private final EmailTemplateService emailTemplateService;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
     private final ObjectStorage objectStorage;
@@ -35,7 +35,7 @@ public class LostObjectService {
 
     public LostObjectService(
             EmbeddingService embeddingService,
-            SimpleEmailContentBuilder simpleEmailContentBuilder,
+            EmailTemplateService emailTemplateService,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
             ObjectStorage objectStorage,
@@ -44,7 +44,7 @@ public class LostObjectService {
             InAppNotificationService inAppNotificationService,
             IReclamoRepository reclamoRepository) {
         this.embeddingService = embeddingService;
-        this.simpleEmailContentBuilder = simpleEmailContentBuilder;
+        this.emailTemplateService = emailTemplateService;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
         this.objectStorage = objectStorage;
@@ -125,10 +125,10 @@ public class LostObjectService {
         String imageUrl = objectStorage.getObjectUrl(foundId);
 
         // Elaboramos la notificación que enviaremos
-        String message = simpleEmailContentBuilder.buildEmailContent(
+        String message = emailTemplateService.buildObjectFoundEmail(
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
-        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "Hemos encontrado tu objeto!", message);
+        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "¡Hemos encontrado tu objeto! — EurekApp", message);
 
         userRepository.findByUsername(lostObjects.getFirst().getUsername()).ifPresent(user ->
                 inAppNotificationService.createNotification(

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">Resolución de tu solicitud de organización</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Tu solicitud para registrar <strong th:text="${orgName}">Organización</strong> fue
+      <span th:if="${approved}"
+            style="color: #2e7d32; font-weight: bold;">aprobada ✅</span>
+      <span th:unless="${approved}"
+            style="color: #c62828; font-weight: bold;">rechazada ❌</span>.
+    </p>
+
+    <div th:if="${adminNote != null and !#strings.isEmpty(adminNote)}"
+         style="background-color: #f0f4f4; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0 0 6px 0; font-weight: bold; color: #555;">Nota del administrador:</p>
+      <p style="margin: 0; color: #333; line-height: 1.6;" th:text="${adminNote}"></p>
+    </div>
+
+    <div th:if="${approved}"
+         style="background-color: #e8f5e9; border-radius: 6px; padding: 16px; margin-top: 20px;">
+      <p style="margin: 0; color: #2e7d32; line-height: 1.6;">
+        ¡Felicitaciones! Ya podés ingresar a EurekApp y gestionar tu organización.
+        Si el responsable designado tiene cuenta en EurekApp, recibirá una notificación separada.
+      </p>
+    </div>
+
+    <div th:unless="${approved}"
+         style="background-color: #fce4e4; border-radius: 6px; padding: 16px; margin-top: 20px;">
+      <p style="margin: 0; color: #c62828; line-height: 1.6;">
+        Podés volver a enviar una solicitud en el futuro si considerás que los datos fueron incorrectos
+        o si cumplís con los requisitos necesarios.
+      </p>
+    </div>
+
+    <p style="color: #333; line-height: 1.6; margin-top: 20px;">Gracias por usar EurekApp.</p>
+  </th:block>
+</div>
+</body>
+</html>

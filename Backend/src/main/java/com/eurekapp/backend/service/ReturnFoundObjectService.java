@@ -51,6 +51,7 @@ public class ReturnFoundObjectService {
     private final IReclamoHistoryRepository reclamoHistoryRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final InAppNotificationService inAppNotificationService;
+    private final EmailTemplateService emailTemplateService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -60,7 +61,8 @@ public class ReturnFoundObjectService {
                                     IReclamoRepository reclamoRepository,
                                     IReclamoHistoryRepository reclamoHistoryRepository,
                                     IRewardExclusionRepository rewardExclusionRepository,
-                                    InAppNotificationService inAppNotificationService){
+                                    InAppNotificationService inAppNotificationService,
+                                    EmailTemplateService emailTemplateService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -72,6 +74,7 @@ public class ReturnFoundObjectService {
         this.reclamoHistoryRepository = reclamoHistoryRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.inAppNotificationService = inAppNotificationService;
+        this.emailTemplateService = emailTemplateService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -222,19 +225,14 @@ public class ReturnFoundObjectService {
                     userRepository.save(finder);
 
                     // Enviar email
-                    String subject = "¡Tu objeto encontrado fue retirado!";
-                    String content = String.format(
-                        "<h2>El objeto <b>%s</b> fue devuelto a su dueño.</h2>" +
-                        "<p><b>Fecha de devolución:</b> %s</p>" +
-                        "<p><b>Registrado por:</b> %s %s</p>" +
-                        "<p><b>DNI de quien retiró:</b> %s</p>" +
-                        "<p><b>Sumaste 10 puntos por devolver este objeto. ¡Gracias por tu contribución!</b></p>",
-                        foundObject.getTitle(),
-                        rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER),
-                        finder.getFirstName(), finder.getLastName(),
-                        rfo.getDNI()
-                    );
-                    notificationService.sendNotification(finder.getUsername(), subject, content);
+                    notificationService.sendNotification(
+                            finder.getUsername(),
+                            "¡Tu objeto encontrado fue devuelto! — EurekApp",
+                            emailTemplateService.buildObjectReturnedEmail(
+                                    finder.getFirstName(), finder.getLastName(),
+                                    foundObject.getTitle(),
+                                    rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER),
+                                    rfo.getDNI()));
                     rfo.setNotificationSentAt(LocalDateTime.now());
                     returnFoundObjectRepository.save(rfo);
 

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">
+      ¡Felicitaciones, <span th:text="${firstName}">Usuario</span>!
+    </h2>
+    <p style="color: #333; line-height: 1.6;">
+      Tu cuenta fue asignada como <strong>responsable</strong> de
+      <strong th:text="${orgName}">Organización</strong> en EurekApp.
+    </p>
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 24px 0;">
+      <p style="margin: 0 0 6px 0; font-weight: bold; color: #017575;">¿Qué podés hacer ahora?</p>
+      <ul style="margin: 8px 0 0 0; color: #555; padding-left: 20px; line-height: 1.8;">
+        <li>Gestionar los objetos encontrados en tu organización.</li>
+        <li>Agregar y administrar empleados.</li>
+        <li>Configurar las políticas de tu organización.</li>
+        <li>Revisar alertas de fraude y reclamos.</li>
+      </ul>
+    </div>
+    <p style="color: #333; line-height: 1.6;">
+      Ingresá a EurekApp y refrescá tu sesión para acceder a todas las funcionalidades.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #c62828; margin-top: 0;">&#9888; Alerta de posible fraude</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Se detectó una posible actividad fraudulenta en la organización
+      <strong th:text="${orgName}">Organización</strong>.
+    </p>
+
+    <table width="100%" cellpadding="0" cellspacing="0"
+           style="border: 1px solid #ffcdd2; border-radius: 6px; margin: 20px 0;">
+      <tr style="background-color: #ffebee;">
+        <td colspan="2" style="padding: 10px 16px; font-weight: bold; color: #c62828; font-size: 14px;">
+          Detalles de la alerta
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 16px; color: #555; width: 35%;">Motivo</td>
+        <td style="padding: 8px 16px; color: #333; font-weight: bold;" th:text="${reason}"></td>
+      </tr>
+      <tr style="background-color: #fafafa;">
+        <td style="padding: 8px 16px; color: #555;">Fecha</td>
+        <td style="padding: 8px 16px; color: #333;" th:text="${createdAt}"></td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 16px; color: #555; vertical-align: top;">Detalle</td>
+        <td style="padding: 8px 16px; color: #333; line-height: 1.6;" th:text="${details}"></td>
+      </tr>
+    </table>
+
+    <div style="background-color: #fff8e1; border-left: 4px solid #f9a825; padding: 16px; border-radius: 4px;">
+      <p style="margin: 0; color: #555; line-height: 1.6;">
+        Ingresá a EurekApp para revisar la alerta y tomar la acción correspondiente
+        (confirmar fraude o marcar como falso positivo).
+      </p>
+    </div>
+  </th:block>
+</div>
+</body>
+</html>
