@@ -16,6 +16,7 @@ import {
 import {Controller, useForm} from "react-hook-form";
 import EurekappButton from "../components/Button";
 import LoadingOverlay from "../components/LoadingOverlay";
+import InfoModal from "../components/InfoModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import useAuthFetch from "../../utils/useAuthFetch";
@@ -323,74 +324,44 @@ const Organization = ({ route, navigation }) => {
 
                 </View>
             </View>
-            <Modal
-                animationType="none"
-                transparent={true}
+            <InfoModal
                 visible={deleteEmployeeModal}
-                onRequestClose={() => setDeleteEmployeeModal(!setDeleteEmployeeModal)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
-                        <Text style={styles.modalText}>
-                            Al eliminar un empleado, se desvinculará su usuario de tu organización.
-                            {"\n"}Si en el futuro deseas volver a agregarlo, deberás volver a enviarle una solicitud.
-                            {"\n"}{"\n"}¿Deseas continuar?
-                        </Text>
-                        <EurekappButton text='Eliminar'
-                                        onPress={() => handleDeleteEmployee(selectedEmployee)}/>
-                        <EurekappButton text='Cancelar'
-                                        onPress={() => setDeleteEmployeeModal(false)}/>
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setDeleteEmployeeModal(false)}
+                type="warning"
+                title="¿Eliminar empleado?"
+                message={`Al eliminar este empleado, se desvinculará su usuario de tu organización. Si en el futuro querés volver a agregarlo, deberás enviarle una nueva solicitud.`}
+                cancelLabel="Cancelar"
+                confirmLabel="Eliminar"
+                onConfirm={() => handleDeleteEmployee(selectedEmployee)}
+            />
 
-            <Modal
-                animationType="none"
-                transparent={true}
+            <InfoModal
                 visible={encargadoConfirmModal}
-                onRequestClose={() => setEncargadoConfirmModal(false)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
-                        <Text style={styles.modalText}>
-                            {encargadoAction === 'assign'
-                                ? '¿Deseas asignar el rol de encargado a este usuario? Podrá gestionar confirmaciones y devoluciones de objetos.'
-                                : '¿Deseas revocar el rol de encargado a este usuario?'}
-                        </Text>
-                        <EurekappButton text={encargadoAction === 'assign' ? 'Asignar' : 'Revocar'}
-                                        onPress={handleEncargadoAction}/>
-                        <EurekappButton text='Cancelar'
-                                        onPress={() => setEncargadoConfirmModal(false)}/>
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setEncargadoConfirmModal(false)}
+                type="warning"
+                title={encargadoAction === 'assign' ? '¿Asignar encargado?' : '¿Revocar encargado?'}
+                message={encargadoAction === 'assign'
+                    ? 'Este usuario podrá gestionar confirmaciones y devoluciones de objetos.'
+                    : '¿Deseas revocar el rol de encargado a este usuario?'}
+                cancelLabel="Cancelar"
+                confirmLabel={encargadoAction === 'assign' ? 'Asignar' : 'Revocar'}
+                onConfirm={handleEncargadoAction}
+            />
 
-            <Modal
-                animationType="none"
-                transparent={true}
+            <InfoModal
                 visible={encargadoResultModal}
-                onRequestClose={() => setEncargadoResultModal(false)}>
-                <View style={styles.centeredView}>
-                    <View style={styles.modalView}>
-                        {encargadoResultOk ? (
-                            <>
-                                <Icon name={'circle-check'} size={50} color={'#008000'} style={{marginBottom: 16}}/>
-                                <Text style={styles.modalText}>
-                                    {encargadoAction === 'assign'
-                                        ? 'El rol de encargado fue asignado correctamente.'
-                                        : 'El rol de encargado fue revocado correctamente.'}
-                                </Text>
-                            </>
-                        ) : (
-                            <>
-                                <Icon name={'circle-xmark'} size={50} color={'#ED4337'} style={{marginBottom: 16}}/>
-                                <Text style={styles.modalText}>
-                                    Error al {encargadoAction === 'assign' ? 'asignar' : 'revocar'} el rol. Intentá nuevamente.
-                                </Text>
-                            </>
-                        )}
-                        <EurekappButton text='Cerrar' onPress={() => setEncargadoResultModal(false)}/>
-                    </View>
-                </View>
-            </Modal>
+                onClose={() => setEncargadoResultModal(false)}
+                type={encargadoResultOk ? 'info' : 'error'}
+                title={encargadoResultOk
+                    ? (encargadoAction === 'assign' ? 'Encargado asignado' : 'Rol revocado')
+                    : 'Error'}
+                message={encargadoResultOk
+                    ? (encargadoAction === 'assign'
+                        ? 'El rol de encargado fue asignado correctamente.'
+                        : 'El rol de encargado fue revocado correctamente.')
+                    : `Error al ${encargadoAction === 'assign' ? 'asignar' : 'revocar'} el rol. Intentá nuevamente.`}
+                confirmLabel="Cerrar"
+            />
 
             <LoadingOverlay visible={encargadoLoading} message="Procesando..." />
 

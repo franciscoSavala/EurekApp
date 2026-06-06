@@ -7,9 +7,10 @@ import { useForm, Controller } from 'react-hook-form';
 import { Input, Text, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 import SocialAuthButtons from './SocialAuthButtons';
+import InfoModal from '../../components/InfoModal';
 
 export default function LoginForm(props) {
-    const { isLoginLoading, hasLoginError, loginErrorMessage, login, isLogged } = useUser();
+    const { isLoginLoading, hasLoginError, loginErrorCode, loginErrorMessage, login, isLogged, clearLoginError, clearLoginErrorDelayed } = useUser();
     const { control,
         handleSubmit,
         formState: {errors},
@@ -82,11 +83,20 @@ export default function LoginForm(props) {
                 <Text style={styles.textError}>{errors.Password.message}</Text>
             )}
 
-            {hasLoginError && (
+            {hasLoginError && loginErrorCode !== 'org_deactivated' && (
                 <Text style={styles.textError}>
                     {loginErrorMessage || 'No se pudo iniciar sesión. Intentá de nuevo.'}
                 </Text>
             )}
+
+            <InfoModal
+                visible={hasLoginError && loginErrorCode === 'org_deactivated'}
+                onClose={clearLoginErrorDelayed}
+                type="error"
+                title="Organización suspendida"
+                message={loginErrorMessage}
+                confirmLabel="Entendido"
+            />
 
             <View style={styles.button}>
                 <Button

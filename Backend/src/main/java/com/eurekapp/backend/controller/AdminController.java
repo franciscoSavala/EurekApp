@@ -1,6 +1,7 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.ToggleActiveDto;
+import com.eurekapp.backend.dto.response.AdminOrganizationDto;
 import com.eurekapp.backend.dto.response.AdminUserDto;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.AdminService;
@@ -40,6 +41,23 @@ public class AdminController {
             @PathVariable Long id,
             @RequestBody @Valid ToggleActiveDto dto) {
         adminService.toggleUserActive(admin, id, dto.getActive());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/organizations")
+    @Operation(summary = "Listar organizaciones", description = "Devuelve todas las organizaciones con estado y empleados. Solo ADMIN.")
+    public ResponseEntity<List<AdminOrganizationDto>> getOrganizations(
+            @AuthenticationPrincipal UserEurekapp admin) {
+        return ResponseEntity.ok(adminService.getOrganizations(admin));
+    }
+
+    @PutMapping("/organizations/{id}/active")
+    @Operation(summary = "Activar/desactivar organización", description = "Cambia el estado activo de una organización. Solo ADMIN.")
+    public ResponseEntity<Void> toggleOrganizationActive(
+            @AuthenticationPrincipal UserEurekapp admin,
+            @PathVariable Long id,
+            @RequestBody @Valid ToggleActiveDto dto) {
+        adminService.toggleOrganizationActive(admin, id, dto.getActive());
         return ResponseEntity.noContent().build();
     }
 }

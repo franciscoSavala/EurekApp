@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Data
@@ -30,4 +31,8 @@ public class Organization {
 
     @Embedded
     private GeoCoordinates coordinates;
+
+    @ColumnDefault("1")
+    @Column(name = "active", nullable = false, columnDefinition = "TINYINT(1) NOT NULL DEFAULT 1")
+    private boolean active = true;
 }

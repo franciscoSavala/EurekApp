@@ -138,4 +138,18 @@ public class EmailTemplateService {
         ctx.setVariable("createdAt", createdAt);
         return templateEngine.process("email/fraud-alert", ctx);
     }
+
+    public String buildOrgDeactivatedEmail(String firstName, String orgName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("orgName", orgName);
+        return templateEngine.process("email/org-deactivated", ctx);
+    }
+
+    public String buildOrgReactivatedEmail(String firstName, String orgName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("orgName", orgName);
+        return templateEngine.process("email/org-reactivated", ctx);
+    }
 }

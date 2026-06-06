@@ -1,5 +1,6 @@
 package com.eurekapp.backend.configuration.security;
 
+import com.eurekapp.backend.model.UserEurekapp;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -42,6 +43,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if(userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userService.loadUserByUsername(userName);
                 if(jwtService.isTokenValid(jwt, userDetails)){
+                    UserEurekapp eurekappUser = (UserEurekapp) userDetails;
+                    if (eurekappUser.getOrganization() != null && !eurekappUser.getOrganization().isActive()) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"error\":\"org_deactivated\",\"message\":\"Tu organización fue desactivada.\"}");
+                        return;
+                    }
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,

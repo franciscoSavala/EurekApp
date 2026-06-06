@@ -73,6 +73,11 @@ public class AuthService {
                                     String.format("No se encontró el usuario con el username %s", user.getUsername())
                             ));
 
+            if (userEurekapp.getOrganization() != null && !userEurekapp.getOrganization().isActive()) {
+                throw new ForbiddenException("org_deactivated",
+                        "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
+            }
+
             log.info("[action:login] Usuario {} autenticado exitosamente", user.getUsername());
 
             // Generamos el token JWT

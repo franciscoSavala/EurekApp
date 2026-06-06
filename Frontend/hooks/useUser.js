@@ -14,6 +14,7 @@ export default function useUser(callback, deps) {
     const [state, setState] = useState({
         loading: false,
         error: false,
+        errorCode: null,
         errorMessage: '',
         logged: true,
     });
@@ -35,7 +36,7 @@ export default function useUser(callback, deps) {
 
     const login = useCallback(
         ({ username, password }) => {
-            setState(s => ({ ...s, loading: true, error: false, errorMessage: '' }));
+            setState(s => ({ ...s, loading: true, error: false, errorCode: null, errorMessage: '' }));
             loginService({ username, password })
                 .then(async (userContext) => {
                     try {
@@ -61,7 +62,7 @@ export default function useUser(callback, deps) {
                     }
                 })
                 .catch((err) => {
-                    setState({ loading: false, error: true, errorMessage: err.message, logged: false });
+                    setState({ loading: false, error: true, errorCode: err.code || null, errorMessage: err.message, logged: false });
                 });
         },
         [setUser, setUserRole, setState]
@@ -131,14 +132,25 @@ export default function useUser(callback, deps) {
         [setUser, setUserRole, setState]
     );
 
+    const clearLoginError = useCallback(() => {
+        setState(s => ({ ...s, error: false, errorCode: null, errorMessage: '' }));
+    }, []);
+
+    const clearLoginErrorDelayed = useCallback(() => {
+        setState(s => ({ ...s, error: false }));
+    }, []);
+
     return {
         isLogged: state.logged,
         isLoginLoading: state.loading,
         hasLoginError: state.error,
+        loginErrorCode: state.errorCode,
         loginErrorMessage: state.errorMessage,
         login,
         logout,
         register,
         loginWithSocial,
+        clearLoginError,
+        clearLoginErrorDelayed,
     };
 }
