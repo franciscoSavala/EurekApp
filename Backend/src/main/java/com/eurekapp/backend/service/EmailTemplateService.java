@@ -24,6 +24,13 @@ public class EmailTemplateService {
         return templateEngine.process("email/forgot-password", ctx);
     }
 
+    public String buildEmployeeInvitationEmail(String firstName, String orgName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("orgName", orgName);
+        return templateEngine.process("email/employee-invitation", ctx);
+    }
+
     public String buildEncargadoAssignedEmail(String firstName, String orgName) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);

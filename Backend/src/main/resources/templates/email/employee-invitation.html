@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">Tenés una invitación pendiente</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      La organización <strong th:text="${orgName}">Organización</strong> te invitó a unirte
+      como <strong>Empleado</strong> en EurekApp.
+    </p>
+
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 24px 0;">
+      <p style="margin: 0 0 8px 0; font-weight: bold; color: #017575;">¿Qué implica este rol?</p>
+      <ul style="margin: 0; color: #555; padding-left: 20px; line-height: 1.8;">
+        <li>Registrar objetos encontrados en la organización.</li>
+        <li>Gestionar reclamos de usuarios que buscan sus pertenencias.</li>
+        <li>Colaborar con el equipo de <span th:text="${orgName}">Organización</span>.</li>
+      </ul>
+    </div>
+
+    <div style="background-color: #f0f4f4; border-radius: 6px; padding: 16px; text-align: center; margin: 24px 0;">
+      <p style="margin: 0 0 8px 0; color: #555; font-size: 14px;">
+        Para aceptar o rechazar la invitación, ingresá a EurekApp.
+      </p>
+      <p style="margin: 0; color: #017575; font-weight: bold; font-size: 15px;">
+        La solicitud estará esperándote en la aplicación.
+      </p>
+    </div>
+
+    <p style="color: #888; font-size: 13px; margin-top: 24px;">
+      Si no esperabas esta invitación o no querés unirte, simplemente rechazala desde la app.
+      No hace falta responder este correo.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>
