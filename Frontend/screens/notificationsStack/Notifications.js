@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useContext, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
@@ -15,6 +15,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import { useFocusEffect } from "@react-navigation/native";
 import EmptyState from "../components/EmptyState";
+import { LoginContext } from "../../hooks/useUser";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -24,6 +25,9 @@ const TYPE_LABELS = {
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
     FRAUD_ALERT: "Alerta de fraude",
+    ORG_REGISTRATION_REQUEST: "Solicitud de alta de organización",
+    ORG_REQUEST_APPROVED: "Solicitud aprobada",
+    ORG_REQUEST_REJECTED: "Solicitud rechazada",
 };
 
 const formatDate = (isoString) => {
@@ -33,6 +37,7 @@ const formatDate = (isoString) => {
 };
 
 const Notifications = ({ navigation, route }) => {
+    const { setUserRole } = useContext(LoginContext);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -132,10 +137,45 @@ const Notifications = ({ navigation, route }) => {
         }
     };
 
+    const handleRefreshSession = async (notifId) => {
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            const res = await axiosInstance.get(BACK_URL + "/user/refreshUserDetails", {
+                headers: { Authorization: "Bearer " + jwt },
+            });
+            if (res.data?.user) {
+                await AsyncStorage.setItem("user.first_name", res.data.user.firstName.toString());
+                await AsyncStorage.setItem("user", JSON.stringify(res.data.user));
+                setUserRole(res.data.user.role);
+            }
+            if (res.data?.organization) {
+                await AsyncStorage.setItem("org.id", res.data.organization.id.toString());
+                await AsyncStorage.setItem("org.name", res.data.organization.name);
+                await AsyncStorage.setItem("organization", JSON.stringify(res.data.organization));
+            }
+            await markAsRead(notifId);
+            Toast.show({
+                type: "success",
+                text1: "¡Sesión actualizada!",
+                text2: "Ya sos responsable de la organización.",
+            });
+            if (Platform.OS === "web") {
+                setTimeout(() => window.location.reload(), 1500);
+            }
+        } catch (e) {
+            Toast.show({
+                type: "error",
+                text1: "Error",
+                text2: "No se pudo actualizar la sesión. Intentá de nuevo.",
+            });
+        }
+    };
+
     const renderItem = ({ item }) => {
         const isUnread = !item.is_read;
         const isPendingInvitation =
             item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null;
+        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED";
 
         return (
             <TouchableOpacity
@@ -166,6 +206,16 @@ const Notifications = ({ navigation, route }) => {
                             onPress={() => handleReject(item.related_request_id, item.id)}
                         >
                             <Text style={styles.actionButtonText}>Rechazar</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {isApprovedOrgRequest && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => handleRefreshSession(item.id)}
+                        >
+                            <Text style={styles.actionButtonText}>Actualizar sesión</Text>
                         </TouchableOpacity>
                     </View>
                 )}

@@ -30,6 +30,9 @@ import RegistrationScreen from "./screens/login/RegistrationScreen";
 import ForgotPasswordScreen from "./screens/login/ForgotPasswordScreen";
 import ResetPasswordScreen from "./screens/login/ResetPasswordScreen";
 import OrganizationSignupForm from "./screens/organizationSignUp/OrganizationSignupForm";
+import MyOrganizationRequest from "./screens/organizationSignUp/MyOrganizationRequest";
+import OrganizationRequestsAdmin from "./screens/organizationSignUp/OrganizationRequestsAdmin";
+import OrganizationRequestDetail from "./screens/organizationSignUp/OrganizationRequestDetail";
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 import OrganizationPolicy from "./screens/organizationStack/OrganizationPolicy";
@@ -292,6 +295,23 @@ const OrganizationStackScreen = () => {
     );
 }
 
+const OrgRequestsAdminStack = createStackNavigator();
+
+const OrgRequestsAdminStackScreen = () => (
+    <OrgRequestsAdminStack.Navigator>
+        <OrgRequestsAdminStack.Screen
+            name="OrganizationRequestsAdmin"
+            component={OrganizationRequestsAdmin}
+            options={{ headerShown: false, title: 'EurekApp - Solicitudes de alta' }}
+        />
+        <OrgRequestsAdminStack.Screen
+            name="OrganizationRequestDetail"
+            component={OrganizationRequestDetail}
+            options={{ headerShown: true, title: 'Detalle de solicitud' }}
+        />
+    </OrgRequestsAdminStack.Navigator>
+);
+
 const CustomDrawerContent = (props) => {
     const [userName, setUserName] = useState('');
     const [userFirstName, setUserFirstName] = useState('');
@@ -477,7 +497,22 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: uploadIcon
                 }} component={OrganizationSignupForm} />
+                <Drawer.Screen name="MyOrganizationRequest" options={{
+                    title: 'Mi solicitud de organización',
+                    headerTitleAlign: 'center',
+                    drawerIcon: organizationIcon
+                }} component={MyOrganizationRequest} />
             </>: null
+            }
+
+            {userRole === 'ADMIN' ?
+            <>
+                <Drawer.Screen name="OrgRequestsAdminStackScreen" options={{
+                    title: 'Solicitudes de alta',
+                    headerTitleAlign: 'center',
+                    drawerIcon: organizationIcon
+                }} component={OrgRequestsAdminStackScreen} />
+            </> : null
             }
 
             {(userRole === 'USER' || userRole === 'REGULAR_USER') ?
