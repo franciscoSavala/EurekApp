@@ -128,7 +128,7 @@ public class LostObjectService {
         String message = emailTemplateService.buildObjectFoundEmail(
                 organization.getName(), organization.getContactData(), description, imageUrl);
 
-        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "¡Hemos encontrado tu objeto! — EurekApp", message);
+        notificationService.sendNotification(lostObjects.getFirst().getUsername(), "¡Posible coincidencia encontrada! — EurekApp", message);
 
         userRepository.findByUsername(lostObjects.getFirst().getUsername()).ifPresent(user ->
                 inAppNotificationService.createNotification(
