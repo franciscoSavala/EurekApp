@@ -139,6 +139,16 @@ public class EmailTemplateService {
         return templateEngine.process("email/fraud-alert", ctx);
     }
 
+    public String buildObjectRecoveredEmail(String firstName, String objectTitle,
+                                             String orgName, String returnDateTime) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("objectTitle", objectTitle);
+        ctx.setVariable("orgName", orgName);
+        ctx.setVariable("returnDateTime", returnDateTime);
+        return templateEngine.process("email/object-recovered", ctx);
+    }
+
     public String buildOrgDeactivatedEmail(String firstName, String orgName) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
