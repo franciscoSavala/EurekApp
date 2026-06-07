@@ -225,7 +225,7 @@ const Notifications = ({ navigation, route }) => {
                             style={styles.fraudButton}
                             onPress={() => {
                                 markAsRead(item.id);
-                                navigation.navigate("FraudAlertsStack", {
+                                navigation.navigate("FraudAlertsStackScreen", {
                                     screen: "FraudAlertDetail",
                                     params: { alertId: item.related_request_id },
                                 });
