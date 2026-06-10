@@ -167,7 +167,7 @@ const Profile = ({ route, navigation }) => {
 
     const translateRole = () => {
         var role = '';
-        if(user.role === 'ORGANIZATION_OWNER'){role = 'Administrador de organización';}
+        if(user.role === 'ORGANIZATION_OWNER'){role = 'Dueño de organización';}
         if(user.role === 'ORGANIZATION_EMPLOYEE'){role = 'Empleado de organización';}
         if(user.role === 'ENCARGADO'){role = 'Encargado';}
         if(user.role === 'USER'){role = 'Usuario regular';}
