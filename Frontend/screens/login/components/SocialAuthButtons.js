@@ -2,17 +2,15 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-elements';
 import * as Google from 'expo-auth-session/providers/google';
-import * as Facebook from 'expo-auth-session/providers/facebook';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import useUser from '../../../hooks/useUser';
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Reemplazar con las credenciales reales obtenidas en Google Cloud Console y Meta for Developers
-const GOOGLE_WEB_CLIENT_ID      = 'YOUR_GOOGLE_WEB_CLIENT_ID';
-const GOOGLE_IOS_CLIENT_ID      = 'YOUR_GOOGLE_IOS_CLIENT_ID';
-const GOOGLE_ANDROID_CLIENT_ID  = 'YOUR_GOOGLE_ANDROID_CLIENT_ID';
-const FACEBOOK_APP_ID           = 'YOUR_FACEBOOK_APP_ID';
+const GOOGLE_WEB_CLIENT_ID      = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID      = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const GOOGLE_ANDROID_CLIENT_ID  = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 
 export default function SocialAuthButtons() {
     const { loginWithSocial, isLoginLoading } = useUser();
@@ -21,25 +19,15 @@ export default function SocialAuthButtons() {
         clientId:        GOOGLE_WEB_CLIENT_ID,
         iosClientId:     GOOGLE_IOS_CLIENT_ID,
         androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+        redirectUri:     AuthSession.makeRedirectUri({ useProxy: true }),
     });
 
     React.useEffect(() => {
         if (googleResponse?.type === 'success') {
-            const idToken = googleResponse.authentication?.idToken;
-            if (idToken) loginWithSocial({ provider: 'GOOGLE', idToken });
+            const accessToken = googleResponse.authentication?.accessToken;
+            if (accessToken) loginWithSocial({ provider: 'GOOGLE', idToken: accessToken });
         }
     }, [googleResponse]);
-
-    const [fbRequest, fbResponse, promptFacebook] = Facebook.useAuthRequest({
-        clientId: FACEBOOK_APP_ID,
-    });
-
-    React.useEffect(() => {
-        if (fbResponse?.type === 'success') {
-            const accessToken = fbResponse.authentication?.accessToken;
-            if (accessToken) loginWithSocial({ provider: 'FACEBOOK', idToken: accessToken });
-        }
-    }, [fbResponse]);
 
     return (
         <View style={styles.container}>
@@ -50,13 +38,6 @@ export default function SocialAuthButtons() {
                 disabled={!googleRequest || isLoginLoading}
             >
                 <Text style={styles.googleBtnText}>Continuar con Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                style={[styles.btn, styles.facebookBtn]}
-                onPress={() => promptFacebook()}
-                disabled={!fbRequest || isLoginLoading}
-            >
-                <Text style={styles.facebookBtnText}>Continuar con Facebook</Text>
             </TouchableOpacity>
         </View>
     );
@@ -83,17 +64,9 @@ const styles = StyleSheet.create({
     googleBtn: {
         backgroundColor: 'white',
     },
-    facebookBtn: {
-        backgroundColor: '#1877F2',
-    },
     googleBtnText: {
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
         color: '#017575',
-    },
-    facebookBtnText: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 14,
-        color: 'white',
     },
 });
