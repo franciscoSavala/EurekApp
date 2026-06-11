@@ -163,6 +163,7 @@ public class ReturnFoundObjectService {
         rfo.setDNI(command.getDNI());
         rfo.setPhoneNumber(command.getPhoneNumber());
         rfo.setPersonPhotoUUID(personPhotoUUID);
+        rfo.setReturnedByEmployee(caller);
         // Guardar el objeto devuelto
         //returnFoundObjectRepository.save(rfo);
         Future<ReturnFoundObject> saveReturnFoundObjectFuture = (Future<ReturnFoundObject>) executorService.submit(() -> returnFoundObjectRepository.save(rfo));
