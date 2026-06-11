@@ -388,14 +388,21 @@ success "7 registros de usability_feedback insertados"
 # ─── 16. Insertar FraudAlerts ────────────────────────────────────────────────
 header "Insertando FraudAlerts"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
-('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
-('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
-('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
-('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
-SQL
-success "4 fraud_alerts insertados (2 PENDING, 1 CONFIRMED_FRAUD, 1 FALSE_POSITIVE)"
+# DESHABILITADO (EU-282): el modelo de FraudAlert se rediseñó. La columna 'suspect_user_id'
+# ya no existe (los sospechosos viven en la tabla join 'fraud_alert_suspect_user') y los
+# 'reason' de abajo (MULTIPLE_CLAIMERS_SAME_OBJECT, etc.) corresponden a las reglas viejas
+# que se eliminan en EU-253/EU-284. En una DB fresca este INSERT rompía contra el esquema
+# nuevo. Se repuebla con alertas basadas en DNI cuando aterricen las reglas nuevas
+# (EU-284/EU-285). No reactivar tal cual: la data contradiría el modelo de devoluciones.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
+# ('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
+# ('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
+# ('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
+# ('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
+# SQL
+warn "FraudAlerts: seed deshabilitado por rediseño del modelo (EU-282). Se repuebla en EU-284/EU-285."
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
@@ -527,7 +534,7 @@ echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Termina
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 1                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 4  (1 PENDING/APPROVED/REJECTED/CANCELLED)${GREEN}${BOLD}║${NC}"

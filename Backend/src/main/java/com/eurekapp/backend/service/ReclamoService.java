@@ -241,7 +241,7 @@ public class ReclamoService {
         Long userId = reclamo.getUser() != null ? reclamo.getUser().getId() : null;
 
         boolean suspicious = userId != null && fraudAlertRepository
-                .existsByOrganizationIdAndSuspectUser_IdAndStatus(orgId, userId, FraudAlertStatus.CONFIRMED_FRAUD);
+                .existsByOrganizationIdAndSuspectUsers_IdAndStatus(orgId, userId, FraudAlertStatus.CONFIRMED_FRAUD);
 
         Integer stars = reclamo.getStarRating();
         String confidence = stars == null ? "BAJA"

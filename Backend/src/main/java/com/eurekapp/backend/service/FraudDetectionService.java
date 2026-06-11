@@ -1,7 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
-import com.eurekapp.backend.dto.response.FraudClaimantDto;
+import com.eurekapp.backend.dto.response.FraudUserDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -24,7 +24,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -126,17 +125,21 @@ public class FraudDetectionService {
 
     private void createAlertIfAbsent(String orgId, String uuid, UserEurekapp suspect,
                                      String reason, String details) {
+        // Clave de agrupación de estas reglas (legacy): el objeto si lo hay, si no el usuario.
+        String dedupKey = uuid != null ? uuid : "user:" + suspect.getId();
+        LocalDateTime windowStart = LocalDateTime.now().minusDays(claimPeriodDays);
         boolean exists = alertRepository
-                .existsByOrganizationIdAndFoundObjectUUIDAndSuspectUserAndReasonAndStatus(
-                        orgId, uuid, suspect, reason, FraudAlertStatus.PENDING);
+                .existsByOrganizationIdAndReasonAndDedupKeyAndCreatedAtAfter(
+                        orgId, reason, dedupKey, windowStart);
         if (exists) return;
 
         FraudAlert alert = FraudAlert.builder()
                 .organizationId(orgId)
                 .foundObjectUUID(uuid)
-                .suspectUser(suspect)
+                .suspectUsers(new java.util.HashSet<>(Set.of(suspect)))
                 .reason(reason)
                 .details(details)
+                .dedupKey(dedupKey)
                 .status(FraudAlertStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -224,17 +227,18 @@ public class FraudDetectionService {
                 ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgId, status, fromDt, toDt)
                 : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
 
-        // Paso 2: IDs únicos de usuarios del conjunto filtrado
+        // Paso 2: IDs únicos de usuarios del conjunto filtrado (una alerta puede tener varios)
         Set<Long> suspectIds = filteredAlerts.stream()
-                .filter(a -> a.getSuspectUser() != null)
-                .map(a -> a.getSuspectUser().getId())
+                .flatMap(a -> a.getSuspectUsers().stream())
+                .map(UserEurekapp::getId)
                 .collect(Collectors.toSet());
 
         // Paso 3: para cada usuario, cargar TODOS sus casos en la org (historial completo)
         return suspectIds.stream().map(userId -> {
             List<FraudAlert> all = alertRepository
-                    .findByOrganizationIdAndSuspectUser_Id(orgId, userId);
-            UserEurekapp suspect = all.get(0).getSuspectUser();
+                    .findByOrganizationIdAndSuspectUsers_Id(orgId, userId);
+            UserEurekapp suspect = userRepository.findById(userId).orElse(null);
+            if (suspect == null) return null;
 
             long confirmed = all.stream()
                     .filter(a -> a.getStatus() == FraudAlertStatus.CONFIRMED_FRAUD).count();
@@ -264,7 +268,8 @@ public class FraudDetectionService {
                             .map(this::toDto)
                             .collect(Collectors.toList()))
                     .build();
-        }).sorted(Comparator.comparingInt(FraudUserReportEntryDto::getGravityLevel)
+        }).filter(java.util.Objects::nonNull)
+          .sorted(Comparator.comparingInt(FraudUserReportEntryDto::getGravityLevel)
                 .thenComparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
                 .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
                 .reversed())
@@ -323,39 +328,15 @@ public class FraudDetectionService {
             } catch (Exception ignored) {}
         }
 
-        List<FraudClaimantDto> claimants = List.of();
-        if (a.getFoundObjectUUID() != null && a.getOrganizationId() != null) {
-            try {
-                List<FraudClaimantDto> sfClaimants = feedbackRepository
-                        .findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(
-                                a.getOrganizationId(), a.getFoundObjectUUID())
-                        .stream()
-                        .filter(f -> f.getUser() != null)
-                        .map(f -> FraudClaimantDto.builder()
-                                .userId(f.getUser().getId())
-                                .email(f.getUser().getUsername())
-                                .fullName(f.getUser().getFirstName() + " " + f.getUser().getLastName())
-                                .build())
-                        .collect(Collectors.toList());
+        List<FraudUserDto> suspectUsers = a.getSuspectUsers().stream()
+                .map(u -> FraudUserDto.builder()
+                        .userId(u.getId())
+                        .email(u.getUsername())
+                        .fullName(u.getFirstName() + " " + u.getLastName())
+                        .build())
+                .collect(Collectors.toList());
 
-                List<FraudClaimantDto> reclamoClaimants = reclamoRepository
-                        .findByFoundObjectUUID(a.getFoundObjectUUID())
-                        .stream()
-                        .filter(r -> r.getOrganizationId() == null || a.getOrganizationId().equals(r.getOrganizationId()))
-                        .filter(r -> r.getUser() != null)
-                        .map(r -> FraudClaimantDto.builder()
-                                .userId(r.getUser().getId())
-                                .email(r.getUser().getUsername())
-                                .fullName(r.getUser().getFirstName() + " " + r.getUser().getLastName())
-                                .build())
-                        .collect(Collectors.toList());
-
-                Map<Long, FraudClaimantDto> merged = new java.util.LinkedHashMap<>();
-                sfClaimants.forEach(c -> merged.put(c.getUserId(), c));
-                reclamoClaimants.forEach(c -> merged.putIfAbsent(c.getUserId(), c));
-                claimants = new java.util.ArrayList<>(merged.values());
-            } catch (Exception ignored) {}
-        }
+        UserEurekapp employee = a.getReturnedByEmployee();
 
         return FraudAlertDto.builder()
                 .id(a.getId())
@@ -363,11 +344,12 @@ public class FraudDetectionService {
                 .foundObjectUUID(a.getFoundObjectUUID())
                 .foundObjectTitle(objectTitle)
                 .foundObjectDescription(objectDescription)
-                .suspectUserEmail(a.getSuspectUser() != null ? a.getSuspectUser().getUsername() : null)
-                .suspectUserFullName(a.getSuspectUser() != null
-                        ? a.getSuspectUser().getFirstName() + " " + a.getSuspectUser().getLastName()
+                .dni(a.getDni())
+                .suspectUsers(suspectUsers)
+                .returnedByEmployeeEmail(employee != null ? employee.getUsername() : null)
+                .returnedByEmployeeFullName(employee != null
+                        ? employee.getFirstName() + " " + employee.getLastName()
                         : null)
-                .relatedClaimants(claimants)
                 .reason(a.getReason())
                 .details(a.getDetails())
                 .status(a.getStatus().name())

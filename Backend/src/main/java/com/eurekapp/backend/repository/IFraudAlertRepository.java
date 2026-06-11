@@ -2,7 +2,6 @@ package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.model.FraudAlert;
 import com.eurekapp.backend.model.FraudAlertStatus;
-import com.eurekapp.backend.model.UserEurekapp;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;
@@ -12,12 +11,11 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
 
     List<FraudAlert> findByOrganizationIdOrderByCreatedAtDesc(String organizationId);
 
-    boolean existsByOrganizationIdAndFoundObjectUUIDAndSuspectUserAndReasonAndStatus(
-            String organizationId,
-            String foundObjectUUID,
-            UserEurekapp suspectUser,
-            String reason,
-            FraudAlertStatus status);
+    // Deduplicación de alertas: evita crear una alerta repetida si ya existe otra de la misma
+    // regla (reason), para la misma clave de agrupación (dedupKey), dentro de la ventana de
+    // tiempo vigente (creada después de 'since'). Es el criterio (regla, clave, ventana).
+    boolean existsByOrganizationIdAndReasonAndDedupKeyAndCreatedAtAfter(
+            String organizationId, String reason, String dedupKey, LocalDateTime since);
 
     List<FraudAlert> findByOrganizationIdAndCreatedAtBetween(
             String organizationId, LocalDateTime from, LocalDateTime to);
@@ -25,8 +23,8 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
     List<FraudAlert> findByOrganizationIdAndStatusAndCreatedAtBetween(
             String organizationId, FraudAlertStatus status, LocalDateTime from, LocalDateTime to);
 
-    boolean existsByOrganizationIdAndSuspectUser_IdAndStatus(
+    boolean existsByOrganizationIdAndSuspectUsers_IdAndStatus(
             String organizationId, Long userId, FraudAlertStatus status);
 
-    List<FraudAlert> findByOrganizationIdAndSuspectUser_Id(String organizationId, Long userId);
+    List<FraudAlert> findByOrganizationIdAndSuspectUsers_Id(String organizationId, Long userId);
 }
