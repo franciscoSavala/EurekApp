@@ -18,16 +18,11 @@ import EmptyState from '../components/EmptyState';
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const STATUS_CONFIG = {
-    PENDIENTE:   { label: 'Pendiente',               color: '#888',    bg: '#f0f0f0' },
-    EN_REVISION: { label: 'En revisión',             color: '#b45309', bg: '#fef3c7' },
-    APROBADO:    { label: 'Coincidencia encontrada', color: '#065f46', bg: '#d1fae5' },
-    RECHAZADO:   { label: 'Cerrado',                 color: '#991b1b', bg: '#fee2e2' },
-    DEVUELTO:    { label: 'Devuelto',                color: '#1d4ed8', bg: '#dbeafe' },
     BUSCANDO:    { label: 'Buscando',                color: '#0d6e6e', bg: '#ccf2f2' },
 };
 
 const StatusChip = ({ status }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.PENDIENTE;
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.BUSCANDO;
     return (
         <View style={[styles.chip, { backgroundColor: cfg.bg }]}>
             <Text style={[styles.chipText, { color: cfg.color }]}>{cfg.label}</Text>
@@ -74,18 +69,13 @@ const MyObjectHistory = ({ navigation }) => {
                 <Text style={styles.cardTitle} numberOfLines={1}>
                     {item.foundObjectTitle || item.foundObjectCategory || 'Objeto sin título'}
                 </Text>
-                <StatusChip status={item.status} />
             </View>
             {!!item.foundObjectHumanDescription && (
                 <Text style={styles.cardDesc} numberOfLines={2}>{item.foundObjectHumanDescription}</Text>
             )}
             <View style={styles.cardFooter}>
                 <Icon name="calendar" size={12} color="#638888" />
-                {item.status === 'DEVUELTO' && item.datetimeOfReturn ? (
-                    <Text style={styles.cardDate}> Retirado: {formatDate(item.datetimeOfReturn)}</Text>
-                ) : (
-                    <Text style={styles.cardDate}> Búsqueda: {formatDate(item.createdAt)}</Text>
-                )}
+                <Text style={styles.cardDate}> Búsqueda: {formatDate(item.createdAt)}</Text>
             </View>
         </TouchableOpacity>
     );

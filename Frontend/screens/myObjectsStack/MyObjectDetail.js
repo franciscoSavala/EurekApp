@@ -16,24 +16,6 @@ import { ROLE_LABELS } from '../../utils/constants';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const STATUS_CONFIG = {
-    PENDIENTE:   { label: 'Pendiente',               color: '#888',    bg: '#f0f0f0', icon: 'clock' },
-    EN_REVISION: { label: 'En revisión',             color: colors.warning, bg: '#fef3c7', icon: 'magnifying-glass' },
-    APROBADO:    { label: 'Coincidencia encontrada', color: '#065f46', bg: '#d1fae5', icon: 'circle-check' },
-    RECHAZADO:   { label: 'Cerrado',                 color: '#991b1b', bg: '#fee2e2', icon: 'circle-xmark' },
-    DEVUELTO:    { label: 'Devuelto',                color: '#1d4ed8', bg: '#dbeafe', icon: 'box-open' },
-};
-
-const StatusBadge = ({ status }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.PENDIENTE;
-    return (
-        <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-            <Icon name={cfg.icon} size={14} color={cfg.color} />
-            <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
-        </View>
-    );
-};
-
 const InfoRow = ({ icon, label, value }) => (
     <View style={styles.infoRow}>
         <Icon name={icon} size={14} color="#638888" style={{ marginTop: 2 }} />
@@ -86,8 +68,6 @@ const MyObjectDetail = ({ route, navigation }) => {
         );
     }
 
-    const statusCfg = STATUS_CONFIG[reclamo.status] || STATUS_CONFIG.PENDIENTE;
-
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -111,7 +91,6 @@ const MyObjectDetail = ({ route, navigation }) => {
                 <Text style={styles.title}>
                     {reclamo.foundObjectTitle || reclamo.foundObjectCategory || 'Objeto sin título'}
                 </Text>
-                <StatusBadge status={reclamo.status} />
             </View>
 
             {!!reclamo.foundObjectHumanDescription && (
@@ -124,9 +103,6 @@ const MyObjectDetail = ({ route, navigation }) => {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
                 <InfoRow icon="calendar" label="Fecha de búsqueda" value={formatDate(reclamo.createdAt)} />
-                {!!reclamo.datetimeOfReturn && (
-                    <InfoRow icon="box-open" label="Fecha de retiro" value={formatDate(reclamo.datetimeOfReturn)} />
-                )}
                 <InfoRow icon="tag" label="Categoría" value={reclamo.foundObjectCategory} />
                 {!!reclamo.comment && (
                     <InfoRow icon="comment" label="Tu comentario" value={reclamo.comment} />
@@ -138,12 +114,6 @@ const MyObjectDetail = ({ route, navigation }) => {
                     <InfoRow icon="user" label="Encontrado por"
                         value={`${reclamo.finderFullName}${reclamo.finderRole ? ` (${ROLE_LABELS[reclamo.finderRole] || reclamo.finderRole})` : ''}`} />
                 )}
-                {!!reclamo.takerDNI && (
-                    <InfoRow icon="id-card" label="Retirado por (DNI)" value={reclamo.takerDNI} />
-                )}
-                {!!reclamo.takerEmail && (
-                    <InfoRow icon="envelope" label="Email de quien retiró" value={reclamo.takerEmail} />
-                )}
                 {reclamo.rewardExcluded && (
                     <View style={styles.warningBox}>
                         <Text style={styles.warningText}>{reclamo.rewardExclusionReason}</Text>
@@ -151,26 +121,6 @@ const MyObjectDetail = ({ route, navigation }) => {
                 )}
             </View>
 
-            {reclamo.history && reclamo.history.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Historial de estados</Text>
-                    {reclamo.history.map((h, idx) => (
-                        <View key={h.id} style={styles.historyItem}>
-                            <View style={[styles.historyDot, { backgroundColor: statusCfg.color }]} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.historyStatus}>
-                                    {h.previousStatus
-                                        ? `${STATUS_CONFIG[h.previousStatus]?.label || h.previousStatus} → `
-                                        : ''}
-                                    {STATUS_CONFIG[h.newStatus]?.label || h.newStatus}
-                                </Text>
-                                <Text style={styles.historyDate}>{formatDate(h.changedAt)}</Text>
-                                {!!h.note && <Text style={styles.historyNote}>{h.note}</Text>}
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            )}
         </ScrollView>
     );
 };

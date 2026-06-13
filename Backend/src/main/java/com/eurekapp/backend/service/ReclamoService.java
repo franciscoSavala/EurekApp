@@ -1,19 +1,14 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.dto.command.UpdateClaimStatusCommand;
 import com.eurekapp.backend.dto.request.CreateReclamoRequestDto;
 import com.eurekapp.backend.dto.response.ReclamoDto;
-import com.eurekapp.backend.dto.response.ReclamoHistoryDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
-import com.eurekapp.backend.repository.IFraudAlertRepository;
-import com.eurekapp.backend.repository.IReclamoHistoryRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReclamoRepository;
-import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
@@ -36,11 +31,8 @@ import java.util.stream.Collectors;
 public class ReclamoService {
 
     private final IReclamoRepository reclamoRepository;
-    private final IReclamoHistoryRepository historyRepository;
     private final FoundObjectRepository foundObjectRepository;
     private final ObjectStorage objectStorage;
-    private final IFraudAlertRepository fraudAlertRepository;
-    private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final IOrganizationRepository organizationRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final FraudDetectionService fraudDetectionService;
@@ -75,7 +67,6 @@ public class ReclamoService {
                 .comment(feedback.getComment())
                 .starRating(feedback.getStarRating())
                 .claimDescription(claimDescription)
-                .status(ClaimStatus.PENDIENTE)
                 .createdAt(feedback.getCreatedAt())
                 .updatedAt(feedback.getCreatedAt())
                 .searchFeedbackId(feedback.getId())
@@ -108,7 +99,6 @@ public class ReclamoService {
                 .foundObjectCategory(category)
                 .user(user)
                 .claimDescription(dto.getClaimDescription())
-                .status(ClaimStatus.PENDIENTE)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -118,17 +108,12 @@ public class ReclamoService {
     }
 
     public List<ReclamoDto> getReclamos(UserEurekapp user,
-            ClaimStatus status, LocalDate from, LocalDate to, String category, String sortBy) {
+            LocalDate from, LocalDate to, String category, String sortBy) {
         validateAccess(user);
         String orgId = user.getOrganization().getId().toString();
 
         List<Reclamo> reclamos;
-        if (status != null && from != null && to != null) {
-            reclamos = reclamoRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(
-                    orgId, status, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
-        } else if (status != null) {
-            reclamos = reclamoRepository.findByOrganizationIdAndStatus(orgId, status);
-        } else if (from != null && to != null) {
+        if (from != null && to != null) {
             reclamos = reclamoRepository.findByOrganizationIdAndCreatedAtBetween(
                     orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
         } else {
@@ -147,7 +132,6 @@ public class ReclamoService {
 
         // Ordenar
         Comparator<ReclamoDto> comparator = switch (sortBy != null ? sortBy.toLowerCase() : "date") {
-            case "status" -> Comparator.comparing(ReclamoDto::getStatus);
             case "priority" -> Comparator.comparing(ReclamoDto::getConfidenceLevel).reversed();
             default -> Comparator.comparing(ReclamoDto::getCreatedAt,
                     Comparator.nullsLast(Comparator.reverseOrder()));
@@ -160,30 +144,6 @@ public class ReclamoService {
         validateAccess(user);
         Reclamo reclamo = findAndValidateOwnership(user, id);
         return toDto(reclamo, true);
-    }
-
-    public void updateStatus(UserEurekapp user, Long id, UpdateClaimStatusCommand command) {
-        validateAccess(user);
-        Reclamo reclamo = findAndValidateOwnership(user, id);
-        ClaimStatus newStatus;
-        try {
-            newStatus = ClaimStatus.valueOf(command.getNewStatus());
-        } catch (IllegalArgumentException e) {
-            throw new com.eurekapp.backend.exception.BadRequestException("invalid_status",
-                    "Estado inválido: " + command.getNewStatus());
-        }
-        ReclamoHistory histEntry = ReclamoHistory.builder()
-                .reclamo(reclamo)
-                .previousStatus(reclamo.getStatus())
-                .newStatus(newStatus)
-                .changedBy(user)
-                .changedAt(LocalDateTime.now())
-                .note(command.getNote())
-                .build();
-        historyRepository.save(histEntry);
-        reclamo.setStatus(newStatus);
-        reclamo.setUpdatedAt(LocalDateTime.now());
-        reclamoRepository.save(reclamo);
     }
 
     public List<ReclamoDto> getMyReclamos(UserEurekapp user) {
@@ -237,12 +197,6 @@ public class ReclamoService {
     }
 
     private ReclamoDto toDto(Reclamo reclamo, boolean includeDetail, boolean includeInternalInfo) {
-        String orgId = reclamo.getOrganizationId();
-        Long userId = reclamo.getUser() != null ? reclamo.getUser().getId() : null;
-
-        boolean suspicious = userId != null && fraudAlertRepository
-                .existsByOrganizationIdAndSuspectUsers_IdAndStatus(orgId, userId, FraudAlertStatus.CONFIRMED_FRAUD);
-
         Integer stars = reclamo.getStarRating();
         String confidence = stars == null ? "BAJA"
                 : stars >= 4 ? "ALTA"
@@ -250,14 +204,12 @@ public class ReclamoService {
 
         ReclamoDto.ReclamoDtoBuilder builder = ReclamoDto.builder()
                 .id(reclamo.getId())
-                .status(reclamo.getStatus().name())
                 .createdAt(reclamo.getCreatedAt())
                 .updatedAt(reclamo.getUpdatedAt())
                 .comment(reclamo.getComment())
                 .claimDescription(reclamo.getClaimDescription())
                 .starRating(reclamo.getStarRating())
                 .confidenceLevel(confidence)
-                .isSuspicious(suspicious)
                 .foundObjectUUID(reclamo.getFoundObjectUUID())
                 .foundObjectCategory(reclamo.getFoundObjectCategory());
 
@@ -314,31 +266,6 @@ public class ReclamoService {
                     }
                 } catch (Exception e) {
                     // No bloquear si falla la imagen
-                }
-
-                List<ReclamoHistoryDto> history = historyRepository
-                        .findByReclamo_IdOrderByChangedAtAsc(reclamo.getId())
-                        .stream()
-                        .map(h -> ReclamoHistoryDto.builder()
-                                .id(h.getId())
-                                .previousStatus(h.getPreviousStatus() != null ? h.getPreviousStatus().name() : null)
-                                .newStatus(h.getNewStatus().name())
-                                .changedByEmail(includeInternalInfo && h.getChangedBy() != null ? h.getChangedBy().getUsername() : null)
-                                .changedAt(h.getChangedAt())
-                                .note(h.getNote())
-                                .build())
-                        .collect(Collectors.toList());
-                builder.history(history);
-            }
-        }
-
-        if (reclamo.getFoundObjectUUID() != null) {
-            ReturnFoundObject rfo = returnFoundObjectRepository.findByFoundObjectUUID(reclamo.getFoundObjectUUID());
-            if (rfo != null) {
-                builder.datetimeOfReturn(rfo.getDatetimeOfReturn())
-                        .takerDNI(rfo.getDNI());
-                if (rfo.getUserEurekapp() != null) {
-                    builder.takerEmail(rfo.getUserEurekapp().getUsername());
                 }
             }
         }

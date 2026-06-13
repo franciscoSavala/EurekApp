@@ -15,27 +15,10 @@ import { useFocusEffect } from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const STATUS_COLORS = {
-    PENDIENTE: '#f59e0b',
-    EN_REVISION: '#3b82f6',
-    APROBADO: '#22c55e',
-    RECHAZADO: '#ED4337',
-    DEVUELTO: '#7c3aed',
-};
-
-const STATUS_LABELS = {
-    PENDIENTE: 'Pendiente',
-    EN_REVISION: 'En revisión',
-    APROBADO: 'Aprobado',
-    RECHAZADO: 'Rechazado',
-    DEVUELTO: 'Devuelto',
-};
-
 const ReclamoDetail = ({ route }) => {
     const { reclamoId } = route.params;
     const [reclamo, setReclamo] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [updating, setUpdating] = useState(false);
 
     const fetchDetail = async () => {
         setLoading(true);
@@ -57,23 +40,6 @@ const ReclamoDetail = ({ route }) => {
             fetchDetail();
         }, [reclamoId])
     );
-
-    const handleStatusUpdate = async (newStatus) => {
-        setUpdating(true);
-        try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            await axiosInstance.put(
-                `${BACK_URL}/reclamos/${reclamoId}/status`,
-                { newStatus },
-                { headers: { Authorization: `Bearer ${jwt}` } }
-            );
-            await fetchDetail();
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setUpdating(false);
-        }
-    };
 
     const renderStars = (rating) => {
         if (!rating) return '';
@@ -102,26 +68,15 @@ const ReclamoDetail = ({ route }) => {
         );
     }
 
-    const statusColor = STATUS_COLORS[reclamo.status] || '#638888';
-    const statusLabel = STATUS_LABELS[reclamo.status] || reclamo.status;
-
     return (
         <ScrollView contentContainerStyle={styles.container}>
 
-            {/* Estado e indicadores */}
+            {/* Indicadores */}
             <View style={styles.section}>
                 <View style={styles.statusRow}>
-                    <View style={[styles.statusBadgeLarge, { backgroundColor: statusColor }]}>
-                        <Text style={styles.statusBadgeLargeText}>{statusLabel}</Text>
-                    </View>
                     <Text style={styles.confidencePill}>
                         Confianza: {reclamo.confidenceLevel || '-'}
                     </Text>
-                    {reclamo.isSuspicious && (
-                        <View style={styles.suspiciousBadge}>
-                            <Text style={styles.suspiciousBadgeText}>⚠ Sospechoso</Text>
-                        </View>
-                    )}
                 </View>
             </View>
 
@@ -131,13 +86,6 @@ const ReclamoDetail = ({ route }) => {
                 <InfoRow label="Nombre" value={reclamo.userFullName} />
                 <InfoRow label="Email" value={reclamo.userEmail} />
                 <InfoRow label="ID usuario" value={reclamo.userId != null ? String(reclamo.userId) : '-'} />
-                {reclamo.isSuspicious && (
-                    <View style={styles.fraudWarning}>
-                        <Text style={styles.fraudWarningText}>
-                            ⚠ Este usuario tiene alertas de fraude confirmadas en tu organización.
-                        </Text>
-                    </View>
-                )}
             </View>
 
             {/* Objeto encontrado */}
@@ -186,65 +134,6 @@ const ReclamoDetail = ({ route }) => {
                 <InfoRow label="Comentario" value={reclamo.comment} />
             </View>
 
-            {/* Botones de acción */}
-            {reclamo.status === 'PENDIENTE' && (
-                <View style={styles.actionsSection}>
-                    <Text style={styles.sectionTitle}>Acciones</Text>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: '#3b82f6' }]}
-                        onPress={() => handleStatusUpdate('EN_REVISION')}
-                        disabled={updating}>
-                        {updating
-                            ? <ActivityIndicator color="#fff" />
-                            : <Text style={styles.actionBtnText}>Marcar en revisión</Text>}
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {reclamo.status === 'EN_REVISION' && (
-                <View style={styles.actionsSection}>
-                    <Text style={styles.sectionTitle}>Acciones</Text>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: '#22c55e' }]}
-                        onPress={() => handleStatusUpdate('APROBADO')}
-                        disabled={updating}>
-                        {updating
-                            ? <ActivityIndicator color="#fff" />
-                            : <Text style={styles.actionBtnText}>Aprobar reclamo</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.actionBtn, { backgroundColor: '#ED4337', marginTop: 8 }]}
-                        onPress={() => handleStatusUpdate('RECHAZADO')}
-                        disabled={updating}>
-                        {updating
-                            ? <ActivityIndicator color="#fff" />
-                            : <Text style={styles.actionBtnText}>Rechazar reclamo</Text>}
-                    </TouchableOpacity>
-                </View>
-            )}
-
-            {/* Historial */}
-            {reclamo.history && reclamo.history.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Historial del reclamo</Text>
-                    {reclamo.history.map((h, idx) => (
-                        <View key={h.id || idx} style={styles.historyItem}>
-                            <View style={styles.historyDot} />
-                            <View style={styles.historyContent}>
-                                <Text style={styles.historyChange}>
-                                    {h.previousStatus
-                                        ? `${STATUS_LABELS[h.previousStatus] || h.previousStatus} → ${STATUS_LABELS[h.newStatus] || h.newStatus}`
-                                        : `Establecido: ${STATUS_LABELS[h.newStatus] || h.newStatus}`}
-                                </Text>
-                                <Text style={styles.historyMeta}>
-                                    {formatDate(h.changedAt)} · {h.changedByEmail || '-'}
-                                </Text>
-                                {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
-                            </View>
-                        </View>
-                    ))}
-                </View>
-            )}
         </ScrollView>
     );
 };

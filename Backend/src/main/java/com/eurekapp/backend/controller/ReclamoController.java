@@ -1,9 +1,7 @@
 package com.eurekapp.backend.controller;
 
-import com.eurekapp.backend.dto.command.UpdateClaimStatusCommand;
 import com.eurekapp.backend.dto.request.CreateReclamoRequestDto;
 import com.eurekapp.backend.dto.response.ReclamoDto;
-import com.eurekapp.backend.model.ClaimStatus;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.ReclamoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,12 +43,11 @@ public class ReclamoController {
             description = "Devuelve los reclamos de la organización. Accesible para ENCARGADO y ORGANIZATION_OWNER.")
     public ResponseEntity<List<ReclamoDto>> getReclamos(
             @AuthenticationPrincipal UserEurekapp user,
-            @RequestParam(required = false) ClaimStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) String category,
             @RequestParam(defaultValue = "date") String sortBy) {
-        return ResponseEntity.ok(reclamoService.getReclamos(user, status, from, to, category, sortBy));
+        return ResponseEntity.ok(reclamoService.getReclamos(user, from, to, category, sortBy));
     }
 
     @GetMapping("/{id}")
@@ -78,14 +75,4 @@ public class ReclamoController {
         return ResponseEntity.ok(reclamoService.getMyReclamoDetail(user, id));
     }
 
-    @PutMapping("/{id}/status")
-    @Operation(summary = "Actualizar estado del reclamo",
-            description = "Actualiza el estado del reclamo y registra la acción en el historial.")
-    public ResponseEntity<Void> updateStatus(
-            @AuthenticationPrincipal UserEurekapp user,
-            @PathVariable Long id,
-            @RequestBody UpdateClaimStatusCommand command) {
-        reclamoService.updateStatus(user, id, command);
-        return ResponseEntity.ok().build();
-    }
 }

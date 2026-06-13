@@ -37,6 +37,18 @@ desde acá sin re-explicar el contexto.
 - **Bloqueo automático:** al dispararse una regla, el sistema bloquea a los usuarios/DNIs
   involucrados por X días, sin validación humana previa. El dueño puede marcar
   `FALSA_ALARMA` para levantarlo.
+- **Endgame (decisión pendiente, para EU-279/EU-280):** hoy una búsqueda guardada se
+  duplica como `LostObject` (Weaviate) **y** un `Reclamo` con `foundObjectUUID=null`
+  (`reportLostObject` escribe ambos → aparece dos veces en "Mis búsquedas"). Una vez sacado
+  el ciclo de propiedad (EU-278) y movido el fraude a devoluciones (EU-284/285), el
+  `Reclamo` queda sin función propia. Dirección acordada: **`LostObject` como única entidad
+  de búsqueda guardada y eliminar `Reclamo`**. La org no necesita ver búsquedas guardadas
+  (son privadas del usuario); si en algún momento lo necesitara, se resuelve con una query
+  org-scoped sobre `LostObject` (ya tiene `organizationId`), sin `Reclamo`. Antes de ejecutar
+  el borrado: definir el camino de `FeedbackService` (qué hace al marcar "lo encontré").
+  Blast radius medido: back = `FraudDetectionService`, `FeedbackService`, `LostObjectService`
+  (+ maquinaria de `Reclamo`); front = ReclamosList, ReclamoDetail, Inventory, MyObjectHistory,
+  MyObjectDetail, navegación.
 
 ## 2. Reglas de detección (resumen)
 
@@ -83,7 +95,8 @@ Datos → lógica; borrar antes de construir; detectar antes de bloquear.
 9. EU-279 — notificar match ≥ 0.75
 10. EU-288 — front fraude
 11. EU-280 — front reclamos
-12. EU-276 — bug estrellas (cuando haya hueco)
+12. EU-292 — extirpar entidad Reclamo (back + front + BD)
+13. EU-276 — bug estrellas (cuando haya hueco)
 
 ## 5. Tabla de trabajo y estado
 
@@ -98,20 +111,21 @@ el trabajo sale mal, por encima gasta quota al pedo. Si no coincide, frená y pe
 | 1 | EU-281 | Persistir empleado que entrega (`returnedByEmployeeId`) | Back + BD | Sonnet · sin thinking · medio | HECHO | Campo `returnedByEmployee` en entidad + seteo en service |
 | 2 | EU-282 | Refactor `FraudAlert` (DNI + varios usuarios + empleado) | Back + BD | **Opus · thinking · alto** | HECHO | `suspectUsers` (M2M) + `dni` + `returnedByEmployee` + `dedupKey`. Dedup → (regla, clave, ventana). `FraudClaimantDto`→`FraudUserDto`; `relatedClaimants` eliminado. Seed sec.16 deshabilitado. Tests en `FraudDetectionServiceTest`. **Deuda diferida (no olvidar):** el flag `isSuspicious` sigue vivo (ver notas EU-278/EU-280/EU-286) |
 | 3 | EU-283 | Entidad de bloqueo + parámetros N/T configurables | Back + BD | Sonnet · thinking · medio | HECHO | `FraudBlock` + `FraudDetectionConfig` (singleton N=5/T=1). Repos + service + controller `/admin/fraud/config`. 8 tests unitarios. |
-| 4 | EU-278 | Desarmar ciclo aprobar/rechazar del reclamo | Back | Sonnet · sin thinking · medio | TODO | Recorta ClaimStatus, borra ReclamoHistory. **Pendiente EU-282:** quitar `isSuspicious` de `ReclamoDto` + la query `existsBy...SuspectUsers_IdAndStatus` en `ReclamoService.toDto` (el reclamo pasa a búsqueda guardada: no aplica "sospechoso") |
+| 4 | EU-278 | Desarmar ciclo aprobar/rechazar del reclamo | Back + Front | Sonnet · sin thinking · medio | HECHO | Borrado `ClaimStatus`, `ReclamoHistory`, `ReclamoHistoryDto`, `IReclamoHistoryRepository`, `UpdateClaimStatusCommand`. Sacado `status` de `Reclamo`/`ReclamoDto`, `updateStatus` + endpoint, sort por status, y `isSuspicious` + query `existsBy...SuspectUsers` (deuda EU-282 saldada). **Desacople total reclamo↔returnFoundObject** (ambas direcciones): quitado `hasPriorClaim` y el bloque DEVUELTO del retiro, y `datetimeOfReturn`/`takerDNI`/`takerEmail` del DTO. `checkRepeatedRejections` eliminado (dependía de `RECHAZADO`). Front: limpieza en ReclamosList, ReclamoDetail, ReturnObjectForm, MyObjectHistory, MyObjectDetail. Unitarios verdes. **Smoke test local (MySQL+Weaviate):** arranque OK + `POST/GET /reclamos` 200. **Corrección a "cero migraciones":** la columna `reclamos.status` quedó huérfana **NOT NULL** (ddl-auto=update no la dropea); no rompe inserts porque MySQL rellena el ENUM con `'APROBADO'`, pero conviene `DROP COLUMN status` (lo cubre EU-292). |
 | 5 | EU-284 | Implementar las 3 reglas (ventana deslizante) | Back | **Opus · thinking · alto** | TODO | Reemplaza reglas viejas (ver EU-253) |
 | 6 | EU-285 | Enganchar detección en devolución y alta | Back | Sonnet · sin thinking · medio | TODO | Quitar checkForFraud de reclamo |
-| 7 | EU-286 | Validar bloqueo en retiro y alta | Back | Sonnet · thinking leve · medio | TODO | Aviso en pantalla para DNI sin usuario. **Pendiente EU-282:** la advertencia `isSuspicious` en `ReturnObjectForm.js` es protección provisoria; reemplazarla por el bloqueo real al retirar |
+| 7 | EU-286 | Validar bloqueo en retiro y alta | Back | Sonnet · thinking leve · medio | TODO | Aviso en pantalla para DNI sin usuario. La advertencia `isSuspicious` de `ReturnObjectForm.js` ya fue **eliminada en EU-278** (junto con su fetch `?status=APROBADO`); falta implementar el bloqueo real al retirar. Nota: EU-278 también sacó `hasPriorClaim`, así que el retiro ya no exige reclamo previo. |
 | 8 | EU-287 | FALSA_ALARMA: desbloqueo + limpieza reporte | Back | Sonnet · sin thinking · medio | TODO | validateAccess solo dueño; quitar gravityLevel/CSV |
 | 9 | EU-279 | Notificar match ≥ 0.75 en alta (búsqueda guardada) | Back | Sonnet · thinking leve · medio | TODO | Net-new; reusa MIN_SCORE 0.75 |
 | 10 | EU-288 | Ajustar front de fraude | Front | Sonnet · sin thinking · medio | TODO | FraudReport/Alerts/Detail/EvolutionChart/pdfExport |
-| 11 | EU-280 | Ajustar front y reportes de reclamo | Front | Sonnet · sin thinking · medio | TODO | ReclamosList, ReclamoDetail, Inventory. **Pendiente EU-282:** quitar el badge "⚠ Sospechoso" (`isSuspicious`) de `ReclamosList.js` y `ReclamoDetail.js` |
-| 12 | EU-276 | Bug: reporte de uso no muestra el promedio (estrellas) | Front + Back | Sonnet · sin thinking · medio | TODO | Independiente; rama propia |
+| 11 | EU-280 | Ajustar front y reportes de reclamo | Front | Sonnet · sin thinking · medio | TODO | ReclamosList, ReclamoDetail, Inventory. El badge "⚠ Sospechoso" (`isSuspicious`) ya fue **eliminado en EU-278** de `ReclamosList.js` y `ReclamoDetail.js`. Pendiente el rediseño "búsqueda guardada". **La eliminación de `Reclamo` se trasladó a EU-292** (back+front+BD); revisar si EU-280 se reduce o se absorbe en EU-292 (solapan en `ReclamosList`/`ReclamoDetail`/`Inventory`). |
+| 12 | EU-292 | Extirpar entidad `Reclamo` (back + front + BD) | Back + Front + BD | Sonnet · thinking · medio | TODO | **Depende de EU-284 + EU-285** (cortar fraude→Reclamo). Borra la capa `Reclamo` (model/DTO/repo/controller/service); redefine `FeedbackService.wasFound`; saca el reclamo-espejo de `reportLostObject`; front: elimina `ReclamosList`/`ReclamoDetail`/pestaña `Inventory` + rework `MyObjectHistory`/`MyObjectDetail`; BD: `DROP COLUMN status` + `DROP TABLE reclamo_history` + `DROP TABLE reclamos`. **Reportes NO afectados** (`SearchFeedback`/`UsabilityFeedback`/`LostObject`). Solapa con EU-280 (ver nota). |
+| 13 | EU-276 | Bug: reporte de uso no muestra el promedio (estrellas) | Front + Back | Sonnet · sin thinking · medio | TODO | Independiente; rama propia |
 | — | EU-253 | Eliminar tipos de alerta viejos (High Claim Freq / Múltiples / Rechazos) | Back | Sonnet · sin thinking · medio | TODO | Ya existía en Jira; lo cubre EU-284 |
 
 ## 6. Stories padre y referencias
 
-- **EU-275** — Story "Reclamo → búsqueda guardada" (subtareas: EU-278, EU-279, EU-280).
+- **EU-275** — Story "Reclamo → búsqueda guardada" (subtareas: EU-278, EU-279, EU-280, EU-292).
 - **EU-277** — Story "Detectar y limitar fraude en devoluciones" (subtareas: EU-281 a
   EU-288). Contiene la definición de negocio completa.
 - **EU-47** — versión **vieja** de la story de fraude (sobre reclamos). **No se toca**;
@@ -130,3 +144,35 @@ el trabajo sale mal, por encima gasta quota al pedo. Si no coincide, frená y pe
   ciclo de estados.
 - `MIN_SCORE`: `FoundObjectService` = 0.75 (constante hardcodeada, se reusa);
   `LostObjectService` = 0.0 (este flujo debe filtrar a 0.75).
+
+## 8. Mapa `Reclamo` vs `LostObject` (referencia para EU-292)
+
+Quién interviene en cada entidad (relevado sobre el código post-EU-278).
+
+`Reclamo` (MySQL) — 🔴 se elimina en EU-292:
+
+```
+Reclamo (model) · ReclamoDto · IReclamoRepository (JPA/MySQL)
+└─ ReclamoService  ← ReclamoController (POST/GET /reclamos, GET /reclamos/{id}, /reclamos/my[/{id}])
+   ├─ FeedbackService.submitFeedback()      → createReclamo()   [caso "wasFound"]
+   ├─ LostObjectService.reportLostObject()  → save(UUID=null)   ⚠ reclamo-ESPEJO (duplicación)
+   └─ FraudDetectionService (reglas legacy) → reclamoRepository [se corta en EU-284/285]
+Front: ReclamosList, ReclamoDetail, Inventory (tab), MyObjectHistory (/reclamos/my),
+       MyObjectDetail (/reclamos/my/{id}), App.js (nav)
+```
+
+`LostObject` (Weaviate) — 🟢 entidad única que queda:
+
+```
+LostObject (model) · LostObjectRepository (Weaviate)
+└─ LostObjectService
+   ├─ reportLostObject()      ← LostObjectController POST /lost-objects   (+ hoy crea el espejo)
+   ├─ findSimilarLostObject() ← FoundObjectService.uploadFoundObject()    [match + notificación]
+   └─ getMyLostObjects()      ← LostObjectController GET /lost-objects/my
+   └─ ReportsService          → lostObjectRepository.query()   ✅ los reportes usan LostObject
+Front: UploadLostObjectModal (POST), MyObjectHistory (/lost-objects/my), MyLostObjectDetail
+```
+
+Cruce/nudo: `reportLostObject` escribe en las DOS (de ahí la duplicación en "Mis búsquedas");
+`MyObjectHistory` lee las dos. Reportes ⇒ `LostObject`/`SearchFeedback`/`UsabilityFeedback`,
+nunca `Reclamo`.

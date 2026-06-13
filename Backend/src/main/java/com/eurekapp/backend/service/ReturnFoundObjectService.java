@@ -47,8 +47,6 @@ public class ReturnFoundObjectService {
     private final ObjectStorage s3Service;
     private final ExecutorService executorService;
     private final NotificationService notificationService;
-    private final IReclamoRepository reclamoRepository;
-    private final IReclamoHistoryRepository reclamoHistoryRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final InAppNotificationService inAppNotificationService;
     private final EmailTemplateService emailTemplateService;
@@ -58,8 +56,6 @@ public class ReturnFoundObjectService {
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
                                     ExecutorService executorService, NotificationService notificationService,
-                                    IReclamoRepository reclamoRepository,
-                                    IReclamoHistoryRepository reclamoHistoryRepository,
                                     IRewardExclusionRepository rewardExclusionRepository,
                                     InAppNotificationService inAppNotificationService,
                                     EmailTemplateService emailTemplateService){
@@ -70,8 +66,6 @@ public class ReturnFoundObjectService {
         this.s3Service = s3Service;
         this.executorService = executorService;
         this.notificationService = notificationService;
-        this.reclamoRepository = reclamoRepository;
-        this.reclamoHistoryRepository = reclamoHistoryRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.emailTemplateService = emailTemplateService;
@@ -113,17 +107,6 @@ public class ReturnFoundObjectService {
             }else{
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
                 throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
-            }
-
-            // Verificamos que el usuario tenga un reclamo previo sobre este objeto
-            boolean hasPriorClaim = reclamoRepository
-                    .findByFoundObjectUUIDAndUser_Id(
-                            command.getFoundObjectUUID(),
-                            user.getId()
-                    ).isPresent();
-            if (!hasPriorClaim) {
-                throw new BadRequestException("no_prior_claim",
-                        "El usuario no posee un reclamo previo asociado a este objeto");
             }
         }
 
@@ -179,25 +162,6 @@ public class ReturnFoundObjectService {
         } catch (ExecutionException | InterruptedException e){
             log.error(e.toString());
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-
-                        // 6b- ACTUALIZAR STATUS DEL RECLAMO A DEVUELTO
-        List<Reclamo> reclamosDelObjeto =
-                reclamoRepository.findByFoundObjectUUID(command.getFoundObjectUUID());
-        for (Reclamo r : reclamosDelObjeto) {
-            if (r.getStatus() == ClaimStatus.DEVUELTO || r.getStatus() == ClaimStatus.RECHAZADO) continue;
-            ReclamoHistory h = ReclamoHistory.builder()
-                    .reclamo(r)
-                    .previousStatus(r.getStatus())
-                    .newStatus(ClaimStatus.DEVUELTO)
-                    .changedBy(null)
-                    .changedAt(LocalDateTime.now())
-                    .note("Objeto retirado")
-                    .build();
-            reclamoHistoryRepository.save(h);
-            r.setStatus(ClaimStatus.DEVUELTO);
-            r.setUpdatedAt(LocalDateTime.now());
-            reclamoRepository.save(r);
         }
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP

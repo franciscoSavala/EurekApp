@@ -16,15 +16,6 @@ import EmptyState from '../components/EmptyState';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const STATUS_FILTERS = [
-    { label: 'Todos', value: null },
-    { label: 'Pendiente', value: 'PENDIENTE' },
-    { label: 'En revisión', value: 'EN_REVISION' },
-    { label: 'Aprobado', value: 'APROBADO' },
-    { label: 'Rechazado', value: 'RECHAZADO' },
-    { label: 'Devuelto', value: 'DEVUELTO' },
-];
-
 const CATEGORY_FILTERS = [
     { label: 'Todas', value: null },
     { label: 'Electrónica', value: 'ELECTRONICA' },
@@ -37,39 +28,20 @@ const CATEGORY_FILTERS = [
 
 const SORT_OPTIONS = [
     { label: 'Fecha', value: 'date' },
-    { label: 'Estado', value: 'status' },
     { label: 'Prioridad', value: 'priority' },
 ];
-
-const STATUS_COLORS = {
-    PENDIENTE: '#f59e0b',
-    EN_REVISION: '#3b82f6',
-    APROBADO: '#22c55e',
-    RECHAZADO: '#ED4337',
-    DEVUELTO: '#7c3aed',
-};
-
-const STATUS_LABELS = {
-    PENDIENTE: 'Pendiente',
-    EN_REVISION: 'En revisión',
-    APROBADO: 'Aprobado',
-    RECHAZADO: 'Rechazado',
-    DEVUELTO: 'Devuelto',
-};
 
 const ReclamosList = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [reclamos, setReclamos] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [statusFilter, setStatusFilter] = useState(null);
     const [categoryFilter, setCategoryFilter] = useState(null);
     const [sortBy, setSortBy] = useState('date');
 
-    const fetchReclamos = async (status, category, sort) => {
+    const fetchReclamos = async (category, sort) => {
         setLoading(true);
         try {
             const params = new URLSearchParams({ sortBy: sort });
-            if (status) params.append('status', status);
             if (category) params.append('category', category);
             const data = await authFetch('get', `${BACK_URL}/reclamos?${params.toString()}`);
             setReclamos(data);
@@ -82,17 +54,11 @@ const ReclamosList = ({ navigation }) => {
 
     useFocusEffect(
         useCallback(() => {
-            fetchReclamos(statusFilter, categoryFilter, sortBy);
-        }, [statusFilter, categoryFilter, sortBy])
+            fetchReclamos(categoryFilter, sortBy);
+        }, [categoryFilter, sortBy])
     );
 
-    const handleFilterChange = (value) => {
-        setStatusFilter(value);
-    };
-
     const renderItem = ({ item }) => {
-        const color = STATUS_COLORS[item.status] || '#638888';
-        const label = STATUS_LABELS[item.status] || item.status;
         const date = item.createdAt ? new Date(item.createdAt) : null;
 
         return (
@@ -114,15 +80,6 @@ const ReclamosList = ({ navigation }) => {
                     )}
 
                     <View style={styles.cardInfo}>
-                        <View style={styles.cardHeader}>
-                            <View style={[styles.statusBadge, { backgroundColor: color }]}>
-                                <Text style={styles.statusBadgeText}>{label}</Text>
-                            </View>
-                            {item.isSuspicious && (
-                                <Text style={styles.suspiciousIcon}>⚠</Text>
-                            )}
-                        </View>
-
                         <Text style={styles.objectTitle} numberOfLines={2}>
                             {item.foundObjectTitle || 'Objeto sin nombre'}
                         </Text>
@@ -156,19 +113,6 @@ const ReclamosList = ({ navigation }) => {
         <View style={styles.container}>
             {/* Filtros */}
             <View style={styles.filtersSection}>
-                <Text style={styles.filterLabel}>Estado</Text>
-                <View style={styles.filtersRow}>
-                    {STATUS_FILTERS.map(f => (
-                        <TouchableOpacity
-                            key={String(f.value)}
-                            style={[styles.filterBtn, statusFilter === f.value && styles.filterBtnActive]}
-                            onPress={() => handleFilterChange(f.value)}>
-                            <Text style={[styles.filterBtnText, statusFilter === f.value && styles.filterBtnTextActive]}>
-                                {f.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
                 <Text style={styles.filterLabel}>Categoría</Text>
                 <View style={styles.filtersRow}>
                     {CATEGORY_FILTERS.map(f => (

@@ -6,7 +6,6 @@ import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
-import com.eurekapp.backend.model.ClaimStatus;
 import com.eurekapp.backend.model.Reclamo;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
@@ -47,14 +46,11 @@ public class FraudDetectionService {
     private int claimPeriodDays;
     @Value("${fraud.finder-claimer-collusion-threshold:2}")
     private int finderClaimerCollusionThreshold;
-    @Value("${fraud.max-rejected-claims:3}")
-    private int maxRejectedClaims;
 
     public void checkForFraud(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription, FoundObject foundObject) {
         checkMultipleClaimers(orgId, foundObjectUUID, claimer, claimDescription);
         checkHighClaimFrequency(orgId, claimer);
         checkFinderClaimerCollusion(orgId, foundObjectUUID, claimer, foundObject);
-        checkRepeatedRejections(orgId, claimer);
     }
 
     private void checkMultipleClaimers(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription) {
@@ -110,16 +106,6 @@ public class FraudDetectionService {
                     "El usuario " + claimer.getUsername() + " reclamó " + (collusionCount + 1)
                             + " objetos encontrados por el mismo usuario (" + finder.getUsername()
                             + ") en esta organización. Posible acuerdo entre registrador y reclamante.");
-        }
-    }
-
-    private void checkRepeatedRejections(String orgId, UserEurekapp claimer) {
-        long rejected = reclamoRepository.countByOrganizationIdAndUserAndStatus(orgId, claimer, ClaimStatus.RECHAZADO);
-        if (rejected >= maxRejectedClaims) {
-            createAlertIfAbsent(orgId, null, claimer,
-                    "REPEATED_REJECTIONS",
-                    "El usuario " + claimer.getUsername() + " acumula " + rejected
-                            + " reclamos rechazados en esta organización.");
         }
     }
 

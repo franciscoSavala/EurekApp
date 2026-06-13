@@ -41,10 +41,6 @@ public class Reclamo {
 
     private Integer starRating;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ClaimStatus status;
-
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

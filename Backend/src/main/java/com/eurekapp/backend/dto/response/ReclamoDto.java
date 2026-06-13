@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @Builder
@@ -14,14 +13,12 @@ import java.util.List;
 @AllArgsConstructor
 public class ReclamoDto {
     private Long id;
-    private String status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String comment;
     private String claimDescription;
     private Integer starRating;
     private String confidenceLevel;
-    private Boolean isSuspicious;
 
     private Long userId;
     private String userEmail;
@@ -41,15 +38,9 @@ public class ReclamoDto {
     private Double foundObjectLongitude;
     private String b64Json;
 
-    private LocalDateTime datetimeOfReturn;
-
     private String finderEmail;
     private String finderFullName;
     private String finderRole;
-    private String takerDNI;
-    private String takerEmail;
     private Boolean rewardExcluded;
     private String rewardExclusionReason;
-
-    private List<ReclamoHistoryDto> history;
 }

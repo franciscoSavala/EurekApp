@@ -45,7 +45,6 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
     const [policy, setPolicy] = useState(null);
-    const [isSuspicious, setIsSuspicious] = useState(false);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -65,18 +64,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
                 // ignorar si no hay política configurada
             }
         };
-        const fetchSuspiciousStatus = async () => {
-            try {
-                const data = await authFetch('get', `${BACK_URL}/reclamos?status=APROBADO`);
-                const reclamos = data?.reclamos ?? data ?? [];
-                const match = reclamos.find(r => r.foundObjectUUID === objectId);
-                if (match?.isSuspicious) setIsSuspicious(true);
-            } catch (e) {
-                // ignorar si falla
-            }
-        };
         fetchPolicy();
-        fetchSuspiciousStatus();
     }, []);
 
     const validatePhotoUploaded = () => {
@@ -313,14 +301,6 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
                         </Text>
                     </View>
-
-                    {isSuspicious && (
-                        <View style={styles.fraudWarning}>
-                            <Text style={styles.fraudWarningText}>
-                                ⚠ El reclamante tiene alertas de fraude confirmadas. Verificá la identidad con cuidado.
-                            </Text>
-                        </View>
-                    )}
 
                     {policy && (
                         <View style={styles.policyBlock}>

@@ -49,4 +49,3 @@ fraud:
   max-claims-per-period: 3
   claim-period-days: 30
   finder-claimer-collusion-threshold: 2
-  max-rejected-claims: 3

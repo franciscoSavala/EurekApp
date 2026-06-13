@@ -85,7 +85,6 @@ public class LostObjectService {
                         .foundObjectUUID(null)
                         .user(user)
                         .claimDescription(command.getDescription())
-                        .status(ClaimStatus.PENDIENTE)
                         .createdAt(now)
                         .updatedAt(now)
                         .build();

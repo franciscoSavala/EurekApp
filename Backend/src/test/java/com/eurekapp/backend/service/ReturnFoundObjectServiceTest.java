@@ -13,7 +13,6 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -33,8 +32,6 @@ class ReturnFoundObjectServiceTest {
     @Mock ObjectStorage s3Service;
     @Mock ExecutorService executorService;
     @Mock NotificationService notificationService;
-    @Mock IReclamoRepository reclamoRepository;
-    @Mock IReclamoHistoryRepository reclamoHistoryRepository;
     @Mock IRewardExclusionRepository rewardExclusionRepository;
     @Mock InAppNotificationService inAppNotificationService;
     @Mock EmailTemplateService emailTemplateService;
@@ -46,7 +43,7 @@ class ReturnFoundObjectServiceTest {
         service = new ReturnFoundObjectService(
                 organizationRepository, userRepository, returnFoundObjectRepository,
                 foundObjectRepository, s3Service, executorService, notificationService,
-                reclamoRepository, reclamoHistoryRepository, rewardExclusionRepository,
+                rewardExclusionRepository,
                 inAppNotificationService, emailTemplateService);
     }
 
@@ -82,7 +79,6 @@ class ReturnFoundObjectServiceTest {
 
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
-        when(reclamoRepository.findByFoundObjectUUID("uuid-123")).thenReturn(Collections.emptyList());
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
         Future<Void> voidFuture = mock(Future.class);
