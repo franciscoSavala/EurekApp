@@ -1,28 +1,28 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudCaseMatchDto;
 import com.eurekapp.backend.dto.response.FraudUserDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
-import com.eurekapp.backend.model.Reclamo;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
-import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.repository.IReclamoRepository;
-import com.eurekapp.backend.repository.ISearchFeedbackRepository;
+import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
-import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -31,141 +31,138 @@ import java.util.stream.Collectors;
 public class FraudDetectionService {
 
     private final IFraudAlertRepository alertRepository;
-    private final ISearchFeedbackRepository feedbackRepository;
-    private final NotificationService notificationService;
-    private final IOrganizationRepository organizationRepository;
     private final IUserRepository userRepository;
-    private final InAppNotificationService inAppNotificationService;
-    private final IReclamoRepository reclamoRepository;
     private final FoundObjectRepository foundObjectRepository;
-    private final EmailTemplateService emailTemplateService;
+    private final IReturnFoundObjectRepository returnFoundObjectRepository;
+    private final FraudDetectionConfigService fraudDetectionConfigService;
 
-    @Value("${fraud.max-claims-per-period:3}")
-    private int maxClaimsPerPeriod;
-    @Value("${fraud.claim-period-days:30}")
-    private int claimPeriodDays;
-    @Value("${fraud.finder-claimer-collusion-threshold:2}")
-    private int finderClaimerCollusionThreshold;
+    /**
+     * Detección de fraude sobre devoluciones (EU-284). Se dispara al registrar una devolución.
+     *
+     * Las tres reglas tienen el DNI de quien retira en su clave, así que el chequeo se acota a ese
+     * DNI: se trae una sola vez sus devoluciones dentro de la ventana T (cross-organización) y se
+     * particiona en memoria para evaluar los tres casos. El umbral N es global a los tres.
+     *
+     * - Caso 1: cantidad de devoluciones del DNI ≥ N → se bloquea el DNI.
+     * - Caso 2: algún (object finder ≠ null, DNI) con ≥ N → se bloquea finder + retirador(es) + DNI.
+     * - Caso 3: algún (empleado, DNI) con ≥ N → se bloquea empleado + DNI.
+     *
+     * Como N es global y el grupo del DNI (Caso 1) contiene a los de Caso 2/3, cuando dispara el 2
+     * o el 3 también dispara el 1. Si dispara más de un caso se crea UNA sola alerta que los registra
+     * a todos. Dedup: si ya hay una alerta para ese DNI dentro de la ventana, no se crea otra.
+     */
+    public void detectFraudForReturn(ReturnFoundObject triggeringReturn) {
+        if (triggeringReturn == null || triggeringReturn.getDNI() == null) return;
+        String dni = triggeringReturn.getDNI();
 
-    public void checkForFraud(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription, FoundObject foundObject) {
-        checkMultipleClaimers(orgId, foundObjectUUID, claimer, claimDescription);
-        checkHighClaimFrequency(orgId, claimer);
-        checkFinderClaimerCollusion(orgId, foundObjectUUID, claimer, foundObject);
-    }
+        FraudDetectionConfig config = fraudDetectionConfigService.loadOrCreateDefault();
+        int n = config.getFraudThreshold();
+        int t = config.getFraudWindowDays();
+        LocalDateTime windowStart = LocalDateTime.now().minusDays(t);
 
-    private void checkMultipleClaimers(String orgId, String foundObjectUUID, UserEurekapp claimer, String claimDescription) {
-        long count = reclamoRepository.countByOrganizationIdAndFoundObjectUUID(orgId, foundObjectUUID);
-        if (count > 1) {
-            String details = "Múltiples usuarios reclamaron ser dueños del objeto con UUID: "
-                    + foundObjectUUID + ". Total de reclamantes: " + count;
-            if (claimDescription == null || claimDescription.trim().length() < 10) {
-                details += ". ATENCIÓN: descripción del reclamante muy corta o ausente.";
+        List<ReturnFoundObject> returns = returnFoundObjectRepository.findByDniInWindow(dni, windowStart);
+
+        // Caso 1 es el menos estricto (su grupo contiene a los demás): si el total del DNI no llega
+        // a N, ningún caso puede llegar. Cortamos sin tocar Weaviate.
+        if (returns.size() < n) return;
+
+        // Agrupaciones acotadas al DNI:
+        //  - por finder (resuelto desde Weaviate, solo finder ≠ null) → Caso 2
+        //  - por empleado que entregó (ya está en la fila)            → Caso 3
+        Map<Long, List<ReturnFoundObject>> byFinder = new HashMap<>();
+        Map<Long, List<ReturnFoundObject>> byEmployee = new HashMap<>();
+        Map<Long, UserEurekapp> usersById = new HashMap<>();
+
+        for (ReturnFoundObject r : returns) {
+            UserEurekapp employee = r.getReturnedByEmployee();
+            if (employee != null && employee.getId() != null) {
+                byEmployee.computeIfAbsent(employee.getId(), k -> new ArrayList<>()).add(r);
+                usersById.putIfAbsent(employee.getId(), employee);
             }
-            createAlertIfAbsent(orgId, foundObjectUUID, claimer, "MULTIPLE_CLAIMERS_SAME_OBJECT", details);
+            UserEurekapp finder = resolveFinder(r.getFoundObjectUUID());
+            if (finder != null && finder.getId() != null) {
+                byFinder.computeIfAbsent(finder.getId(), k -> new ArrayList<>()).add(r);
+                usersById.putIfAbsent(finder.getId(), finder);
+            }
         }
-    }
 
-    private void checkHighClaimFrequency(String orgId, UserEurekapp claimer) {
-        LocalDateTime since = LocalDateTime.now().minusDays(claimPeriodDays);
-        long count = feedbackRepository
-                .countByOrganizationIdAndUserAndWasFoundTrueAndCreatedAtAfter(orgId, claimer, since);
-        if (count > maxClaimsPerPeriod) {
-            createAlertIfAbsent(orgId, null, claimer,
-                    "HIGH_CLAIM_FREQUENCY",
-                    "El usuario " + claimer.getUsername()
-                            + " reclamó " + count + " objetos en los últimos " + claimPeriodDays + " días en esta organización.");
+        List<FraudCaseMatch> matches = new ArrayList<>();
+        Set<UserEurekapp> suspects = new LinkedHashSet<>();
+        UserEurekapp employeeForAlert = null;
+
+        // Caso 1: DNI (se bloquea el DNI; no agrega usuarios por sí solo).
+        matches.add(new FraudCaseMatch(FraudCaseType.CASE_1, returns.size()));
+
+        // Caso 2: (finder, DNI).
+        for (Map.Entry<Long, List<ReturnFoundObject>> e : byFinder.entrySet()) {
+            if (e.getValue().size() >= n) {
+                matches.add(new FraudCaseMatch(FraudCaseType.CASE_2, e.getValue().size()));
+                suspects.add(usersById.get(e.getKey()));                 // finder
+                for (ReturnFoundObject r : e.getValue()) {
+                    if (r.getUserEurekapp() != null) suspects.add(r.getUserEurekapp()); // retirador
+                }
+            }
         }
-    }
 
-    private void checkFinderClaimerCollusion(String orgId, String currentUUID, UserEurekapp claimer, FoundObject foundObject) {
-        if (foundObject == null || foundObject.getObjectFinderUser() == null) return;
-        UserEurekapp finder = foundObject.getObjectFinderUser();
-        if (finder.getId().equals(claimer.getId())) return;
-
-        List<Reclamo> claimerHistory = reclamoRepository.findByUser_Id(claimer.getId()).stream()
-                .filter(r -> r.getOrganizationId().equals(orgId))
-                .filter(r -> !currentUUID.equals(r.getFoundObjectUUID()))
-                .toList();
-
-        long collusionCount = claimerHistory.stream()
-                .filter(r -> r.getFoundObjectUUID() != null)
-                .filter(r -> {
-                    try {
-                        FoundObject prev = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
-                        return prev != null && prev.getObjectFinderUser() != null
-                                && prev.getObjectFinderUser().getId().equals(finder.getId());
-                    } catch (Exception e) {
-                        return false;
-                    }
-                })
-                .count();
-
-        if (collusionCount + 1 >= finderClaimerCollusionThreshold) {
-            createAlertIfAbsent(orgId, currentUUID, claimer,
-                    "FINDER_CLAIMER_COLLUSION",
-                    "El usuario " + claimer.getUsername() + " reclamó " + (collusionCount + 1)
-                            + " objetos encontrados por el mismo usuario (" + finder.getUsername()
-                            + ") en esta organización. Posible acuerdo entre registrador y reclamante.");
+        // Caso 3: (empleado, DNI).
+        for (Map.Entry<Long, List<ReturnFoundObject>> e : byEmployee.entrySet()) {
+            if (e.getValue().size() >= n) {
+                matches.add(new FraudCaseMatch(FraudCaseType.CASE_3, e.getValue().size()));
+                UserEurekapp employee = usersById.get(e.getKey());
+                suspects.add(employee);
+                if (employeeForAlert == null) employeeForAlert = employee;
+            }
         }
-    }
 
-    private void createAlertIfAbsent(String orgId, String uuid, UserEurekapp suspect,
-                                     String reason, String details) {
-        // Clave de agrupación de estas reglas (legacy): el objeto si lo hay, si no el usuario.
-        String dedupKey = uuid != null ? uuid : "user:" + suspect.getId();
-        LocalDateTime windowStart = LocalDateTime.now().minusDays(claimPeriodDays);
-        boolean exists = alertRepository
-                .existsByOrganizationIdAndReasonAndDedupKeyAndCreatedAtAfter(
-                        orgId, reason, dedupKey, windowStart);
-        if (exists) return;
+        // Dedup por DNI dentro de la ventana (X días de bloqueo = T).
+        String dedupKey = "dni:" + dni;
+        if (alertRepository.existsByDedupKeyAndCreatedAtAfter(dedupKey, windowStart)) return;
+
+        String reason = matches.stream()
+                .map(m -> m.getCaseType().name())
+                .distinct()
+                .collect(Collectors.joining(","));
 
         FraudAlert alert = FraudAlert.builder()
-                .organizationId(orgId)
-                .foundObjectUUID(uuid)
-                .suspectUsers(new java.util.HashSet<>(Set.of(suspect)))
+                .organizationId(null)            // alerta global / dueño de Eurekapp (detección cross-org)
+                .dni(dni)
+                .suspectUsers(new LinkedHashSet<>(suspects))
+                .returnedByEmployee(employeeForAlert)
+                .caseMatches(matches)
                 .reason(reason)
-                .details(details)
+                .details(buildDetails(dni, matches, employeeForAlert))
                 .dedupKey(dedupKey)
                 .status(FraudAlertStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .build();
         alertRepository.save(alert);
-        notifyOwner(orgId, alert);
-        notifyOrgStaffInApp(orgId, alert);
+        // La notificación al dueño de Eurekapp (alerta global) se cablea en EU-287/288.
     }
 
-    private void notifyOwner(String orgId, FraudAlert alert) {
+    private UserEurekapp resolveFinder(String foundObjectUUID) {
         try {
-            organizationRepository.findById(Long.parseLong(orgId)).ifPresent(org -> {
-                String content = emailTemplateService.buildFraudAlertEmail(
-                        org.getName(), alert.getReason(), alert.getDetails(),
-                        alert.getCreatedAt().toString());
-                notificationService.sendNotification(org.getContactData(),
-                        "Alerta de fraude detectada — EurekApp", content);
-            });
+            FoundObject fo = foundObjectRepository.getByUuid(foundObjectUUID);
+            return fo != null ? fo.getObjectFinderUser() : null;
         } catch (Exception e) {
-            // No bloquear el flujo principal si falla la notificación
+            return null;
         }
     }
 
-    private void notifyOrgStaffInApp(String orgId, FraudAlert alert) {
-        try {
-            organizationRepository.findById(Long.parseLong(orgId)).ifPresent(org -> {
-                List<UserEurekapp> staff = userRepository.findByOrganizationAndRoleIn(
-                        org, List.of(Role.ORGANIZATION_OWNER, Role.ENCARGADO));
-                for (UserEurekapp member : staff) {
-                    inAppNotificationService.createNotification(
-                            member,
-                            "Nueva alerta de fraude",
-                            "Motivo: " + alert.getReason() + ". " + alert.getDetails(),
-                            "FRAUD_ALERT",
-                            alert.getId()
-                    );
-                }
-            });
-        } catch (Exception e) {
-            // No bloquear el flujo principal si falla la notificación in-app
+    private String buildDetails(String dni, List<FraudCaseMatch> matches, UserEurekapp employee) {
+        List<String> parts = new ArrayList<>();
+        for (FraudCaseMatch m : matches) {
+            switch (m.getCaseType()) {
+                case CASE_1 -> parts.add("Caso 1: " + m.getMatchedCount()
+                        + " devoluciones del mismo DNI");
+                case CASE_2 -> parts.add("Caso 2: " + m.getMatchedCount()
+                        + " devoluciones del par finder+DNI");
+                case CASE_3 -> parts.add("Caso 3: " + m.getMatchedCount()
+                        + " devoluciones del par empleado+DNI"
+                        + (employee != null ? " (" + employee.getUsername() + ")" : ""));
+            }
         }
+        String details = "DNI " + dni + " — " + String.join("; ", parts) + ".";
+        return details.length() > 500 ? details.substring(0, 500) : details;
     }
 
     public List<FraudAlertDto> getAlerts(UserEurekapp user) {
@@ -322,6 +319,14 @@ public class FraudDetectionService {
                         .build())
                 .collect(Collectors.toList());
 
+        List<FraudCaseMatchDto> caseMatches = a.getCaseMatches() == null ? List.of()
+                : a.getCaseMatches().stream()
+                        .map(m -> FraudCaseMatchDto.builder()
+                                .caseType(m.getCaseType().name())
+                                .matchedCount(m.getMatchedCount())
+                                .build())
+                        .collect(Collectors.toList());
+
         UserEurekapp employee = a.getReturnedByEmployee();
 
         return FraudAlertDto.builder()
@@ -336,6 +341,7 @@ public class FraudDetectionService {
                 .returnedByEmployeeFullName(employee != null
                         ? employee.getFirstName() + " " + employee.getLastName()
                         : null)
+                .caseMatches(caseMatches)
                 .reason(a.getReason())
                 .details(a.getDetails())
                 .status(a.getStatus().name())

@@ -45,7 +45,3 @@ application:
     schema: 'http'
 search:
   max-radius: 50000
-fraud:
-  max-claims-per-period: 3
-  claim-period-days: 30
-  finder-claimer-collusion-threshold: 2

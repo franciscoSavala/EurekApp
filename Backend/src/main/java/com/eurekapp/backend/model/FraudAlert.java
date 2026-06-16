@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Entity
@@ -19,7 +21,9 @@ public class FraudAlert {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = false, length = 36)
+    // Nulo en las alertas nuevas (EU-284): la detección es global (cross-organización) y la alerta
+    // pertenece al dueño de Eurekapp, no a una organización. Las alertas legacy pueden traer un valor.
+    @Column(name = "organization_id", nullable = true, length = 36)
     private String organizationId;
 
     @Column(name = "found_object_uuid", nullable = true, length = 36)
@@ -42,6 +46,14 @@ public class FraudAlert {
     @ManyToOne
     @JoinColumn(name = "returned_by_employee_id", nullable = true)
     private UserEurekapp returnedByEmployee;
+
+    // Casos de fraude que disparó esta alerta, con la cantidad detectada por caso. Una alerta puede
+    // registrar varios (p. ej. CASE_1 + CASE_3 sobre el mismo DNI). Tabla hija autocreada por JPA.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "fraud_alert_case",
+            joinColumns = @JoinColumn(name = "fraud_alert_id"))
+    @Builder.Default
+    private List<FraudCaseMatch> caseMatches = new ArrayList<>();
 
     @Column(name = "reason", nullable = false, length = 60)
     private String reason;

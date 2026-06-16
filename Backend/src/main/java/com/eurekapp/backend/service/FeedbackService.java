@@ -28,7 +28,6 @@ public class FeedbackService {
     private final ISearchFeedbackRepository feedbackRepository;
     private final ReclamoService reclamoService;
     private final FoundObjectRepository foundObjectRepository;
-    private final FraudDetectionService fraudDetectionService;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
         FoundObject fo = null;
@@ -55,9 +54,6 @@ public class FeedbackService {
                 && dto.getFoundObjectUUID() != null
                 && !dto.getFoundObjectUUID().isBlank()) {
             reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
-            if (orgId != null) {
-                fraudDetectionService.checkForFraud(orgId, dto.getFoundObjectUUID(), user, dto.getClaimDescription(), fo);
-            }
         }
     }
 

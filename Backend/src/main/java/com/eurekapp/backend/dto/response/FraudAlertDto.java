@@ -18,6 +18,7 @@ public class FraudAlertDto {
     private List<FraudUserDto> suspectUsers;
     private String returnedByEmployeeEmail;
     private String returnedByEmployeeFullName;
+    private List<FraudCaseMatchDto> caseMatches;
     private String reason;
     private String details;
     private String status;
