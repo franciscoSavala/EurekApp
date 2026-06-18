@@ -52,6 +52,7 @@ class FraudDetectionServiceTest {
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock IReturnFoundObjectRepository returnFoundObjectRepository;
     @Mock FraudDetectionConfigService fraudDetectionConfigService;
+    @Mock FraudBlockService fraudBlockService;
 
     FraudDetectionService service;
 
@@ -59,7 +60,7 @@ class FraudDetectionServiceTest {
     void setUp() {
         service = new FraudDetectionService(
                 alertRepository, userRepository, foundObjectRepository,
-                returnFoundObjectRepository, fraudDetectionConfigService);
+                returnFoundObjectRepository, fraudDetectionConfigService, fraudBlockService);
         // Por defecto: sin alerta previa (dedup no bloquea).
         when(alertRepository.existsByDedupKeyAndCreatedAtAfter(anyString(), any())).thenReturn(false);
     }
@@ -91,7 +92,8 @@ class FraudDetectionServiceTest {
     private void configWith(int threshold, int windowDays) {
         when(fraudDetectionConfigService.loadOrCreateDefault()).thenReturn(
                 FraudDetectionConfig.builder().id(1L)
-                        .fraudThreshold(threshold).fraudWindowDays(windowDays).build());
+                        .fraudThreshold(threshold).fraudWindowDays(windowDays)
+                        .blockDurationDays(7).build());
     }
 
     // Mapea cada UUID a su finder (puede ser null) para que resolveFinder lo resuelva vía Weaviate.
@@ -139,6 +141,25 @@ class FraudDetectionServiceTest {
         assertThat(alert.getCaseMatches().get(0).getCaseType()).isEqualTo(FraudCaseType.CASE_1);
         assertThat(alert.getCaseMatches().get(0).getMatchedCount()).isEqualTo(5);
         assertThat(alert.getDedupKey()).isEqualTo("dni:" + dni);
+    }
+
+    @Test
+    void detection_triggers_createsBlocksWithConfiguredDuration() {
+        configWith(5, 1);   // blockDurationDays = 7 (ver helper)
+        String dni = "77777777";
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, user(1, "e1@x", "E", "1")),
+                ret("u2", dni, null, user(2, "e2@x", "E", "2")),
+                ret("u3", dni, null, user(3, "e3@x", "E", "3")),
+                ret("u4", dni, null, user(4, "e4@x", "E", "4")),
+                ret("u5", dni, null, user(5, "e5@x", "E", "5")));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+
+        service.detectFraudForReturn(returns.get(4));
+
+        // La detección, al disparar, crea los bloqueos con la duración tomada de la config (7 días).
+        verify(fraudBlockService).createBlocksForAlert(any(FraudAlert.class), eq(7));
     }
 
     @Test

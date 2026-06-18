@@ -11,4 +11,7 @@ public class UpdateFraudDetectionConfigRequest {
 
     @Min(value = 1, message = "La ventana de fraude (T) debe ser al menos 1 día")
     private int fraudWindowDays;
+
+    @Min(value = 1, message = "La duración del bloqueo debe ser al menos 1 día")
+    private int blockDurationDays;
 }

@@ -35,6 +35,7 @@ public class FraudDetectionService {
     private final FoundObjectRepository foundObjectRepository;
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final FraudDetectionConfigService fraudDetectionConfigService;
+    private final FraudBlockService fraudBlockService;
 
     /**
      * Detección de fraude sobre devoluciones (EU-284). Se dispara al registrar una devolución.
@@ -136,6 +137,10 @@ public class FraudDetectionService {
                 .createdAt(LocalDateTime.now())
                 .build();
         alertRepository.save(alert);
+
+        // Bloqueo automático (EU-286): al persistir la alerta se crean los bloqueos del DNI y de cada
+        // usuario sospechoso, vigentes durante la duración de bloqueo configurada (≠ ventana T).
+        fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
         // La notificación al dueño de Eurekapp (alerta global) se cablea en EU-287/288.
     }
 

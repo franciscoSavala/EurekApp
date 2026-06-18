@@ -8,4 +8,5 @@ import lombok.Data;
 public class FraudDetectionConfigDto {
     private int fraudThreshold;
     private int fraudWindowDays;
+    private int blockDurationDays;
 }

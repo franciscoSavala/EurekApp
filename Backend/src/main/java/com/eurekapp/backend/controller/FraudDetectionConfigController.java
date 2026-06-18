@@ -35,6 +35,6 @@ public class FraudDetectionConfigController {
     public ResponseEntity<FraudDetectionConfigDto> updateConfig(
             @AuthenticationPrincipal UserEurekapp admin,
             @RequestBody @Valid UpdateFraudDetectionConfigRequest request) {
-        return ResponseEntity.ok(configService.updateConfig(admin, request.getFraudThreshold(), request.getFraudWindowDays()));
+        return ResponseEntity.ok(configService.updateConfig(admin, request.getFraudThreshold(), request.getFraudWindowDays(), request.getBlockDurationDays()));
     }
 }

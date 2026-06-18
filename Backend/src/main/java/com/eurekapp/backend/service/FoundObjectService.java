@@ -56,6 +56,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
+    private final FraudBlockService fraudBlockService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -68,7 +69,8 @@ public class FoundObjectService implements IFoundObjectService {
                               IUserRepository userRepository,
                               IRewardExclusionRepository rewardExclusionRepository,
                               NotificationService notificationService,
-                              EmailTemplateService emailTemplateService) {
+                              EmailTemplateService emailTemplateService,
+                              FraudBlockService fraudBlockService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -81,6 +83,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.notificationService = notificationService;
         this.emailTemplateService = emailTemplateService;
+        this.fraudBlockService = fraudBlockService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -117,6 +120,13 @@ public class FoundObjectService implements IFoundObjectService {
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
                 throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getObjectFinderUsername()));
             }
+        }
+
+        // Validación de bloqueo (EU-286): un finder bloqueado por sospecha de fraude no puede
+        // depositar objetos en la organización.
+        if (objectFinderUser != null && fraudBlockService.isUserBlocked(objectFinderUser.getId())) {
+            throw new BadRequestException("finder_blocked",
+                    "Quien encontró este objeto está temporalmente bloqueado por sospecha de fraude.");
         }
 
 

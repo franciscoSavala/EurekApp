@@ -24,6 +24,7 @@ const TYPE_LABELS = {
     ROLE_CHANGED: "Cambio de rol",
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
+    REWARD_BLOCKED: "Recompensa no otorgada",
     FRAUD_ALERT: "Alerta de fraude",
     ORG_REGISTRATION_REQUEST: "Solicitud de alta de organización",
     ORG_REQUEST_APPROVED: "Solicitud aprobada",

@@ -51,6 +51,7 @@ class FraudDetectionConfigServiceTest {
 
         assertThat(result.getFraudThreshold()).isEqualTo(FraudDetectionConfigService.DEFAULT_THRESHOLD);
         assertThat(result.getFraudWindowDays()).isEqualTo(FraudDetectionConfigService.DEFAULT_WINDOW_DAYS);
+        assertThat(result.getBlockDurationDays()).isEqualTo(FraudDetectionConfigService.DEFAULT_BLOCK_DURATION_DAYS);
         verify(configRepository).save(any(FraudDetectionConfig.class));
     }
 
@@ -68,18 +69,19 @@ class FraudDetectionConfigServiceTest {
         verify(configRepository, never()).save(any());
     }
 
-    // ADMIN puede actualizar N y T; el resultado refleja los nuevos valores
+    // ADMIN puede actualizar N, T y la duración del bloqueo; el resultado refleja los nuevos valores
     @Test
     void updateConfig_asAdmin_updatesAndReturnsNewValues() {
         FraudDetectionConfig existing = FraudDetectionConfig.builder()
-                .id(1L).fraudThreshold(5).fraudWindowDays(1).build();
+                .id(1L).fraudThreshold(5).fraudWindowDays(1).blockDurationDays(7).build();
         when(configRepository.findById(FraudDetectionConfigService.CONFIG_ID)).thenReturn(Optional.of(existing));
         when(configRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
-        FraudDetectionConfigDto result = service.updateConfig(adminUser(), 8, 2);
+        FraudDetectionConfigDto result = service.updateConfig(adminUser(), 8, 2, 14);
 
         assertThat(result.getFraudThreshold()).isEqualTo(8);
         assertThat(result.getFraudWindowDays()).isEqualTo(2);
+        assertThat(result.getBlockDurationDays()).isEqualTo(14);
         verify(configRepository).save(existing);
     }
 
@@ -94,7 +96,7 @@ class FraudDetectionConfigServiceTest {
     // Un rol no-ADMIN recibe ForbiddenException en updateConfig
     @Test
     void updateConfig_asNonAdmin_throwsForbidden() {
-        assertThatThrownBy(() -> service.updateConfig(nonAdminUser(Role.ENCARGADO), 5, 1))
+        assertThatThrownBy(() -> service.updateConfig(nonAdminUser(Role.ENCARGADO), 5, 1, 7))
                 .isInstanceOf(ForbiddenException.class);
         verifyNoInteractions(configRepository);
     }
@@ -102,7 +104,7 @@ class FraudDetectionConfigServiceTest {
     // N=0 es inválido: updateConfig lanza BadRequestException antes de tocar el repo
     @Test
     void updateConfig_withZeroThreshold_throwsBadRequest() {
-        assertThatThrownBy(() -> service.updateConfig(adminUser(), 0, 1))
+        assertThatThrownBy(() -> service.updateConfig(adminUser(), 0, 1, 7))
                 .isInstanceOf(BadRequestException.class);
         verifyNoInteractions(configRepository);
     }
@@ -110,7 +112,15 @@ class FraudDetectionConfigServiceTest {
     // T=0 es inválido: updateConfig lanza BadRequestException antes de tocar el repo
     @Test
     void updateConfig_withZeroWindowDays_throwsBadRequest() {
-        assertThatThrownBy(() -> service.updateConfig(adminUser(), 5, 0))
+        assertThatThrownBy(() -> service.updateConfig(adminUser(), 5, 0, 7))
+                .isInstanceOf(BadRequestException.class);
+        verifyNoInteractions(configRepository);
+    }
+
+    // Duración de bloqueo = 0 es inválido: updateConfig lanza BadRequestException antes de tocar el repo
+    @Test
+    void updateConfig_withZeroBlockDuration_throwsBadRequest() {
+        assertThatThrownBy(() -> service.updateConfig(adminUser(), 5, 1, 0))
                 .isInstanceOf(BadRequestException.class);
         verifyNoInteractions(configRepository);
     }
@@ -126,5 +136,6 @@ class FraudDetectionConfigServiceTest {
         assertThat(config.getId()).isEqualTo(FraudDetectionConfigService.CONFIG_ID);
         assertThat(config.getFraudThreshold()).isEqualTo(FraudDetectionConfigService.DEFAULT_THRESHOLD);
         assertThat(config.getFraudWindowDays()).isEqualTo(FraudDetectionConfigService.DEFAULT_WINDOW_DAYS);
+        assertThat(config.getBlockDurationDays()).isEqualTo(FraudDetectionConfigService.DEFAULT_BLOCK_DURATION_DAYS);
     }
 }

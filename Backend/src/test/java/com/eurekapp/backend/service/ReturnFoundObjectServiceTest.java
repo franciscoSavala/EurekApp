@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -37,6 +38,7 @@ class ReturnFoundObjectServiceTest {
     @Mock InAppNotificationService inAppNotificationService;
     @Mock EmailTemplateService emailTemplateService;
     @Mock FraudDetectionService fraudDetectionService;
+    @Mock FraudBlockService fraudBlockService;
 
     ReturnFoundObjectService service;
 
@@ -46,7 +48,8 @@ class ReturnFoundObjectServiceTest {
                 organizationRepository, userRepository, returnFoundObjectRepository,
                 foundObjectRepository, s3Service, executorService, notificationService,
                 rewardExclusionRepository,
-                inAppNotificationService, emailTemplateService, fraudDetectionService);
+                inAppNotificationService, emailTemplateService, fraudDetectionService,
+                fraudBlockService);
     }
 
     @Test
@@ -241,5 +244,96 @@ class ReturnFoundObjectServiceTest {
 
         assertThatThrownBy(() -> service.returnFoundObject(command, caller))
                 .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void returnFails_whenDniIsBlocked() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        // El DNI ingresado está bloqueado por sospecha de fraude.
+        when(fraudBlockService.isDniBlocked("12345678")).thenReturn(true);
+
+        assertThatThrownBy(() -> service.returnFoundObject(command, caller))
+                .isInstanceOf(BadRequestException.class);
+
+        // Se rechaza antes de persistir y antes de correr la detección.
+        verify(returnFoundObjectRepository, never()).save(any());
+        verify(fraudDetectionService, never()).detectFraudForReturn(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void returnSucceeds_whenFinderBlocked_skipsRewardAndNotifies() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        // El finder del objeto está bloqueado por sospecha de fraude.
+        UserEurekapp finder = UserEurekapp.builder()
+                .id(99L).username("finder@test.com").firstName("Fin").lastName("Der")
+                .role(Role.USER).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").title("Mochila azul")
+                .wasReturned(false).objectFinderUser(finder).build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(userRepository.findById(99L)).thenReturn(Optional.of(finder));
+        // El DNI/retirador NO están bloqueados; solo el finder.
+        when(fraudBlockService.isDniBlocked("12345678")).thenReturn(false);
+        when(fraudBlockService.isUserBlocked(99L)).thenReturn(true);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        // La devolución se completa (no lanza) aunque el finder esté bloqueado.
+        service.returnFoundObject(command, caller);
+
+        // Se le notifica que no recibió puntos por estar bloqueado...
+        verify(inAppNotificationService).createNotification(
+                eq(finder), anyString(), anyString(), eq("REWARD_BLOCKED"), isNull());
+        // ...y NO se le otorga la recompensa habitual.
+        verify(inAppNotificationService, never()).createNotification(
+                any(), anyString(), anyString(), eq("REWARD_EARNED"), any());
+        verify(userRepository, never()).save(finder);   // no se suma XP
     }
 }

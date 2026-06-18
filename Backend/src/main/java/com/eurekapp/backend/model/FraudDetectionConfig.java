@@ -19,7 +19,12 @@ public class FraudDetectionConfig {
     @Column(name = "fraud_threshold", nullable = false)
     private int fraudThreshold;
 
-    // T: duración de la ventana deslizante en días (también duración del bloqueo)
+    // T: duración de la ventana deslizante en días (período de detección)
     @Column(name = "fraud_window_days", nullable = false)
     private int fraudWindowDays;
+
+    // Duración del bloqueo en días: cuánto dura la sanción. Independiente de T (que es el período
+    // de detección). Política del dueño de Eurekapp, configurable vía endpoint admin.
+    @Column(name = "block_duration_days", nullable = false)
+    private int blockDurationDays;
 }

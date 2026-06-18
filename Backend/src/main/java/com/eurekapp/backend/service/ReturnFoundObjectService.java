@@ -51,6 +51,7 @@ public class ReturnFoundObjectService {
     private final InAppNotificationService inAppNotificationService;
     private final EmailTemplateService emailTemplateService;
     private final FraudDetectionService fraudDetectionService;
+    private final FraudBlockService fraudBlockService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -60,7 +61,8 @@ public class ReturnFoundObjectService {
                                     IRewardExclusionRepository rewardExclusionRepository,
                                     InAppNotificationService inAppNotificationService,
                                     EmailTemplateService emailTemplateService,
-                                    FraudDetectionService fraudDetectionService){
+                                    FraudDetectionService fraudDetectionService,
+                                    FraudBlockService fraudBlockService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -72,6 +74,7 @@ public class ReturnFoundObjectService {
         this.inAppNotificationService = inAppNotificationService;
         this.emailTemplateService = emailTemplateService;
         this.fraudDetectionService = fraudDetectionService;
+        this.fraudBlockService = fraudBlockService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -125,6 +128,19 @@ public class ReturnFoundObjectService {
         if(foundObject.getWasReturned()){
             throw new BadRequestException("found_object", String.format("Found object with UUID '%s' was already returned", command.getFoundObjectUUID()));
         }
+
+        // Validación de bloqueo (EU-286): no se permite el retiro si el DNI o el usuario que retira
+        // están bloqueados por sospecha de fraude. El finder bloqueado NO frena la devolución (se
+        // maneja más abajo en la sección 7: la devolución se permite, pero sin otorgarle puntos).
+        if (fraudBlockService.isDniBlocked(command.getDNI())) {
+            throw new BadRequestException("dni_blocked",
+                    "El DNI ingresado está temporalmente bloqueado por sospecha de fraude.");
+        }
+        if (user != null && fraudBlockService.isUserBlocked(user.getId())) {
+            throw new BadRequestException("user_blocked",
+                    "El usuario retirador está temporalmente bloqueado por sospecha de fraude.");
+        }
+
         // Actualizamos el objeto en la BD vectorial para marcarlo como devuelto.
         //foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
         Future<Void> updateFoundObjectFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.markAsReturned(command.getFoundObjectUUID()));
@@ -182,6 +198,18 @@ public class ReturnFoundObjectService {
                 UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
                 if (finder == null) {
                     log.warn("Finder user id={} not found in DB", finderProxy.getId());
+                } else if (fraudBlockService.isUserBlocked(finder.getId())) {
+                    // Finder bloqueado por sospecha de fraude (EU-286): la devolución se permite igual,
+                    // pero no se le otorgan puntos. Se le notifica el motivo (solo in-app).
+                    log.info("Finder id={} bloqueado: devolución permitida sin recompensa", finder.getId());
+                    inAppNotificationService.createNotification(
+                            finder,
+                            "No recibiste puntos por esta devolución",
+                            "El objeto \"" + foundObject.getTitle() + "\" fue devuelto a su dueño, pero no sumaste "
+                                    + "puntos porque tu cuenta está temporalmente bloqueada por sospecha de fraude.",
+                            "REWARD_BLOCKED",
+                            null
+                    );
                 } else if (rewardExclusionRepository.existsByFoundObjectUUID(foundObject.getUuid())
                         || (finder.getRole() != null && ROLE_LABELS.containsKey(finder.getRole().name()))) {
                     // Exclusión ya registrada, o rol incompatible sin registro previo (e.g. seed data)
