@@ -35,8 +35,9 @@ desde acá sin re-explicar el contexto.
 - **El fraude se detecta sobre devoluciones físicas** (`ReturnFoundObject`: DNI + foto +
   empleado que entrega), no sobre reclamos.
 - **Bloqueo automático:** al dispararse una regla, el sistema bloquea a los usuarios/DNIs
-  involucrados por X días, sin validación humana previa. El dueño puede marcar
-  `FALSA_ALARMA` para levantarlo.
+  involucrados, sin validación humana previa. El dueño puede marcar `FALSA_ALARMA` para
+  levantarlo. La **duración del bloqueo** es un parámetro propio, configurable por el dueño de
+  Eurekapp (política de la app), **distinto del período de detección `T`** (ver sección 2).
 - **Endgame (decisión pendiente, para EU-279/EU-280):** hoy una búsqueda guardada se
   duplica como `LostObject` (Weaviate) **y** un `Reclamo` con `foundObjectUUID=null`
   (`reportLostObject` escribe ambos → aparece dos veces en "Mis búsquedas"). Una vez sacado
@@ -60,14 +61,28 @@ Conteos sobre devoluciones dentro de una ventana deslizante `T`; disparan al alc
 - **Caso 3:** agrupa por par (empleado, DNI) con objetos de finders distintos → bloquea DNI
   + usuario del empleado.
 
-- `N` y `T` configurables por el **dueño de Eurekapp** (no el de la organización), sin
-  recompilar. Default: **N = 5, T = 1 día**.
+- `N` (umbral), `T` (ventana de detección) y la **duración del bloqueo** (días) son
+  configurables por el **dueño de Eurekapp** (no el de la organización), sin recompilar.
+  Default: **N = 5, T = 1 día**. La duración del bloqueo es un parámetro **independiente** de
+  `T`: `T` define cuánto tiempo atrás se cuentan devoluciones; la duración del bloqueo define
+  cuánto dura la sanción. (El campo de config y el endpoint admin para la duración los agrega
+  EU-286, sobre el `FraudDetectionConfig` que creó EU-283.)
 - **N es global a los tres casos** (decisión tomada: un único umbral, solo cambia la clave
   de agrupación). Consecuencia asumida: Casos 2 y 3 son de hecho más estrictos que el 1.
+- **El que DEPOSITA no se castiga por volumen.** Las tres reglas se calculan sobre el DNI de
+  quien **retira** (se lleva el objeto). El **finder** —quien encuentra y deposita objetos en
+  la organización— nunca es señal de fraude por su volumen de depósitos: solo se lo bloquea
+  cuando hay **colusión** (mismo finder + mismo DNI retirador, Caso 2). Un buen samaritano que
+  trae muchos objetos retirados por personas distintas no dispara nada.
 - Si se cumplen varios casos a la vez → **una sola alerta** con todos los casos.
-- Detección corre al **dar de alta** un objeto y al **registrar una devolución**.
-- Dedup: si ya hay alerta para la misma (regla, clave) en los últimos X días, no se crea
-  otra. X días = duración del bloqueo = `T`.
+- Detección corre al **registrar una devolución**. **No** corre al dar de alta un objeto: en el
+  alta no hay DNI ni retiro, así que ninguna de las tres reglas puede evaluar nada (y contar ahí
+  castigaría al depositante). Decisión cerrada en EU-285.
+- Dedup: si ya hay alerta para la misma clave (DNI) dentro de la **ventana de detección `T`**,
+  no se crea otra (así lo implementa EU-284: `existsByDedupKeyAndCreatedAtAfter(dedupKey, now-T)`).
+  **Ojo:** el dedup usa `T`, **no** la duración del bloqueo (que ahora es un parámetro aparte). Si
+  se quisiera que el dedup siga la duración del bloqueo en vez de `T`, es una decisión a tomar en
+  EU-286/EU-287 (hoy no asumida).
 - El detalle de negocio completo (con criterios de aceptación) está en la story Jira
   **EU-277**, que reproduce el comentario de redefinición original.
 
@@ -113,8 +128,8 @@ el trabajo sale mal, por encima gasta quota al pedo. Si no coincide, frená y pe
 | 3 | EU-283 | Entidad de bloqueo + parámetros N/T configurables | Back + BD | Sonnet · thinking · medio | HECHO | `FraudBlock` + `FraudDetectionConfig` (singleton N=5/T=1). Repos + service + controller `/admin/fraud/config`. 8 tests unitarios. |
 | 4 | EU-278 | Desarmar ciclo aprobar/rechazar del reclamo | Back + Front | Sonnet · sin thinking · medio | HECHO | Borrado `ClaimStatus`, `ReclamoHistory`, `ReclamoHistoryDto`, `IReclamoHistoryRepository`, `UpdateClaimStatusCommand`. Sacado `status` de `Reclamo`/`ReclamoDto`, `updateStatus` + endpoint, sort por status, y `isSuspicious` + query `existsBy...SuspectUsers` (deuda EU-282 saldada). **Desacople total reclamo↔returnFoundObject** (ambas direcciones): quitado `hasPriorClaim` y el bloque DEVUELTO del retiro, y `datetimeOfReturn`/`takerDNI`/`takerEmail` del DTO. `checkRepeatedRejections` eliminado (dependía de `RECHAZADO`). Front: limpieza en ReclamosList, ReclamoDetail, ReturnObjectForm, MyObjectHistory, MyObjectDetail. Unitarios verdes. **Smoke test local (MySQL+Weaviate):** arranque OK + `POST/GET /reclamos` 200. **Corrección a "cero migraciones":** la columna `reclamos.status` quedó huérfana **NOT NULL** (ddl-auto=update no la dropea); no rompe inserts porque MySQL rellena el ENUM con `'APROBADO'`, pero conviene `DROP COLUMN status` (lo cubre EU-292). |
 | 5 | EU-284 | Implementar las 3 reglas (ventana deslizante) | Back | **Opus · thinking · alto** | HECHO | Detección **global (cross-org)** pero **acotada al DNI** que dispara: un solo fetch `findByDniInWindow(dni, now-T)` + partición en memoria para los 3 casos (el finder vive en Weaviate, se resuelve por `getByUuid`). `N`/`T` desde `FraudDetectionConfig`; **conteo puro ≥N**. Caso 1=DNI, Caso 2=(finder≠null,DNI), Caso 3=(empleado,DNI). Como `N` es global, Caso 2/3 implican Caso 1. **Una alerta por DNI** con todos los casos; dedup por `dedupKey="dni:"+DNI` vía `existsByDedupKeyAndCreatedAtAfter`. **Multi-caso registrado explícito**: enum `FraudCaseType` + `@ElementCollection<FraudCaseMatch>{caseType,matchedCount}` (tabla `fraud_alert_case` autocreada), expuesto en `FraudAlertDto.caseMatches` (`FraudCaseMatchDto`). Alerta **global del ADMIN** → `FraudAlert.organizationId` ahora `nullable=true`. Borradas reglas legacy + `checkForFraud` + props `fraud.*` + deps `feedback/reclamo` repos; sacadas las llamadas en `FeedbackService`/`ReclamoService` (adelanta parte de "quitar checkForFraud de reclamo" de EU-285). 8 tests unitarios verdes (caso 1/2/3, bajo-umbral, dedup, multi-caso, +mapeo DTO). **ALTER manual** (ddl-auto no quita NOT NULL) `ALTER TABLE fraud_alert MODIFY organization_id VARCHAR(36) NULL` — **ya aplicado en la BD local**; requerido en cualquier otra BD preexistente. Install desde cero la crea nullable sola; la tabla `fraud_alert_case` la autocrea ddl-auto. **Diferido:** NO cableado a alta/retiro (EU-285); NO crea `FraudBlock` (EU-286); notif. al ADMIN + visibilidad (`getAlerts`/`getFraudUserReport` siguen org-scoped legacy) → EU-287/288. |
-| 6 | EU-285 | Enganchar detección en devolución y alta | Back | Sonnet · sin thinking · medio | TODO | Quitar checkForFraud de reclamo |
-| 7 | EU-286 | Validar bloqueo en retiro y alta | Back | Sonnet · thinking leve · medio | TODO | Aviso en pantalla para DNI sin usuario. La advertencia `isSuspicious` de `ReturnObjectForm.js` ya fue **eliminada en EU-278** (junto con su fetch `?status=APROBADO`); falta implementar el bloqueo real al retirar. Nota: EU-278 también sacó `hasPriorClaim`, así que el retiro ya no exige reclamo previo. |
+| 6 | EU-285 | Enganchar detección en devolución y alta | Back | Sonnet · sin thinking · medio | HECHO | `ReturnFoundObjectService` inyecta `FraudDetectionService` y llama `detectFraudForReturn(rfo)` tras persistir la devolución (sección 6). **Control OBLIGATORIO:** si la detección falla, el error se propaga y la devolución NO se completa (sin try/catch que lo silencie). **Front:** en `ReturnObjectForm.js`, ante una devolución no permitida se muestra un **toast** de error + la **"X" en círculo** (`circle-xmark`, ya existente) al pie del form. **Gancho de alta NO implementado**: sin DNI/retiro ninguna regla evalúa nada y contar ahí castigaría al depositante (finder) → decisión cerrada (ver sec. 2). `checkForFraud` ya había sido removido de `Reclamo`/`Feedback` en EU-284 (verificado, nada que tocar). **Caso 1 intacto** (quien retira mucho SÍ dispara; lo que no se castiga es depositar). Test nuevo `detectFraud_isInvoked_withSavedReturn` en `ReturnFoundObjectServiceTest`; `FraudDetectionServiceTest` sin cambios. Sin migraciones. |
+| 7 | EU-286 | Validar bloqueo en retiro y alta | Back | Sonnet · thinking leve · medio | TODO | **Alcance (3 piezas):** (1) **Crear `FraudBlock`** cuando la detección salta (EU-284/285 hoy solo crea `FraudAlert`, NO el block): target DNI + usuarios sospechosos de la alerta, `expiresAt = now + duración_bloqueo`. (2) **Validar bloqueo antes de persistir** en **retiro** (`returnFoundObject`) y **alta** (`uploadFoundObject`): si DNI/usuario/finder está bloqueado → rechazar; para un DNI sin usuario, aviso en pantalla al retirar (sin mail). Modelo: el retiro Nº N **no** se bloquea (la detección corre post-persist y lo cuenta); el bloqueo se evidencia recién en **N+1**. (3) **Duración del bloqueo = parámetro nuevo configurable** por el dueño de Eurekapp en `FraudDetectionConfig` (≠ `T`), con su endpoint admin + DTO. La advertencia `isSuspicious` de `ReturnObjectForm.js` ya fue **eliminada en EU-278** (junto con su fetch `?status=APROBADO`). EU-278 también sacó `hasPriorClaim`, así que el retiro ya no exige reclamo previo. |
 | 8 | EU-287 | FALSA_ALARMA: desbloqueo + limpieza reporte | Back | Sonnet · sin thinking · medio | TODO | validateAccess solo dueño; quitar gravityLevel/CSV |
 | 9 | EU-279 | Notificar match ≥ 0.75 en alta (búsqueda guardada) | Back | Sonnet · thinking leve · medio | TODO | Net-new; reusa MIN_SCORE 0.75 |
 | 10 | EU-288 | Ajustar front de fraude | Front | Sonnet · sin thinking · medio | TODO | FraudReport/Alerts/Detail/EvolutionChart/pdfExport |
@@ -176,3 +191,33 @@ Front: UploadLostObjectModal (POST), MyObjectHistory (/lost-objects/my), MyLostO
 Cruce/nudo: `reportLostObject` escribe en las DOS (de ahí la duplicación en "Mis búsquedas");
 `MyObjectHistory` lee las dos. Reportes ⇒ `LostObject`/`SearchFeedback`/`UsabilityFeedback`,
 nunca `Reclamo`.
+
+## 9. Ideas futuras (fuera del alcance del rework)
+
+> No planificadas ni con story en Jira. Anotadas para refinar más adelante y, llegado el caso,
+> crear los ítems. **No** son parte de EU-278…EU-288 / EU-292.
+
+### 9.1 Sanción en dos capas: bloqueo temporal (automático) + baneo permanente (humano)
+
+Idea: el bloqueo automático de EU-286 es **temporal y reversible** (contención inmediata de bajo
+riesgo). Sobre el **historial confirmado** (el reporte de fraude per-usuario, EU-27 + EU-225/226/227),
+el dueño/encargado puede ver reincidencia y escalar a un **baneo permanente** del usuario. Es
+coherente con EU-27, que ya sugiere sanciones escalonadas: "advertencia, suspensión temporal o
+bloqueo".
+
+Principio de diseño: nunca automatizar lo irreversible. El bloqueo (auto, temporal) lo decide la
+máquina; el baneo (permanente) lo decide un humano.
+
+A definir antes de construirlo:
+- **¿A quién se banea?** Solo aplica a **usuarios registrados** (tienen cuenta). Para **DNIs sin
+  cuenta** no hay cuenta que banear: la única palanca sigue siendo el bloqueo re-aplicado/extendido.
+- **Reincidencia = confirmada, no detectada.** Escalar a baneo contando **fraudes confirmados por
+  humano**, no alertas automáticas crudas (evita banear por una racha de falsos positivos). El
+  reporte ya distingue confirmado vs. en revisión.
+- **¿Alcance org o global?** Detección y bloqueo son **globales (cross-org)**; el reporte hoy es
+  **por organización**. El reincidente entre varias orgs solo se ve completo a nivel Eurekapp →
+  el baneo probablemente debería ser **decisión global del dueño de Eurekapp**, no de cada org.
+
+Nota relacionada (EU-288): el reporte per-usuario (EU-27) se escribió para el modelo viejo y asume
+"usuario"; con el modelo nuevo, parte de los involucrados son **DNIs sin cuenta** que no encajan en
+"usuario reincidente". Reconciliar eso es parte del ajuste de front de fraude (EU-288).

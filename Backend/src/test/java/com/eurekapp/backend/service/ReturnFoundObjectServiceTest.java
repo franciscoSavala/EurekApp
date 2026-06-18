@@ -18,6 +18,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -35,6 +36,7 @@ class ReturnFoundObjectServiceTest {
     @Mock IRewardExclusionRepository rewardExclusionRepository;
     @Mock InAppNotificationService inAppNotificationService;
     @Mock EmailTemplateService emailTemplateService;
+    @Mock FraudDetectionService fraudDetectionService;
 
     ReturnFoundObjectService service;
 
@@ -44,7 +46,7 @@ class ReturnFoundObjectServiceTest {
                 organizationRepository, userRepository, returnFoundObjectRepository,
                 foundObjectRepository, s3Service, executorService, notificationService,
                 rewardExclusionRepository,
-                inAppNotificationService, emailTemplateService);
+                inAppNotificationService, emailTemplateService, fraudDetectionService);
     }
 
     @Test
@@ -114,5 +116,130 @@ class ReturnFoundObjectServiceTest {
         ReturnFoundObject persisted = savedCaptor.getAllValues().get(0);
         assertThat(persisted.getReturnedByEmployee()).isEqualTo(caller);
         assertThat(persisted.getDNI()).isEqualTo("12345678");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void detectFraud_isInvoked_withSavedReturn() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L)
+                .username("employee@test.com")
+                .firstName("Emp")
+                .lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE)
+                .organization(org)
+                .build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123")
+                .organizationId("1")
+                .wasReturned(false)
+                .objectFinderUser(null)
+                .build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .DNI("12345678")
+                .phoneNumber("3511234567")
+                .foundObjectUUID("uuid-123")
+                .organizationId(1L)
+                .username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        // Stub para submit(Callable): ejecuta sincrónicamente y devuelve el resultado.
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        // Stub para submit(Runnable): ejecuta sincrónicamente y devuelve Future<null>.
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.returnFoundObject(command, caller);
+
+        ArgumentCaptor<ReturnFoundObject> detectedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
+        verify(fraudDetectionService).detectFraudForReturn(detectedCaptor.capture());
+        ReturnFoundObject detected = detectedCaptor.getValue();
+        assertThat(detected.getDNI()).isEqualTo("12345678");
+        assertThat(detected.getReturnedByEmployee()).isEqualTo(caller);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void returnFails_whenFraudControlThrows() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L)
+                .username("employee@test.com")
+                .firstName("Emp")
+                .lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE)
+                .organization(org)
+                .build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123")
+                .organizationId("1")
+                .wasReturned(false)
+                .objectFinderUser(null)
+                .build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .DNI("12345678")
+                .phoneNumber("3511234567")
+                .foundObjectUUID("uuid-123")
+                .organizationId(1L)
+                .username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        // El control de fraude es obligatorio: si falla, la devolución no se completa.
+        doThrow(new RuntimeException("fraud check failed"))
+                .when(fraudDetectionService).detectFraudForReturn(any(ReturnFoundObject.class));
+
+        assertThatThrownBy(() -> service.returnFoundObject(command, caller))
+                .isInstanceOf(RuntimeException.class);
     }
 }

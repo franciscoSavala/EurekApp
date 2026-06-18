@@ -50,6 +50,7 @@ public class ReturnFoundObjectService {
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final InAppNotificationService inAppNotificationService;
     private final EmailTemplateService emailTemplateService;
+    private final FraudDetectionService fraudDetectionService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -58,7 +59,8 @@ public class ReturnFoundObjectService {
                                     ExecutorService executorService, NotificationService notificationService,
                                     IRewardExclusionRepository rewardExclusionRepository,
                                     InAppNotificationService inAppNotificationService,
-                                    EmailTemplateService emailTemplateService){
+                                    EmailTemplateService emailTemplateService,
+                                    FraudDetectionService fraudDetectionService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -69,6 +71,7 @@ public class ReturnFoundObjectService {
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.emailTemplateService = emailTemplateService;
+        this.fraudDetectionService = fraudDetectionService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -163,6 +166,11 @@ public class ReturnFoundObjectService {
             log.error(e.toString());
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
+
+        // Control de fraude OBLIGATORIO sobre la devolución (EU-285): una devolución no se
+        // considera completada sin pasar por el control. Si el control falla, el error se
+        // propaga y la operación NO se da por exitosa.
+        fraudDetectionService.detectFraudForReturn(rfo);
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();

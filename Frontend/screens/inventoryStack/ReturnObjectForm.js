@@ -24,6 +24,7 @@ import { colors } from "../../styles/globalStyles";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Buffer} from "buffer";
 import * as ImagePicker from "expo-image-picker";
+import Toast from "react-native-toast-message";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const isWeb = Platform.OS === 'web';
@@ -128,6 +129,11 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     type: 'manual',
                     message: userMessage
                 });
+                Toast.show({
+                    type: 'error',
+                    text1: 'No se pudo registrar la devolución',
+                    text2: userMessage
+                });
             }
             /*if(res.status === '404'){
                 console.log(res);
@@ -145,6 +151,11 @@ const ReturnObjectForm = ({ route, navigation}) => {
             setError('ObjectOwnerUsername', {
                 type: 'manual',
                 message: 'Error de conexión. Por favor, intentá de nuevo más tarde.'
+            });
+            Toast.show({
+                type: 'error',
+                text1: 'No se pudo registrar la devolución',
+                text2: 'Error de conexión. Por favor, intentá de nuevo más tarde.'
             });
         } finally {
             setLoading(false);
