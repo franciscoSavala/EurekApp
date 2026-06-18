@@ -36,6 +36,7 @@ public class FraudDetectionService {
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final FraudDetectionConfigService fraudDetectionConfigService;
     private final FraudBlockService fraudBlockService;
+    private final InAppNotificationService inAppNotificationService;
 
     /**
      * Detección de fraude sobre devoluciones (EU-284). Se dispara al registrar una devolución.
@@ -172,8 +173,7 @@ public class FraudDetectionService {
 
     public List<FraudAlertDto> getAlerts(UserEurekapp user) {
         validateAccess(user);
-        String orgId = user.getOrganization().getId().toString();
-        return alertRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId)
+        return alertRepository.findAllByOrderByCreatedAtDesc()
                 .stream().map(this::toDto).collect(Collectors.toList());
     }
 
@@ -181,9 +181,6 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
-            throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
-        }
         return toDto(alert);
     }
 
@@ -191,13 +188,24 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
-            throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
-        }
         alert.setStatus(resolution);
         alert.setResolvedAt(LocalDateTime.now());
         alert.setResolvedBy(user);
         alertRepository.save(alert);
+
+        // FALSA_ALARMA (EU-287): se levanta el bloqueo creado por esta alerta y se avisa a los usuarios
+        // que quedaron efectivamente desbloqueados.
+        if (resolution == FraudAlertStatus.FALSE_POSITIVE) {
+            for (UserEurekapp unblocked : fraudBlockService.liftBlocksForAlert(alert)) {
+                inAppNotificationService.createNotification(
+                        unblocked,
+                        "Se levantó tu bloqueo",
+                        "Una alerta de fraude que te afectaba fue marcada como falsa alarma. "
+                                + "Tu cuenta ya no está bloqueada por ese motivo.",
+                        "FRAUD_BLOCK_LIFTED",
+                        null);
+            }
+        }
     }
 
     public List<FraudUserReportEntryDto> getFraudUserReport(
@@ -235,12 +243,6 @@ public class FraudDetectionService {
             List<String> reasons = all.stream()
                     .map(FraudAlert::getReason).distinct().collect(Collectors.toList());
 
-            int gravity = confirmed >= 4 ? 3 : confirmed >= 2 ? 2 : confirmed == 1 ? 1 : 0;
-            String action = gravity == 3 ? "Bloqueo"
-                    : gravity == 2 ? "Suspensión temporal"
-                    : gravity == 1 ? "Advertencia"
-                    : "Sin acción sugerida";
-
             return FraudUserReportEntryDto.builder()
                     .userId(suspect.getId())
                     .email(suspect.getUsername())
@@ -248,17 +250,14 @@ public class FraudDetectionService {
                     .fraudCount(all.size())
                     .confirmedFraudCount(confirmed)
                     .pendingCount(pending)
-                    .gravityLevel(gravity)
                     .reasons(reasons)
-                    .suggestedAction(action)
                     .incidents(all.stream()
                             .sorted(Comparator.comparing(FraudAlert::getCreatedAt).reversed())
                             .map(this::toDto)
                             .collect(Collectors.toList()))
                     .build();
         }).filter(java.util.Objects::nonNull)
-          .sorted(Comparator.comparingInt(FraudUserReportEntryDto::getGravityLevel)
-                .thenComparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
+          .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
                 .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
@@ -268,7 +267,7 @@ public class FraudDetectionService {
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
         StringBuilder sb = new StringBuilder(
-                "userId;email;fullName;fraudCount;confirmedFraudCount;pendingCount;gravityLevel;reasons;suggestedAction\n");
+                "userId;email;fullName;fraudCount;confirmedFraudCount;pendingCount;reasons\n");
         for (FraudUserReportEntryDto entry : report) {
             sb.append(entry.getUserId()).append(';')
               .append(csvField(entry.getEmail())).append(';')
@@ -276,9 +275,7 @@ public class FraudDetectionService {
               .append(entry.getFraudCount()).append(';')
               .append(entry.getConfirmedFraudCount()).append(';')
               .append(entry.getPendingCount()).append(';')
-              .append(entry.getGravityLevel()).append(';')
-              .append(csvField(String.join("|", entry.getReasons()))).append(';')
-              .append(csvField(entry.getSuggestedAction())).append('\n');
+              .append(csvField(String.join("|", entry.getReasons()))).append('\n');
         }
         byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
         byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -297,9 +294,10 @@ public class FraudDetectionService {
     }
 
     private void validateAccess(UserEurekapp user) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER && user.getRole() != Role.ENCARGADO) {
+        // Las alertas de fraude son globales (cross-organización) y las gestiona el dueño de Eurekapp (EU-287).
+        if (user.getRole() != Role.ADMIN) {
             throw new ForbiddenException("forbidden",
-                    "Solo el encargado o responsable de la organización puede gestionar alertas de fraude");
+                    "Solo el dueño de Eurekapp puede gestionar alertas de fraude");
         }
     }
 

@@ -90,6 +90,35 @@ class FraudBlockServiceTest {
         assertThat(captor.getValue().getTargetUser()).isNull();
     }
 
+    // liftBlocksForAlert (FALSA_ALARMA): borra todos los bloqueos de la alerta y devuelve SOLO los
+    // usuarios que quedaron efectivamente desbloqueados. Un sospechoso que sigue bloqueado por otra
+    // alerta vigente no se devuelve (no se le avisa que está libre porque no lo está).
+    @Test
+    void liftBlocksForAlert_deletesBlocksAndReturnsOnlyUsersNoLongerBlocked() {
+        service = new FraudBlockService(blockRepository);
+        UserEurekapp freed = user(10L);          // tras el borrado queda libre
+        UserEurekapp stillBlocked = user(20L);   // sigue bloqueado por otra alerta
+        Set<UserEurekapp> suspects = new LinkedHashSet<>();
+        suspects.add(freed);
+        suspects.add(stillBlocked);
+        FraudAlert alert = alert("12345678", suspects);
+
+        List<FraudBlock> blocks = List.of(
+                FraudBlock.builder().id(1L).targetDni("12345678").fraudAlert(alert).build(),
+                FraudBlock.builder().id(2L).targetUser(freed).fraudAlert(alert).build(),
+                FraudBlock.builder().id(3L).targetUser(stillBlocked).fraudAlert(alert).build());
+        when(blockRepository.findByFraudAlert_Id(1L)).thenReturn(blocks);
+        when(blockRepository.existsByTargetUser_IdAndExpiresAtAfter(eq(10L), any(LocalDateTime.class)))
+                .thenReturn(false);
+        when(blockRepository.existsByTargetUser_IdAndExpiresAtAfter(eq(20L), any(LocalDateTime.class)))
+                .thenReturn(true);
+
+        List<UserEurekapp> unblocked = service.liftBlocksForAlert(alert);
+
+        verify(blockRepository).deleteAll(blocks);
+        assertThat(unblocked).extracting(UserEurekapp::getId).containsExactly(10L);
+    }
+
     // isDniBlocked delega en el repositorio.
     @Test
     void isDniBlocked_delegatesToRepository() {

@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.FraudAlert;
 import com.eurekapp.backend.model.FraudAlertStatus;
@@ -31,9 +32,11 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,6 +56,7 @@ class FraudDetectionServiceTest {
     @Mock IReturnFoundObjectRepository returnFoundObjectRepository;
     @Mock FraudDetectionConfigService fraudDetectionConfigService;
     @Mock FraudBlockService fraudBlockService;
+    @Mock InAppNotificationService inAppNotificationService;
 
     FraudDetectionService service;
 
@@ -60,7 +64,8 @@ class FraudDetectionServiceTest {
     void setUp() {
         service = new FraudDetectionService(
                 alertRepository, userRepository, foundObjectRepository,
-                returnFoundObjectRepository, fraudDetectionConfigService, fraudBlockService);
+                returnFoundObjectRepository, fraudDetectionConfigService, fraudBlockService,
+                inAppNotificationService);
         // Por defecto: sin alerta previa (dedup no bloquea).
         when(alertRepository.existsByDedupKeyAndCreatedAtAfter(anyString(), any())).thenReturn(false);
     }
@@ -77,6 +82,12 @@ class FraudDetectionServiceTest {
         return UserEurekapp.builder()
                 .id(100L).username("owner@test.com").firstName("Own").lastName("Er")
                 .role(Role.ORGANIZATION_OWNER).organization(org).build();
+    }
+
+    private UserEurekapp admin() {
+        return UserEurekapp.builder()
+                .id(200L).username("admin@test.com").firstName("Ad").lastName("Min")
+                .role(Role.ADMIN).build();
     }
 
     private ReturnFoundObject ret(String uuid, String dni, UserEurekapp taker, UserEurekapp employee) {
@@ -293,13 +304,12 @@ class FraudDetectionServiceTest {
 
     @Test
     void getAlerts_maps_dni_suspectUsers_and_employee() {
-        Organization org = Organization.builder().id(1L).name("Org").build();
         UserEurekapp suspect = user(7L, "suspect@test.com", "Sus", "Pect");
         UserEurekapp employee = user(5L, "emp@test.com", "Emp", "Loyee");
 
         FraudAlert alert = FraudAlert.builder()
                 .id(1L)
-                .organizationId("1")
+                .organizationId(null)
                 .dni("12345678")
                 .suspectUsers(new LinkedHashSet<>(Set.of(suspect)))
                 .returnedByEmployee(employee)
@@ -309,10 +319,10 @@ class FraudDetectionServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(alertRepository.findByOrganizationIdOrderByCreatedAtDesc("1"))
+        when(alertRepository.findAllByOrderByCreatedAtDesc())
                 .thenReturn(List.of(alert));
 
-        List<FraudAlertDto> dtos = service.getAlerts(owner(org));
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
 
         assertThat(dtos).hasSize(1);
         FraudAlertDto dto = dtos.get(0);
@@ -326,7 +336,6 @@ class FraudDetectionServiceTest {
 
     @Test
     void getAlerts_supports_multiple_suspect_users() {
-        Organization org = Organization.builder().id(1L).name("Org").build();
         UserEurekapp finder = user(7L, "finder@test.com", "Fin", "Der");
         UserEurekapp retriever = user(8L, "retriever@test.com", "Re", "Triever");
 
@@ -336,7 +345,7 @@ class FraudDetectionServiceTest {
 
         FraudAlert alert = FraudAlert.builder()
                 .id(2L)
-                .organizationId("1")
+                .organizationId(null)
                 .dni("30111222")
                 .suspectUsers(suspects)
                 .reason("CASE_2")
@@ -344,15 +353,61 @@ class FraudDetectionServiceTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        when(alertRepository.findByOrganizationIdOrderByCreatedAtDesc("1"))
+        when(alertRepository.findAllByOrderByCreatedAtDesc())
                 .thenReturn(List.of(alert));
 
-        List<FraudAlertDto> dtos = service.getAlerts(owner(org));
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
 
         assertThat(dtos).hasSize(1);
         assertThat(dtos.get(0).getSuspectUsers())
                 .extracting("email")
                 .containsExactlyInAnyOrder("finder@test.com", "retriever@test.com");
         assertThat(dtos.get(0).getReturnedByEmployeeEmail()).isNull();
+    }
+
+    // ---------- Acceso: solo el dueño de Eurekapp (ADMIN) gestiona alertas (EU-287) ----------
+
+    @Test
+    void getAlerts_nonAdmin_throwsForbidden() {
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.getAlerts(owner(org)))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ---------- Resolución FALSA_ALARMA: desbloqueo + notificación (EU-287) ----------
+
+    @Test
+    void resolve_falsePositive_liftsBlocksAndNotifiesUnblockedUsers() {
+        UserEurekapp unblocked = user(7L, "unblocked@test.com", "Un", "Blocked");
+        FraudAlert alert = FraudAlert.builder()
+                .id(1L).dni("12345678").status(FraudAlertStatus.PENDING)
+                .suspectUsers(new LinkedHashSet<>(Set.of(unblocked)))
+                .createdAt(LocalDateTime.now()).build();
+        when(alertRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
+        when(fraudBlockService.liftBlocksForAlert(alert)).thenReturn(List.of(unblocked));
+
+        service.resolve(1L, admin(), FraudAlertStatus.FALSE_POSITIVE);
+
+        assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.FALSE_POSITIVE);
+        verify(alertRepository).save(alert);
+        verify(fraudBlockService).liftBlocksForAlert(alert);
+        verify(inAppNotificationService).createNotification(
+                eq(unblocked), anyString(), anyString(), eq("FRAUD_BLOCK_LIFTED"), isNull());
+    }
+
+    @Test
+    void resolve_confirmedFraud_doesNotLiftBlocksNorNotify() {
+        FraudAlert alert = FraudAlert.builder()
+                .id(1L).dni("12345678").status(FraudAlertStatus.PENDING)
+                .createdAt(LocalDateTime.now()).build();
+        when(alertRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
+
+        service.resolve(1L, admin(), FraudAlertStatus.CONFIRMED_FRAUD);
+
+        assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.CONFIRMED_FRAUD);
+        verify(alertRepository).save(alert);
+        verify(fraudBlockService, never()).liftBlocksForAlert(any());
+        verify(inAppNotificationService, never())
+                .createNotification(any(), anyString(), anyString(), anyString(), any());
     }
 }

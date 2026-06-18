@@ -11,6 +11,10 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
 
     List<FraudAlert> findByOrganizationIdOrderByCreatedAtDesc(String organizationId);
 
+    // Todas las alertas (las nuevas son globales, organizationId=null): las gestiona el dueño de
+    // Eurekapp / ADMIN (EU-287), no cada organización.
+    List<FraudAlert> findAllByOrderByCreatedAtDesc();
+
     // Deduplicación de alertas (EU-284): evita crear otra alerta para la misma clave de agrupación
     // (dedupKey = "dni:"+DNI) dentro de la ventana vigente (creada después de 'since'). Es global
     // (sin organizationId) porque la detección de fraude es cross-organización y la alerta también.

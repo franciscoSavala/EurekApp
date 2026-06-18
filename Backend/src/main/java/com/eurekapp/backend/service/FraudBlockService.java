@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Gestión de bloqueos por sospecha de fraude (EU-286). Centraliza la creación de los {@link FraudBlock}
@@ -53,6 +55,21 @@ public class FraudBlockService {
                         .build());
             }
         }
+    }
+
+    /**
+     * Levanta (borra) los bloqueos asociados a una alerta marcada como falsa alarma (EU-287) y devuelve
+     * los usuarios registrados que quedaron efectivamente desbloqueados, es decir, los que tras el borrado
+     * ya no tienen ningún otro bloqueo vigente. Los bloqueos por DNI sin cuenta también se borran, pero no
+     * se devuelven (no hay a quién notificar).
+     */
+    public List<UserEurekapp> liftBlocksForAlert(FraudAlert alert) {
+        List<FraudBlock> blocks = blockRepository.findByFraudAlert_Id(alert.getId());
+        blockRepository.deleteAll(blocks);
+        return alert.getSuspectUsers().stream()
+                .filter(u -> u != null && u.getId() != null)
+                .filter(u -> !isUserBlocked(u.getId()))
+                .collect(Collectors.toList());
     }
 
     /** True si existe un bloqueo vigente (no expirado) para ese DNI. */

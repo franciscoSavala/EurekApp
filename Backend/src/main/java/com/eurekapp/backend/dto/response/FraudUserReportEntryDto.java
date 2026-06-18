@@ -14,8 +14,6 @@ public class FraudUserReportEntryDto {
     private long fraudCount;
     private long confirmedFraudCount;
     private long pendingCount;
-    private int gravityLevel;
     private List<String> reasons;
-    private String suggestedAction;
     private List<FraudAlertDto> incidents;
 }

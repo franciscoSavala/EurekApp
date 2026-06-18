@@ -25,6 +25,7 @@ const TYPE_LABELS = {
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
     REWARD_BLOCKED: "Recompensa no otorgada",
+    FRAUD_BLOCK_LIFTED: "Bloqueo levantado",
     FRAUD_ALERT: "Alerta de fraude",
     ORG_REGISTRATION_REQUEST: "Solicitud de alta de organización",
     ORG_REQUEST_APPROVED: "Solicitud aprobada",
