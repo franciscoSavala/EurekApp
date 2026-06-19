@@ -51,6 +51,7 @@ class FoundObjectServiceTest {
     @Mock NotificationService notificationService;
     @Mock EmailTemplateService emailTemplateService;
     @Mock FraudBlockService fraudBlockService;
+    @Mock SearchScoringService searchScoringService;
 
     FoundObjectService service;
 
@@ -60,7 +61,7 @@ class FoundObjectServiceTest {
                 s3Service, descriptionService, embeddingService, organizationRepository,
                 organizationService, lostObjectService, executorService, foundObjectRepository,
                 userRepository, rewardExclusionRepository, notificationService,
-                emailTemplateService, fraudBlockService);
+                emailTemplateService, fraudBlockService, searchScoringService);
     }
 
     @Test

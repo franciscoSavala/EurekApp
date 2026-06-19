@@ -14,14 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class LostObjectService {
 
-    private static final double MIN_SCORE = 0.0;
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;
@@ -33,6 +34,7 @@ public class LostObjectService {
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
     private final IReclamoRepository reclamoRepository;
+    private final SearchScoringService searchScoringService;
 
     public LostObjectService(
             EmbeddingService embeddingService,
@@ -43,7 +45,8 @@ public class LostObjectService {
             LostObjectRepository lostObjectRepository,
             IUserRepository userRepository,
             InAppNotificationService inAppNotificationService,
-            IReclamoRepository reclamoRepository) {
+            IReclamoRepository reclamoRepository,
+            SearchScoringService searchScoringService) {
         this.embeddingService = embeddingService;
         this.emailTemplateService = emailTemplateService;
         this.notificationService = notificationService;
@@ -53,6 +56,7 @@ public class LostObjectService {
         this.userRepository = userRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.reclamoRepository = reclamoRepository;
+        this.searchScoringService = searchScoringService;
     }
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
@@ -93,60 +97,89 @@ public class LostObjectService {
         }
     }
 
-    // TODO: Agregar a los argumentos la ubicación y la fecha en la que fue encontrado.
     /**
-     * Este método tiene como finalidad buscar publicaciones de objetos perdidos que tengan un cierto grado de
-     *         coincidencia con un objeto encontrado, cuyos datos relevantes son pasados como parámetros.
-     *         El grado mínimo de coincidencia viene dado por MIN_SCORE.
-     * @param embeddings
-     * @param organizationId
-     * @param description
-     * @param foundId
+     * Búsqueda INVERSA (EU-279): al subir un objeto encontrado, busca las búsquedas guardadas
+     * ({@link LostObject}) que coinciden con él y notifica (email + in-app) a sus dueños.
+     *
+     * <p>Es el espejo exacto de la búsqueda regular: usa el MISMO algoritmo de puntaje
+     * ({@link SearchScoringService}, texto + geografía, umbral 0,75) y considera únicamente las
+     * búsquedas cuya fechaHora de pérdida ({@code lostDate}) es ANTERIOR a la fechaHora en que se
+     * encontró el objeto ({@code foundDate}). El alcance es cross-org: la cercanía la pondera el
+     * componente geográfico del puntaje (el filtro duro de radio está deshabilitado por un bug de
+     * Weaviate, ver EU-301).</p>
+     *
+     * <p>A cada usuario se le envía UN solo aviso con la lista de TODAS sus búsquedas coincidentes.
+     * Sólo se notifica a usuarios finales (rol {@link Role#USER}).</p>
+     *
+     * @param foundObject objeto encontrado recién cargado (con embeddings, coordenadas y fecha).
      */
-    public void findSimilarLostObject(
-            List<Float> embeddings, Long organizationId, String description, String foundId) {
-        // TODO: Agregar las coordenadas del FoundObject a la query, para que sólo busque coincidencias dentro de cierto
-        //      radio.
+    public void notifyMatchingSavedSearches(FoundObject foundObject) {
+        List<Float> embeddings = foundObject.getEmbeddings();
+        GeoCoordinates foundCoordinates = foundObject.getCoordinates();
+        LocalDateTime foundDate = foundObject.getFoundDate();
 
-        // Buscamos publicaciones de LostObject que tengan un cierto grado de coincidencia.
-        List<LostObject> lostObjects = lostObjectRepository.query(embeddings, null, null, null, null);
+        // Traemos las búsquedas guardadas con lostDate ANTERIOR al foundDate (lostDateTo => lost_date < foundDate).
+        // Cross-org (orgId null): la cercanía la maneja el geoScore del puntaje, igual que la búsqueda regular.
+        List<LostObject> candidates = lostObjectRepository.query(embeddings, null, null, null, foundDate);
 
-        // Si la query vuelve vacía, o devuelve algo pero ningún LostObject llega al puntaje mínimo, terminar el método.
-        if (lostObjects.isEmpty() || lostObjects.getFirst().getScore() < MIN_SCORE) {
-            log.info("LostObjectService: Couldn't find any LostObjects similar to the uploaded FoundObject.");
+        // Puntuamos con el MISMO algoritmo que la búsqueda regular y nos quedamos con las que superan el umbral.
+        List<LostObject> matches = new ArrayList<>();
+        for (LostObject candidate : candidates) {
+            double totalScore = searchScoringService.totalScore(
+                    candidate.getScore(), candidate.getCoordinates(), foundCoordinates);
+            if (searchScoringService.isMatch(totalScore)) {
+                candidate.setScore((float) totalScore);
+                matches.add(candidate);
+            }
+        }
+
+        if (matches.isEmpty()) {
+            log.info("LostObjectService: ninguna búsqueda guardada coincidió con el objeto encontrado {}.",
+                    foundObject.getUuid());
             return;
         }
 
-        String recipientUsername = lostObjects.getFirst().getUsername();
+        // Agrupamos por usuario: a cada uno un solo aviso con TODAS sus búsquedas coincidentes.
+        Map<String, List<LostObject>> matchesByUsername = matches.stream()
+                .collect(Collectors.groupingBy(LostObject::getUsername));
 
-        // Solo notificar a usuarios con rol USER; los roles internos de org no realizan búsquedas
-        Optional<UserEurekapp> recipientOpt = userRepository.findByUsername(recipientUsername);
-        if (recipientOpt.isEmpty() || recipientOpt.get().getRole() != Role.USER) {
-            log.info("LostObjectService: Skipping notification — recipient '{}' is not a USER.", recipientUsername);
-            return;
-        }
-        UserEurekapp recipient = recipientOpt.get();
-
-        // Obtenemos la organización que está reteniendo actualmente el objeto encontrado.
-        Organization organization = organizationRepository.findById(organizationId)
+        // Datos comunes del objeto encontrado para el mensaje.
+        Organization organization = organizationRepository.findById(Long.valueOf(foundObject.getOrganizationId()))
                 .orElseThrow(() -> new ApiException("should_exists_organization", "No sense", HttpStatus.INTERNAL_SERVER_ERROR));
+        String imageUrl = objectStorage.getObjectUrl(foundObject.getUuid());
 
-        // Obtenemos la imagen del objeto encontrado
-        String imageUrl = objectStorage.getObjectUrl(foundId);
+        for (Map.Entry<String, List<LostObject>> entry : matchesByUsername.entrySet()) {
+            String username = entry.getKey();
 
-        // Elaboramos la notificación que enviaremos
-        String message = emailTemplateService.buildObjectFoundEmail(
-                organization.getName(), organization.getContactData(), description, imageUrl);
+            // Solo notificamos a usuarios finales (rol USER); los roles internos de org no realizan búsquedas.
+            Optional<UserEurekapp> recipientOpt = userRepository.findByUsername(username);
+            if (recipientOpt.isEmpty() || recipientOpt.get().getRole() != Role.USER) {
+                log.info("LostObjectService: se omite la notificación — el destinatario '{}' no es un USER.", username);
+                continue;
+            }
+            UserEurekapp recipient = recipientOpt.get();
 
-        notificationService.sendNotification(recipientUsername, "¡Posible coincidencia encontrada! — EurekApp", message);
+            // Descripciones de SUS búsquedas guardadas que coincidieron.
+            List<String> matchingSearchDescriptions = entry.getValue().stream()
+                    .map(LostObject::getDescription)
+                    .toList();
 
-        inAppNotificationService.createNotification(
-                recipient,
-                "¡Posible coincidencia encontrada!",
-                "Se encontró un objeto en " + organization.getName() + " que podría ser el tuyo: " + description,
-                "MATCH_FOUND",
-                null
-        );
+            // Email.
+            String message = emailTemplateService.buildObjectMatchFoundEmail(
+                    organization.getName(), organization.getContactData(), matchingSearchDescriptions, imageUrl);
+            notificationService.sendNotification(username,
+                    "¡Alguien podría haber encontrado tu objeto! — EurekApp", message);
+
+            // Notificación in-app.
+            String inAppDescription = "Este objeto coincide con estas búsquedas abiertas: "
+                    + String.join("; ", matchingSearchDescriptions);
+            inAppNotificationService.createNotification(
+                    recipient,
+                    "Alguien podría haber encontrado tu objeto",
+                    inAppDescription,
+                    "MATCH_FOUND",
+                    null);
+        }
     }
 
     public List<LostObjectResponseDto> getMyLostObjects(String username) {

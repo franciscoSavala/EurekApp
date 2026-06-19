@@ -35,7 +35,6 @@ import java.util.concurrent.Future;
 
 @Service
 public class FoundObjectService implements IFoundObjectService {
-    private static final double MIN_SCORE = 0.75;
     private static final int GRACE_HOURS = 6;
 
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
@@ -57,6 +56,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
     private final FraudBlockService fraudBlockService;
+    private final SearchScoringService searchScoringService;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -70,7 +70,8 @@ public class FoundObjectService implements IFoundObjectService {
                               IRewardExclusionRepository rewardExclusionRepository,
                               NotificationService notificationService,
                               EmailTemplateService emailTemplateService,
-                              FraudBlockService fraudBlockService) {
+                              FraudBlockService fraudBlockService,
+                              SearchScoringService searchScoringService) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -84,6 +85,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.notificationService = notificationService;
         this.emailTemplateService = emailTemplateService;
         this.fraudBlockService = fraudBlockService;
+        this.searchScoringService = searchScoringService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -216,10 +218,11 @@ public class FoundObjectService implements IFoundObjectService {
 
                     // 9- NOTIFICACIONES
         /*
-        *   Comparamos el objeto cargado con las publicaciones existentes de objetos perdidos.
+        *   Búsqueda INVERSA (EU-279): comparamos el objeto encontrado contra las búsquedas guardadas
+        *   existentes y notificamos a los dueños cuyas búsquedas coinciden. Le pasamos el FoundObject
+        *   completo para puntuar con el MISMO algoritmo que la búsqueda regular (texto + geografía).
         * */
-        executorService.execute(() -> lostObjectService.findSimilarLostObject(
-                embeddings, command.getOrganizationId(), command.getTitle(), foundObjectId));
+        executorService.execute(() -> lostObjectService.notifyMatchingSavedSearches(foundObject));
 
         // Email de agradecimiento al finder (solo si es usuario EurekApp registrado)
         if (objectFinderUser != null) {
@@ -320,18 +323,10 @@ public class FoundObjectService implements IFoundObjectService {
         *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
         */
         for(FoundObject fo: foundObjects){
-            Double geoScore = CommonFunctions.calculateGeoScore(fo.getCoordinates(), queryCoordinates);
+            // El puntaje (texto + geografía) lo calcula el algoritmo compartido (SearchScoringService).
+            double totalScore = searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), queryCoordinates);
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
-            Double totalScore;
-            if (fo.getScore() != null) {
-                Double cosDistance = fo.getScore().doubleValue();
-                cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
-                totalScore = 0.95*cosDistance + 0.05*geoScore;
-                log.info(fo.getTitle() + "-" + "cosDistance: " + cosDistance + " - distance: " + distance + " - geoScore: " + geoScore + " - totalScore: " + totalScore);
-            } else {
-                totalScore = geoScore;
-            }
-            fo.setScore(totalScore.floatValue());
+            fo.setScore((float) totalScore);
             fo.setDistance(distance.floatValue());
         }
 
@@ -339,7 +334,7 @@ public class FoundObjectService implements IFoundObjectService {
         // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
         List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && dto.getScore() >= MIN_SCORE)
+                .filter(dto -> dto.getScore() != null && searchScoringService.isMatch(dto.getScore()))
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
@@ -422,9 +417,8 @@ public class FoundObjectService implements IFoundObjectService {
         List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, null, null, null, false, null);
 
         for (FoundObject fo : foundObjects) {
-            double cosDistance = fo.getScore().doubleValue();
-            cosDistance = (cosDistance <= 0.5) ? 0 : (cosDistance - 0.5) * 2;
-            fo.setScore((float) cosDistance);
+            // Búsqueda por foto: sólo parecido visual (coseno normalizado), sin componente geográfico.
+            fo.setScore((float) searchScoringService.normalizeCosineScore(fo.getScore()));
         }
 
         List<FoundObjectDto> result = foundObjects.stream()

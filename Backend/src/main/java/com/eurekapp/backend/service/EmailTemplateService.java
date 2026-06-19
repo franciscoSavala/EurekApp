@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 public class EmailTemplateService {
@@ -115,6 +117,20 @@ public class EmailTemplateService {
         ctx.setVariable("description", description);
         ctx.setVariable("imageUrl", imageUrl);
         return templateEngine.process("email/object-found", ctx);
+    }
+
+    /**
+     * Email de la búsqueda INVERSA (EU-279): se cargó un objeto que coincide con una o más búsquedas
+     * guardadas del usuario. Lista las búsquedas coincidentes de ese usuario.
+     */
+    public String buildObjectMatchFoundEmail(String orgName, String contactData,
+                                              List<String> searchDescriptions, String imageUrl) {
+        Context ctx = new Context();
+        ctx.setVariable("orgName", orgName);
+        ctx.setVariable("contactData", contactData);
+        ctx.setVariable("searchDescriptions", searchDescriptions);
+        ctx.setVariable("imageUrl", imageUrl);
+        return templateEngine.process("email/object-match-found", ctx);
     }
 
     public String buildObjectReturnedEmail(String firstName, String lastName,
