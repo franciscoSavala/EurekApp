@@ -221,6 +221,7 @@ public class OrganizationService {
                     .coordinates(request.getCoordinates())
                     .build();
             organizationRepository.save(org);
+            request.setOrganization(org);
 
             Optional<UserEurekapp> ownerOpt = userRepository.findByUsername(request.getOwnerEmail());
             if (ownerOpt.isPresent()) {
@@ -241,6 +242,18 @@ public class OrganizationService {
                     } catch (Exception e) {
                         log.warn("No se pudo enviar email al owner {}: {}", owner.getUsername(), e.getMessage());
                     }
+                }
+            } else {
+                // El responsable designado aún no tiene cuenta en EurekApp: se le invita por email
+                // a registrarse usando el mismo correo para quedar vinculado automáticamente.
+                try {
+                    notificationService.sendNotification(
+                            request.getOwnerEmail(),
+                            "EurekApp — Sos el responsable de una organización",
+                            emailTemplateService.buildOrgOwnerInvitedEmail(
+                                    request.getOwnerFirstName(), org.getName(), request.getOwnerEmail()));
+                } catch (Exception e) {
+                    log.warn("No se pudo enviar email al owner designado {}: {}", request.getOwnerEmail(), e.getMessage());
                 }
             }
         }

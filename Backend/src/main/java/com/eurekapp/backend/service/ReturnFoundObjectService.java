@@ -36,7 +36,7 @@ public class ReturnFoundObjectService {
     private static final Map<String, String> ROLE_LABELS = Map.of(
             "ORGANIZATION_EMPLOYEE", "Empleado",
             "ENCARGADO", "Encargado",
-            "ORGANIZATION_OWNER", "Responsable"
+            "ORGANIZATION_OWNER", "Dueño de organización"
     );
 
 

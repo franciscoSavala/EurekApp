@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
@@ -13,6 +14,7 @@ import {
 import { buildUsageReportHtml, exportPdf } from "../../utils/pdfExport";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
+import { fetchWithAuth, refreshJwt } from "../../utils/fetchWithAuth";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
@@ -100,13 +102,12 @@ const Reports = ({ navigation }) => {
     };
 
     const handleExportCsv = async () => {
-        const jwt = await AsyncStorage.getItem("jwt");
         const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
         const url = `${BACK_URL}/feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}${wasFoundParam}`;
         if (isWeb) {
             // En web, el JWT no se puede pasar por URL fácilmente; hacer fetch y disparar descarga
             try {
-                const res = await fetch(url, { headers: { Authorization: `Bearer ${jwt}` } });
+                const res = await fetchWithAuth(url);
                 const blob = await res.blob();
                 const objectUrl = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -123,9 +124,15 @@ const Reports = ({ navigation }) => {
                 const FileSystem = require("expo-file-system");
                 const Sharing = require("expo-sharing");
                 const fileUri = FileSystem.cacheDirectory + "feedback-report.csv";
-                const downloadRes = await FileSystem.downloadAsync(url, fileUri, {
+                const download = async (jwt) => FileSystem.downloadAsync(url, fileUri, {
                     headers: { Authorization: `Bearer ${jwt}` },
                 });
+                let jwt = await AsyncStorage.getItem("jwt");
+                let downloadRes = await download(jwt);
+                if (downloadRes.status === 401 || downloadRes.status === 403) {
+                    const newToken = await refreshJwt();
+                    if (newToken) downloadRes = await download(newToken);
+                }
                 if (await Sharing.isAvailableAsync()) {
                     await Sharing.shareAsync(downloadRes.uri, { mimeType: "text/csv", dialogTitle: "Exportar reporte de feedback" });
                 }
@@ -135,8 +142,12 @@ const Reports = ({ navigation }) => {
         }
     };
 
-    useEffect(() => { fetchMainReport(); }, [fromDate, toDate, groupBy]);
-    useEffect(() => { fetchFeedback(); }, [fromDate, toDate, groupBy, wasFoundFilter]);
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchMainReport();
+            fetchFeedback();
+        }, [fromDate, toDate, groupBy, wasFoundFilter])
+    );
 
     const maxValue = data?.time_series
         ? Math.max(
@@ -352,10 +363,37 @@ const Reports = ({ navigation }) => {
                                     <MetricCard label="Búsquedas fallidas" value={feedbackData.unsuccessful_searches} color="#e53935" />
                                 </View>
 
+                                {/* Donut de precisión de coincidencias */}
+                                {feedbackData.total_feedback > 0 && (
+                                    <View style={styles.tableContainer}>
+                                        <Text style={styles.sectionTitle}>Precisión de coincidencias</Text>
+                                        <DonutChart
+                                            recovered={feedbackData.successful_searches}
+                                            total={feedbackData.total_feedback}
+                                            primaryColor="#4caf50"
+                                            secondaryColor="#e53935"
+                                            primaryLabel="Exitosas"
+                                            secondaryLabel="Fallidas"
+                                            centerLabel="exitosas"
+                                        />
+                                    </View>
+                                )}
+
                                 {/* Distribución de estrellas */}
                                 {feedbackData.star_distribution && (
                                     <View style={styles.tableContainer}>
                                         <Text style={styles.sectionTitle}>Distribución de calificaciones</Text>
+
+                                        {/* Promedio dentro de la sección con divisor */}
+                                        <View style={styles.ratingAvgRow}>
+                                            <StarRating rating={Math.round(feedbackData.average_rating || 0)} size={20} disabled />
+                                            <Text style={styles.ratingAvgNumber}>
+                                                {feedbackData.average_rating?.toFixed(1) ?? '—'}
+                                            </Text>
+                                            <Text style={styles.ratingAvgLabel}>promedio</Text>
+                                        </View>
+                                        <View style={styles.divider} />
+
                                         {[5, 4, 3, 2, 1].map(star => {
                                             const count = feedbackData.star_distribution[star] || 0;
                                             const total = feedbackData.total_feedback || 1;
@@ -635,6 +673,27 @@ const styles = StyleSheet.create({
         color: 'white',
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 14,
+    },
+    ratingAvgRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingVertical: 8,
+    },
+    ratingAvgNumber: {
+        fontSize: 22,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: '#f0a500',
+    },
+    ratingAvgLabel: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#638888',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#e0e8e8',
+        marginBottom: 8,
     },
     navButton: {
         marginTop: 8,

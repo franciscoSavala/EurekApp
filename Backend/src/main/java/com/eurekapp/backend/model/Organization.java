@@ -34,5 +34,6 @@ public class Organization {
 
     @ColumnDefault("1")
     @Column(name = "active", nullable = false, columnDefinition = "TINYINT(1) NOT NULL DEFAULT 1")
+    @Builder.Default
     private boolean active = true;
 }

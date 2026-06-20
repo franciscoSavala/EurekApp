@@ -2,6 +2,7 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.request.ForgotPasswordRequestDto;
 import com.eurekapp.backend.dto.request.LoginRequestDto;
+import com.eurekapp.backend.dto.request.RefreshTokenRequestDto;
 import com.eurekapp.backend.dto.request.ResetPasswordRequestDto;
 import com.eurekapp.backend.dto.request.SocialLoginRequestDto;
 import com.eurekapp.backend.dto.request.UserRegistrationRequestDto;
@@ -38,6 +39,12 @@ public class AuthController {
     @Operation(summary = "Registrar usuario", description = "Crea una nueva cuenta de usuario con rol USER")
     public ResponseEntity<LoginResponseDto> register(@Valid @RequestBody UserRegistrationRequestDto userRegistrationRequestDto) {
         return ResponseEntity.ok(authService.register(userRegistrationRequestDto));
+    }
+
+    @PostMapping("/auth/refresh")
+    @Operation(summary = "Renovar token", description = "Genera un nuevo JWT de acceso a partir de un refresh token válido")
+    public ResponseEntity<LoginResponseDto> refresh(@Valid @RequestBody RefreshTokenRequestDto refreshTokenRequestDto) {
+        return ResponseEntity.ok(authService.refreshToken(refreshTokenRequestDto.getRefreshToken()));
     }
 
     @PostMapping("/auth/social")

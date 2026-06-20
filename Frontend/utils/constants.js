@@ -2,7 +2,7 @@ export const ROLE_LABELS = {
     EMPLOYEE: 'Empleado',
     ORGANIZATION_EMPLOYEE: 'Empleado',
     ENCARGADO: 'Encargado',
-    ORGANIZATION_OWNER: 'Responsable de organización',
+    ORGANIZATION_OWNER: 'Dueño de organización',
     USER: 'Usuario',
 };
 

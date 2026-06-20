@@ -83,4 +83,8 @@ public class OrganizationRequest {
 
     @Column(name = "admin_note", length = 1000)
     private String adminNote;
+
+    @ManyToOne
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

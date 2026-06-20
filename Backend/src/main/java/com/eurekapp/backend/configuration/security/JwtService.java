@@ -19,12 +19,21 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    private static final String TOKEN_TYPE_CLAIM = "type";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+
     private final SecretKey secretKey;
+    private final long accessTokenExpirationMinutes;
+    private final long refreshTokenExpirationMinutes;
 
     public JwtService(
-            @Value("${application.jwt.sign-key}") String key
+            @Value("${application.jwt.sign-key}") String key,
+            @Value("${application.jwt.access-token-expiration-minutes:60}") long accessTokenExpirationMinutes,
+            @Value("${application.jwt.refresh-token-expiration-minutes:43200}") long refreshTokenExpirationMinutes
     ) {
         this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(key));
+        this.accessTokenExpirationMinutes = accessTokenExpirationMinutes;
+        this.refreshTokenExpirationMinutes = refreshTokenExpirationMinutes;
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {
@@ -45,12 +54,26 @@ public class JwtService {
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
+        return buildToken(extraClaims, userDetails, accessTokenExpirationMinutes);
+    }
+
+    public String generateRefreshToken(UserDetails userDetails) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, REFRESH_TOKEN_TYPE);
+        return buildToken(claims, userDetails, refreshTokenExpirationMinutes);
+    }
+
+    public boolean isRefreshToken(String token) {
+        return REFRESH_TOKEN_TYPE.equals(extractClaim(token, claims -> claims.get(TOKEN_TYPE_CLAIM, String.class)));
+    }
+
+    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, long expirationMinutes) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(60, ChronoUnit.MINUTES)))
+                .expiration(Date.from(now.plus(expirationMinutes, ChronoUnit.MINUTES)))
                 .signWith(secretKey)
                 .compact();
     }
