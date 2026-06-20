@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -125,7 +126,7 @@ public class OrganizationService {
             log.warn("No se pudo enviar email de confirmación a {}: {}", requestingUser.getUsername(), e.getMessage());
         }
 
-        notifyAdminsNewRequest(requestingUser, dto, request.getId());
+        notifyAdminsNewRequest(requestingUser, dto, request.getId(), request.getCreatedAt());
 
         return OrganizationRegistrationResponseDto.builder()
                 .requestId(request.getId())
@@ -322,10 +323,13 @@ public class OrganizationService {
     }
 
     private void notifyAdminsNewRequest(UserEurekapp requestingUser,
-                                         OrganizationRegistrationRequestDto dto, Long requestId) {
+                                         OrganizationRegistrationRequestDto dto, Long requestId,
+                                         LocalDateTime createdAt) {
         List<UserEurekapp> admins = userRepository.findAllByRole(Role.ADMIN);
         String description = requestingUser.getFirstName() + " " + requestingUser.getLastName()
                 + " solicita registrar \"" + dto.getOrganizationName() + "\" como organización.";
+        String createdAtFormatted = createdAt != null
+                ? createdAt.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) : "";
         String emailBody = emailTemplateService.buildOrgRequestNewEmail(
                 requestingUser.getFirstName(), requestingUser.getLastName(), requestingUser.getUsername(),
                 dto.getOrganizationName(), dto.getOrganizationType().name(),
@@ -333,7 +337,7 @@ public class OrganizationService {
                 dto.getStreet(), dto.getStreetNumber(), dto.getCity(), dto.getProvince(), dto.getCountry(),
                 dto.getLatitude(), dto.getLongitude(),
                 dto.getOwnerFirstName(), dto.getOwnerLastName(),
-                dto.getOwnerEmail(), dto.getOwnerPhone(), dto.getReason());
+                dto.getOwnerEmail(), dto.getOwnerPhone(), dto.getReason(), createdAtFormatted);
 
         for (UserEurekapp admin : admins) {
             inAppNotificationService.createNotification(admin,

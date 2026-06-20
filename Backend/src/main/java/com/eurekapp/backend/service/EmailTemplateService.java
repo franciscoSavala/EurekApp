@@ -67,7 +67,8 @@ public class EmailTemplateService {
                                            String city, String province, String country,
                                            Double latitude, Double longitude,
                                            String ownerFirstName, String ownerLastName,
-                                           String ownerEmail, String ownerPhone, String reason) {
+                                           String ownerEmail, String ownerPhone, String reason,
+                                           String createdAt) {
         Context ctx = new Context();
         ctx.setVariable("requesterFirstName", requesterFirstName);
         ctx.setVariable("requesterLastName", requesterLastName);
@@ -87,6 +88,7 @@ public class EmailTemplateService {
         ctx.setVariable("ownerEmail", ownerEmail);
         ctx.setVariable("ownerPhone", ownerPhone);
         ctx.setVariable("reason", reason);
+        ctx.setVariable("createdAt", createdAt);
         return templateEngine.process("email/org-request-new", ctx);
     }
 
