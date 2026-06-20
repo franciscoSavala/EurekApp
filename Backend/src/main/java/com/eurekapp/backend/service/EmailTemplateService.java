@@ -107,6 +107,14 @@ public class EmailTemplateService {
         return templateEngine.process("email/org-owner-approved", ctx);
     }
 
+    public String buildOrgOwnerInvitedEmail(String firstName, String orgName, String ownerEmail) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("orgName", orgName);
+        ctx.setVariable("ownerEmail", ownerEmail);
+        return templateEngine.process("email/org-owner-invited", ctx);
+    }
+
     public String buildObjectFoundEmail(String orgName, String contactData,
                                          String description, String imageUrl) {
         Context ctx = new Context();
