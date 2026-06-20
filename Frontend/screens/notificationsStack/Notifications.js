@@ -89,9 +89,16 @@ const Notifications = ({ navigation, route }) => {
                 { requestId },
                 { headers: { Authorization: "Bearer " + jwt } }
             );
+            if (res.data?.token) {
+                await AsyncStorage.setItem('jwt', res.data.token);
+            }
+            if (res.data?.refreshToken) {
+                await AsyncStorage.setItem('refreshToken', res.data.refreshToken);
+            }
             if (res.data?.user) {
                 await AsyncStorage.setItem('user.first_name', res.data.user.firstName.toString());
                 await AsyncStorage.setItem('user', JSON.stringify(res.data.user));
+                setUserRole(res.data.user.role);
             }
             if (res.data?.organization) {
                 await AsyncStorage.setItem('org.id', res.data.organization.id.toString());
