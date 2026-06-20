@@ -81,7 +81,7 @@ const GlobalStatisticsDashboard = () => {
             </View>
             <View style={styles.grid2}>
                 <StatCard value={stats?.totalOrgs} label="Organizaciones" accent="#7B5EA7" />
-                <StatCard value={stats?.activeOrgs} label="Orgs activas" accent="#4caf50" />
+                <StatCard value={stats?.activeOrgs} label="Organizaciones activas" accent="#4caf50" />
             </View>
 
             {/* ── Objetos encontrados ── */}
