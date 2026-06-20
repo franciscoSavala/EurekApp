@@ -161,6 +161,13 @@ public class OrganizationService {
 
     // ── Admin: listado y detalle ──────────────────────────────────────────────
 
+    public long getPendingRequestsCount(UserEurekapp admin) {
+        if (admin.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("forbidden", "Solo el administrador puede consultar el conteo de solicitudes.");
+        }
+        return requestRepository.countByStatus(OrganizationRequestStatus.PENDING_APPROVAL);
+    }
+
     public List<OrganizationRequestSummaryDto> getOrganizationRequests(UserEurekapp admin) {
         if (admin.getRole() != Role.ADMIN) {
             throw new ForbiddenException("forbidden", "Solo el administrador puede ver las solicitudes.");
