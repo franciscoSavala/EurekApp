@@ -452,7 +452,9 @@ const EurekappTab = () => {
             initialRouteName={
                 (userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' || userRole === 'ENCARGADO')
                     ? 'LostObjectReturnStackScreen'
-                    : 'FindObjectStackScreen'
+                    : userRole === 'ADMIN'
+                        ? 'GlobalStatisticsDashboard'
+                        : 'FindObjectStackScreen'
             }
             drawerContent={(props) => <CustomDrawerContent {...props} />} >
             {userRole !== 'ORGANIZATION_OWNER' && userRole !== 'ORGANIZATION_EMPLOYEE' && userRole !== 'ENCARGADO' ? (
