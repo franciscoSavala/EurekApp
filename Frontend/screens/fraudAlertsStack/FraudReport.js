@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { formatDateISO } from '../../utils/dateFormatter';
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
@@ -46,7 +47,6 @@ const ACTION_COLORS = {
     'Sin acción sugerida': '#aaa',
 };
 
-const formatDate = (d) => d.toISOString().split('T')[0];
 
 const defaultFrom = () => {
     const d = new Date();
@@ -101,7 +101,7 @@ const FraudReport = () => {
     }, [entries, sortBy]);
 
     const buildParams = () => {
-        let p = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`;
+        let p = `from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`;
         if (statusFilter) p += `&status=${statusFilter}`;
         if (selectedOrgId) p += `&organizationId=${selectedOrgId}`;
         return p;
@@ -163,11 +163,11 @@ const FraudReport = () => {
         setExportingPdf(true);
         try {
             const html = buildFraudReportHtml(entries, {
-                fromDate: formatDate(fromDate),
-                toDate: formatDate(toDate),
+                fromDate: formatDateISO(fromDate),
+                toDate: formatDateISO(toDate),
                 statusFilter,
             });
-            await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
+            await exportPdf(html, `Reporte_Fraude_${formatDateISO(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo exportar el PDF. Intentá nuevamente.' });
@@ -228,13 +228,13 @@ const FraudReport = () => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Desde</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowFrom(true)}>
-                            <Text style={styles.dateButtonText}>{formatDate(fromDate)}</Text>
+                            <Text style={styles.dateButtonText}>{formatDateISO(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFrom && (
                             Platform.OS === 'web' ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(fromDate)}
+                                    defaultValue={formatDateISO(fromDate)}
                                     style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => { setShowFrom(false); if (e.target.value) setFromDate(new Date(e.target.value)); }}
                                     onBlur={() => setShowFrom(false)}
@@ -249,13 +249,13 @@ const FraudReport = () => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Hasta</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowTo(true)}>
-                            <Text style={styles.dateButtonText}>{formatDate(toDate)}</Text>
+                            <Text style={styles.dateButtonText}>{formatDateISO(toDate)}</Text>
                         </TouchableOpacity>
                         {showTo && (
                             Platform.OS === 'web' ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(toDate)}
+                                    defaultValue={formatDateISO(toDate)}
                                     style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => { setShowTo(false); if (e.target.value) setToDate(new Date(e.target.value)); }}
                                     onBlur={() => setShowTo(false)}

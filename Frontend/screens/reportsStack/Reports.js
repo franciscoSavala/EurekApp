@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDateISO } from '../../utils/dateFormatter';
 import { useFocusEffect } from "@react-navigation/native";
 import Toast from 'react-native-toast-message';
 import {
@@ -24,7 +25,6 @@ import RecoveryTimeChart, { formatHours } from "../components/RecoveryTimeChart"
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const formatDate = (date) => date.toISOString().split("T")[0];
 
 const Reports = ({ navigation }) => {
     const thirtyDaysAgo = new Date();
@@ -49,7 +49,7 @@ const Reports = ({ navigation }) => {
         setError(null);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
-            const params = { from: formatDate(fromDate), to: formatDate(toDate), groupBy };
+            const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
             const headers = { Authorization: `Bearer ${jwt}` };
             const res = await axiosInstance.get(`${BACK_URL}/reports`, { headers, params });
             setData(res.data);
@@ -65,10 +65,10 @@ const Reports = ({ navigation }) => {
         setLoadingFeedback(true);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
-            const params = { from: formatDate(fromDate), to: formatDate(toDate), groupBy };
+            const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
             const headers = { Authorization: `Bearer ${jwt}` };
             const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-            const recParams = { from: formatDate(fromDate), to: formatDate(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+            const recParams = { from: formatDateISO(fromDate), to: formatDateISO(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const [fbRes, recRes] = await Promise.all([
                 axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams }),
                 axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams }),
@@ -87,12 +87,12 @@ const Reports = ({ navigation }) => {
         setExportingPdf(true);
         try {
             const html = buildUsageReportHtml(data, feedbackData, feedbackRecords, {
-                fromDate: formatDate(fromDate),
-                toDate: formatDate(toDate),
+                fromDate: formatDateISO(fromDate),
+                toDate: formatDateISO(toDate),
                 groupBy,
                 wasFoundFilter,
             });
-            await exportPdf(html, `Reporte_Uso_${formatDate(new Date())}.pdf`);
+            await exportPdf(html, `Reporte_Uso_${formatDateISO(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo exportar el PDF. Intentá nuevamente.' });
@@ -103,7 +103,7 @@ const Reports = ({ navigation }) => {
 
     const handleExportCsv = async () => {
         const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
-        const url = `${BACK_URL}/feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}${wasFoundParam}`;
+        const url = `${BACK_URL}/feedback/report/export?from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}${wasFoundParam}`;
         if (isWeb) {
             // En web, el JWT no se puede pasar por URL fácilmente; hacer fetch y disparar descarga
             try {
@@ -173,13 +173,13 @@ const Reports = ({ navigation }) => {
                             style={styles.dateButton}
                             onPress={() => setShowFromPicker(true)}
                         >
-                            <Text style={styles.dateText}>{formatDate(fromDate)}</Text>
+                            <Text style={styles.dateText}>{formatDateISO(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFromPicker && (
                             isWeb ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(fromDate)}
+                                    defaultValue={formatDateISO(fromDate)}
                                     style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => {
                                         setShowFromPicker(false);
@@ -207,13 +207,13 @@ const Reports = ({ navigation }) => {
                             style={styles.dateButton}
                             onPress={() => setShowToPicker(true)}
                         >
-                            <Text style={styles.dateText}>{formatDate(toDate)}</Text>
+                            <Text style={styles.dateText}>{formatDateISO(toDate)}</Text>
                         </TouchableOpacity>
                         {showToPicker && (
                             isWeb ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(toDate)}
+                                    defaultValue={formatDateISO(toDate)}
                                     style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => {
                                         setShowToPicker(false);

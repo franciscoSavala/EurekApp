@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 import {
     ActivityIndicator,
     Image,
@@ -80,11 +81,6 @@ const ReclamoDetail = ({ route }) => {
         return '★'.repeat(rating) + '☆'.repeat(5 - rating);
     };
 
-    const formatDate = (dt) => {
-        if (!dt) return '-';
-        const d = new Date(dt);
-        return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-    };
 
     if (loading) {
         return (
@@ -154,7 +150,7 @@ const ReclamoDetail = ({ route }) => {
                 <InfoRow label="Categoría" value={reclamo.foundObjectCategory} />
                 <InfoRow label="Descripción" value={reclamo.foundObjectHumanDescription} />
                 <InfoRow label="Descripción AI" value={reclamo.foundObjectAiDescription} />
-                <InfoRow label="Fecha de hallazgo" value={formatDate(reclamo.foundObjectDate)} />
+                <InfoRow label="Fecha de hallazgo" value={formatDateTimeLocaleES(reclamo.foundObjectDate)} />
                 <InfoRow label="Organización" value={reclamo.foundObjectOrganizationName} />
                 <InfoRow label="Calle" value={reclamo.foundObjectStreet} />
                 <InfoRow label="Número" value={reclamo.foundObjectStreetNumber} />
@@ -179,8 +175,8 @@ const ReclamoDetail = ({ route }) => {
             {/* Info del reclamo */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
-                <InfoRow label="Fecha del reclamo" value={formatDate(reclamo.createdAt)} />
-                <InfoRow label="Última actualización" value={formatDate(reclamo.updatedAt)} />
+                <InfoRow label="Fecha del reclamo" value={formatDateTimeLocaleES(reclamo.createdAt)} />
+                <InfoRow label="Última actualización" value={formatDateTimeLocaleES(reclamo.updatedAt)} />
                 <InfoRow label="Puntuación" value={renderStars(reclamo.starRating)} />
                 <InfoRow label="Descripción del reclamo" value={reclamo.claimDescription} />
                 <InfoRow label="Comentario" value={reclamo.comment} />
@@ -237,7 +233,7 @@ const ReclamoDetail = ({ route }) => {
                                         : `Establecido: ${STATUS_LABELS[h.newStatus] || h.newStatus}`}
                                 </Text>
                                 <Text style={styles.historyMeta}>
-                                    {formatDate(h.changedAt)} · {h.changedByEmail || '-'}
+                                    {formatDateTimeLocaleES(h.changedAt)} · {h.changedByEmail || '-'}
                                 </Text>
                                 {h.note ? <Text style={styles.historyNote}>{h.note}</Text> : null}
                             </View>

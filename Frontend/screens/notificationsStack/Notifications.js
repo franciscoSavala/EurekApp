@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useState } from "react";
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 import {
     ActivityIndicator,
     FlatList,
@@ -30,11 +31,6 @@ const TYPE_LABELS = {
     ORG_REQUEST_REJECTED: "Solicitud rechazada",
 };
 
-const formatDate = (isoString) => {
-    if (!isoString) return "";
-    const d = new Date(isoString);
-    return d.toLocaleDateString("es-AR") + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-};
 
 const Notifications = ({ navigation, route }) => {
     const { setUserRole } = useContext(LoginContext);
@@ -198,7 +194,7 @@ const Notifications = ({ navigation, route }) => {
                 </View>
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 <Text style={styles.itemDescription}>{item.description}</Text>
-                <Text style={styles.itemDate}>{formatDate(item.created_at)}</Text>
+                <Text style={styles.itemDate}>{formatDateTimeLocaleES(item.created_at)}</Text>
 
                 {isPendingInvitation && (
                     <View style={styles.actionRow}>

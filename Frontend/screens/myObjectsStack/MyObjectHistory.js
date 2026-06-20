@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { formatDateES } from '../../utils/dateFormatter';
 import {
     ActivityIndicator,
     FlatList,
@@ -59,11 +60,6 @@ const MyObjectHistory = ({ navigation }) => {
 
     useFocusEffect(useCallback(() => { fetchData(); }, []));
 
-    const formatDate = (isoString) => {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
 
     const renderReclamo = ({ item }) => (
         <TouchableOpacity
@@ -82,9 +78,9 @@ const MyObjectHistory = ({ navigation }) => {
             <View style={styles.cardFooter}>
                 <Icon name="calendar" size={12} color="#638888" />
                 {item.status === 'DEVUELTO' && item.datetimeOfReturn ? (
-                    <Text style={styles.cardDate}> Retirado: {formatDate(item.datetimeOfReturn)}</Text>
+                    <Text style={styles.cardDate}> Retirado: {formatDateES(item.datetimeOfReturn)}</Text>
                 ) : (
-                    <Text style={styles.cardDate}> Búsqueda: {formatDate(item.createdAt)}</Text>
+                    <Text style={styles.cardDate}> Búsqueda: {formatDateES(item.createdAt)}</Text>
                 )}
             </View>
         </TouchableOpacity>
@@ -106,7 +102,7 @@ const MyObjectHistory = ({ navigation }) => {
             )}
             <View style={styles.cardFooter}>
                 <Icon name="calendar" size={12} color="#638888" />
-                <Text style={styles.cardDate}> Registrada: {formatDate(item.lostDate)}</Text>
+                <Text style={styles.cardDate}> Registrada: {formatDateES(item.lostDate)}</Text>
             </View>
         </TouchableOpacity>
     );

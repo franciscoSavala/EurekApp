@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 import {
     ActivityIndicator,
     Image,
@@ -64,11 +65,6 @@ const MyObjectDetail = ({ route, navigation }) => {
         load();
     }, [reclamoId]);
 
-    const formatDate = (isoString) => {
-        if (!isoString) return '—';
-        const d = new Date(isoString);
-        return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
 
     if (loading) {
         return (
@@ -123,16 +119,16 @@ const MyObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información del reclamo</Text>
-                <InfoRow icon="calendar" label="Fecha de búsqueda" value={formatDate(reclamo.createdAt)} />
+                <InfoRow icon="calendar" label="Fecha de búsqueda" value={formatDateTimeLocaleES(reclamo.createdAt)} />
                 {!!reclamo.datetimeOfReturn && (
-                    <InfoRow icon="box-open" label="Fecha de retiro" value={formatDate(reclamo.datetimeOfReturn)} />
+                    <InfoRow icon="box-open" label="Fecha de retiro" value={formatDateTimeLocaleES(reclamo.datetimeOfReturn)} />
                 )}
                 <InfoRow icon="tag" label="Categoría" value={reclamo.foundObjectCategory} />
                 {!!reclamo.comment && (
                     <InfoRow icon="comment" label="Tu comentario" value={reclamo.comment} />
                 )}
                 {!!reclamo.foundObjectDate && (
-                    <InfoRow icon="box" label="Objeto encontrado el" value={formatDate(reclamo.foundObjectDate)} />
+                    <InfoRow icon="box" label="Objeto encontrado el" value={formatDateTimeLocaleES(reclamo.foundObjectDate)} />
                 )}
                 {!!reclamo.finderFullName && (
                     <InfoRow icon="user" label="Encontrado por"
@@ -164,7 +160,7 @@ const MyObjectDetail = ({ route, navigation }) => {
                                         : ''}
                                     {STATUS_CONFIG[h.newStatus]?.label || h.newStatus}
                                 </Text>
-                                <Text style={styles.historyDate}>{formatDate(h.changedAt)}</Text>
+                                <Text style={styles.historyDate}>{formatDateTimeLocaleES(h.changedAt)}</Text>
                                 {!!h.note && <Text style={styles.historyNote}>{h.note}</Text>}
                             </View>
                         </View>
