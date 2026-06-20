@@ -59,13 +59,14 @@ public class FraudAlertController {
     }
 
     @GetMapping("/report")
-    @Operation(summary = "Reporte de usuarios con fraude", description = "Agrupa las alertas por usuario sospechoso con métricas y acción sugerida. Solo ORGANIZATION_OWNER.")
+    @Operation(summary = "Reporte de usuarios con fraude", description = "Agrupa las alertas por usuario sospechoso con métricas y acción sugerida. Solo ADMIN o ORGANIZATION_OWNER.")
     public ResponseEntity<List<FraudUserReportEntryDto>> getFraudReport(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) FraudAlertStatus status) {
-        return ResponseEntity.ok(service.getFraudUserReport(user, from, to, status));
+            @RequestParam(required = false) FraudAlertStatus status,
+            @RequestParam(required = false) Long organizationId) {
+        return ResponseEntity.ok(service.getFraudUserReport(user, from, to, status, organizationId));
     }
 
     @GetMapping("/report/export")
@@ -74,8 +75,9 @@ public class FraudAlertController {
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) FraudAlertStatus status) {
-        byte[] csv = service.exportFraudReportCsv(user, from, to, status);
+            @RequestParam(required = false) FraudAlertStatus status,
+            @RequestParam(required = false) Long organizationId) {
+        byte[] csv = service.exportFraudReportCsv(user, from, to, status, organizationId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"fraud-report.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv"))
