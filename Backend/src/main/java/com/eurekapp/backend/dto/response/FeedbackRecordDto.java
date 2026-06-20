@@ -11,6 +11,8 @@ public class FeedbackRecordDto {
     private Long id;
     private String organizationId;
     private String foundObjectUUID;
+    private String foundObjectTitle;
+    private String foundObjectDescription;
     private Integer starRating;
     private Boolean wasFound;
     private LocalDateTime createdAt;

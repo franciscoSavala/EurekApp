@@ -154,7 +154,7 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
         `<tr>
             <td>${r.id}</td>
             <td>${r.organizationId || '-'}</td>
-            <td style="font-size:11px;color:#638888">${r.foundObjectUUID || '-'}</td>
+            <td>${r.foundObjectTitle || r.foundObjectDescription || 'Objeto no especificado'}</td>
             <td>${'★'.repeat(r.starRating || 0)}</td>
             <td>${r.wasFound ? 'Sí' : 'No'}</td>
             <td>${r.createdAt ? new Date(r.createdAt).toLocaleString('es-AR') : '-'}</td>
@@ -224,7 +224,7 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 
 <h2>Registros individuales de feedback</h2>
 <table>
-    <tr><th>ID</th><th>Organización</th><th>Objeto (UUID)</th><th>Puntaje</th><th>Encontrado</th><th>Fecha</th><th>Comentario</th></tr>
+    <tr><th>ID</th><th>Organización</th><th>Objeto</th><th>Puntaje</th><th>Encontrado</th><th>Fecha</th><th>Comentario</th></tr>
     ${recordRows}
 </table>
 </body></html>`;
