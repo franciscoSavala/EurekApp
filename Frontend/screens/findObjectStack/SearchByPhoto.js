@@ -26,12 +26,19 @@ const MAX_SIZE_MB = 5;
 
 const FormData = global.FormData;
 
-const SearchByPhoto = ({ navigation }) => {
+const toLocalISO = (date) => {
+    const d = date instanceof Date ? date : new Date(date);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+const SearchByPhoto = ({ navigation, route }) => {
+    const params = route?.params ?? {};
     const [image, setImage] = useState({});
     const [imageByte, setImageByte] = useState(new Buffer('something'));
     const [imageUploaded, setImageUploaded] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [selectedInstitute, setSelectedInstitute] = useState(null);
+    const [selectedInstitute, setSelectedInstitute] = useState(params.selectedInstitute ?? null);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -39,7 +46,7 @@ const SearchByPhoto = ({ navigation }) => {
             setImageByte(new Buffer('something'));
             setImageUploaded(false);
             setLoading(false);
-            setSelectedInstitute(null);
+            setSelectedInstitute(params.selectedInstitute ?? null);
         }, [])
     );
 
@@ -86,7 +93,17 @@ const SearchByPhoto = ({ navigation }) => {
         setLoading(true);
         try {
             const orgId = selectedInstitute?.id ?? null;
-            const url = `${BACK_URL}/found-objects/search-by-photo${orgId ? `?organizationId=${orgId}` : ''}`;
+
+            const queryParams = new URLSearchParams();
+            if (orgId) queryParams.append('organizationId', orgId);
+            if (params.lostDate) queryParams.append('lostDate', toLocalISO(params.lostDate));
+            if (params.filterLostDateTo) queryParams.append('lostDateTo', toLocalISO(params.filterLostDateTo));
+            if (!orgId && params.latitude != null) queryParams.append('latitude', params.latitude);
+            if (!orgId && params.longitude != null) queryParams.append('longitude', params.longitude);
+            if (params.filterCategory) queryParams.append('category', params.filterCategory);
+            const qs = queryParams.toString();
+            const url = `${BACK_URL}/found-objects/search-by-photo${qs ? `?${qs}` : ''}`;
+
             let objectsFound;
             let generatedDescription;
 
@@ -137,6 +154,23 @@ const SearchByPhoto = ({ navigation }) => {
                     selectedValue={selectedInstitute?.id?.toString() ?? ''}
                     setSelected={setSelectedInstitute}
                 />
+                {(params.lostDate || params.filterCategory || params.filterColor) && (
+                    <View style={styles.filtersInfo}>
+                        <Text style={styles.filtersInfoTitle}>Filtros aplicados desde la búsqueda anterior:</Text>
+                        {params.lostDate && (
+                            <Text style={styles.filtersInfoText}>• Fecha desde: {new Date(params.lostDate).toLocaleDateString('es-AR')}</Text>
+                        )}
+                        {params.filterLostDateTo && (
+                            <Text style={styles.filtersInfoText}>• Fecha hasta: {new Date(params.filterLostDateTo).toLocaleDateString('es-AR')}</Text>
+                        )}
+                        {params.filterCategory && (
+                            <Text style={styles.filtersInfoText}>• Categoría: {params.filterCategory}</Text>
+                        )}
+                        {params.filterColor && (
+                            <Text style={styles.filtersInfoText}>• Color: {params.filterColor}</Text>
+                        )}
+                    </View>
+                )}
                 <Text style={styles.label}>Foto de tu objeto perdido:</Text>
                 <View style={{ width: '100%', alignItems: 'center' }}>
                     {imageUploaded ? (
@@ -256,6 +290,25 @@ const styles = StyleSheet.create({
         backgroundColor: '#f0f4f4',
         padding: 8,
         borderRadius: 24,
+    },
+    filtersInfo: {
+        alignSelf: 'stretch',
+        backgroundColor: '#f0f4f4',
+        borderRadius: 10,
+        padding: 12,
+        marginTop: 10,
+        gap: 4,
+    },
+    filtersInfoTitle: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: '#638888',
+        marginBottom: 4,
+    },
+    filtersInfoText: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: '#111818',
     },
 });
 

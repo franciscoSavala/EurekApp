@@ -15,5 +15,5 @@ public interface IFoundObjectService {
     FoundObjectsListDto getAllUnreturnedFoundObjectsByOrganization(SimilarObjectsCommand command);
     FoundObjectsListDto getAllReturnedFoundObjectsByOrganization(UserEurekapp user);
     FoundObjectDto getFoundObjectDetail(FoundObjectDetailCommand command);
-    FoundObjectsListDto searchByPhoto(MultipartFile image, Long organizationId);
+    FoundObjectsListDto searchByPhoto(MultipartFile image, SimilarObjectsCommand filters);
 }
