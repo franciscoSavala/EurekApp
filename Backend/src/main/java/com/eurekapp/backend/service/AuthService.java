@@ -12,8 +12,11 @@ import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.exception.ValidationError;
 import com.eurekapp.backend.model.Organization;
+import com.eurekapp.backend.model.OrganizationRequest;
+import com.eurekapp.backend.model.OrganizationRequestStatus;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
 import io.jsonwebtoken.JwtException;
@@ -40,6 +43,7 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final IUserRepository userRepository;
+    private final IOrganizationRequestRepository organizationRequestRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
@@ -47,9 +51,11 @@ public class AuthService {
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
 
-    public AuthService(IUserRepository userRepository, JwtService jwtService, AuthenticationManager authenticationManager,
+    public AuthService(IUserRepository userRepository, IOrganizationRequestRepository organizationRequestRepository,
+                       JwtService jwtService, AuthenticationManager authenticationManager,
                        NotificationService notificationService, EmailTemplateService emailTemplateService) {
         this.userRepository = userRepository;
+        this.organizationRequestRepository = organizationRequestRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
@@ -115,6 +121,18 @@ public class AuthService {
 
         // Guardar usuario en el repositorio
         userRepository.save(newUser);
+
+        // Si hay una solicitud aprobada donde este email fue designado como responsable,
+        // asignar el rol y la organización correspondiente
+        organizationRequestRepository
+                .findFirstByOwnerEmailAndStatus(user.getUsername(), OrganizationRequestStatus.APPROVED)
+                .ifPresent(request -> {
+                    newUser.setRole(Role.ORGANIZATION_OWNER);
+                    newUser.setOrganization(request.getOrganization());
+                    userRepository.save(newUser);
+                    log.info("[action:register] Usuario {} asignado como ORGANIZATION_OWNER de '{}'",
+                            user.getUsername(), request.getOrganizationName());
+                });
 
         log.info("[action:register] Usuario {} registrado exitosamente", user.getUsername());
 
@@ -182,6 +200,16 @@ public class AuthService {
                     .providerId(providerId)
                     .build();
             userRepository.save(user);
+
+            organizationRequestRepository
+                    .findFirstByOwnerEmailAndStatus(email, OrganizationRequestStatus.APPROVED)
+                    .ifPresent(orgRequest -> {
+                        user.setRole(Role.ORGANIZATION_OWNER);
+                        user.setOrganization(orgRequest.getOrganization());
+                        userRepository.save(user);
+                        log.info("[action:socialLogin] Usuario {} asignado como ORGANIZATION_OWNER de '{}'",
+                                email, orgRequest.getOrganizationName());
+                    });
         }
 
         log.info("[action:socialLogin] Usuario {} autenticado via {}", email, provider);

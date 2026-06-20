@@ -221,6 +221,7 @@ public class OrganizationService {
                     .coordinates(request.getCoordinates())
                     .build();
             organizationRepository.save(org);
+            request.setOrganization(org);
 
             Optional<UserEurekapp> ownerOpt = userRepository.findByUsername(request.getOwnerEmail());
             if (ownerOpt.isPresent()) {
