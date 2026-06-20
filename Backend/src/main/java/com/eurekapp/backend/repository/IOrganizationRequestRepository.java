@@ -15,4 +15,5 @@ public interface IOrganizationRequestRepository extends JpaRepository<Organizati
     List<OrganizationRequest> findByRequestingUserOrderByCreatedAtDesc(UserEurekapp requestingUser);
     Optional<OrganizationRequest> findFirstByRequestingUserOrderByCreatedAtDesc(UserEurekapp requestingUser);
     Optional<OrganizationRequest> findFirstByOwnerEmailAndStatus(String ownerEmail, OrganizationRequestStatus status);
+    long countByStatus(OrganizationRequestStatus status);
 }

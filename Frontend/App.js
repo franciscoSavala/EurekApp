@@ -408,6 +408,7 @@ const EurekappTab = () => {
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+    const [pendingOrgRequestCount, setPendingOrgRequestCount] = useState(0);
     const prevCountRef = useRef(0);
     const isFirstFetchRef = useRef(true);
 
@@ -437,6 +438,43 @@ const EurekappTab = () => {
         const interval = setInterval(fetchUnreadCount, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    useEffect(() => {
+        if (userRole !== 'ADMIN') return;
+        const fetchPendingCount = async () => {
+            try {
+                const jwt = await AsyncStorage.getItem('jwt');
+                const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count', {
+                    headers: { Authorization: 'Bearer ' + jwt },
+                });
+                setPendingOrgRequestCount(res.data.count || 0);
+            } catch (e) {
+                // silently ignore — badge es opcional
+            }
+        };
+        fetchPendingCount();
+        const interval = setInterval(fetchPendingCount, 30000);
+        return () => clearInterval(interval);
+    }, [userRole]);
+
+    const orgRequestsIcon = () => (
+        <View style={{ position: 'relative' }}>
+            <Icon name={'sitemap'} size={20} />
+            {pendingOrgRequestCount > 0 && (
+                <View style={{
+                    position: 'absolute', top: -5, right: -8,
+                    backgroundColor: '#CC4444', borderRadius: 8,
+                    minWidth: 16, height: 16,
+                    justifyContent: 'center', alignItems: 'center',
+                    paddingHorizontal: 2,
+                }}>
+                    <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
+                        {pendingOrgRequestCount > 99 ? '99+' : pendingOrgRequestCount}
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
 
     const bellIcon = () => (
         <View style={{ position: 'relative' }}>
@@ -547,7 +585,7 @@ const EurekappTab = () => {
                 <Drawer.Screen name="OrgRequestsAdminStackScreen" options={{
                     title: 'Solicitudes de alta',
                     headerTitleAlign: 'center',
-                    drawerIcon: organizationIcon
+                    drawerIcon: orgRequestsIcon
                 }} component={OrgRequestsAdminStackScreen} />
                 <Drawer.Screen name="UserManagement" options={{
                     title: 'Usuarios',

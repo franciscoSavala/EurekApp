@@ -129,6 +129,15 @@ public class OrganizationController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/requests/pending-count")
+    @Operation(summary = "Contar solicitudes pendientes (admin)",
+            description = "Devuelve la cantidad de solicitudes de registro con estado PENDING_APPROVAL. Solo para ADMIN.")
+    public ResponseEntity<java.util.Map<String, Long>> getPendingRequestsCount(
+            @AuthenticationPrincipal UserEurekapp user) {
+        long count = organizationService.getPendingRequestsCount(user);
+        return ResponseEntity.ok(java.util.Map.of("count", count));
+    }
+
     @GetMapping("/requests")
     @Operation(summary = "Listar solicitudes de organización (admin)",
             description = "Devuelve todas las solicitudes de registro. Solo para ADMIN.")
