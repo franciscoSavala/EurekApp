@@ -23,10 +23,7 @@ import { isIOS } from '../../utils/platform';
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const REASON_LABELS = {
-    MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes',
-    HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
     FINDER_CLAIMER_COLLUSION: 'Acuerdo registrador/reclamante',
-    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
 };
 
 const STATUS_LABELS = {
