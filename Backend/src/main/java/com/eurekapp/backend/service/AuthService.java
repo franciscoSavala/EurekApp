@@ -180,6 +180,14 @@ public class AuthService {
         UserEurekapp user;
         if (existingUser.isPresent()) {
             user = existingUser.get();
+            if (!user.isActive()) {
+                throw new ForbiddenException("user_deactivated",
+                        "Tu cuenta fue desactivada. Contactá al administrador de EurekApp.");
+            }
+            if (user.getOrganization() != null && !user.getOrganization().isActive()) {
+                throw new ForbiddenException("org_deactivated",
+                        "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
+            }
             if (user.getProviderId() == null) {
                 user.setProviderType(provider);
                 user.setProviderId(providerId);
