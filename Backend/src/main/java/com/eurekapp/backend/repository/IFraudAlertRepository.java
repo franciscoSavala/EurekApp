@@ -29,4 +29,10 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
             String organizationId, Long userId, FraudAlertStatus status);
 
     List<FraudAlert> findByOrganizationIdAndSuspectUser_Id(String organizationId, Long userId);
+
+    List<FraudAlert> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    List<FraudAlert> findByStatusAndCreatedAtBetween(FraudAlertStatus status, LocalDateTime from, LocalDateTime to);
+
+    List<FraudAlert> findBySuspectUser_Id(Long userId);
 }

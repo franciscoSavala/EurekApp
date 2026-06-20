@@ -210,19 +210,33 @@ public class FraudDetectionService {
     }
 
     public List<FraudUserReportEntryDto> getFraudUserReport(
-            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        boolean isOwner = user.getRole() == Role.ORGANIZATION_OWNER;
+        if (!isAdmin && !isOwner) {
             throw new ForbiddenException("forbidden",
-                    "Solo el responsable de la organización puede acceder al reporte de fraude");
+                    "Solo el administrador o responsable de la organización puede acceder al reporte de fraude");
         }
-        String orgId = user.getOrganization().getId().toString();
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
+        // Determinar el orgId efectivo para filtrar alertas
+        String orgIdFilter = isAdmin && organizationId != null
+                ? organizationId.toString()
+                : isOwner ? user.getOrganization().getId().toString()
+                : null;
+
         // Paso 1: alertas filtradas (status + fecha) para determinar qué usuarios aparecen
-        List<FraudAlert> filteredAlerts = status != null
-                ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgId, status, fromDt, toDt)
-                : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
+        List<FraudAlert> filteredAlerts;
+        if (orgIdFilter != null) {
+            filteredAlerts = status != null
+                    ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgIdFilter, status, fromDt, toDt)
+                    : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgIdFilter, fromDt, toDt);
+        } else {
+            filteredAlerts = status != null
+                    ? alertRepository.findByStatusAndCreatedAtBetween(status, fromDt, toDt)
+                    : alertRepository.findByCreatedAtBetween(fromDt, toDt);
+        }
 
         // Paso 2: IDs únicos de usuarios del conjunto filtrado
         Set<Long> suspectIds = filteredAlerts.stream()
@@ -230,10 +244,11 @@ public class FraudDetectionService {
                 .map(a -> a.getSuspectUser().getId())
                 .collect(Collectors.toSet());
 
-        // Paso 3: para cada usuario, cargar TODOS sus casos en la org (historial completo)
+        // Paso 3: para cada usuario, cargar TODOS sus casos (en la org si se filtró, o en todas)
         return suspectIds.stream().map(userId -> {
-            List<FraudAlert> all = alertRepository
-                    .findByOrganizationIdAndSuspectUser_Id(orgId, userId);
+            List<FraudAlert> all = orgIdFilter != null
+                    ? alertRepository.findByOrganizationIdAndSuspectUser_Id(orgIdFilter, userId)
+                    : alertRepository.findBySuspectUser_Id(userId);
             UserEurekapp suspect = all.get(0).getSuspectUser();
 
             long confirmed = all.stream()
@@ -272,8 +287,8 @@ public class FraudDetectionService {
     }
 
     public byte[] exportFraudReportCsv(
-            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
+        List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status, organizationId);
         StringBuilder sb = new StringBuilder(
                 "userId;email;fullName;fraudCount;confirmedFraudCount;pendingCount;gravityLevel;reasons;suggestedAction\n");
         for (FraudUserReportEntryDto entry : report) {

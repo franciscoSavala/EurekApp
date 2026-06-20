@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
@@ -87,6 +87,14 @@ const FraudReport = () => {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedUser, setExpandedUser] = useState(null);
     const [sortBy, setSortBy] = useState('gravityLevel');
+    const [organizations, setOrganizations] = useState([]);
+    const [selectedOrgId, setSelectedOrgId] = useState(null);
+
+    useEffect(() => {
+        authFetch('get', `${BACK_URL}/organizations`)
+            .then(data => setOrganizations(data?.organizations ?? []))
+            .catch(() => {});
+    }, []);
 
     const sortedEntries = useMemo(() => {
         return [...entries].sort((a, b) => {
@@ -95,11 +103,17 @@ const FraudReport = () => {
         });
     }, [entries, sortBy]);
 
+    const buildParams = () => {
+        let p = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`;
+        if (statusFilter) p += `&status=${statusFilter}`;
+        if (selectedOrgId) p += `&organizationId=${selectedOrgId}`;
+        return p;
+    };
+
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
-            const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
+            const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${buildParams()}`);
             setEntries(data);
         } catch (error) {
             console.log(error);
@@ -110,8 +124,7 @@ const FraudReport = () => {
 
     const exportCsv = async () => {
         setExporting(true);
-        const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
-        const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
+        const url = `${BACK_URL}/fraud-alerts/report/export?${buildParams()}`;
         if (Platform.OS === 'web') {
             try {
                 const res = await fetchWithAuth(url);
@@ -258,6 +271,31 @@ const FraudReport = () => {
                         )}
                     </View>
                 </View>
+
+                {organizations.length > 0 && (
+                    <>
+                        <Text style={styles.filterLabel}>Organización</Text>
+                        <View style={styles.statusRow}>
+                            <TouchableOpacity
+                                style={[styles.statusBtn, selectedOrgId === null && styles.statusBtnActive]}
+                                onPress={() => setSelectedOrgId(null)}>
+                                <Text style={[styles.statusBtnText, selectedOrgId === null && styles.statusBtnTextActive]}>
+                                    Todas
+                                </Text>
+                            </TouchableOpacity>
+                            {organizations.map(org => (
+                                <TouchableOpacity
+                                    key={org.id}
+                                    style={[styles.statusBtn, selectedOrgId === org.id && styles.statusBtnActive]}
+                                    onPress={() => setSelectedOrgId(org.id)}>
+                                    <Text style={[styles.statusBtnText, selectedOrgId === org.id && styles.statusBtnTextActive]}>
+                                        {org.name}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </>
+                )}
 
                 <Text style={styles.filterLabel}>Estado</Text>
                 <View style={styles.statusRow}>
