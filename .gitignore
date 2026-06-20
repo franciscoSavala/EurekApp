@@ -17,3 +17,7 @@ node_modules/
 
 # PoC de búsqueda reversa (experimental, no versionar)
 poc-reverse-search/
+
+# Tracker del rework + artefactos de asistentes (no versionar)
+REWORK-FRAUDE-RECLAMOS.md
+CLAUDE.md
