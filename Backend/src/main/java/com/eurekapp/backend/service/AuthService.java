@@ -325,7 +325,7 @@ public class AuthService {
                 .username(user.getUsername())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .role(user.getRole().toString())
+                .role(user.getRole().name())
                 .build();
 
         String refreshToken = jwtService.generateRefreshToken(user);
