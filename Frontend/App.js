@@ -55,6 +55,7 @@ import Notifications from "./screens/notificationsStack/Notifications";
 import UserManagement from "./screens/adminStack/UserManagement";
 import OrganizationManagement from "./screens/adminStack/OrganizationManagement";
 import GlobalStatisticsDashboard from "./screens/adminStack/GlobalStatisticsDashboard";
+import FraudDetectionConfig from "./screens/adminStack/FraudDetectionConfig";
 import { SUPPORT_EMAIL } from './utils/contact';
 import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
@@ -385,6 +386,7 @@ const EurekappTab = () => {
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
     const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
+    const slidersIcon = () => <Icon name={'sliders'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
@@ -543,6 +545,11 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: shieldIcon
                 }} component={FraudAlertsStackScreen} />
+                <Drawer.Screen name="FraudDetectionConfigStackScreen" options={{
+                    title: 'Configuración de fraude',
+                    headerTitleAlign: 'center',
+                    drawerIcon: slidersIcon
+                }} component={FraudDetectionConfig} />
             </> : null
             }
 
