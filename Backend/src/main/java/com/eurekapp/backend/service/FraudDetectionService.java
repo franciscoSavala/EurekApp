@@ -2,8 +2,10 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
 import com.eurekapp.backend.dto.response.FraudCaseMatchDto;
+import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
 import com.eurekapp.backend.dto.response.FraudUserDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
@@ -134,7 +136,7 @@ public class FraudDetectionService {
                 .reason(reason)
                 .details(buildDetails(dni, matches, employeeForAlert))
                 .dedupKey(dedupKey)
-                .status(FraudAlertStatus.PENDING)
+                .status(FraudAlertStatus.ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .build();
         alertRepository.save(alert);
@@ -142,7 +144,24 @@ public class FraudDetectionService {
         // Bloqueo automático (EU-286): al persistir la alerta se crean los bloqueos del DNI y de cada
         // usuario sospechoso, vigentes durante la duración de bloqueo configurada (≠ ventana T).
         fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
-        // La notificación al dueño de Eurekapp (alerta global) se cablea en EU-287/288.
+
+        // Si hay un empleado involucrado (Caso 3), se avisa al dueño de su organización (EU-288). La
+        // gestión del fraude sigue siendo del dueño de Eurekapp; el responsable de la org solo se entera.
+        notifyOrganizationOwnerIfEmployeeInvolved(employeeForAlert);
+    }
+
+    private void notifyOrganizationOwnerIfEmployeeInvolved(UserEurekapp employee) {
+        if (employee == null || employee.getOrganization() == null) return;
+        userRepository.findByOrganizationAndRole(employee.getOrganization(), Role.ORGANIZATION_OWNER)
+                .stream().findFirst()
+                .ifPresent(owner -> inAppNotificationService.createNotification(
+                        owner,
+                        "Empleado involucrado en una alerta de fraude",
+                        "Se generó una alerta de fraude en la que aparece involucrado "
+                                + employee.getFirstName() + " " + employee.getLastName()
+                                + ", empleado de tu organización. La alerta la gestiona el equipo de Eurekapp.",
+                        "FRAUD_EMPLOYEE_INVOLVED",
+                        null));
     }
 
     private UserEurekapp resolveFinder(String foundObjectUUID) {
@@ -184,98 +203,173 @@ public class FraudDetectionService {
         return toDto(alert);
     }
 
-    public void resolve(Long alertId, UserEurekapp user, FraudAlertStatus resolution) {
+    /**
+     * Marca una alerta como falsa alarma (EU-288). Es la única acción humana posible sobre una alerta:
+     * en el modelo de 2 estados no existe "confirmar fraude" (la alerta ya bloqueó al crearse). Levanta
+     * el bloqueo asociado y avisa a los usuarios que quedaron efectivamente desbloqueados (EU-287).
+     */
+    public void markFalseAlarm(Long alertId, UserEurekapp user) {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        alert.setStatus(resolution);
+        if (alert.getStatus() != FraudAlertStatus.ACTIVE) {
+            throw new BadRequestException("alert_not_active",
+                    "La alerta ya fue marcada como falsa alarma.");
+        }
+        alert.setStatus(FraudAlertStatus.FALSE_POSITIVE);
         alert.setResolvedAt(LocalDateTime.now());
         alert.setResolvedBy(user);
         alertRepository.save(alert);
 
-        // FALSA_ALARMA (EU-287): se levanta el bloqueo creado por esta alerta y se avisa a los usuarios
-        // que quedaron efectivamente desbloqueados.
-        if (resolution == FraudAlertStatus.FALSE_POSITIVE) {
-            for (UserEurekapp unblocked : fraudBlockService.liftBlocksForAlert(alert)) {
-                inAppNotificationService.createNotification(
-                        unblocked,
-                        "Se levantó tu bloqueo",
-                        "Una alerta de fraude que te afectaba fue marcada como falsa alarma. "
-                                + "Tu cuenta ya no está bloqueada por ese motivo.",
-                        "FRAUD_BLOCK_LIFTED",
-                        null);
-            }
+        // Se levanta el bloqueo creado por esta alerta y se avisa a los usuarios que quedaron
+        // efectivamente desbloqueados (los que no siguen bloqueados por otra alerta).
+        for (UserEurekapp unblocked : fraudBlockService.liftBlocksForAlert(alert)) {
+            inAppNotificationService.createNotification(
+                    unblocked,
+                    "Se levantó tu bloqueo",
+                    "Una alerta de fraude que te afectaba fue marcada como falsa alarma. "
+                            + "Tu cuenta ya no está bloqueada por ese motivo.",
+                    "FRAUD_BLOCK_LIFTED",
+                    null);
         }
     }
 
+    /**
+     * Reporte de fraude global agrupado por usuario registrado (EU-288). Solo ADMIN (dueño de
+     * Eurekapp). El rango de fechas determina qué usuarios aparecen y los conteos del rango; el
+     * acumulado histórico ({@code historicalCount}) y el historial completo de incidentes se traen
+     * aparte para la marca de reincidencia y el drill-down, sin contaminar los números del rango.
+     */
     public List<FraudUserReportEntryDto> getFraudUserReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbiddenException("forbidden",
-                    "Solo el responsable de la organización puede acceder al reporte de fraude");
+        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
+
+        // Agrupa el conjunto del rango por usuario sospechoso (una alerta puede señalar a varios).
+        Map<Long, List<FraudAlert>> inRangeByUser = new HashMap<>();
+        for (FraudAlert a : filtered) {
+            for (UserEurekapp u : a.getSuspectUsers()) {
+                if (u != null && u.getId() != null) {
+                    inRangeByUser.computeIfAbsent(u.getId(), k -> new ArrayList<>()).add(a);
+                }
+            }
         }
-        String orgId = user.getOrganization().getId().toString();
-        LocalDateTime fromDt = from.atStartOfDay();
-        LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
-        // Paso 1: alertas filtradas (status + fecha) para determinar qué usuarios aparecen
-        List<FraudAlert> filteredAlerts = status != null
-                ? alertRepository.findByOrganizationIdAndStatusAndCreatedAtBetween(orgId, status, fromDt, toDt)
-                : alertRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
-
-        // Paso 2: IDs únicos de usuarios del conjunto filtrado (una alerta puede tener varios)
-        Set<Long> suspectIds = filteredAlerts.stream()
-                .flatMap(a -> a.getSuspectUsers().stream())
-                .map(UserEurekapp::getId)
-                .collect(Collectors.toSet());
-
-        // Paso 3: para cada usuario, cargar TODOS sus casos en la org (historial completo)
-        return suspectIds.stream().map(userId -> {
-            List<FraudAlert> all = alertRepository
-                    .findByOrganizationIdAndSuspectUsers_Id(orgId, userId);
-            UserEurekapp suspect = userRepository.findById(userId).orElse(null);
+        return inRangeByUser.entrySet().stream().map(e -> {
+            UserEurekapp suspect = userRepository.findById(e.getKey()).orElse(null);
             if (suspect == null) return null;
-
-            long confirmed = all.stream()
-                    .filter(a -> a.getStatus() == FraudAlertStatus.CONFIRMED_FRAUD).count();
-            long pending = all.stream()
-                    .filter(a -> a.getStatus() == FraudAlertStatus.PENDING).count();
-            List<String> reasons = all.stream()
-                    .map(FraudAlert::getReason).distinct().collect(Collectors.toList());
+            List<FraudAlert> inRange = e.getValue();
+            List<FraudAlert> all = alertRepository.findBySuspectUsers_Id(e.getKey()); // histórico completo
 
             return FraudUserReportEntryDto.builder()
                     .userId(suspect.getId())
                     .email(suspect.getUsername())
                     .fullName(suspect.getFirstName() + " " + suspect.getLastName())
-                    .fraudCount(all.size())
-                    .confirmedFraudCount(confirmed)
-                    .pendingCount(pending)
-                    .reasons(reasons)
-                    .incidents(all.stream()
-                            .sorted(Comparator.comparing(FraudAlert::getCreatedAt).reversed())
-                            .map(this::toDto)
-                            .collect(Collectors.toList()))
+                    .fraudCount(inRange.size())
+                    .activeCount(countByStatus(inRange, FraudAlertStatus.ACTIVE))
+                    .falsePositiveCount(countByStatus(inRange, FraudAlertStatus.FALSE_POSITIVE))
+                    .historicalCount(all.size())
+                    .reasons(distinctReasons(inRange))
+                    .incidents(incidentsDesc(all))
                     .build();
         }).filter(java.util.Objects::nonNull)
-          .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getConfirmedFraudCount)
+          .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getActiveCount)
                 .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
     }
 
-    public byte[] exportFraudReportCsv(
+    /**
+     * Reporte de fraude global agrupado por DNI (EU-288). Mismos criterios que el de usuario, pero
+     * cada fila es un DNI (sin nombre ni email): el modelo nuevo gira alrededor del DNI de quien
+     * retira, y mucha de esa gente no tiene cuenta.
+     */
+    public List<FraudDniReportEntryDto> getFraudDniReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        List<FraudUserReportEntryDto> report = getFraudUserReport(user, from, to, status);
-        StringBuilder sb = new StringBuilder(
-                "userId;email;fullName;fraudCount;confirmedFraudCount;pendingCount;reasons\n");
-        for (FraudUserReportEntryDto entry : report) {
-            sb.append(entry.getUserId()).append(';')
-              .append(csvField(entry.getEmail())).append(';')
-              .append(csvField(entry.getFullName())).append(';')
-              .append(entry.getFraudCount()).append(';')
-              .append(entry.getConfirmedFraudCount()).append(';')
-              .append(entry.getPendingCount()).append(';')
-              .append(csvField(String.join("|", entry.getReasons()))).append('\n');
+        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
+
+        Map<String, List<FraudAlert>> inRangeByDni = filtered.stream()
+                .filter(a -> a.getDni() != null)
+                .collect(Collectors.groupingBy(FraudAlert::getDni));
+
+        return inRangeByDni.entrySet().stream().map(e -> {
+            String dni = e.getKey();
+            List<FraudAlert> inRange = e.getValue();
+            List<FraudAlert> all = alertRepository.findByDni(dni); // histórico completo del DNI
+
+            return FraudDniReportEntryDto.builder()
+                    .dni(dni)
+                    .fraudCount(inRange.size())
+                    .activeCount(countByStatus(inRange, FraudAlertStatus.ACTIVE))
+                    .falsePositiveCount(countByStatus(inRange, FraudAlertStatus.FALSE_POSITIVE))
+                    .historicalCount(all.size())
+                    .reasons(distinctReasons(inRange))
+                    .incidents(incidentsDesc(all))
+                    .build();
+        }).sorted(Comparator.comparingLong(FraudDniReportEntryDto::getActiveCount)
+                .thenComparingLong(FraudDniReportEntryDto::getFraudCount)
+                .reversed())
+          .collect(Collectors.toList());
+    }
+
+    // Carga las alertas del rango (+ status opcional) que determinan quiénes entran al reporte.
+    // Solo ADMIN: el fraude es global y lo gestiona el dueño de Eurekapp.
+    private List<FraudAlert> loadFilteredAlerts(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
+        validateAccess(user);
+        LocalDateTime fromDt = from.atStartOfDay();
+        LocalDateTime toDt = to.plusDays(1).atStartOfDay();
+        return status != null
+                ? alertRepository.findByStatusAndCreatedAtBetween(status, fromDt, toDt)
+                : alertRepository.findByCreatedAtBetween(fromDt, toDt);
+    }
+
+    private long countByStatus(List<FraudAlert> alerts, FraudAlertStatus st) {
+        return alerts.stream().filter(a -> a.getStatus() == st).count();
+    }
+
+    private List<String> distinctReasons(List<FraudAlert> alerts) {
+        return alerts.stream().map(FraudAlert::getReason)
+                .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+    }
+
+    private List<FraudAlertDto> incidentsDesc(List<FraudAlert> alerts) {
+        return alerts.stream()
+                .sorted(Comparator.comparing(FraudAlert::getCreatedAt).reversed())
+                .map(this::toDto).collect(Collectors.toList());
+    }
+
+    // El motivo crudo ("CASE_1,CASE_3") se pasa a lenguaje llano para CSV/PDF (las pantallas hacen lo
+    // propio del lado del front). La conversión vive en FraudCaseType para no duplicar los textos.
+    private String humanReasonsField(List<String> rawReasons) {
+        return rawReasons.stream().map(FraudCaseType::humanizeReason)
+                .filter(s -> !s.isEmpty()).collect(Collectors.joining(" | "));
+    }
+
+    public byte[] exportFraudReportCsv(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, String groupBy) {
+        StringBuilder sb = new StringBuilder();
+        if ("DNI".equalsIgnoreCase(groupBy)) {
+            sb.append("dni;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
+            for (FraudDniReportEntryDto e : getFraudDniReport(user, from, to, status)) {
+                sb.append(csvField(e.getDni())).append(';')
+                  .append(e.getFraudCount()).append(';')
+                  .append(e.getActiveCount()).append(';')
+                  .append(e.getFalsePositiveCount()).append(';')
+                  .append(e.getHistoricalCount()).append(';')
+                  .append(csvField(humanReasonsField(e.getReasons()))).append('\n');
+            }
+        } else {
+            sb.append("userId;email;fullName;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
+            for (FraudUserReportEntryDto e : getFraudUserReport(user, from, to, status)) {
+                sb.append(e.getUserId()).append(';')
+                  .append(csvField(e.getEmail())).append(';')
+                  .append(csvField(e.getFullName())).append(';')
+                  .append(e.getFraudCount()).append(';')
+                  .append(e.getActiveCount()).append(';')
+                  .append(e.getFalsePositiveCount()).append(';')
+                  .append(e.getHistoricalCount()).append(';')
+                  .append(csvField(humanReasonsField(e.getReasons()))).append('\n');
+            }
         }
         byte[] bom = { (byte) 0xEF, (byte) 0xBB, (byte) 0xBF };
         byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -283,6 +377,11 @@ public class FraudDetectionService {
         System.arraycopy(bom, 0, result, 0, bom.length);
         System.arraycopy(content, 0, result, bom.length, content.length);
         return result;
+    }
+
+    private String humanReasonsField(List<String> rawReasons) {
+        return rawReasons.stream().map(this::humanizeReason)
+                .filter(s -> !s.isEmpty()).collect(Collectors.joining(" | "));
     }
 
     private static String csvField(String v) {

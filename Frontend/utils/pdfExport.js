@@ -1,17 +1,5 @@
 import { Platform, Alert } from 'react-native';
-
-const REASON_LABELS = {
-    MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes del mismo objeto',
-    HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
-    FINDER_CLAIMER_COLLUSION: 'Posible acuerdo entre registrador y reclamante',
-    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
-};
-
-const STATUS_LABELS = {
-    PENDING: 'Pendiente',
-    CONFIRMED_FRAUD: 'Fraude confirmado',
-    FALSE_POSITIVE: 'Falso positivo',
-};
+import { STATUS_LABELS, humanizeReason } from './fraudLabels';
 
 // SVG pie chart from segments [{label, value, color}]
 function makePieChart(segments) {
@@ -231,91 +219,102 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 }
 
 export function buildFraudReportHtml(entries, filters) {
-    const { fromDate, toDate, statusFilter } = filters;
+    const { fromDate, toDate, statusFilter, groupBy } = filters;
     const generatedAt = new Date().toLocaleString('es-AR');
-    const statusLabel = { '': 'Todos', PENDING: 'Pendiente', CONFIRMED_FRAUD: 'Fraude confirmado', FALSE_POSITIVE: 'Falso positivo' }[statusFilter] || statusFilter || 'Todos';
+    const statusLabel = { '': 'Todos', ACTIVE: 'Activa', FALSE_POSITIVE: 'Falsa alarma' }[statusFilter] || statusFilter || 'Todos';
+    const isDni = groupBy === 'DNI';
+    const groupLabel = isDni ? 'DNI' : 'Usuario';
 
+    // Los conteos son del período consultado (EU-288); el histórico va aparte como reincidencia.
     const totalAlerts = entries.reduce((s, e) => s + (e.fraudCount || 0), 0);
-    const totalConfirmed = entries.reduce((s, e) => s + (e.confirmedFraudCount || 0), 0);
-    const totalFp = entries.reduce((s, e) => s + (e.incidents ? e.incidents.filter(i => i.status === 'FALSE_POSITIVE').length : 0), 0);
+    const totalActive = entries.reduce((s, e) => s + (e.activeCount || 0), 0);
+    const totalFalse = entries.reduce((s, e) => s + (e.falsePositiveCount || 0), 0);
 
     const pieFraud = makePieChart([
-        { label: 'Fraude confirmado', value: totalConfirmed, color: '#ED4337' },
-        { label: 'Falso positivo', value: totalFp, color: '#4caf50' },
-        { label: 'Pendiente', value: totalAlerts - totalConfirmed - totalFp, color: '#f59e0b' },
+        { label: 'Activas', value: totalActive, color: '#ED4337' },
+        { label: 'Falsas alarmas', value: totalFalse, color: '#4caf50' },
     ]);
 
-    const topUsers = [...entries]
+    const topRows = [...entries]
         .sort((a, b) => b.fraudCount - a.fraudCount)
         .slice(0, 8)
-        .map(e => ({ label: e.email || e.fullName, value: e.fraudCount, color: '#b45309' }));
-    const barUsers = makeBarChart(topUsers, undefined);
-
-    const ACTION_COLORS = {
-        'Advertencia': '#f59e0b',
-        'Suspensión temporal': '#b45309',
-        'Bloqueo': '#ED4337',
-        'Sin acción sugerida': '#aaa',
-    };
+        .map(e => ({ label: isDni ? e.dni : (e.email || e.fullName), value: e.fraudCount, color: '#b45309' }));
+    const barTop = makeBarChart(topRows, undefined);
 
     const summaryRows = entries.map(e => {
-        const color = ACTION_COLORS[e.suggestedAction] || '#aaa';
+        const reasons = (e.reasons || []).map(humanizeReason).filter(Boolean).join(', ');
+        if (isDni) {
+            return `<tr>
+                <td>${e.dni || '-'}</td>
+                <td>${e.fraudCount}</td>
+                <td>${e.activeCount}</td>
+                <td>${e.falsePositiveCount}</td>
+                <td>${e.historicalCount}</td>
+                <td style="font-size:11px">${reasons}</td>
+            </tr>`;
+        }
         return `<tr>
             <td>${e.fullName || '-'}</td>
             <td>${e.email || '-'}</td>
             <td>${e.fraudCount}</td>
-            <td>${e.confirmedFraudCount}</td>
-            <td><span class="chip" style="background:${color}">${e.suggestedAction}</span></td>
-            <td style="font-size:11px">${(e.reasons || []).map(r => REASON_LABELS[r] || r).join(', ')}</td>
+            <td>${e.activeCount}</td>
+            <td>${e.falsePositiveCount}</td>
+            <td>${e.historicalCount}</td>
+            <td style="font-size:11px">${reasons}</td>
         </tr>`;
     }).join('');
 
+    const summaryHead = isDni
+        ? '<tr><th>DNI</th><th>En período</th><th>Activas</th><th>Falsas alarmas</th><th>Histórico</th><th>Motivos</th></tr>'
+        : '<tr><th>Nombre</th><th>Email</th><th>En período</th><th>Activas</th><th>Falsas alarmas</th><th>Histórico</th><th>Motivos</th></tr>';
+    const summaryCols = isDni ? 6 : 7;
+
     const incidentBlocks = entries.map(e => {
+        const header = isDni ? `DNI ${e.dni}` : `${e.fullName} (${e.email})`;
         const rows = (e.incidents || []).map(inc => `<tr>
             <td>${inc.id}</td>
-            <td>${REASON_LABELS[inc.reason] || inc.reason}</td>
+            <td>${humanizeReason(inc.reason)}</td>
             <td>${STATUS_LABELS[inc.status] || inc.status}</td>
             <td>${inc.createdAt ? new Date(inc.createdAt).toLocaleString('es-AR') : '-'}</td>
-            <td style="font-size:11px;color:#638888">${inc.foundObjectUUID || '-'}</td>
         </tr>`).join('');
-        return `<h3>${e.fullName} (${e.email})</h3>
+        return `<h3>${header}</h3>
         <table>
-            <tr><th>ID alerta</th><th>Motivo</th><th>Estado</th><th>Fecha</th><th>Objeto (UUID)</th></tr>
-            ${rows || '<tr><td colspan="5" style="color:#888">Sin incidentes</td></tr>'}
+            <tr><th>ID alerta</th><th>Motivo</th><th>Estado</th><th>Fecha</th></tr>
+            ${rows || '<tr><td colspan="4" style="color:#888">Sin incidentes</td></tr>'}
         </table>`;
     }).join('');
 
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Reporte de Fraude</title><style>${baseStyle}</style></head>
 <body>
-<h1>Reporte de usuarios con fraudes detectados</h1>
+<h1>Reporte de fraude</h1>
 <div class="meta">
     Generado: ${generatedAt}<br>
-    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Estado: ${statusLabel}
+    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Estado: ${statusLabel} &nbsp;|&nbsp; Agrupado por: ${groupLabel}
 </div>
 
-<h2>Métricas</h2>
+<h2>Métricas del período</h2>
 <table>
     <tr><th>Indicador</th><th>Valor</th></tr>
-    <tr><td>Usuarios con alertas</td><td><b>${entries.length}</b></td></tr>
-    <tr><td>Total de alertas</td><td><b>${totalAlerts}</b></td></tr>
-    <tr><td>Fraudes confirmados</td><td><b>${totalConfirmed}</b></td></tr>
-    <tr><td>Falsos positivos</td><td><b>${totalFp}</b></td></tr>
+    <tr><td>${isDni ? 'DNIs' : 'Usuarios'} con alertas</td><td><b>${entries.length}</b></td></tr>
+    <tr><td>Alertas en el período</td><td><b>${totalAlerts}</b></td></tr>
+    <tr><td>Activas</td><td><b>${totalActive}</b></td></tr>
+    <tr><td>Falsas alarmas</td><td><b>${totalFalse}</b></td></tr>
 </table>
 
-<h2>Gráfico: Distribución de alertas por estado</h2>
+<h2>Gráfico: Activas vs. falsas alarmas</h2>
 ${pieFraud}
 
-<h2>Gráfico: Usuarios con más alertas</h2>
-${barUsers}
+<h2>Gráfico: ${isDni ? 'DNIs' : 'Usuarios'} con más alertas</h2>
+${barTop}
 
-<h2>Resumen por usuario</h2>
+<h2>Resumen por ${groupLabel.toLowerCase()}</h2>
 <table>
-    <tr><th>Nombre</th><th>Email</th><th>Total alertas</th><th>Confirmadas</th><th>Acción sugerida</th><th>Motivos</th></tr>
-    ${summaryRows || '<tr><td colspan="6" style="text-align:center;color:#888">Sin datos</td></tr>'}
+    ${summaryHead}
+    ${summaryRows || `<tr><td colspan="${summaryCols}" style="text-align:center;color:#888">Sin datos</td></tr>`}
 </table>
 
-<h2>Detalle de incidentes por usuario</h2>
+<h2>Detalle de incidentes</h2>
 ${incidentBlocks || '<p style="color:#888">Sin incidentes en el período seleccionado</p>'}
 </body></html>`;
 }

@@ -11,6 +11,7 @@ import {
     View,
 } from 'react-native';
 import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
+import { STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
@@ -22,32 +23,18 @@ import { isIOS } from '../../utils/platform';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const REASON_LABELS = {
-    MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes',
-    HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
-    FINDER_CLAIMER_COLLUSION: 'Acuerdo registrador/reclamante',
-    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
-};
-
-const STATUS_LABELS = {
-    PENDING:          'En revisión',
-    CONFIRMED_FRAUD:  'Confirmado',
-    FALSE_POSITIVE:   'Falso positivo',
-};
-
+// Modelo de 2 estados (EU-288): activa (bloquea) o falsa alarma (destraba). Ya no hay "en revisión".
 const STATUS_OPTIONS = [
     { label: 'Todos', value: '' },
-    { label: 'En revisión', value: 'PENDING' },
-    { label: 'Confirmado', value: 'CONFIRMED_FRAUD' },
-    { label: 'Falso positivo', value: 'FALSE_POSITIVE' },
+    { label: 'Activa', value: 'ACTIVE' },
+    { label: 'Falsa alarma', value: 'FALSE_POSITIVE' },
 ];
 
-const ACTION_COLORS = {
-    'Advertencia': '#f59e0b',
-    'Suspensión temporal': '#b45309',
-    'Bloqueo': '#ED4337',
-    'Sin acción sugerida': '#aaa',
-};
+// El reporte se puede ver agrupado por persona registrada o por DNI (mucha gente del fraude no tiene cuenta).
+const GROUP_OPTIONS = [
+    { label: 'Por usuario', value: 'USER' },
+    { label: 'Por DNI', value: 'DNI' },
+];
 
 const formatDate = (d) => d.toISOString().split('T')[0];
 
@@ -81,24 +68,29 @@ const FraudReport = () => {
     const [showFrom, setShowFrom] = useState(false);
     const [showTo, setShowTo] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
+    const [groupBy, setGroupBy] = useState('USER');
     const [entries, setEntries] = useState([]);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
-    const [expandedUser, setExpandedUser] = useState(null);
-    const [sortBy, setSortBy] = useState('gravityLevel');
+    const [expandedKey, setExpandedKey] = useState(null);
+    const [sortBy, setSortBy] = useState('activeCount');
+
+    const isDniMode = groupBy === 'DNI';
+    const keyOf = (item) => (item.userId != null ? item.userId.toString() : item.dni);
 
     const sortedEntries = useMemo(() => {
         return [...entries].sort((a, b) => {
-            if (sortBy === 'fullName') return (a.fullName || '').localeCompare(b.fullName || '');
+            if (sortBy === 'fullName' && !isDniMode) return (a.fullName || '').localeCompare(b.fullName || '');
             return (b[sortBy] || 0) - (a[sortBy] || 0);
         });
-    }, [entries, sortBy]);
+    }, [entries, sortBy, isDniMode]);
 
     const fetchReport = async () => {
         setLoading(true);
         try {
-            const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
+            const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`
+                + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
             const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
             setEntries(data);
         } catch (error) {
@@ -110,7 +102,8 @@ const FraudReport = () => {
 
     const exportCsv = async () => {
         setExporting(true);
-        const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}${statusFilter ? `&status=${statusFilter}` : ''}`;
+        const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`
+            + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
         const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
         if (Platform.OS === 'web') {
             try {
@@ -156,6 +149,7 @@ const FraudReport = () => {
                 fromDate: formatDate(fromDate),
                 toDate: formatDate(toDate),
                 statusFilter,
+                groupBy,
             });
             await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
         } catch (e) {
@@ -166,42 +160,67 @@ const FraudReport = () => {
         }
     };
 
-    const toggleExpand = (userId) => {
-        setExpandedUser(prev => prev === userId ? null : userId);
+    const toggleExpand = (key) => {
+        setExpandedKey(prev => prev === key ? null : key);
     };
 
     const renderEntry = ({ item }) => {
-        const isExpanded = expandedUser === item.userId;
-        const actionColor = ACTION_COLORS[item.suggestedAction] || '#aaa';
+        const key = keyOf(item);
+        const isExpanded = expandedKey === key;
+        // El histórico acumulado supera a lo del rango ⇒ tiene antecedentes fuera del período (reincidente).
+        const isRepeat = (item.historicalCount || 0) > (item.fraudCount || 0);
         return (
-            <TouchableOpacity style={styles.card} onPress={() => toggleExpand(item.userId)}>
+            <TouchableOpacity style={styles.card} onPress={() => toggleExpand(key)}>
                 <View style={styles.cardHeader}>
-                    <UserAvatar fullName={item.fullName} />
+                    {isDniMode ? (
+                        <View style={styles.dniBadge}><Text style={styles.dniBadgeText}>DNI</Text></View>
+                    ) : (
+                        <UserAvatar fullName={item.fullName} />
+                    )}
                     <View style={[styles.userInfo, { marginLeft: 10 }]}>
-                        <Text style={styles.userName}>{item.fullName}</Text>
-                        <Text style={styles.userEmail}>{item.email}</Text>
+                        {isDniMode ? (
+                            <Text style={styles.userName}>{item.dni}</Text>
+                        ) : (
+                            <>
+                                <Text style={styles.userName}>{item.fullName}</Text>
+                                <Text style={styles.userEmail}>{item.email}</Text>
+                            </>
+                        )}
                     </View>
-                    <View style={[styles.actionChip, { backgroundColor: actionColor }]}>
-                        <Text style={styles.actionChipText}>{item.suggestedAction}</Text>
-                    </View>
+                    {isRepeat && (
+                        <View style={styles.repeatChip}>
+                            <Text style={styles.repeatChipText}>⚠ Reincidente</Text>
+                        </View>
+                    )}
                 </View>
+
+                {/* Números del período consultado */}
                 <View style={styles.statsRow}>
-                    <Text style={styles.statText}>Total: <Text style={styles.statValue}>{item.fraudCount}</Text></Text>
-                    <Text style={styles.statText}>Confirmadas: <Text style={styles.statValue}>{item.confirmedFraudCount}</Text></Text>
-                    <Text style={styles.statText}>En revisión: <Text style={styles.statValue}>{item.pendingCount ?? 0}</Text></Text>
+                    <Text style={styles.statText}>En el período: <Text style={styles.statValue}>{item.fraudCount}</Text></Text>
+                    <Text style={styles.statText}>Activas: <Text style={styles.statValue}>{item.activeCount}</Text></Text>
+                    <Text style={styles.statText}>Falsas alarmas: <Text style={styles.statValue}>{item.falsePositiveCount ?? 0}</Text></Text>
                 </View>
                 <Text style={styles.reasonsText}>
-                    {item.reasons.map(r => REASON_LABELS[r] || r).join(', ')}
+                    {(item.reasons || []).map(humanizeReason).filter(Boolean).join(' · ')}
                 </Text>
+
+                {/* Reincidencia: acumulado histórico, separado de los números del período */}
+                <View style={styles.historicRow}>
+                    <Text style={styles.historicText}>
+                        Histórico acumulado: <Text style={styles.statValue}>{item.historicalCount ?? item.fraudCount}</Text> alertas
+                    </Text>
+                    <Text style={styles.expandHint}>{isExpanded ? 'ocultar historial' : 'ver historial completo'}</Text>
+                </View>
+
                 {isExpanded && (
                     <View style={styles.incidentsContainer}>
-                        <Text style={styles.incidentsTitle}>Incidentes</Text>
-                        {item.incidents.map(inc => (
+                        <Text style={styles.incidentsTitle}>Historial de incidentes</Text>
+                        {(item.incidents || []).map(inc => (
                             <View key={inc.id} style={styles.incidentRow}>
                                 <Text style={styles.incidentDate}>
-                                    {inc.createdAt ? new Date(inc.createdAt).toLocaleString('es-AR') : '-'}
+                                    {inc.createdAt ? new Date(inc.createdAt).toLocaleDateString('es-AR') : '-'}
                                 </Text>
-                                <Text style={styles.incidentReason}>{REASON_LABELS[inc.reason] || inc.reason}</Text>
+                                <Text style={styles.incidentReason}>{humanizeReason(inc.reason)}</Text>
                                 <Text style={styles.incidentStatus}>{STATUS_LABELS[inc.status] || inc.status}</Text>
                             </View>
                         ))}
@@ -210,6 +229,13 @@ const FraudReport = () => {
             </TouchableOpacity>
         );
     };
+
+    const sortOptions = [
+        { label: 'Activas', value: 'activeCount' },
+        { label: 'Total del período', value: 'fraudCount' },
+        { label: 'Reincidencia', value: 'historicalCount' },
+        ...(isDniMode ? [] : [{ label: 'Nombre A-Z', value: 'fullName' }]),
+    ];
 
     return (
         <View style={styles.container}>
@@ -259,6 +285,20 @@ const FraudReport = () => {
                     </View>
                 </View>
 
+                <Text style={styles.filterLabel}>Agrupar</Text>
+                <View style={styles.statusRow}>
+                    {GROUP_OPTIONS.map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            style={[styles.statusBtn, groupBy === opt.value && styles.statusBtnActive]}
+                            onPress={() => { setGroupBy(opt.value); if (opt.value === 'DNI' && sortBy === 'fullName') setSortBy('activeCount'); }}>
+                            <Text style={[styles.statusBtnText, groupBy === opt.value && styles.statusBtnTextActive]}>
+                                {opt.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+
                 <Text style={styles.filterLabel}>Estado</Text>
                 <View style={styles.statusRow}>
                     {STATUS_OPTIONS.map(opt => (
@@ -275,12 +315,7 @@ const FraudReport = () => {
 
                 <Text style={styles.filterLabel}>Ordenar por</Text>
                 <View style={styles.statusRow}>
-                    {[
-                        { label: 'Gravedad', value: 'gravityLevel' },
-                        { label: 'Fraudes confirmados', value: 'confirmedFraudCount' },
-                        { label: 'Total alertas', value: 'fraudCount' },
-                        { label: 'Nombre A-Z', value: 'fullName' },
-                    ].map(opt => (
+                    {sortOptions.map(opt => (
                         <TouchableOpacity
                             key={opt.value}
                             style={[styles.statusBtn, sortBy === opt.value && styles.statusBtnActive]}
@@ -317,13 +352,13 @@ const FraudReport = () => {
 
             <FlatList
                 data={sortedEntries}
-                keyExtractor={(item) => item.userId.toString()}
+                keyExtractor={keyOf}
                 renderItem={renderEntry}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     !loading ? (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No hay usuarios con fraude en el período seleccionado</Text>
+                            <Text style={styles.emptyText}>No hay registros de fraude en el período seleccionado</Text>
                         </View>
                     ) : null
                 }
@@ -456,6 +491,20 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 15,
     },
+    dniBadge: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
+        backgroundColor: '#1a3333',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexShrink: 0,
+    },
+    dniBadgeText: {
+        color: 'white',
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 12,
+    },
     userInfo: {
         flex: 1,
         marginRight: 8,
@@ -470,18 +519,20 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: colors.textMuted,
     },
-    actionChip: {
+    repeatChip: {
         borderRadius: 12,
         paddingVertical: 4,
         paddingHorizontal: 10,
+        backgroundColor: '#b45309',
     },
-    actionChipText: {
+    repeatChipText: {
         color: '#fff',
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 12,
     },
     statsRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 16,
         marginBottom: 4,
     },
@@ -498,6 +549,25 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         fontSize: 13,
         color: colors.textMuted,
+    },
+    historicRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+        paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#e5e7eb',
+    },
+    historicText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 13,
+        color: colors.textMuted,
+    },
+    expandHint: {
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 12,
+        color: colors.primary || '#19b8b8',
     },
     incidentsContainer: {
         marginTop: 12,

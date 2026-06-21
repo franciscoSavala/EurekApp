@@ -265,8 +265,9 @@ class ReturnFoundObjectServiceTest {
 
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
-        // El DNI ingresado está bloqueado por sospecha de fraude.
-        when(fraudBlockService.isDniBlocked("12345678")).thenReturn(true);
+        // El DNI ingresado está bloqueado por sospecha de fraude (con mensaje humano).
+        when(fraudBlockService.describeActiveDniBlock(eq("12345678"), anyString()))
+                .thenReturn(Optional.of("El DNI ingresado está temporalmente bloqueado."));
 
         assertThatThrownBy(() -> service.returnFoundObject(command, caller))
                 .isInstanceOf(BadRequestException.class);
@@ -302,8 +303,9 @@ class ReturnFoundObjectServiceTest {
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(userRepository.findById(99L)).thenReturn(Optional.of(finder));
-        // El DNI/retirador NO están bloqueados; solo el finder.
-        when(fraudBlockService.isDniBlocked("12345678")).thenReturn(false);
+        // El DNI/retirador NO están bloqueados; solo el finder (reward-skip, sigue usando isUserBlocked).
+        when(fraudBlockService.describeActiveDniBlock(eq("12345678"), anyString()))
+                .thenReturn(Optional.empty());
         when(fraudBlockService.isUserBlocked(99L)).thenReturn(true);
 
         doAnswer(inv -> {

@@ -2,13 +2,16 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.model.FraudAlert;
 import com.eurekapp.backend.model.FraudBlock;
+import com.eurekapp.backend.model.FraudCaseType;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IFraudBlockRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -23,6 +26,9 @@ import java.util.stream.Collectors;
 public class FraudBlockService {
 
     private final IFraudBlockRepository blockRepository;
+
+    private static final String SUPPORT_EMAIL = "soporte@eurekapp.com";
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
      * Crea los bloqueos derivados de una alerta de fraude ya persistida:
@@ -80,5 +86,34 @@ public class FraudBlockService {
     /** True si existe un bloqueo vigente (no expirado) para ese usuario registrado. */
     public boolean isUserBlocked(Long userId) {
         return userId != null && blockRepository.existsByTargetUser_IdAndExpiresAtAfter(userId, LocalDateTime.now());
+    }
+
+    /**
+     * Mensaje en lenguaje llano para una persona bloqueada por su DNI, o vacío si el DNI no está
+     * bloqueado (EU-288). Explica el motivo, hasta cuándo dura el bloqueo y a dónde escribir.
+     * {@code subject} es el sujeto de la frase ("El DNI ingresado", etc.) según el contexto.
+     */
+    public Optional<String> describeActiveDniBlock(String dni, String subject) {
+        if (dni == null) return Optional.empty();
+        return blockRepository.findActiveDniBlocks(dni, LocalDateTime.now()).stream()
+                .findFirst().map(b -> buildBlockMessage(subject, b));
+    }
+
+    /** Ídem para una persona bloqueada por su cuenta de usuario. */
+    public Optional<String> describeActiveUserBlock(Long userId, String subject) {
+        if (userId == null) return Optional.empty();
+        return blockRepository.findActiveUserBlocks(userId, LocalDateTime.now()).stream()
+                .findFirst().map(b -> buildBlockMessage(subject, b));
+    }
+
+    private String buildBlockMessage(String subject, FraudBlock block) {
+        String motivo = FraudCaseType.humanizeReason(block.getFraudAlert().getReason());
+        StringBuilder sb = new StringBuilder(subject)
+                .append(" está temporalmente bloqueado por sospecha de fraude");
+        if (!motivo.isEmpty()) sb.append(": ").append(motivo);
+        sb.append(". El bloqueo se levanta el ").append(block.getExpiresAt().format(DATE_FMT))
+          .append(". Si se trata de un error, escribí a ").append(SUPPORT_EMAIL)
+          .append(" para que lo revisemos.");
+        return sb.toString();
     }
 }

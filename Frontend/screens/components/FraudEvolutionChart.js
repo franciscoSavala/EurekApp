@@ -8,8 +8,9 @@ const BAR_GAP = 2;
 const GROUP_GAP = 14;
 const GROUP_W = BAR_W * 2 + BAR_GAP + GROUP_GAP;
 
-const COLOR_CONFIRMED = '#ED4337';
-const COLOR_PENDING = '#f59e0b';
+// Modelo de 2 estados (EU-288): activa (bloquea) vs falsa alarma (destraba).
+const COLOR_ACTIVE = '#ED4337';
+const COLOR_FALSE = '#008000';
 
 const MONTH_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -62,17 +63,17 @@ export default function FraudEvolutionChart({ entries }) {
         for (const inc of allIncidents) {
             if (!inc.createdAt) continue;
             const status = inc.status;
-            if (status !== 'CONFIRMED_FRAUD' && status !== 'PENDING') continue;
+            if (status !== 'ACTIVE' && status !== 'FALSE_POSITIVE') continue;
             const date = new Date(inc.createdAt);
             const key = getPeriodKey(date, granularity);
-            if (!map[key]) map[key] = { key, label: getPeriodLabel(key, granularity), confirmed: 0, pending: 0 };
-            if (status === 'CONFIRMED_FRAUD') map[key].confirmed++;
-            else map[key].pending++;
+            if (!map[key]) map[key] = { key, label: getPeriodLabel(key, granularity), active: 0, falseAlarm: 0 };
+            if (status === 'ACTIVE') map[key].active++;
+            else map[key].falseAlarm++;
         }
         return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
     }, [entries, granularity]);
 
-    const maxVal = groups.length > 0 ? Math.max(...groups.map(g => g.confirmed + g.pending), 1) : 1;
+    const maxVal = groups.length > 0 ? Math.max(...groups.map(g => g.active + g.falseAlarm), 1) : 1;
 
     return (
         <View style={styles.wrapper}>
@@ -93,12 +94,12 @@ export default function FraudEvolutionChart({ entries }) {
             {/* Legend */}
             <View style={styles.legendRow}>
                 <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLOR_CONFIRMED }]} />
-                    <Text style={styles.legendText}>Confirmado</Text>
+                    <View style={[styles.legendDot, { backgroundColor: COLOR_ACTIVE }]} />
+                    <Text style={styles.legendText}>Activa</Text>
                 </View>
                 <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLOR_PENDING }]} />
-                    <Text style={styles.legendText}>En revisión</Text>
+                    <View style={[styles.legendDot, { backgroundColor: COLOR_FALSE }]} />
+                    <Text style={styles.legendText}>Falsa alarma</Text>
                 </View>
             </View>
 
@@ -112,25 +113,25 @@ export default function FraudEvolutionChart({ entries }) {
                         {/* Bars */}
                         <View style={styles.barsRow}>
                             {groups.map(g => {
-                                const hConfirmed = Math.round((g.confirmed / maxVal) * CHART_H);
-                                const hPending = Math.round((g.pending / maxVal) * CHART_H);
+                                const hActive = Math.round((g.active / maxVal) * CHART_H);
+                                const hFalse = Math.round((g.falseAlarm / maxVal) * CHART_H);
                                 return (
                                     <View key={g.key} style={[styles.group, { width: GROUP_W }]}>
                                         {/* Value labels */}
                                         <View style={[styles.valueLabelRow, { height: 14 }]}>
                                             <Text style={[styles.valueLabel, { width: BAR_W }]}>
-                                                {g.confirmed > 0 ? g.confirmed : ''}
+                                                {g.active > 0 ? g.active : ''}
                                             </Text>
                                             <View style={{ width: BAR_GAP }} />
                                             <Text style={[styles.valueLabel, { width: BAR_W }]}>
-                                                {g.pending > 0 ? g.pending : ''}
+                                                {g.falseAlarm > 0 ? g.falseAlarm : ''}
                                             </Text>
                                         </View>
                                         {/* Bar pair */}
                                         <View style={[styles.barPair, { height: CHART_H }]}>
-                                            <View style={[styles.barConfirmed, { height: hConfirmed }]} />
+                                            <View style={[styles.barActive, { height: hActive }]} />
                                             <View style={{ width: BAR_GAP }} />
-                                            <View style={[styles.barPending, { height: hPending }]} />
+                                            <View style={[styles.barFalse, { height: hFalse }]} />
                                         </View>
                                         {/* X label */}
                                         <Text style={styles.xLabel} numberOfLines={1}>{g.label}</Text>
@@ -239,15 +240,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-end',
     },
-    barConfirmed: {
+    barActive: {
         width: BAR_W,
-        backgroundColor: COLOR_CONFIRMED,
+        backgroundColor: COLOR_ACTIVE,
         borderTopLeftRadius: 3,
         borderTopRightRadius: 3,
     },
-    barPending: {
+    barFalse: {
         width: BAR_W,
-        backgroundColor: COLOR_PENDING,
+        backgroundColor: COLOR_FALSE,
         borderTopLeftRadius: 3,
         borderTopRightRadius: 3,
     },

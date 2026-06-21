@@ -26,6 +26,7 @@ const TYPE_LABELS = {
     REWARD_EARNED: "Recompensa obtenida",
     REWARD_BLOCKED: "Recompensa no otorgada",
     FRAUD_BLOCK_LIFTED: "Bloqueo levantado",
+    FRAUD_EMPLOYEE_INVOLVED: "Empleado involucrado en fraude",
     FRAUD_ALERT: "Alerta de fraude",
     ORG_REGISTRATION_REQUEST: "Solicitud de alta de organización",
     ORG_REQUEST_APPROVED: "Solicitud aprobada",

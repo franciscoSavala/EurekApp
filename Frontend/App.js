@@ -55,6 +55,7 @@ import Notifications from "./screens/notificationsStack/Notifications";
 import UserManagement from "./screens/adminStack/UserManagement";
 import OrganizationManagement from "./screens/adminStack/OrganizationManagement";
 import GlobalStatisticsDashboard from "./screens/adminStack/GlobalStatisticsDashboard";
+import { SUPPORT_EMAIL } from './utils/contact';
 import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
@@ -361,7 +362,7 @@ const CustomDrawerContent = (props) => {
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.infoText}>Versión de la app: 0.0.1</Text>
-                <Text style={styles.infoText}>Contacto: soporte@eurekapp.com</Text>
+                <Text style={styles.infoText}>Contacto: {SUPPORT_EMAIL}</Text>
             </View>
             <DrawerItem
                 label="Logout"
@@ -537,6 +538,11 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: organizationIcon
                 }} component={OrganizationManagement} />
+                <Drawer.Screen name="FraudAlertsStackScreen" options={{
+                    title: 'Alertas de fraude',
+                    headerTitleAlign: 'center',
+                    drawerIcon: shieldIcon
+                }} component={FraudAlertsStackScreen} />
             </> : null
             }
 
@@ -569,14 +575,6 @@ const EurekappTab = () => {
                 drawerIcon: userIcon
             }} component={ProfileStackScreen}
             />
-
-            {(userRole === 'ORGANIZATION_OWNER' || userRole === 'ENCARGADO') ?
-                <Drawer.Screen name="FraudAlertsStackScreen" options={{
-                    title: 'Alertas de fraude',
-                    headerTitleAlign: 'center',
-                    drawerIcon: shieldIcon
-                }} component={FraudAlertsStackScreen}
-                /> : null}
 
             {userRole === 'ORGANIZATION_OWNER' ?
                 <>

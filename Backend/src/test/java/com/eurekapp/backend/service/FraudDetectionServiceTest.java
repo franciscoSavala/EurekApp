@@ -1,6 +1,9 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
+import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.FraudAlert;
@@ -24,6 +27,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -145,7 +149,7 @@ class FraudDetectionServiceTest {
         assertThat(alert.getOrganizationId()).isNull();           // alerta global / ADMIN
         assertThat(alert.getDni()).isEqualTo(dni);
         assertThat(alert.getReason()).isEqualTo("CASE_1");
-        assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.PENDING);
+        assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.ACTIVE);
         assertThat(alert.getSuspectUsers()).isEmpty();            // Caso 1 solo bloquea el DNI
         assertThat(alert.getReturnedByEmployee()).isNull();
         assertThat(alert.getCaseMatches()).hasSize(1);
@@ -315,7 +319,7 @@ class FraudDetectionServiceTest {
                 .returnedByEmployee(employee)
                 .reason("CASE_1")
                 .details("detalle")
-                .status(FraudAlertStatus.PENDING)
+                .status(FraudAlertStatus.ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -349,7 +353,7 @@ class FraudDetectionServiceTest {
                 .dni("30111222")
                 .suspectUsers(suspects)
                 .reason("CASE_2")
-                .status(FraudAlertStatus.PENDING)
+                .status(FraudAlertStatus.ACTIVE)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -374,19 +378,19 @@ class FraudDetectionServiceTest {
                 .isInstanceOf(ForbiddenException.class);
     }
 
-    // ---------- Resolución FALSA_ALARMA: desbloqueo + notificación (EU-287) ----------
+    // ---------- Falsa alarma: desbloqueo + notificación (EU-287/288) ----------
 
     @Test
-    void resolve_falsePositive_liftsBlocksAndNotifiesUnblockedUsers() {
+    void markFalseAlarm_liftsBlocksAndNotifiesUnblockedUsers() {
         UserEurekapp unblocked = user(7L, "unblocked@test.com", "Un", "Blocked");
         FraudAlert alert = FraudAlert.builder()
-                .id(1L).dni("12345678").status(FraudAlertStatus.PENDING)
+                .id(1L).dni("12345678").status(FraudAlertStatus.ACTIVE)
                 .suspectUsers(new LinkedHashSet<>(Set.of(unblocked)))
                 .createdAt(LocalDateTime.now()).build();
         when(alertRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
         when(fraudBlockService.liftBlocksForAlert(alert)).thenReturn(List.of(unblocked));
 
-        service.resolve(1L, admin(), FraudAlertStatus.FALSE_POSITIVE);
+        service.markFalseAlarm(1L, admin());
 
         assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.FALSE_POSITIVE);
         verify(alertRepository).save(alert);
@@ -396,18 +400,117 @@ class FraudDetectionServiceTest {
     }
 
     @Test
-    void resolve_confirmedFraud_doesNotLiftBlocksNorNotify() {
+    void markFalseAlarm_alreadyResolved_throwsBadRequest() {
         FraudAlert alert = FraudAlert.builder()
-                .id(1L).dni("12345678").status(FraudAlertStatus.PENDING)
+                .id(1L).dni("12345678").status(FraudAlertStatus.FALSE_POSITIVE)
                 .createdAt(LocalDateTime.now()).build();
         when(alertRepository.findById(1L)).thenReturn(java.util.Optional.of(alert));
 
-        service.resolve(1L, admin(), FraudAlertStatus.CONFIRMED_FRAUD);
-
-        assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.CONFIRMED_FRAUD);
-        verify(alertRepository).save(alert);
+        assertThatThrownBy(() -> service.markFalseAlarm(1L, admin()))
+                .isInstanceOf(BadRequestException.class);
         verify(fraudBlockService, never()).liftBlocksForAlert(any());
         verify(inAppNotificationService, never())
                 .createNotification(any(), anyString(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void markFalseAlarm_nonAdmin_throwsForbidden() {
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.markFalseAlarm(1L, owner(org)))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ---------- Detección: empleado involucrado → aviso al dueño de su organización (EU-288) ----------
+
+    @Test
+    void detection_case3_notifiesOrganizationOwnerOfInvolvedEmployee() {
+        configWith(3, 1);
+        String dni = "88888888";
+        Organization org = Organization.builder().id(9L).name("Org").build();
+        UserEurekapp employee = UserEurekapp.builder()
+                .id(30L).username("emp@x").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+        UserEurekapp orgOwner = owner(org);
+        // Mismo empleado en las 3 → Caso 3 (y Caso 1).
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, employee),
+                ret("u2", dni, null, employee),
+                ret("u3", dni, null, employee));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+        when(userRepository.findByOrganizationAndRole(org, Role.ORGANIZATION_OWNER))
+                .thenReturn(List.of(orgOwner));
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(inAppNotificationService).createNotification(
+                eq(orgOwner), anyString(), anyString(), eq("FRAUD_EMPLOYEE_INVOLVED"), isNull());
+    }
+
+    // ---------- Reporte de fraude global, ADMIN (EU-288) ----------
+
+    @Test
+    void getFraudUserReport_global_groupsByUser_withInRangeCountsAndHistorical() {
+        LocalDate from = LocalDate.now().minusDays(7);
+        LocalDate to = LocalDate.now();
+        UserEurekapp suspect = user(7L, "suspect@test.com", "Sus", "Pect");
+
+        FraudAlert inRangeActive = FraudAlert.builder()
+                .id(1L).dni("111").reason("CASE_1").status(FraudAlertStatus.ACTIVE)
+                .suspectUsers(new LinkedHashSet<>(Set.of(suspect)))
+                .createdAt(LocalDateTime.now().minusDays(1)).build();
+        // Una alerta más vieja (fuera del rango): suma al histórico, NO a los conteos del rango.
+        FraudAlert olderHistorical = FraudAlert.builder()
+                .id(2L).dni("111").reason("CASE_1").status(FraudAlertStatus.FALSE_POSITIVE)
+                .suspectUsers(new LinkedHashSet<>(Set.of(suspect)))
+                .createdAt(LocalDateTime.now().minusDays(60)).build();
+
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(inRangeActive));
+        when(userRepository.findById(7L)).thenReturn(java.util.Optional.of(suspect));
+        when(alertRepository.findBySuspectUsers_Id(7L))
+                .thenReturn(List.of(inRangeActive, olderHistorical));
+
+        List<FraudUserReportEntryDto> report = service.getFraudUserReport(admin(), from, to, null);
+
+        assertThat(report).hasSize(1);
+        FraudUserReportEntryDto e = report.get(0);
+        assertThat(e.getEmail()).isEqualTo("suspect@test.com");
+        assertThat(e.getFraudCount()).isEqualTo(1);           // solo la del rango
+        assertThat(e.getActiveCount()).isEqualTo(1);
+        assertThat(e.getFalsePositiveCount()).isEqualTo(0);   // la falsa alarma es vieja, fuera del rango
+        assertThat(e.getHistoricalCount()).isEqualTo(2);      // acumulado total
+        assertThat(e.getIncidents()).hasSize(2);              // historial completo para el drill-down
+    }
+
+    @Test
+    void getFraudDniReport_groupsByDni_withoutNameOrEmail() {
+        LocalDate from = LocalDate.now().minusDays(7);
+        LocalDate to = LocalDate.now();
+        FraudAlert a = FraudAlert.builder()
+                .id(1L).dni("30111222").reason("CASE_1,CASE_3").status(FraudAlertStatus.ACTIVE)
+                .createdAt(LocalDateTime.now().minusDays(2)).build();
+
+        when(alertRepository.findByStatusAndCreatedAtBetween(eq(FraudAlertStatus.ACTIVE), any(), any()))
+                .thenReturn(List.of(a));
+        when(alertRepository.findByDni("30111222")).thenReturn(List.of(a));
+
+        List<FraudDniReportEntryDto> report =
+                service.getFraudDniReport(admin(), from, to, FraudAlertStatus.ACTIVE);
+
+        assertThat(report).hasSize(1);
+        FraudDniReportEntryDto e = report.get(0);
+        assertThat(e.getDni()).isEqualTo("30111222");
+        assertThat(e.getFraudCount()).isEqualTo(1);
+        assertThat(e.getActiveCount()).isEqualTo(1);
+        assertThat(e.getHistoricalCount()).isEqualTo(1);
+        assertThat(e.getReasons()).containsExactly("CASE_1,CASE_3");
+    }
+
+    @Test
+    void getFraudUserReport_nonAdmin_throwsForbidden() {
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.getFraudUserReport(
+                owner(org), LocalDate.now().minusDays(1), LocalDate.now(), null))
+                .isInstanceOf(ForbiddenException.class);
     }
 }

@@ -25,7 +25,11 @@ import java.time.LocalDateTime;
 import java.util.concurrent.ExecutorService;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -82,8 +86,9 @@ class FoundObjectServiceTest {
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(userRepository.existsByUsername("finder@test.com")).thenReturn(true);
         when(userRepository.getByUsername("finder@test.com")).thenReturn(finder);
-        // El finder está bloqueado por sospecha de fraude.
-        when(fraudBlockService.isUserBlocked(99L)).thenReturn(true);
+        // El finder está bloqueado por sospecha de fraude (con mensaje humano).
+        when(fraudBlockService.describeActiveUserBlock(eq(99L), anyString()))
+                .thenReturn(Optional.of("Quien encontró este objeto está temporalmente bloqueado."));
 
         assertThatThrownBy(() -> service.uploadFoundObject(command))
                 .isInstanceOf(BadRequestException.class);

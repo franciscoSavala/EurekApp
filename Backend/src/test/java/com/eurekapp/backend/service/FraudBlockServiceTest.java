@@ -142,4 +142,34 @@ class FraudBlockServiceTest {
         assertThat(service.isUserBlocked(99L)).isFalse();
         assertThat(service.isUserBlocked(null)).isFalse();  // null nunca consulta el repo
     }
+
+    // Mensaje humano de bloqueo (EU-288): motivo en lenguaje llano + hasta cuándo + correo de soporte.
+    @Test
+    void describeActiveDniBlock_buildsHumanMessageWithReasonExpiryAndSupportEmail() {
+        service = new FraudBlockService(blockRepository);
+        LocalDateTime expiresAt = LocalDateTime.of(2026, 6, 27, 10, 0);
+        FraudAlert alert = FraudAlert.builder().id(1L).reason("CASE_1").build();
+        FraudBlock block = FraudBlock.builder()
+                .id(1L).targetDni("12345678").fraudAlert(alert).expiresAt(expiresAt).build();
+        when(blockRepository.findActiveDniBlocks(eq("12345678"), any(LocalDateTime.class)))
+                .thenReturn(List.of(block));
+
+        String msg = service.describeActiveDniBlock("12345678", "El DNI ingresado").orElseThrow();
+
+        assertThat(msg).contains("El DNI ingresado");
+        assertThat(msg).contains("Retiros repetidos del mismo DNI"); // motivo en llano, nunca "Caso 1"
+        assertThat(msg).doesNotContain("CASE_1");
+        assertThat(msg).contains("27/06/2026");                      // hasta cuándo
+        assertThat(msg).contains("soporte@eurekapp.com");            // a dónde escribir
+    }
+
+    @Test
+    void describeActiveDniBlock_returnsEmptyWhenNotBlocked() {
+        service = new FraudBlockService(blockRepository);
+        when(blockRepository.findActiveDniBlocks(eq("00000000"), any(LocalDateTime.class)))
+                .thenReturn(List.of());
+
+        assertThat(service.describeActiveDniBlock("00000000", "El DNI ingresado")).isEmpty();
+        assertThat(service.describeActiveDniBlock(null, "El DNI ingresado")).isEmpty();
+    }
 }

@@ -126,9 +126,12 @@ public class FoundObjectService implements IFoundObjectService {
 
         // Validación de bloqueo (EU-286): un finder bloqueado por sospecha de fraude no puede
         // depositar objetos en la organización.
-        if (objectFinderUser != null && fraudBlockService.isUserBlocked(objectFinderUser.getId())) {
-            throw new BadRequestException("finder_blocked",
-                    "Quien encontró este objeto está temporalmente bloqueado por sospecha de fraude.");
+        if (objectFinderUser != null) {
+            Optional<String> finderBlockMessage = fraudBlockService.describeActiveUserBlock(
+                    objectFinderUser.getId(), "Quien encontró este objeto");
+            if (finderBlockMessage.isPresent()) {
+                throw new BadRequestException("finder_blocked", finderBlockMessage.get());
+            }
         }
 
 

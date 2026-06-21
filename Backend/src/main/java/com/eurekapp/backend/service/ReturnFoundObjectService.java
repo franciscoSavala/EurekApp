@@ -132,13 +132,17 @@ public class ReturnFoundObjectService {
         // Validación de bloqueo (EU-286): no se permite el retiro si el DNI o el usuario que retira
         // están bloqueados por sospecha de fraude. El finder bloqueado NO frena la devolución (se
         // maneja más abajo en la sección 7: la devolución se permite, pero sin otorgarle puntos).
-        if (fraudBlockService.isDniBlocked(command.getDNI())) {
-            throw new BadRequestException("dni_blocked",
-                    "El DNI ingresado está temporalmente bloqueado por sospecha de fraude.");
+        Optional<String> dniBlockMessage =
+                fraudBlockService.describeActiveDniBlock(command.getDNI(), "El DNI ingresado");
+        if (dniBlockMessage.isPresent()) {
+            throw new BadRequestException("dni_blocked", dniBlockMessage.get());
         }
-        if (user != null && fraudBlockService.isUserBlocked(user.getId())) {
-            throw new BadRequestException("user_blocked",
-                    "El usuario retirador está temporalmente bloqueado por sospecha de fraude.");
+        if (user != null) {
+            Optional<String> userBlockMessage =
+                    fraudBlockService.describeActiveUserBlock(user.getId(), "El usuario que retira");
+            if (userBlockMessage.isPresent()) {
+                throw new BadRequestException("user_blocked", userBlockMessage.get());
+            }
         }
 
         // Actualizamos el objeto en la BD vectorial para marcarlo como devuelto.
