@@ -411,17 +411,38 @@ public class FoundObjectService implements IFoundObjectService {
     }
 
     @SneakyThrows
-    public FoundObjectsListDto searchByPhoto(MultipartFile image, Long organizationId) {
+    public FoundObjectsListDto searchByPhoto(MultipartFile image, SimilarObjectsCommand filters) {
         byte[] imageBytes = image.getBytes();
         String description = descriptionService.getImageTextRepresentation(imageBytes);
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
 
-        String orgIdStr = organizationId != null ? organizationId.toString() : null;
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, null, null, null, false, null);
+        String orgIdStr = filters.getOrganizationId() != null ? filters.getOrganizationId().toString() : null;
 
+        GeoCoordinates queryCoordinates = null;
+        if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {
+            queryCoordinates = organizationRepository.findById(filters.getOrganizationId())
+                    .get()
+                    .getCoordinates();
+        } else if (filters.getLatitude() != null && filters.getLongitude() != null) {
+            queryCoordinates = GeoCoordinates.builder()
+                    .latitude(filters.getLatitude())
+                    .longitude(filters.getLongitude())
+                    .build();
+        }
+
+        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, queryCoordinates,
+                filters.getLostDate(), filters.getLostDateTo(), false, filters.getCategory());
+
+        final GeoCoordinates finalCoords = queryCoordinates;
         for (FoundObject fo : foundObjects) {
-            // Búsqueda por foto: sólo parecido visual (coseno normalizado), sin componente geográfico.
-            fo.setScore((float) searchScoringService.normalizeCosineScore(fo.getScore()));
+            // Búsqueda por foto: parecido visual combinado con cercanía geográfica (MOORA), vía SearchScoringService.
+            if (finalCoords != null) {
+                Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
+                fo.setDistance(distance.floatValue());
+                fo.setScore((float) searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), finalCoords));
+            } else {
+                fo.setScore((float) searchScoringService.normalizeCosineScore(fo.getScore()));
+            }
         }
 
         List<FoundObjectDto> result = foundObjects.stream()

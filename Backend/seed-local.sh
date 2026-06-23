@@ -558,34 +558,71 @@ INSERT INTO organization_request
   (id, requesting_user_id, organization_name, organization_type, custom_organization_type,
    street, street_number, city, province, country, latitude, longitude,
    owner_first_name, owner_last_name, owner_email, owner_phone,
-   reason, status, created_at, resolved_at, resolved_by_user_id, admin_note)
+   reason, status, created_at, resolved_at, resolved_by_user_id, admin_note, organization_id)
 VALUES
 (1, 7,  'Club Atlético Belgrano',      'CLUB',            NULL,
    'Av. Patria',       '1600', 'Córdoba', 'Córdoba', 'Argentina', -31.3720, -64.2080,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Queremos gestionar objetos perdidos en los partidos del estadio.',
-   'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL),
+   'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL, NULL),
 
 (2, 8,  'Hospital Privado',            'HOSPITAL',        NULL,
    'Naciones Unidas',  '346',  'Córdoba', 'Córdoba', 'Argentina', -31.3876, -64.1803,
    'Pedro',   'Soria',   'pedro@mail.com',  '+54 9 351 333 4444',
    'El hospital necesita un sistema para devolver objetos a pacientes y familiares.',
-   'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL),
+   'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL, NULL),
 
 (3, 9,  'Colegio Nacional de Monserrat','SCHOOL',          NULL,
    'Obispo Trejo',     '294',  'Córdoba', 'Córdoba', 'Argentina', -31.4155, -64.1841,
    'Valeria', 'Castro',  'valeria@mail.com', '+54 9 351 555 6666',
    'El colegio quiere digitalizar la gestión de objetos perdidos del alumnado.',
    'REJECTED',         '2026-05-15 14:00:00', '2026-05-17 11:30:00', 1,
-   'La organización no cumple con los requisitos mínimos de infraestructura para gestionar objetos perdidos en la plataforma.'),
+   'La organización no cumple con los requisitos mínimos de infraestructura para gestionar objetos perdidos en la plataforma.', NULL),
 
 (4, 7,  'Mercado Norte',               'OTHER',           'Mercado municipal',
    'Bvd. Illia',       '300',  'Córdoba', 'Córdoba', 'Argentina', -31.4125, -64.1862,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Los puestos del mercado frecuentemente reciben objetos olvidados por los clientes.',
-   'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL);
+   'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL, NULL),
+
+-- Solicitudes aprobadas para las organizaciones precargadas
+(5, 2,  'UTN FRC',                            'UNIVERSITY',    NULL,
+   'Maestro Marcelo Lopez', '3814', 'Córdoba', 'Córdoba', 'Argentina', -31.4377, -64.1829,
+   'Martina', 'González',  'owner.utn@eurekapp.com',   '+54 9 351 000 0001',
+   'Gestión de objetos perdidos en la facultad.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 1),
+
+(6, 3,  'Terminal de Ómnibus Córdoba',        'BUS_TERMINAL',  NULL,
+   'Bvd. Perón',            '380',  'Córdoba', 'Córdoba', 'Argentina', -31.4201, -64.1888,
+   'Rodrigo', 'Fernández', 'owner.term@eurekapp.com',  '+54 9 351 000 0002',
+   'Gestión de objetos perdidos en la terminal de ómnibus.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 2),
+
+(7, 1,  'Aeropuerto Internacional Córdoba',   'AIRPORT',       NULL,
+   'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', -31.3233, -64.2081,
+   'Sofia',   'Herrera',  'emp1.aero@eurekapp.com',   '+54 9 351 000 0003',
+   'Gestión de objetos perdidos en el aeropuerto.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 3),
+
+(8, 11, 'Shopping Patio Olmos',               'SHOPPING',      NULL,
+   'Vélez Sársfield',       '361',  'Córdoba', 'Córdoba', 'Argentina', -31.4163, -64.1885,
+   'Camila',  'Vargas',    'owner.patio@eurekapp.com', '+54 9 351 000 0004',
+   'Gestión de objetos perdidos en el shopping.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 4),
+
+(9, 13, 'UNC Ciudad Universitaria',           'UNIVERSITY',    NULL,
+   'Av. Vélez Sársfield',   '5000', 'Córdoba', 'Córdoba', 'Argentina', -31.4384, -64.1917,
+   'Diego',   'Salinas',   'owner.unc@eurekapp.com',   '+54 9 351 000 0005',
+   'Gestión de objetos perdidos en la universidad.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 5),
+
+(10, 15, 'Dinosaurio Mall',                   'SHOPPING_MALL', NULL,
+   'Av. Ejército Argentino', '6050', 'Córdoba', 'Córdoba', 'Argentina', -31.3693, -64.2254,
+   'Sebastián', 'Romero',  'owner.dino@eurekapp.com',  '+54 9 351 000 0006',
+   'Gestión de objetos perdidos en el shopping mall.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 6);
 SQL
-success "4 organization_requests insertados (1 PENDING, 1 APPROVED, 1 REJECTED, 1 CANCELLED)"
+success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING + 1 APPROVED + 1 REJECTED + 1 CANCELLED)"
 
 # ─── 20. Upload de imágenes a S3 (opcional) ──────────────────────────────────
 header "Imágenes S3"
@@ -647,7 +684,7 @@ echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                   
 echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 3                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 4  (1 PENDING/APPROVED/REJECTED/CANCELLED)${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 10 (6 APPROVED precargadas + 1P/1A/1R/1C) ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                                ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    FoundObjects          : 11  (todos con categoría)     ${GREEN}${BOLD}║${NC}"

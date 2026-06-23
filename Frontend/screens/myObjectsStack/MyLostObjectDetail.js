@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 import {
     ScrollView,
     StyleSheet,
@@ -21,11 +22,6 @@ const InfoRow = ({ icon, label, value }) => (
 const MyLostObjectDetail = ({ route, navigation }) => {
     const { lostObject } = route.params;
 
-    const formatDate = (isoString) => {
-        if (!isoString) return '—';
-        const d = new Date(isoString);
-        return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -55,7 +51,7 @@ const MyLostObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información</Text>
-                <InfoRow icon="calendar" label="Fecha de registro" value={formatDate(lostObject.lostDate)} />
+                <InfoRow icon="calendar" label="Fecha de registro" value={formatDateTimeLocaleES(lostObject.lostDate)} />
                 {!!lostObject.organizationId && (
                     <InfoRow icon="building" label="Organización" value={lostObject.organizationId} />
                 )}

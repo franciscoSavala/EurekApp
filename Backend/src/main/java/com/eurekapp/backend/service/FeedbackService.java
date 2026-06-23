@@ -104,15 +104,30 @@ public class FeedbackService {
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
-        return feedbacks.stream().map(f -> FeedbackRecordDto.builder()
-                .id(f.getId())
-                .organizationId(f.getOrganizationId())
-                .foundObjectUUID(f.getFoundObjectUUID())
-                .starRating(f.getStarRating())
-                .wasFound(f.getWasFound())
-                .createdAt(f.getCreatedAt())
-                .comment(f.getComment())
-                .build()).collect(Collectors.toList());
+        return feedbacks.stream().map(f -> {
+            String foTitle = null;
+            String foDescription = null;
+            if (f.getFoundObjectUUID() != null) {
+                try {
+                    FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
+                    if (fo != null) {
+                        foTitle = fo.getTitle();
+                        foDescription = fo.getHumanDescription();
+                    }
+                } catch (Exception ignored) {}
+            }
+            return FeedbackRecordDto.builder()
+                    .id(f.getId())
+                    .organizationId(f.getOrganizationId())
+                    .foundObjectUUID(f.getFoundObjectUUID())
+                    .foundObjectTitle(foTitle)
+                    .foundObjectDescription(foDescription)
+                    .starRating(f.getStarRating())
+                    .wasFound(f.getWasFound())
+                    .createdAt(f.getCreatedAt())
+                    .comment(f.getComment())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {

@@ -69,7 +69,8 @@ public class EmailTemplateService {
                                            String city, String province, String country,
                                            Double latitude, Double longitude,
                                            String ownerFirstName, String ownerLastName,
-                                           String ownerEmail, String ownerPhone, String reason) {
+                                           String ownerEmail, String ownerPhone, String reason,
+                                           String createdAt) {
         Context ctx = new Context();
         ctx.setVariable("requesterFirstName", requesterFirstName);
         ctx.setVariable("requesterLastName", requesterLastName);
@@ -89,6 +90,7 @@ public class EmailTemplateService {
         ctx.setVariable("ownerEmail", ownerEmail);
         ctx.setVariable("ownerPhone", ownerPhone);
         ctx.setVariable("reason", reason);
+        ctx.setVariable("createdAt", createdAt);
         return templateEngine.process("email/org-request-new", ctx);
     }
 
@@ -107,6 +109,14 @@ public class EmailTemplateService {
         ctx.setVariable("firstName", firstName);
         ctx.setVariable("orgName", orgName);
         return templateEngine.process("email/org-owner-approved", ctx);
+    }
+
+    public String buildOrgOwnerInvitedEmail(String firstName, String orgName, String ownerEmail) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("orgName", orgName);
+        ctx.setVariable("ownerEmail", ownerEmail);
+        return templateEngine.process("email/org-owner-invited", ctx);
     }
 
     public String buildObjectFoundEmail(String orgName, String contactData,

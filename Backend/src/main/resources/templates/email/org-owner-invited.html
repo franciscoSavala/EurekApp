@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">
+      ¡Hola, <span th:text="${firstName}">Usuario</span>!
+    </h2>
+    <p style="color: #333; line-height: 1.6;">
+      Fuiste designado como <strong>responsable</strong> de
+      <strong th:text="${orgName}">Organización</strong> en EurekApp.
+      La organización ya fue aprobada y está lista para operar.
+    </p>
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px; margin: 24px 0;">
+      <p style="margin: 0 0 6px 0; font-weight: bold; color: #017575;">¿Qué tenés que hacer?</p>
+      <ul style="margin: 8px 0 0 0; color: #555; padding-left: 20px; line-height: 1.8;">
+        <li>Registrate en EurekApp usando <strong th:text="${ownerEmail}">este email</strong>.</li>
+        <li>Una vez registrado, tu cuenta quedará vinculada automáticamente como responsable de la organización.</li>
+        <li>Podrás gestionar objetos encontrados, empleados y políticas de la organización.</li>
+      </ul>
+    </div>
+    <p style="color: #333; line-height: 1.6;">
+      Es importante que uses el mismo correo electrónico al registrarte para que el sistema te reconozca como responsable.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>

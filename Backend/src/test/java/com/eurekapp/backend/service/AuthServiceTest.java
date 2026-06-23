@@ -8,6 +8,7 @@ import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.when;
 class AuthServiceTest {
 
     @Mock IUserRepository userRepository;
+    @Mock IOrganizationRequestRepository organizationRequestRepository;
     @Mock JwtService jwtService;
     @Mock AuthenticationManager authenticationManager;
 

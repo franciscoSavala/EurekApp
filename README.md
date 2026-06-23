@@ -99,11 +99,12 @@ Necesitás cuentas en estos tres servicios. Todos tienen **tier gratuito** sufic
 - Guardar `Access key ID` y `Secret access key`
 - Crear el bucket `eurekapp-temp` en la región `sa-east-1` (São Paulo)
 
-### 3. Mailtrap
-- Crear cuenta gratuita en [mailtrap.io](https://mailtrap.io)
-- Ir a **Email Testing** → **Inboxes** → tu inbox → **SMTP Settings**
-- Copiar el **Password** (es la API key para SMTP)
-- Se usa para envío de notificaciones por email
+### 3. Gmail SMTP
+- Necesitás una cuenta de Google
+- Ir a [myaccount.google.com](https://myaccount.google.com) → **Seguridad** → **Contraseñas de aplicaciones**
+- Generar una contraseña de aplicación para "Correo"
+- Guardar el código de 16 caracteres (sin espacios)
+- Se usa para envío de notificaciones por email (invitaciones, cambios de rol, etc.)
 
 ---
 
@@ -131,8 +132,9 @@ OPENAI_SECRET_KEY=sk-proj-xxxxxxxxxxxxx
 # JWT — generá un string random con: openssl rand -base64 32
 JWT_SIGN_KEY=un-string-muy-largo-y-aleatorio-de-al-menos-32-chars
 
-# Mailtrap
-MAILTRAP_KEY=tu-password-de-smtp-de-mailtrap
+# Gmail SMTP — contraseña de aplicación (myaccount.google.com → Seguridad → Contraseñas de aplicaciones)
+MAIL_USER=tu-cuenta@gmail.com
+MAIL_PASSWORD=xxxx-xxxx-xxxx-xxxx
 
 # AWS
 AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
@@ -349,9 +351,6 @@ EurekApp/
 │   ├── services/                   # Llamadas a la API
 │   ├── hooks/                      # Custom hooks
 │   └── .env.development            # URL del backend
-│
-└── mock-server/                    # Servidor Express para testing frontend
-    └── server.js
 ```
 
 ---

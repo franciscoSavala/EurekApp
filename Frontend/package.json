@@ -48,7 +48,18 @@
     "react-native-web": "~0.19.6"
   },
   "devDependencies": {
-    "@babel/core": "^7.19.3"
+    "@babel/core": "^7.19.3",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "transform": {
+      "^.+\\.[jt]sx?$": "babel-jest"
+    },
+    "testMatch": [
+      "**/__tests__/**/*.test.js"
+    ]
   },
   "name": "frontend",
   "version": "1.0.0",
@@ -58,6 +69,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "test": "jest",
     "postinstall": "node react-native-map-web-fix.js"
   }
 }
