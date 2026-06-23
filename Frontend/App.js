@@ -442,23 +442,25 @@ const EurekappTab = () => {
         return () => clearInterval(interval);
     }, []);
 
+    const fetchPendingCount = useCallback(async () => {
+        if (userRole !== 'ADMIN') return;
+        try {
+            const jwt = await AsyncStorage.getItem('jwt');
+            const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count', {
+                headers: { Authorization: 'Bearer ' + jwt },
+            });
+            setPendingOrgRequestCount(res.data.count || 0);
+        } catch (e) {
+            // silently ignore — badge es opcional
+        }
+    }, [userRole]);
+
     useEffect(() => {
         if (userRole !== 'ADMIN') return;
-        const fetchPendingCount = async () => {
-            try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count', {
-                    headers: { Authorization: 'Bearer ' + jwt },
-                });
-                setPendingOrgRequestCount(res.data.count || 0);
-            } catch (e) {
-                // silently ignore — badge es opcional
-            }
-        };
         fetchPendingCount();
         const interval = setInterval(fetchPendingCount, 30000);
         return () => clearInterval(interval);
-    }, [userRole]);
+    }, [fetchPendingCount]);
 
     const orgRequestsIcon = () => (
         <View style={{ position: 'relative' }}>
@@ -589,6 +591,8 @@ const EurekappTab = () => {
                     title: 'Solicitudes de alta',
                     headerTitleAlign: 'center',
                     drawerIcon: orgRequestsIcon
+                }} listeners={{
+                    focus: () => fetchPendingCount()
                 }} component={OrgRequestsAdminStackScreen} />
                 <Drawer.Screen name="UserManagement" options={{
                     title: 'Usuarios',

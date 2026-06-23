@@ -34,6 +34,10 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
                 organization_id: organizationId != null ? String(organizationId) : null
             });
             setResponseOk(true);
+            setTimeout(() => {
+                setModalVisible(false);
+                navigation.navigate('MyObjectsStackScreen');
+            }, 1500);
         } catch (error) {
             console.error(error);
             setResponseOk(false);
