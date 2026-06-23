@@ -167,20 +167,15 @@ public class FraudDetectionService {
 
     public List<FraudUserReportEntryDto> getFraudUserReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
-        boolean isAdmin = user.getRole() == Role.ADMIN;
-        boolean isOwner = user.getRole() == Role.ORGANIZATION_OWNER;
-        if (!isAdmin && !isOwner) {
+        if (user.getRole() != Role.ADMIN) {
             throw new ForbiddenException("forbidden",
-                    "Solo el administrador o responsable de la organización puede acceder al reporte de fraude");
+                    "Solo el administrador de EurekApp puede acceder al reporte de fraude");
         }
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
         // Determinar el orgId efectivo para filtrar alertas
-        String orgIdFilter = isAdmin && organizationId != null
-                ? organizationId.toString()
-                : isOwner ? user.getOrganization().getId().toString()
-                : null;
+        String orgIdFilter = organizationId != null ? organizationId.toString() : null;
 
         // Paso 1: alertas filtradas (status + fecha) para determinar qué usuarios aparecen
         List<FraudAlert> filteredAlerts;
@@ -275,9 +270,9 @@ public class FraudDetectionService {
     }
 
     private void validateAccess(UserEurekapp user) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER && user.getRole() != Role.ENCARGADO) {
+        if (user.getRole() != Role.ADMIN) {
             throw new ForbiddenException("forbidden",
-                    "Solo el encargado o responsable de la organización puede gestionar alertas de fraude");
+                    "Solo el administrador de EurekApp puede gestionar alertas de fraude");
         }
     }
 

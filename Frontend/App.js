@@ -630,7 +630,7 @@ const EurekappTab = () => {
             }} component={ProfileStackScreen}
             />
 
-            {(userRole === 'ORGANIZATION_OWNER' || userRole === 'ENCARGADO') ?
+            {userRole === 'ADMIN' ?
                 <Drawer.Screen name="FraudAlertsStackScreen" options={{
                     title: 'Alertas de fraude',
                     headerTitleAlign: 'center',
