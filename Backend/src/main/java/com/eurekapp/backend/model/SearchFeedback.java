@@ -32,6 +32,9 @@ public class SearchFeedback {
     @Column(name = "comment", nullable = true, length = 500)
     private String comment;
 
+    @Column(name = "lost_object_text", nullable = true, length = 500)
+    private String lostObjectText;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
