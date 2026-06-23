@@ -238,18 +238,16 @@ public class OrganizationService {
                 owner.setOrganization(org);
                 userRepository.save(owner);
 
-                if (!owner.getId().equals(request.getRequestingUser().getId())) {
-                    inAppNotificationService.createNotification(owner,
-                            "Sos responsable de una nueva organización",
-                            "Tu cuenta fue asignada como responsable de \"" + org.getName() + "\" en EurekApp.",
-                            "ROLE_CHANGED", null);
-                    try {
-                        notificationService.sendNotification(owner.getUsername(),
-                                "EurekApp — Sos el responsable de una organización",
-                                emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()));
-                    } catch (Exception e) {
-                        log.warn("No se pudo enviar email al owner {}: {}", owner.getUsername(), e.getMessage());
-                    }
+                inAppNotificationService.createNotification(owner,
+                        "Sos responsable de una nueva organización",
+                        "Tu cuenta fue asignada como responsable de \"" + org.getName() + "\" en EurekApp.",
+                        "ROLE_CHANGED", null);
+                try {
+                    notificationService.sendNotification(owner.getUsername(),
+                            "EurekApp — Sos el responsable de una organización",
+                            emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()));
+                } catch (Exception e) {
+                    log.warn("No se pudo enviar email al owner {}: {}", owner.getUsername(), e.getMessage());
                 }
             } else {
                 // El responsable designado aún no tiene cuenta en EurekApp: se le invita por email
