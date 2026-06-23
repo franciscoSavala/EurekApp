@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 @Service
 public class FraudDetectionService {
 
+    private static final Set<String> ACTIVE_REASONS = Set.of("FINDER_CLAIMER_COLLUSION");
+
     private final IFraudAlertRepository alertRepository;
     private final ISearchFeedbackRepository feedbackRepository;
     private final NotificationService notificationService;
@@ -137,17 +139,25 @@ public class FraudDetectionService {
 
     public List<FraudAlertDto> getAlerts(UserEurekapp user) {
         validateAccess(user);
-        String orgId = user.getOrganization().getId().toString();
-        return alertRepository.findByOrganizationIdOrderByCreatedAtDesc(orgId)
-                .stream().map(this::toDto).collect(Collectors.toList());
+        List<FraudAlert> alerts = user.getOrganization() != null
+                ? alertRepository.findByOrganizationIdOrderByCreatedAtDesc(user.getOrganization().getId().toString())
+                : alertRepository.findAllByOrderByCreatedAtDesc();
+        return alerts.stream()
+                .filter(a -> ACTIVE_REASONS.contains(a.getReason()))
+                .map(this::toDto)
+                .collect(Collectors.toList());
     }
 
     public FraudAlertDto getAlertDetail(Long alertId, UserEurekapp user) {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
+        if (user.getOrganization() != null
+                && !alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
             throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
+        }
+        if (!ACTIVE_REASONS.contains(alert.getReason())) {
+            throw new NotFoundException("fraud_alert_not_found", "Alerta no encontrada");
         }
         return toDto(alert);
     }
@@ -156,7 +166,8 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        if (!alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
+        if (user.getOrganization() != null
+                && !alert.getOrganizationId().equals(user.getOrganization().getId().toString())) {
             throw new ForbiddenException("forbidden", "No tienes acceso a esta alerta");
         }
         alert.setStatus(resolution);

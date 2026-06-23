@@ -12,6 +12,8 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
 
     List<FraudAlert> findByOrganizationIdOrderByCreatedAtDesc(String organizationId);
 
+    List<FraudAlert> findAllByOrderByCreatedAtDesc();
+
     boolean existsByOrganizationIdAndFoundObjectUUIDAndSuspectUserAndReasonAndStatus(
             String organizationId,
             String foundObjectUUID,

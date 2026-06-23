@@ -18,6 +18,7 @@ import EmptyState from '../components/EmptyState';
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const REASON_LABELS = {
+    FINDER_CLAIMER_COLLUSION: 'Posible acuerdo entre registrador y reclamante',
     MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes del mismo objeto',
     HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
 };
@@ -38,7 +39,7 @@ const FraudAlerts = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [isOwner, setIsOwner] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const fetchAlerts = async () => {
         setLoading(true);
@@ -50,7 +51,7 @@ const FraudAlerts = ({ navigation }) => {
             setAlerts(alertsData);
             if (raw) {
                 const u = JSON.parse(raw);
-                setIsOwner(u.role === 'ORGANIZATION_OWNER');
+                setIsAdmin(u.role === 'ADMIN');
             }
         } catch (error) {
             console.log(error);
@@ -92,7 +93,7 @@ const FraudAlerts = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {isOwner && (
+            {isAdmin && (
                 <TouchableOpacity
                     style={styles.reportBtn}
                     onPress={() => navigation.navigate('FraudReport')}>
