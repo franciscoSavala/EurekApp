@@ -45,6 +45,7 @@ public class FeedbackService {
                 .starRating(dto.getStarRating())
                 .wasFound(dto.getWasFound())
                 .comment(dto.getComment())
+                .lostObjectText(dto.getLostObjectText())
                 .createdAt(LocalDateTime.now())
                 .user(user)
                 .build();
@@ -116,6 +117,7 @@ public class FeedbackService {
                     }
                 } catch (Exception ignored) {}
             }
+            if (foTitle == null) foTitle = f.getLostObjectText();
             return FeedbackRecordDto.builder()
                     .id(f.getId())
                     .organizationId(f.getOrganizationId())
