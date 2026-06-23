@@ -147,11 +147,11 @@ public class OrganizationController {
     }
 
     @GetMapping("/requests/my")
-    @Operation(summary = "Ver mi solicitud de organización",
-            description = "Devuelve la última solicitud del usuario autenticado.")
-    public ResponseEntity<OrganizationRequestDetailDto> getMyOrganizationRequest(
+    @Operation(summary = "Ver mis solicitudes de organización",
+            description = "Devuelve todas las solicitudes realizadas por el usuario autenticado, ordenadas por fecha descendente.")
+    public ResponseEntity<List<OrganizationRequestDetailDto>> getMyOrganizationRequests(
             @AuthenticationPrincipal UserEurekapp user) {
-        return ResponseEntity.ok(organizationService.getMyOrganizationRequest(user));
+        return ResponseEntity.ok(organizationService.getMyOrganizationRequests(user));
     }
 
     @DeleteMapping("/requests/{id}")

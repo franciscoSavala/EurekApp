@@ -136,12 +136,9 @@ public class OrganizationService {
 
     // ── Mi solicitud (usuario) ────────────────────────────────────────────────
 
-    public OrganizationRequestDetailDto getMyOrganizationRequest(UserEurekapp user) {
-        OrganizationRequest request = requestRepository
-                .findFirstByRequestingUserOrderByCreatedAtDesc(user)
-                .orElseThrow(() -> new NotFoundException("request_not_found",
-                        "No encontramos ninguna solicitud para tu cuenta."));
-        return toDetailDto(request);
+    public List<OrganizationRequestDetailDto> getMyOrganizationRequests(UserEurekapp user) {
+        return requestRepository.findByRequestingUserOrderByCreatedAtDesc(user)
+                .stream().map(this::toDetailDto).collect(Collectors.toList());
     }
 
     public void cancelOrganizationRequest(UserEurekapp user, Long requestId) {
