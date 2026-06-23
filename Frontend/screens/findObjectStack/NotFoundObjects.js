@@ -26,6 +26,7 @@ const NotFoundObjects = ({route, navigation}) => {
                 starRating: feedbackRating,
                 wasFound: false,
                 comment: comment.trim() || null,
+                lostObjectText: query || null,
             });
             setFeedbackSent(true);
         } catch (e) {

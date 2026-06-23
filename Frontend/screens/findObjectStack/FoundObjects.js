@@ -50,6 +50,7 @@ const FoundObjects = ({ route, navigation }) => {
                     starRating: skip ? 0 : starRating,
                     wasFound: pendingWasFound,
                     comment: skip ? null : (comment.trim() || null),
+                    lostObjectText: query || null,
                 });
             } catch (e) {
                 console.warn('Error enviando feedback:', e);
