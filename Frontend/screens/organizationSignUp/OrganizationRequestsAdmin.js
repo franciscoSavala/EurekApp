@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     filterRow: { paddingHorizontal: 12, marginBottom: 8, flexGrow: 0 },
     filterChip: {
         borderWidth: 1, borderColor: "#bdc1c1", borderRadius: 20,
-        paddingHorizontal: 14, paddingVertical: 6, marginHorizontal: 4,
-        backgroundColor: "#fff",
+        paddingHorizontal: 16, paddingVertical: 7, marginHorizontal: 5,
+        backgroundColor: "#fff", flexShrink: 0,
     },
     filterChipActive: { borderColor: "#4A9999", backgroundColor: "#4A9999" },
     filterText: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#638888" },

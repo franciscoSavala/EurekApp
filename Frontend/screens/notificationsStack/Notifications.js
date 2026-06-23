@@ -226,6 +226,22 @@ const Notifications = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 )}
+                {item.type === "ORG_REGISTRATION_REQUEST" && item.related_request_id != null && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => {
+                                markAsRead(item.id);
+                                navigation.navigate("OrgRequestsAdminStackScreen", {
+                                    screen: "OrganizationRequestDetail",
+                                    params: { requestId: item.related_request_id },
+                                });
+                            }}
+                        >
+                            <Text style={styles.actionButtonText}>Ver solicitud</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
                 {item.type === "FRAUD_ALERT" && item.related_request_id != null && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity

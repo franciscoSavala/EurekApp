@@ -129,8 +129,8 @@ const SearchByPhoto = ({ navigation, route }) => {
                     },
                     [{ name: 'file', filename: 'search_photo.jpg', data: String(image.base64) }]
                 );
-                if (response.respInfo.status < 200 || response.respInfo.status >= 300) {
-                    throw new Error(`HTTP ${response.respInfo.status}`);
+                if (response.info().status < 200 || response.info().status >= 300) {
+                    throw new Error(`HTTP ${response.info().status}`);
                 }
                 const json = response.json();
                 objectsFound = json.found_objects;
