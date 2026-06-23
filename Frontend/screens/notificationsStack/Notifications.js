@@ -157,6 +157,7 @@ const Notifications = ({ navigation, route }) => {
                 await AsyncStorage.setItem("organization", JSON.stringify(res.data.organization));
             }
             await markAsRead(notifId);
+            fetchNotifications();
             Toast.show({
                 type: "success",
                 text1: "¡Sesión actualizada!",
@@ -178,7 +179,7 @@ const Notifications = ({ navigation, route }) => {
         const isUnread = !item.is_read;
         const isPendingInvitation =
             item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null;
-        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED";
+        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED" && !item.is_read;
 
         return (
             <TouchableOpacity
