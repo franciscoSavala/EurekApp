@@ -122,11 +122,14 @@ header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE reclamo_history;
-TRUNCATE TABLE reclamos;
+-- (rework fraude/reclamos) Reclamo y Fraude deshabilitados en el seed:
+-- 'reclamo_history' ya no existe (EU-278) y 'reclamos' se extirpa (EU-292);
+-- el modelo de fraude se rediseñó (EU-282/284). Truncarlas rompía la sesión.
+-- TRUNCATE TABLE reclamo_history;
+-- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
 TRUNCATE TABLE usability_feedback;
-TRUNCATE TABLE fraud_alert;
+-- TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
@@ -407,24 +410,31 @@ warn "FraudAlerts: seed deshabilitado por rediseño del modelo (EU-282). Se repu
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
-('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
-('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
-('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
-('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
-('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
-SQL
-success "5 reclamos insertados"
+# DESHABILITADO (rework fraude/reclamos): la columna 'reclamos.status' se eliminó (EU-278)
+# y la entidad 'Reclamo' se extirpa por completo (EU-292). En una DB fresca este INSERT
+# rompía contra el esquema nuevo. No reactivar: el reclamo dejó de ser una entidad propia.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
+# ('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
+# ('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
+# ('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
+# ('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
+# ('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
+# SQL
+warn "Reclamos: seed deshabilitado (status eliminado en EU-278; entidad extirpada en EU-292)."
 
 # ─── 18. Insertar ReclamoHistory ─────────────────────────────────────────────
 header "Insertando ReclamoHistory"
 
-$MYSQL_EXEC 2>/dev/null <<'SQL'
-INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
-(1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
-SQL
-success "1 entrada de reclamo_history insertada"
+# DESHABILITADO (rework fraude/reclamos): la entidad 'ReclamoHistory' y su tabla
+# 'reclamo_history' se eliminaron (EU-278); en una DB fresca no existe y el INSERT rompía.
+#
+# $MYSQL_EXEC 2>/dev/null <<'SQL'
+# INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
+# (1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
+# SQL
+warn "ReclamoHistory: seed deshabilitado (tabla eliminada en EU-278)."
 
 # ─── 19. Insertar OrganizationRequests ──────────────────────────────────────
 header "Insertando OrganizationRequests"
@@ -572,8 +582,8 @@ echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                   
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 1                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 0  (seed off — EU-278)        ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 10 (6 APPROVED precargadas + 1P/1A/1R/1C) ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                                ${GREEN}${BOLD}║${NC}"
