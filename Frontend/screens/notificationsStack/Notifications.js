@@ -160,6 +160,7 @@ const Notifications = ({ navigation, route }) => {
                 await AsyncStorage.setItem("organization", JSON.stringify(res.data.organization));
             }
             await markAsRead(notifId);
+            fetchNotifications();
             Toast.show({
                 type: "success",
                 text1: "¡Sesión actualizada!",
@@ -181,7 +182,7 @@ const Notifications = ({ navigation, route }) => {
         const isUnread = !item.is_read;
         const isPendingInvitation =
             item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null;
-        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED";
+        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED" && !item.is_read;
 
         return (
             <TouchableOpacity
@@ -222,6 +223,22 @@ const Notifications = ({ navigation, route }) => {
                             onPress={() => handleRefreshSession(item.id)}
                         >
                             <Text style={styles.actionButtonText}>Actualizar sesión</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {item.type === "ORG_REGISTRATION_REQUEST" && item.related_request_id != null && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => {
+                                markAsRead(item.id);
+                                navigation.navigate("OrgRequestsAdminStackScreen", {
+                                    screen: "OrganizationRequestDetail",
+                                    params: { requestId: item.related_request_id },
+                                });
+                            }}
+                        >
+                            <Text style={styles.actionButtonText}>Ver solicitud</Text>
                         </TouchableOpacity>
                     </View>
                 )}
