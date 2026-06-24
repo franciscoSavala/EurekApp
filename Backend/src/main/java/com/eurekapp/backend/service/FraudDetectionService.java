@@ -379,11 +379,6 @@ public class FraudDetectionService {
         return result;
     }
 
-    private String humanReasonsField(List<String> rawReasons) {
-        return rawReasons.stream().map(this::humanizeReason)
-                .filter(s -> !s.isEmpty()).collect(Collectors.joining(" | "));
-    }
-
     private static String csvField(String v) {
         if (v == null) return "";
         if (v.contains(";") || v.contains("\"") || v.contains("\n")) {
