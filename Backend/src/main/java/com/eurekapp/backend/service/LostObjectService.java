@@ -4,6 +4,7 @@ import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import java.util.Optional;
 import com.eurekapp.backend.repository.*;
@@ -33,7 +34,6 @@ public class LostObjectService {
     private final LostObjectRepository lostObjectRepository;
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
-    private final IReclamoRepository reclamoRepository;
     private final SearchScoringService searchScoringService;
 
     public LostObjectService(
@@ -45,7 +45,6 @@ public class LostObjectService {
             LostObjectRepository lostObjectRepository,
             IUserRepository userRepository,
             InAppNotificationService inAppNotificationService,
-            IReclamoRepository reclamoRepository,
             SearchScoringService searchScoringService) {
         this.embeddingService = embeddingService;
         this.emailTemplateService = emailTemplateService;
@@ -55,7 +54,6 @@ public class LostObjectService {
         this.lostObjectRepository = lostObjectRepository;
         this.userRepository = userRepository;
         this.inAppNotificationService = inAppNotificationService;
-        this.reclamoRepository = reclamoRepository;
         this.searchScoringService = searchScoringService;
     }
 
@@ -80,21 +78,6 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
-
-        if (command.getOrganizationId() != null && command.getUsername() != null) {
-            userRepository.findByUsername(command.getUsername()).ifPresent(user -> {
-                LocalDateTime now = LocalDateTime.now();
-                Reclamo reclamo = Reclamo.builder()
-                        .organizationId(command.getOrganizationId())
-                        .foundObjectUUID(null)
-                        .user(user)
-                        .claimDescription(command.getDescription())
-                        .createdAt(now)
-                        .updatedAt(now)
-                        .build();
-                reclamoRepository.save(reclamo);
-            });
-        }
     }
 
     /**
@@ -123,8 +106,12 @@ public class LostObjectService {
         List<LostObject> candidates = lostObjectRepository.query(embeddings, null, null, null, foundDate);
 
         // Puntuamos con el MISMO algoritmo que la búsqueda regular y nos quedamos con las que superan el umbral.
+        // EU-292: las búsquedas CERRADAS no disparan avisos (el usuario ya recuperó / dejó de buscar).
         List<LostObject> matches = new ArrayList<>();
         for (LostObject candidate : candidates) {
+            if (candidate.getStatus() == LostObjectStatus.CLOSED) {
+                continue;
+            }
             double totalScore = searchScoringService.totalScore(
                     candidate.getScore(), candidate.getCoordinates(), foundCoordinates);
             if (searchScoringService.isMatch(totalScore)) {
@@ -183,6 +170,8 @@ public class LostObjectService {
     }
 
     public List<LostObjectResponseDto> getMyLostObjects(String username) {
+        // EU-292: devuelve TODAS las búsquedas del usuario (activas y cerradas); el front las
+        // diferencia por "status". Una sola fuente: ya no hay reclamo-espejo.
         List<LostObject> results = lostObjectRepository.query(null, username, null, null, null);
         return results.stream()
                 .map(lo -> LostObjectResponseDto.builder()
@@ -190,7 +179,32 @@ public class LostObjectService {
                         .description(lo.getDescription())
                         .lostDate(lo.getLostDate())
                         .organizationId(lo.getOrganizationId())
+                        .status(lo.getStatus() != null ? lo.getStatus().name() : LostObjectStatus.ACTIVE.name())
+                        .closedDate(lo.getClosedDate())
+                        .recovered(lo.getRecovered())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * EU-292: cierre LÓGICO de una búsqueda guardada por su dueño.
+     *
+     * <p>Sólo el usuario que la creó puede cerrarla. El cierre es terminal: una búsqueda ya cerrada
+     * no se reabre (se rechaza con 400; el usuario debe crear una nueva). La respuesta a
+     * "¿Recuperaste tu objeto? Sí/No" ({@code recovered}) se guarda en la propia búsqueda
+     * ({@link LostObject#getRecovered()}); NO es un {@link SearchFeedback} (que es otra feature).</p>
+     */
+    public void closeLostObject(String username, String uuid, boolean recovered) {
+        LostObject lostObject = lostObjectRepository.getByUuid(uuid);
+        // Si no existe o no es del usuario, lo tratamos como "no encontrado" (no se filtra ajeno).
+        if (lostObject == null || !username.equals(lostObject.getUsername())) {
+            throw new NotFoundException("lost_object_not_found", "No se encontró la búsqueda guardada.");
+        }
+        if (lostObject.getStatus() == LostObjectStatus.CLOSED) {
+            throw new BadRequestException("lost_object_already_closed",
+                    "Esta búsqueda ya está cerrada. Si seguís buscando, creá una nueva.");
+        }
+
+        lostObjectRepository.close(uuid, LocalDateTime.now(), recovered);
     }
 }

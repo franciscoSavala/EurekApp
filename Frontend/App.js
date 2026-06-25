@@ -36,8 +36,6 @@ import OrganizationRequestDetail from "./screens/organizationSignUp/Organization
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 import OrganizationPolicy from "./screens/organizationStack/OrganizationPolicy";
-import ReclamosList from "./screens/inventoryStack/ReclamosList";
-import ReclamoDetail from "./screens/inventoryStack/ReclamoDetail";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
@@ -49,7 +47,6 @@ import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
 import RewardExclusionsList from "./screens/rewardExclusionsStack/RewardExclusionsList";
 import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
-import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import Notifications from "./screens/notificationsStack/Notifications";
 import UserManagement from "./screens/adminStack/UserManagement";
@@ -176,14 +173,6 @@ const InventoryStackScreen = () => {
                 name='ReturnObjectForm'
                 component={ReturnObjectForm}
                 options={{headerShown: true, title: 'Devolver objeto'}} />
-            <InventoryStack.Screen
-                name='ReclamosList'
-                component={ReclamosList}
-                options={{headerShown: true, title: 'Reclamos'}} />
-            <InventoryStack.Screen
-                name='ReclamoDetail'
-                component={ReclamoDetail}
-                options={{headerShown: true, title: 'Detalle del reclamo'}} />
         </InventoryStack.Navigator>
     );
 }
@@ -274,11 +263,6 @@ const MyObjectsStackScreen = () => {
                 name="MyObjectHistory"
                 component={MyObjectHistory}
                 options={{ headerShown: false, title: 'EurekApp - Mis búsquedas' }}
-            />
-            <MyObjectsStack.Screen
-                name="MyObjectDetail"
-                component={MyObjectDetail}
-                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda' }}
             />
             <MyObjectsStack.Screen
                 name="MyLostObjectDetail"

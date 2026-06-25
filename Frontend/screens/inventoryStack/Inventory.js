@@ -36,7 +36,6 @@ const Inventory = ({ navigation }) => {
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(false);
     const [maxStorageDays, setMaxStorageDays] = useState(null);
-    const [userRole, setUserRole] = useState(null);
 
     useEffect(() => {
         const fetchPolicy = async () => {
@@ -49,14 +48,7 @@ const Inventory = ({ navigation }) => {
                 if (__DEV__) console.warn('fetchPolicy error:', e);
             }
         };
-        const loadUserRole = async () => {
-            try {
-                const raw = await AsyncStorage.getItem('user');
-                if (raw) setUserRole(JSON.parse(raw).role);
-            } catch (e) {}
-        };
         fetchPolicy();
-        loadUserRole();
     }, []);
 
     const getStorageStatus = (foundDate) => {
@@ -163,13 +155,6 @@ const Inventory = ({ navigation }) => {
     }
     return (
         <View style={styles.container}>
-            {(userRole === 'ENCARGADO' || userRole === 'ORGANIZATION_OWNER') && (
-                <TouchableOpacity
-                    style={styles.reclamosBtn}
-                    onPress={() => navigation.navigate('ReclamosList')}>
-                    <Text style={styles.reclamosBtnText}>Ver reclamos</Text>
-                </TouchableOpacity>
-            )}
             <View style={styles.organizationObjectsContainer}>
                 { loading ?
                     <View style={{flex: 1, justifyContent: 'center'}}>
@@ -313,22 +298,6 @@ const styles = StyleSheet.create({
         color: colors.background,
         fontSize: 11,
         fontFamily: 'PlusJakartaSans-Bold',
-    },
-    reclamosBtn: {
-        backgroundColor: '#111818',
-        margin: 10,
-        marginBottom: 4,
-        borderRadius: 24,
-        paddingVertical: 10,
-        alignItems: 'center',
-        maxWidth: 800,
-        width: '95%',
-        alignSelf: 'center',
-    },
-    reclamosBtnText: {
-        color: colors.background,
-        fontFamily: 'PlusJakartaSans-Bold',
-        fontSize: 14,
     },
 });
 

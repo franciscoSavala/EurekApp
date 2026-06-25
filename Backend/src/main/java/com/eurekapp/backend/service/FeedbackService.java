@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 public class FeedbackService {
 
     private final ISearchFeedbackRepository feedbackRepository;
-    private final ReclamoService reclamoService;
     private final FoundObjectRepository foundObjectRepository;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
@@ -50,12 +49,6 @@ public class FeedbackService {
                 .user(user)
                 .build();
         feedbackRepository.save(fb);
-
-        if (Boolean.TRUE.equals(dto.getWasFound())
-                && dto.getFoundObjectUUID() != null
-                && !dto.getFoundObjectUUID().isBlank()) {
-            reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
-        }
     }
 
     public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {

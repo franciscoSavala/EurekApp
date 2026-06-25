@@ -1,13 +1,15 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.LostObject;
+import com.eurekapp.backend.model.LostObjectStatus;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.repository.IReclamoRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.LostObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
@@ -28,7 +30,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -60,7 +64,6 @@ class LostObjectServiceTest {
     @Mock LostObjectRepository lostObjectRepository;
     @Mock IUserRepository userRepository;
     @Mock InAppNotificationService inAppNotificationService;
-    @Mock IReclamoRepository reclamoRepository;
 
     LostObjectService service;
 
@@ -69,7 +72,7 @@ class LostObjectServiceTest {
         service = new LostObjectService(
                 embeddingService, emailTemplateService, notificationService, organizationRepository,
                 objectStorage, lostObjectRepository, userRepository, inAppNotificationService,
-                reclamoRepository, new SearchScoringService());
+                new SearchScoringService());
 
         Organization organization = mock(Organization.class);
         when(organization.getName()).thenReturn("Org Test");
@@ -179,6 +182,64 @@ class LostObjectServiceTest {
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
         verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void closedSearch_isNotNotified() {
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.CLOSED); // ya cerrada => no debe disparar aviso
+        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(search));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void close_byOwner_closesWithRecoveredAnswer() {
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        service.closeLostObject("u1@test.com", search.getUuid(), true);
+
+        // El "¿lo recuperaste?" se guarda en la propia búsqueda; no se crea ningún SearchFeedback.
+        verify(lostObjectRepository).close(eq(search.getUuid()), any(LocalDateTime.class), eq(true));
+    }
+
+    @Test
+    void close_byNonOwner_throwsNotFoundAndDoesNotClose() {
+        LostObject search = savedSearch("owner@test.com", "mochila", 1.0f, CORDOBA);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.closeLostObject("intruso@test.com", search.getUuid(), true))
+                .isInstanceOf(NotFoundException.class);
+
+        verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void close_alreadyClosed_throwsBadRequest() {
+        LostObject search = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.CLOSED);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.closeLostObject("u1@test.com", search.getUuid(), false))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void close_nonexistent_throwsNotFound() {
+        when(lostObjectRepository.getByUuid("missing")).thenReturn(null);
+
+        assertThatThrownBy(() -> service.closeLostObject("u1@test.com", "missing", true))
+                .isInstanceOf(NotFoundException.class);
+
+        verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
     }
 
     // ---- helpers ----

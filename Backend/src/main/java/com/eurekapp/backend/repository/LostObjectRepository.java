@@ -4,6 +4,7 @@ package com.eurekapp.backend.repository;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.LostObject;
+import com.eurekapp.backend.model.LostObjectStatus;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.service.CommonFunctions;
 import com.eurekapp.backend.service.client.WeaviateService;
@@ -71,6 +72,9 @@ public class LostObjectRepository {
         properties.put("description", lostObject.getDescription());
         properties.put("organization_id", lostObject.getOrganizationId());
         properties.put("coordinates", coordinatesMap);
+        // EU-292: toda búsqueda nace ACTIVE. El cierre es lógico (ver close()).
+        LostObjectStatus status = lostObject.getStatus() != null ? lostObject.getStatus() : LostObjectStatus.ACTIVE;
+        properties.put("status", status.name());
 
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
@@ -164,7 +168,10 @@ public class LostObjectRepository {
                         "description",
                         "lost_date",
                         "organization_id",
-                        "coordinates"),
+                        "coordinates",
+                        "status",
+                        "closed_date",
+                        "recovered"),
                 limit,
                 offset
         );
@@ -192,6 +199,13 @@ public class LostObjectRepository {
             location = CommonFunctions.convertToGeoCoordinates((Map<String, Object>) properties.get("coordinates"));
         }
 
+        // EU-292: las búsquedas previas a la migración no traen "status"; se asumen ACTIVE.
+        String statusStr = (String) properties.get("status");
+        LostObjectStatus status = statusStr != null ? LostObjectStatus.valueOf(statusStr) : LostObjectStatus.ACTIVE;
+        String closedDateStr = (String) properties.get("closed_date");
+        LocalDateTime closedDate = closedDateStr != null && !closedDateStr.isBlank()
+                ? CommonFunctions.convertToLocalDateTime(closedDateStr) : null;
+
         LostObject lostObject = LostObject.builder()
                 .uuid(weaviateObject.getId())
                 .username((String) properties.get("username"))
@@ -200,9 +214,58 @@ public class LostObjectRepository {
                 .coordinates(location)
                 .organizationId((String) properties.get("organization_id"))
                 .score(certainty)
+                .status(status)
+                .closedDate(closedDate)
+                .recovered((Boolean) properties.get("recovered"))
                 .build();
 
         return lostObject;
+    }
+
+    /**
+     * EU-292: trae una búsqueda guardada por su UUID (sin vector, vía getter directo de Weaviate).
+     * Devuelve {@code null} si no existe.
+     */
+    public LostObject getByUuid(String uuid) {
+        WeaviateObject object = weaviateService.getObjectByUuid("LostObject", uuid);
+        if (object == null) {
+            return null;
+        }
+        Map<String, Object> properties = object.getProperties() != null ? object.getProperties() : new HashMap<>();
+
+        GeoCoordinates location = null;
+        if (properties.get("coordinates") != null) {
+            location = CommonFunctions.convertToGeoCoordinates((Map<String, Object>) properties.get("coordinates"));
+        }
+        String statusStr = (String) properties.get("status");
+        LostObjectStatus status = statusStr != null ? LostObjectStatus.valueOf(statusStr) : LostObjectStatus.ACTIVE;
+        String closedDateStr = (String) properties.get("closed_date");
+        LocalDateTime closedDate = closedDateStr != null && !closedDateStr.isBlank()
+                ? CommonFunctions.convertToLocalDateTime(closedDateStr) : null;
+
+        return LostObject.builder()
+                .uuid(object.getId())
+                .username((String) properties.get("username"))
+                .description((String) properties.get("description"))
+                .lostDate(CommonFunctions.convertToLocalDateTime((String) properties.get("lost_date")))
+                .coordinates(location)
+                .organizationId((String) properties.get("organization_id"))
+                .status(status)
+                .closedDate(closedDate)
+                .recovered((Boolean) properties.get("recovered"))
+                .build();
+    }
+
+    /**
+     * EU-292: cierre LÓGICO de una búsqueda guardada. No borra el objeto: hace un merge en Weaviate
+     * que sólo cambia "status" a CLOSED y registra "closed_date".
+     */
+    public void close(String uuid, LocalDateTime closedDate, boolean recovered) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("status", LostObjectStatus.CLOSED.name());
+        properties.put("closed_date", closedDate.toInstant(ZoneOffset.UTC).toString());
+        properties.put("recovered", recovered);
+        weaviateService.update("LostObject", uuid, null, properties);
     }
 
 }

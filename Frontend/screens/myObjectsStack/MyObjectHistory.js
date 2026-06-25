@@ -18,11 +18,12 @@ import EmptyState from '../components/EmptyState';
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const STATUS_CONFIG = {
-    BUSCANDO:    { label: 'Buscando',                color: '#0d6e6e', bg: '#ccf2f2' },
+    ACTIVE: { label: 'Buscando', color: '#0d6e6e', bg: '#ccf2f2' },
+    CLOSED: { label: 'Cerrada',  color: '#638888', bg: '#e6ecec' },
 };
 
 const StatusChip = ({ status }) => {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.BUSCANDO;
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.ACTIVE;
     return (
         <View style={[styles.chip, { backgroundColor: cfg.bg }]}>
             <Text style={[styles.chipText, { color: cfg.color }]}>{cfg.label}</Text>
@@ -32,21 +33,16 @@ const StatusChip = ({ status }) => {
 
 const MyObjectHistory = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
-    const [reclamos, setReclamos] = useState([]);
     const [lostObjects, setLostObjects] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [reclamosRes, lostRes] = await Promise.allSettled([
-                authFetch('get', `${BACK_URL}/reclamos/my`),
-                authFetch('get', `${BACK_URL}/lost-objects/my`),
-            ]);
-            if (reclamosRes.status === 'fulfilled') setReclamos(reclamosRes.value);
-            if (lostRes.status === 'fulfilled') setLostObjects(lostRes.value);
+            const data = await authFetch('get', `${BACK_URL}/lost-objects/my`);
+            setLostObjects(data || []);
         } catch (e) {
-            console.warn('Error cargando historial:', e);
+            console.warn('Error cargando búsquedas:', e);
         } finally {
             setLoading(false);
         }
@@ -60,46 +56,44 @@ const MyObjectHistory = ({ navigation }) => {
         return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
     };
 
-    const renderReclamo = ({ item }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('MyObjectDetail', { reclamoId: item.id })}
-        >
-            <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                    {item.foundObjectTitle || item.foundObjectCategory || 'Objeto sin título'}
-                </Text>
-            </View>
-            {!!item.foundObjectHumanDescription && (
-                <Text style={styles.cardDesc} numberOfLines={2}>{item.foundObjectHumanDescription}</Text>
-            )}
-            <View style={styles.cardFooter}>
-                <Icon name="calendar" size={12} color="#638888" />
-                <Text style={styles.cardDate}> Búsqueda: {formatDate(item.createdAt)}</Text>
-            </View>
-        </TouchableOpacity>
-    );
-
-    const renderLostObject = ({ item }) => (
-        <TouchableOpacity
-            style={styles.card}
-            onPress={() => navigation.navigate('MyLostObjectDetail', { lostObject: item })}
-        >
-            <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={1}>
-                    Búsqueda abierta
-                </Text>
-                <StatusChip status="BUSCANDO" />
-            </View>
-            {!!item.description && (
-                <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
-            )}
-            <View style={styles.cardFooter}>
-                <Icon name="calendar" size={12} color="#638888" />
-                <Text style={styles.cardDate}> Registrada: {formatDate(item.lostDate)}</Text>
-            </View>
-        </TouchableOpacity>
-    );
+    const renderLostObject = ({ item }) => {
+        const status = item.status || 'ACTIVE';
+        return (
+            <TouchableOpacity
+                style={styles.card}
+                onPress={() => navigation.navigate('MyLostObjectDetail', { lostObject: item })}
+            >
+                <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>
+                        {item.description || 'Búsqueda guardada'}
+                    </Text>
+                    <StatusChip status={status} />
+                </View>
+                <View style={styles.cardFooter}>
+                    <Icon name="calendar" size={12} color="#638888" />
+                    <Text style={styles.cardDate}> Registrada: {formatDate(item.lostDate)}</Text>
+                </View>
+                {status === 'CLOSED' && !!item.closedDate && (
+                    <View style={styles.cardFooter}>
+                        <Icon name="circle-check" size={12} color="#638888" />
+                        <Text style={styles.cardDate}> Cerrada: {formatDate(item.closedDate)}</Text>
+                    </View>
+                )}
+                {status === 'CLOSED' && item.recovered != null && (
+                    <View style={styles.cardFooter}>
+                        <Icon
+                            name={item.recovered ? 'circle-check' : 'circle-xmark'}
+                            size={12}
+                            color={item.recovered ? '#0d9e6e' : '#b04a4a'}
+                        />
+                        <Text style={[styles.cardDate, { color: item.recovered ? '#0d9e6e' : '#b04a4a' }]}>
+                            {item.recovered ? ' Recuperado' : ' No recuperado'}
+                        </Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+        );
+    };
 
     if (loading) {
         return (
@@ -109,9 +103,7 @@ const MyObjectHistory = ({ navigation }) => {
         );
     }
 
-    const isEmpty = reclamos.length === 0 && lostObjects.length === 0;
-
-    if (isEmpty) {
+    if (lostObjects.length === 0) {
         return (
             <View style={styles.container}>
                 <EmptyState
@@ -123,28 +115,31 @@ const MyObjectHistory = ({ navigation }) => {
         );
     }
 
+    const active = lostObjects.filter((lo) => (lo.status || 'ACTIVE') === 'ACTIVE');
+    const closed = lostObjects.filter((lo) => lo.status === 'CLOSED');
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
-            {reclamos.length > 0 && (
+            {active.length > 0 && (
                 <>
-                    <Text style={styles.heading}>Mis búsquedas guardadas</Text>
+                    <Text style={styles.heading}>Búsquedas activas</Text>
                     <FlatList
-                        data={reclamos}
-                        keyExtractor={(item) => `reclamo-${item.id}`}
-                        renderItem={renderReclamo}
+                        data={active}
+                        keyExtractor={(item) => `lost-${item.uuid}`}
+                        renderItem={renderLostObject}
                         scrollEnabled={false}
                         contentContainerStyle={styles.list}
                     />
                 </>
             )}
 
-            {lostObjects.length > 0 && (
+            {closed.length > 0 && (
                 <>
-                    <Text style={[styles.heading, reclamos.length > 0 && { marginTop: 24 }]}>
-                        Búsquedas abiertas
+                    <Text style={[styles.heading, active.length > 0 && { marginTop: 24 }]}>
+                        Búsquedas cerradas
                     </Text>
                     <FlatList
-                        data={lostObjects}
+                        data={closed}
                         keyExtractor={(item) => `lost-${item.uuid}`}
                         renderItem={renderLostObject}
                         scrollEnabled={false}
@@ -202,16 +197,10 @@ const styles = StyleSheet.create({
         flex: 1,
         marginRight: 8,
     },
-    cardDesc: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 13,
-        color: colors.textMuted,
-        marginBottom: 8,
-        lineHeight: 18,
-    },
     cardFooter: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginTop: 2,
     },
     cardDate: {
         fontFamily: 'PlusJakartaSans-Regular',
@@ -226,26 +215,6 @@ const styles = StyleSheet.create({
     chipText: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 11,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 40,
-        gap: 12,
-    },
-    emptyTitle: {
-        fontFamily: 'PlusJakartaSans-Bold',
-        fontSize: 18,
-        color: colors.text,
-        textAlign: 'center',
-    },
-    emptyDesc: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 14,
-        color: colors.textMuted,
-        textAlign: 'center',
-        lineHeight: 20,
     },
 });
 

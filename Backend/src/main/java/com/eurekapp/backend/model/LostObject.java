@@ -17,4 +17,11 @@ public class LostObject {
     private GeoCoordinates coordinates;
     private List<Float> embeddings;
     private Float score;
+    // Estado de la búsqueda guardada (EU-292). El cierre es LÓGICO: la búsqueda nunca se borra
+    // de Weaviate, sólo pasa a CLOSED y deja de mostrarse como activa / de disparar avisos.
+    private LostObjectStatus status;
+    private LocalDateTime closedDate;
+    // Respuesta del dueño al cerrar ("¿Recuperaste tu objeto? Sí/No"). Es un dato de la búsqueda,
+    // NO un SearchFeedback (que es otra feature: calificar una búsqueda de objeto encontrado).
+    private Boolean recovered;
 }
