@@ -47,22 +47,22 @@ public class ReturnFoundObjectService {
     private final ObjectStorage s3Service;
     private final ExecutorService executorService;
     private final NotificationService notificationService;
-    private final IReclamoRepository reclamoRepository;
-    private final IReclamoHistoryRepository reclamoHistoryRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final InAppNotificationService inAppNotificationService;
     private final EmailTemplateService emailTemplateService;
+    private final FraudDetectionService fraudDetectionService;
+    private final FraudBlockService fraudBlockService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
                                     ExecutorService executorService, NotificationService notificationService,
-                                    IReclamoRepository reclamoRepository,
-                                    IReclamoHistoryRepository reclamoHistoryRepository,
                                     IRewardExclusionRepository rewardExclusionRepository,
                                     InAppNotificationService inAppNotificationService,
-                                    EmailTemplateService emailTemplateService){
+                                    EmailTemplateService emailTemplateService,
+                                    FraudDetectionService fraudDetectionService,
+                                    FraudBlockService fraudBlockService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -70,11 +70,11 @@ public class ReturnFoundObjectService {
         this.s3Service = s3Service;
         this.executorService = executorService;
         this.notificationService = notificationService;
-        this.reclamoRepository = reclamoRepository;
-        this.reclamoHistoryRepository = reclamoHistoryRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.emailTemplateService = emailTemplateService;
+        this.fraudDetectionService = fraudDetectionService;
+        this.fraudBlockService = fraudBlockService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -114,17 +114,6 @@ public class ReturnFoundObjectService {
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
                 throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
             }
-
-            // Verificamos que el usuario tenga un reclamo previo sobre este objeto
-            boolean hasPriorClaim = reclamoRepository
-                    .findByFoundObjectUUIDAndUser_Id(
-                            command.getFoundObjectUUID(),
-                            user.getId()
-                    ).isPresent();
-            if (!hasPriorClaim) {
-                throw new BadRequestException("no_prior_claim",
-                        "El usuario no posee un reclamo previo asociado a este objeto");
-            }
         }
 
 
@@ -139,6 +128,23 @@ public class ReturnFoundObjectService {
         if(foundObject.getWasReturned()){
             throw new BadRequestException("found_object", String.format("Found object with UUID '%s' was already returned", command.getFoundObjectUUID()));
         }
+
+        // Validación de bloqueo (EU-286): no se permite el retiro si el DNI o el usuario que retira
+        // están bloqueados por sospecha de fraude. El finder bloqueado NO frena la devolución (se
+        // maneja más abajo en la sección 7: la devolución se permite, pero sin otorgarle puntos).
+        Optional<String> dniBlockMessage =
+                fraudBlockService.describeActiveDniBlock(command.getDNI(), "El DNI ingresado");
+        if (dniBlockMessage.isPresent()) {
+            throw new BadRequestException("dni_blocked", dniBlockMessage.get());
+        }
+        if (user != null) {
+            Optional<String> userBlockMessage =
+                    fraudBlockService.describeActiveUserBlock(user.getId(), "El usuario que retira");
+            if (userBlockMessage.isPresent()) {
+                throw new BadRequestException("user_blocked", userBlockMessage.get());
+            }
+        }
+
         // Actualizamos el objeto en la BD vectorial para marcarlo como devuelto.
         //foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
         Future<Void> updateFoundObjectFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.markAsReturned(command.getFoundObjectUUID()));
@@ -163,6 +169,7 @@ public class ReturnFoundObjectService {
         rfo.setDNI(command.getDNI());
         rfo.setPhoneNumber(command.getPhoneNumber());
         rfo.setPersonPhotoUUID(personPhotoUUID);
+        rfo.setReturnedByEmployee(caller);
         // Guardar el objeto devuelto
         //returnFoundObjectRepository.save(rfo);
         Future<ReturnFoundObject> saveReturnFoundObjectFuture = (Future<ReturnFoundObject>) executorService.submit(() -> returnFoundObjectRepository.save(rfo));
@@ -180,24 +187,10 @@ public class ReturnFoundObjectService {
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-                        // 6b- ACTUALIZAR STATUS DEL RECLAMO A DEVUELTO
-        List<Reclamo> reclamosDelObjeto =
-                reclamoRepository.findByFoundObjectUUID(command.getFoundObjectUUID());
-        for (Reclamo r : reclamosDelObjeto) {
-            if (r.getStatus() == ClaimStatus.DEVUELTO || r.getStatus() == ClaimStatus.RECHAZADO) continue;
-            ReclamoHistory h = ReclamoHistory.builder()
-                    .reclamo(r)
-                    .previousStatus(r.getStatus())
-                    .newStatus(ClaimStatus.DEVUELTO)
-                    .changedBy(null)
-                    .changedAt(LocalDateTime.now())
-                    .note("Objeto retirado")
-                    .build();
-            reclamoHistoryRepository.save(h);
-            r.setStatus(ClaimStatus.DEVUELTO);
-            r.setUpdatedAt(LocalDateTime.now());
-            reclamoRepository.save(r);
-        }
+        // Control de fraude OBLIGATORIO sobre la devolución (EU-285): una devolución no se
+        // considera completada sin pasar por el control. Si el control falla, el error se
+        // propaga y la operación NO se da por exitosa.
+        fraudDetectionService.detectFraudForReturn(rfo);
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();
@@ -209,6 +202,18 @@ public class ReturnFoundObjectService {
                 UserEurekapp finder = userRepository.findById(finderProxy.getId()).orElse(null);
                 if (finder == null) {
                     log.warn("Finder user id={} not found in DB", finderProxy.getId());
+                } else if (fraudBlockService.isUserBlocked(finder.getId())) {
+                    // Finder bloqueado por sospecha de fraude (EU-286): la devolución se permite igual,
+                    // pero no se le otorgan puntos. Se le notifica el motivo (solo in-app).
+                    log.info("Finder id={} bloqueado: devolución permitida sin recompensa", finder.getId());
+                    inAppNotificationService.createNotification(
+                            finder,
+                            "No recibiste puntos por esta devolución",
+                            "El objeto \"" + foundObject.getTitle() + "\" fue devuelto a su dueño, pero no sumaste "
+                                    + "puntos porque tu cuenta está temporalmente bloqueada por sospecha de fraude.",
+                            "REWARD_BLOCKED",
+                            null
+                    );
                 } else if (rewardExclusionRepository.existsByFoundObjectUUID(foundObject.getUuid())
                         || (finder.getRole() != null && ROLE_LABELS.containsKey(finder.getRole().name()))) {
                     // Exclusión ya registrada, o rol incompatible sin registro previo (e.g. seed data)

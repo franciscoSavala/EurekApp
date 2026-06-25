@@ -8,50 +8,25 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
+import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import { useFocusEffect } from '@react-navigation/native';
 import EmptyState from '../components/EmptyState';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const REASON_LABELS = {
-    MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes del mismo objeto',
-    HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
-};
-
-const STATUS_COLORS = {
-    PENDING: '#f59e0b',
-    CONFIRMED_FRAUD: '#ED4337',
-    FALSE_POSITIVE: '#008000',
-};
-
-const STATUS_LABELS = {
-    PENDING: 'Pendiente',
-    CONFIRMED_FRAUD: 'Fraude confirmado',
-    FALSE_POSITIVE: 'Falso positivo',
-};
-
 const FraudAlerts = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [isOwner, setIsOwner] = useState(false);
 
     const fetchAlerts = async () => {
         setLoading(true);
         try {
-            const [alertsData, raw] = await Promise.all([
-                authFetch('get', `${BACK_URL}/fraud-alerts`),
-                AsyncStorage.getItem('user'),
-            ]);
+            const alertsData = await authFetch('get', `${BACK_URL}/fraud-alerts`);
             setAlerts(alertsData);
-            if (raw) {
-                const u = JSON.parse(raw);
-                setIsOwner(u.role === 'ORGANIZATION_OWNER');
-            }
         } catch (error) {
             console.log(error);
         } finally {
@@ -65,26 +40,34 @@ const FraudAlerts = ({ navigation }) => {
         }, [])
     );
 
-    const renderItem = ({ item }) => (
-        <TouchableOpacity
-            style={styles.item}
-            onPress={() => navigation.navigate('FraudAlertDetail', { alertId: item.id })}>
-            <View style={styles.itemContent}>
-                <View style={[styles.statusChip, { backgroundColor: STATUS_COLORS[item.status] || '#aaa' }]}>
-                    <Text style={styles.statusChipText}>{STATUS_LABELS[item.status] || item.status}</Text>
+    const renderItem = ({ item }) => {
+        const suspects = item.suspectUsers ? item.suspectUsers.length : 0;
+        return (
+            <TouchableOpacity
+                style={styles.item}
+                onPress={() => navigation.navigate('FraudAlertDetail', { alertId: item.id })}>
+                <View style={styles.itemContent}>
+                    <View style={[styles.statusChip, { backgroundColor: STATUS_COLORS[item.status] || '#aaa' }]}>
+                        <Text style={styles.statusChipText}>{STATUS_LABELS[item.status] || item.status}</Text>
+                    </View>
+                    <Text style={styles.reasonText}>
+                        {humanizeReason(item.reason) || item.reason}
+                    </Text>
+                    {item.dni ? (
+                        <Text style={styles.metaText}>DNI: {item.dni}</Text>
+                    ) : null}
+                    {suspects > 0 ? (
+                        <Text style={styles.metaText}>
+                            {suspects === 1 ? '1 usuario involucrado' : `${suspects} usuarios involucrados`}
+                        </Text>
+                    ) : null}
+                    <Text style={styles.metaText}>
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString('es-AR') : ''}
+                    </Text>
                 </View>
-                <Text style={styles.reasonText}>
-                    {REASON_LABELS[item.reason] || item.reason}
-                </Text>
-                {item.suspectUserEmail ? (
-                    <Text style={styles.metaText}>Usuario: {item.suspectUserEmail}</Text>
-                ) : null}
-                <Text style={styles.metaText}>
-                    {item.createdAt ? new Date(item.createdAt).toLocaleString('es-AR') : ''}
-                </Text>
-            </View>
-        </TouchableOpacity>
-    );
+            </TouchableOpacity>
+        );
+    };
 
     const EmptyComponent = () => (
         <EmptyState icon="triangle-exclamation" title="No hay alertas de fraude" />
@@ -92,13 +75,11 @@ const FraudAlerts = ({ navigation }) => {
 
     return (
         <View style={styles.container}>
-            {isOwner && (
-                <TouchableOpacity
-                    style={styles.reportBtn}
-                    onPress={() => navigation.navigate('FraudReport')}>
-                    <Text style={styles.reportBtnText}>Ver reporte</Text>
-                </TouchableOpacity>
-            )}
+            <TouchableOpacity
+                style={styles.reportBtn}
+                onPress={() => navigation.navigate('FraudReport')}>
+                <Text style={styles.reportBtnText}>Ver reporte</Text>
+            </TouchableOpacity>
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#111818" />
@@ -177,16 +158,6 @@ const styles = StyleSheet.create({
     metaText: {
         fontSize: 13,
         fontFamily: 'PlusJakartaSans-Regular',
-        color: colors.textMuted,
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontFamily: 'PlusJakartaSans-Regular',
-        fontSize: 15,
         color: colors.textMuted,
     },
 });

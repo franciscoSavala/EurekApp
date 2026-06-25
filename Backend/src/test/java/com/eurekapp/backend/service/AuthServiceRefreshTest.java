@@ -5,6 +5,7 @@ import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
 import io.jsonwebtoken.JwtException;
@@ -38,7 +39,8 @@ class AuthServiceRefreshTest {
         NotificationService notificationService = mock(NotificationService.class);
         EmailTemplateService emailTemplateService = mock(EmailTemplateService.class);
 
-        authService = new AuthService(userRepository, jwtService, authenticationManager, notificationService, emailTemplateService);
+        IOrganizationRequestRepository orgRequestRepository = mock(IOrganizationRequestRepository.class);
+        authService = new AuthService(userRepository, orgRequestRepository, jwtService, authenticationManager, notificationService, emailTemplateService);
 
         user = UserEurekapp.builder()
                 .username("usuario@eurekapp.com")

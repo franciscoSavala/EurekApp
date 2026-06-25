@@ -176,9 +176,25 @@ create_class_if_missing "LostObject" '{
     { "name": "description",     "dataType": ["string"] },
     { "name": "username",        "dataType": ["string"] },
     { "name": "organization_id", "dataType": ["text"] },
-    { "name": "coordinates",     "dataType": ["geoCoordinates"] }
+    { "name": "coordinates",     "dataType": ["geoCoordinates"] },
+    { "name": "status",          "dataType": ["text"] },
+    { "name": "closed_date",     "dataType": ["date"] },
+    { "name": "recovered",       "dataType": ["boolean"] }
   ]
 }'
+
+# EU-292: si la clase LostObject ya existía (creada antes del rework), le faltan las propiedades
+# del cierre lógico. Las agregamos de forma idempotente (si ya existen, Weaviate responde error y
+# se ignora). En una instalación fresca el bloque de arriba ya las crea.
+if [[ "$(curl -s -o /dev/null -w "%{http_code}" "$WEAVIATE_URL/v1/schema/LostObject")" == "200" ]]; then
+  for PROP in '{"name":"status","dataType":["text"]}' \
+              '{"name":"closed_date","dataType":["date"]}' \
+              '{"name":"recovered","dataType":["boolean"]}'; do
+    curl -s -o /dev/null -X POST "$WEAVIATE_URL/v1/schema/LostObject/properties" \
+      -H "Content-Type: application/json" -d "$PROP"
+  done
+  info "LostObject: propiedades de cierre (status/closed_date/recovered) aseguradas."
+fi
 
 # ─── 8. Levantar backend Spring Boot ─────────────────────────────────────────
 echo ""

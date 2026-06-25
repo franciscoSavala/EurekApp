@@ -36,8 +36,6 @@ import OrganizationRequestDetail from "./screens/organizationSignUp/Organization
 import Profile from "./screens/profileStack/Profile";
 import Organization from "./screens/organizationStack/Organization";
 import OrganizationPolicy from "./screens/organizationStack/OrganizationPolicy";
-import ReclamosList from "./screens/inventoryStack/ReclamosList";
-import ReclamoDetail from "./screens/inventoryStack/ReclamoDetail";
 import ReturnedObjects from "./screens/returnedObjectsStack/ReturnedObjects";
 import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectDetail";
 import Achievements from "./screens/AchievementsStack/Achievements";
@@ -49,17 +47,38 @@ import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
 import RewardExclusionsList from "./screens/rewardExclusionsStack/RewardExclusionsList";
 import MyObjectHistory from "./screens/myObjectsStack/MyObjectHistory";
-import MyObjectDetail from "./screens/myObjectsStack/MyObjectDetail";
 import MyLostObjectDetail from "./screens/myObjectsStack/MyLostObjectDetail";
 import Notifications from "./screens/notificationsStack/Notifications";
 import UserManagement from "./screens/adminStack/UserManagement";
 import OrganizationManagement from "./screens/adminStack/OrganizationManagement";
 import GlobalStatisticsDashboard from "./screens/adminStack/GlobalStatisticsDashboard";
+import FraudDetectionConfig from "./screens/adminStack/FraudDetectionConfig";
+import { SUPPORT_EMAIL } from './utils/contact';
 import Toast from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
+
+function isJwtValid(token) {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return false;
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+        const payload = JSON.parse(atob(padded));
+        return typeof payload.exp === 'number' && payload.exp * 1000 > Date.now();
+    } catch {
+        return false;
+    }
+}
+
+async function clearSession() {
+    await AsyncStorage.multiRemove([
+        'jwt', 'refreshToken', 'user', 'username',
+        'user.first_name', 'org.id', 'org.name', 'organization',
+    ]);
+}
 
 const AuthStack = createStackNavigator();
 
@@ -154,14 +173,6 @@ const InventoryStackScreen = () => {
                 name='ReturnObjectForm'
                 component={ReturnObjectForm}
                 options={{headerShown: true, title: 'Devolver objeto'}} />
-            <InventoryStack.Screen
-                name='ReclamosList'
-                component={ReclamosList}
-                options={{headerShown: true, title: 'Reclamos'}} />
-            <InventoryStack.Screen
-                name='ReclamoDetail'
-                component={ReclamoDetail}
-                options={{headerShown: true, title: 'Detalle del reclamo'}} />
         </InventoryStack.Navigator>
     );
 }
@@ -252,11 +263,6 @@ const MyObjectsStackScreen = () => {
                 name="MyObjectHistory"
                 component={MyObjectHistory}
                 options={{ headerShown: false, title: 'EurekApp - Mis búsquedas' }}
-            />
-            <MyObjectsStack.Screen
-                name="MyObjectDetail"
-                component={MyObjectDetail}
-                options={{ headerShown: false, title: 'EurekApp - Detalle de búsqueda' }}
             />
             <MyObjectsStack.Screen
                 name="MyLostObjectDetail"
@@ -361,7 +367,7 @@ const CustomDrawerContent = (props) => {
             </View>
             <View style={styles.infoContainer}>
                 <Text style={styles.infoText}>Versión de la app: 0.0.1</Text>
-                <Text style={styles.infoText}>Contacto: soporte@eurekapp.com</Text>
+                <Text style={styles.infoText}>Contacto: {SUPPORT_EMAIL}</Text>
             </View>
             <DrawerItem
                 label="Logout"
@@ -384,10 +390,12 @@ const EurekappTab = () => {
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
     const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
+    const slidersIcon = () => <Icon name={'sliders'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+    const [pendingOrgRequestCount, setPendingOrgRequestCount] = useState(0);
     const prevCountRef = useRef(0);
     const isFirstFetchRef = useRef(true);
 
@@ -417,6 +425,45 @@ const EurekappTab = () => {
         const interval = setInterval(fetchUnreadCount, 30000);
         return () => clearInterval(interval);
     }, []);
+
+    const fetchPendingCount = useCallback(async () => {
+        if (userRole !== 'ADMIN') return;
+        try {
+            const jwt = await AsyncStorage.getItem('jwt');
+            const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count', {
+                headers: { Authorization: 'Bearer ' + jwt },
+            });
+            setPendingOrgRequestCount(res.data.count || 0);
+        } catch (e) {
+            // silently ignore — badge es opcional
+        }
+    }, [userRole]);
+
+    useEffect(() => {
+        if (userRole !== 'ADMIN') return;
+        fetchPendingCount();
+        const interval = setInterval(fetchPendingCount, 30000);
+        return () => clearInterval(interval);
+    }, [fetchPendingCount]);
+
+    const orgRequestsIcon = () => (
+        <View style={{ position: 'relative' }}>
+            <Icon name={'sitemap'} size={20} />
+            {pendingOrgRequestCount > 0 && (
+                <View style={{
+                    position: 'absolute', top: -5, right: -8,
+                    backgroundColor: '#CC4444', borderRadius: 8,
+                    minWidth: 16, height: 16,
+                    justifyContent: 'center', alignItems: 'center',
+                    paddingHorizontal: 2,
+                }}>
+                    <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
+                        {pendingOrgRequestCount > 99 ? '99+' : pendingOrgRequestCount}
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
 
     const bellIcon = () => (
         <View style={{ position: 'relative' }}>
@@ -452,7 +499,9 @@ const EurekappTab = () => {
             initialRouteName={
                 (userRole === 'ORGANIZATION_OWNER' || userRole === 'ORGANIZATION_EMPLOYEE' || userRole === 'ENCARGADO')
                     ? 'LostObjectReturnStackScreen'
-                    : 'FindObjectStackScreen'
+                    : userRole === 'ADMIN'
+                        ? 'GlobalStatisticsDashboard'
+                        : 'FindObjectStackScreen'
             }
             drawerContent={(props) => <CustomDrawerContent {...props} />} >
             {userRole !== 'ORGANIZATION_OWNER' && userRole !== 'ORGANIZATION_EMPLOYEE' && userRole !== 'ENCARGADO' ? (
@@ -525,7 +574,9 @@ const EurekappTab = () => {
                 <Drawer.Screen name="OrgRequestsAdminStackScreen" options={{
                     title: 'Solicitudes de alta',
                     headerTitleAlign: 'center',
-                    drawerIcon: organizationIcon
+                    drawerIcon: orgRequestsIcon
+                }} listeners={{
+                    focus: () => fetchPendingCount()
                 }} component={OrgRequestsAdminStackScreen} />
                 <Drawer.Screen name="UserManagement" options={{
                     title: 'Usuarios',
@@ -537,6 +588,16 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: organizationIcon
                 }} component={OrganizationManagement} />
+                <Drawer.Screen name="FraudAlertsStackScreen" options={{
+                    title: 'Alertas de fraude',
+                    headerTitleAlign: 'center',
+                    drawerIcon: shieldIcon
+                }} component={FraudAlertsStackScreen} />
+                <Drawer.Screen name="FraudDetectionConfigStackScreen" options={{
+                    title: 'Configuración de fraude',
+                    headerTitleAlign: 'center',
+                    drawerIcon: slidersIcon
+                }} component={FraudDetectionConfig} />
             </> : null
             }
 
@@ -570,14 +631,6 @@ const EurekappTab = () => {
             }} component={ProfileStackScreen}
             />
 
-            {(userRole === 'ORGANIZATION_OWNER' || userRole === 'ENCARGADO') ?
-                <Drawer.Screen name="FraudAlertsStackScreen" options={{
-                    title: 'Alertas de fraude',
-                    headerTitleAlign: 'center',
-                    drawerIcon: shieldIcon
-                }} component={FraudAlertsStackScreen}
-                /> : null}
-
             {userRole === 'ORGANIZATION_OWNER' ?
                 <>
                     <Drawer.Screen name="ReportsStackScreen" options={{
@@ -603,6 +656,12 @@ const EurekappTab = () => {
                             navigation.navigate('OrganizationStackScreen', { screen: 'Organization' });
                         },
                     })}
+                    />
+                    <Drawer.Screen name="MyOrganizationRequestOwner" options={{
+                        title: 'Mis solicitudes de alta',
+                        headerTitleAlign: 'center',
+                        drawerIcon: historyIcon
+                    }} component={MyOrganizationRequest}
                     />
                 </>: null}
         </Drawer.Navigator>
@@ -633,9 +692,11 @@ const App = () => {
                     AsyncStorage.getItem('jwt'),
                     AsyncStorage.getItem('user'),
                 ]);
-                if (token) {
+                if (token && isJwtValid(token)) {
                     setUser(token);
                     if (raw) setUserRole(JSON.parse(raw).role);
+                } else if (token) {
+                    await clearSession();
                 }
             } catch (e) {
                 if (__DEV__) console.warn('restoreSession error:', e);

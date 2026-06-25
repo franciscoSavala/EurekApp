@@ -1,11 +1,10 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.*;
-import com.eurekapp.backend.dto.AddEmployeeRequestDto;
-import com.eurekapp.backend.service.EmailTemplateService;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
+import com.eurekapp.backend.service.EmailTemplateService;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
@@ -334,7 +333,7 @@ public class UserService {
                 .username(user.getUsername())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
-                .role(user.getRole().toString())
+                .role(user.getRole().name())
                 .build();
 
         OrganizationDto orgDto = null;
@@ -360,7 +359,7 @@ public class UserService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .username(user.getUsername())
-                .role(user.getRole().toString())
+                .role(user.getRole().name())
                 .build();
         return userDto;
     }

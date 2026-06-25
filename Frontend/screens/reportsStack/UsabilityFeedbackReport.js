@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { formatDateISO } from '../../utils/dateFormatter';
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
@@ -20,7 +21,6 @@ import StarRating from "../components/StarRating";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
-const formatDate = (date) => date.toISOString().split("T")[0];
 
 const ASPECT_LABELS = {
     FACILIDAD_USO: "Facilidad de uso",
@@ -52,12 +52,12 @@ const UsabilityFeedbackReport = ({ navigation }) => {
         setError(null);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
-            const params = { from: formatDate(fromDate), to: formatDate(toDate), groupBy };
+            const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
             const headers = { Authorization: `Bearer ${jwt}` };
 
             const [repRes, recRes] = await Promise.all([
                 axiosInstance.get(`${BACK_URL}/usability-feedback/report`, { headers, params }),
-                axiosInstance.get(`${BACK_URL}/usability-feedback/records`, { headers, params: { from: formatDate(fromDate), to: formatDate(toDate) } }),
+                axiosInstance.get(`${BACK_URL}/usability-feedback/records`, { headers, params: { from: formatDateISO(fromDate), to: formatDateISO(toDate) } }),
             ]);
             setReportData(repRes.data);
             setRecords(recRes.data || []);
@@ -70,7 +70,7 @@ const UsabilityFeedbackReport = ({ navigation }) => {
     };
 
     const handleExportCsv = async () => {
-        const url = `${BACK_URL}/usability-feedback/report/export?from=${formatDate(fromDate)}&to=${formatDate(toDate)}`;
+        const url = `${BACK_URL}/usability-feedback/report/export?from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`;
         if (isWeb) {
             try {
                 const res = await fetchWithAuth(url);
@@ -111,11 +111,11 @@ const UsabilityFeedbackReport = ({ navigation }) => {
         setExportingPdf(true);
         try {
             const html = buildUsabilityFeedbackReportHtml(reportData, records, {
-                fromDate: formatDate(fromDate),
-                toDate: formatDate(toDate),
+                fromDate: formatDateISO(fromDate),
+                toDate: formatDateISO(toDate),
                 groupBy,
             });
-            await exportPdf(html, `Reporte_Usabilidad_${formatDate(new Date())}.pdf`);
+            await exportPdf(html, `Reporte_Usabilidad_${formatDateISO(new Date())}.pdf`);
         } catch (e) {
             console.warn("Error exportando PDF:", e);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo exportar el PDF. Intentá nuevamente.' });
@@ -142,13 +142,13 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.label}>Desde</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowFromPicker(true)}>
-                            <Text style={styles.dateText}>{formatDate(fromDate)}</Text>
+                            <Text style={styles.dateText}>{formatDateISO(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFromPicker && (
                             isWeb ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(fromDate)}
+                                    defaultValue={formatDateISO(fromDate)}
                                     style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc", fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => { setShowFromPicker(false); if (e.target.value) setFromDate(new Date(e.target.value)); }}
                                     onBlur={() => setShowFromPicker(false)}
@@ -167,13 +167,13 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.label}>Hasta</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowToPicker(true)}>
-                            <Text style={styles.dateText}>{formatDate(toDate)}</Text>
+                            <Text style={styles.dateText}>{formatDateISO(toDate)}</Text>
                         </TouchableOpacity>
                         {showToPicker && (
                             isWeb ? (
                                 <input
                                     type="date"
-                                    defaultValue={formatDate(toDate)}
+                                    defaultValue={formatDateISO(toDate)}
                                     style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc", fontSize: 14, marginTop: 4 }}
                                     onChange={(e) => { setShowToPicker(false); if (e.target.value) setToDate(new Date(e.target.value)); }}
                                     onBlur={() => setShowToPicker(false)}

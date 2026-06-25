@@ -10,27 +10,9 @@ import {
 import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
+import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
-
-const REASON_LABELS = {
-    MULTIPLE_CLAIMERS_SAME_OBJECT: 'Múltiples reclamantes del mismo objeto',
-    HIGH_CLAIM_FREQUENCY: 'Alta frecuencia de reclamos',
-    FINDER_CLAIMER_COLLUSION: 'Posible acuerdo entre registrador y reclamante',
-    REPEATED_REJECTIONS: 'Reclamos rechazados repetidos',
-};
-
-const STATUS_COLORS = {
-    PENDING: '#f59e0b',
-    CONFIRMED_FRAUD: '#ED4337',
-    FALSE_POSITIVE: '#008000',
-};
-
-const STATUS_LABELS = {
-    PENDING: 'Pendiente',
-    CONFIRMED_FRAUD: 'Fraude confirmado',
-    FALSE_POSITIVE: 'Falso positivo',
-};
 
 const FraudAlertDetail = ({ route }) => {
     const { alertId } = route.params;
@@ -55,10 +37,11 @@ const FraudAlertDetail = ({ route }) => {
         }
     };
 
-    const resolve = async (resolution) => {
+    // Única acción posible (EU-288): marcar la alerta como falsa alarma, lo que levanta el bloqueo.
+    const markFalseAlarm = async () => {
         setResolving(true);
         try {
-            await authFetch('post', `${BACK_URL}/fraud-alerts/${alertId}/resolve`, { resolution });
+            await authFetch('post', `${BACK_URL}/fraud-alerts/${alertId}/resolve`, {});
             await fetchDetail();
         } catch (error) {
             console.log(error);
@@ -83,6 +66,8 @@ const FraudAlertDetail = ({ route }) => {
         );
     }
 
+    const suspects = alert.suspectUsers || [];
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <View style={[styles.statusChip, { backgroundColor: STATUS_COLORS[alert.status] || '#aaa' }]}>
@@ -90,48 +75,54 @@ const FraudAlertDetail = ({ route }) => {
             </View>
 
             <Text style={styles.sectionLabel}>Motivo</Text>
-            <Text style={styles.value}>{REASON_LABELS[alert.reason] || alert.reason}</Text>
+            <Text style={styles.value}>{humanizeReason(alert.reason) || alert.reason}</Text>
 
             <Text style={styles.sectionLabel}>Detalle</Text>
             <Text style={styles.value}>{alert.details || 'Sin detalle adicional'}</Text>
 
+            <Text style={styles.sectionLabel}>DNI de quien retira</Text>
+            <Text style={styles.value}>{alert.dni || 'No especificado'}</Text>
+
             <Text style={styles.sectionLabel}>
-                {alert.relatedClaimants && alert.relatedClaimants.length > 1
-                    ? `Reclamantes (${alert.relatedClaimants.length})`
-                    : 'Usuario sospechoso'}
+                {suspects.length === 1 ? 'Usuario involucrado' : `Usuarios involucrados (${suspects.length})`}
             </Text>
-            {alert.relatedClaimants && alert.relatedClaimants.length > 0 ? (
-                alert.relatedClaimants.map((c, i) => (
-                    <View key={i} style={styles.claimantRow}>
-                        <Text style={styles.value}>{c.fullName || 'Desconocido'}</Text>
-                        <Text style={styles.metaText}>{c.email}</Text>
+            {suspects.length > 0 ? (
+                suspects.map((u, i) => (
+                    <View key={i} style={styles.suspectRow}>
+                        <Text style={styles.value}>{u.fullName || 'Desconocido'}</Text>
+                        {u.email ? <Text style={styles.metaText}>{u.email}</Text> : null}
                     </View>
                 ))
             ) : (
-                <Text style={styles.value}>
-                    {alert.suspectUserFullName || 'Desconocido'}
-                    {alert.suspectUserEmail ? `\n${alert.suspectUserEmail}` : ''}
-                </Text>
+                <Text style={styles.value}>Sin usuarios registrados (solo el DNI)</Text>
             )}
 
-            <Text style={styles.sectionLabel}>Objeto asociado</Text>
+            {alert.returnedByEmployeeFullName ? (
+                <>
+                    <Text style={styles.sectionLabel}>Empleado que entregó</Text>
+                    <Text style={styles.value}>{alert.returnedByEmployeeFullName}</Text>
+                    {alert.returnedByEmployeeEmail ? (
+                        <Text style={styles.metaText}>{alert.returnedByEmployeeEmail}</Text>
+                    ) : null}
+                </>
+            ) : null}
+
             {alert.foundObjectTitle ? (
-                <View>
+                <>
+                    <Text style={styles.sectionLabel}>Objeto asociado</Text>
                     <Text style={styles.value}>{alert.foundObjectTitle}</Text>
                     {alert.foundObjectDescription ? (
                         <Text style={styles.metaText}>{alert.foundObjectDescription}</Text>
                     ) : null}
-                </View>
-            ) : (
-                <Text style={styles.value}>Objeto no especificado</Text>
-            )}
+                </>
+            ) : null}
 
             <Text style={styles.sectionLabel}>Fecha de detección</Text>
             <Text style={styles.value}>
                 {alert.createdAt ? new Date(alert.createdAt).toLocaleString('es-AR') : '-'}
             </Text>
 
-            {alert.status !== 'PENDING' && (
+            {alert.status !== 'ACTIVE' && (
                 <>
                     <Text style={styles.sectionLabel}>Resuelto por</Text>
                     <Text style={styles.value}>{alert.resolvedByEmail || '-'}</Text>
@@ -144,27 +135,21 @@ const FraudAlertDetail = ({ route }) => {
 
             <View style={styles.infoBox}>
                 <Text style={styles.infoText}>
-                    El usuario no será bloqueado automáticamente. La revisión humana es obligatoria antes de tomar cualquier acción.
+                    El DNI y los usuarios involucrados fueron bloqueados automáticamente al detectarse la alerta.
+                    Si se trató de un error, marcá la alerta como falsa alarma para levantar el bloqueo.
                 </Text>
             </View>
 
-            {alert.status === 'PENDING' && (
+            {alert.status === 'ACTIVE' && (
                 <View style={styles.buttonsRow}>
                     {resolving ? (
                         <ActivityIndicator size="small" color="#111818" />
                     ) : (
-                        <>
-                            <TouchableOpacity
-                                style={[styles.btn, { backgroundColor: '#ED4337' }]}
-                                onPress={() => resolve('CONFIRMED_FRAUD')}>
-                                <Text style={styles.btnText}>Confirmar fraude</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.btn, { backgroundColor: '#008000' }]}
-                                onPress={() => resolve('FALSE_POSITIVE')}>
-                                <Text style={styles.btnText}>Falso positivo</Text>
-                            </TouchableOpacity>
-                        </>
+                        <TouchableOpacity
+                            style={[styles.btn, { backgroundColor: '#008000' }]}
+                            onPress={markFalseAlarm}>
+                            <Text style={styles.btnText}>Marcar falsa alarma</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
             )}
@@ -215,6 +200,12 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         color: colors.textMuted,
     },
+    suspectRow: {
+        marginBottom: 8,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
     infoBox: {
         marginTop: 24,
         backgroundColor: colors.surface,
@@ -241,12 +232,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-    },
-    claimantRow: {
-        marginBottom: 8,
-        paddingBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
     },
 });
 

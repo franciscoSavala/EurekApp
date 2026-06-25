@@ -14,9 +14,11 @@ public class FraudAlertDto {
     private String foundObjectUUID;
     private String foundObjectTitle;
     private String foundObjectDescription;
-    private String suspectUserEmail;
-    private String suspectUserFullName;
-    private List<FraudClaimantDto> relatedClaimants;
+    private String dni;
+    private List<FraudUserDto> suspectUsers;
+    private String returnedByEmployeeEmail;
+    private String returnedByEmployeeFullName;
+    private List<FraudCaseMatchDto> caseMatches;
     private String reason;
     private String details;
     private String status;

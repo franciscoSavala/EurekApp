@@ -24,6 +24,7 @@ import { colors } from "../../styles/globalStyles";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import {Buffer} from "buffer";
 import * as ImagePicker from "expo-image-picker";
+import Toast from "react-native-toast-message";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const isWeb = Platform.OS === 'web';
@@ -45,7 +46,6 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
     const [policy, setPolicy] = useState(null);
-    const [isSuspicious, setIsSuspicious] = useState(false);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -65,18 +65,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
                 // ignorar si no hay política configurada
             }
         };
-        const fetchSuspiciousStatus = async () => {
-            try {
-                const data = await authFetch('get', `${BACK_URL}/reclamos?status=APROBADO`);
-                const reclamos = data?.reclamos ?? data ?? [];
-                const match = reclamos.find(r => r.foundObjectUUID === objectId);
-                if (match?.isSuspicious) setIsSuspicious(true);
-            } catch (e) {
-                // ignorar si falla
-            }
-        };
         fetchPolicy();
-        fetchSuspiciousStatus();
     }, []);
 
     const validatePhotoUploaded = () => {
@@ -140,6 +129,11 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     type: 'manual',
                     message: userMessage
                 });
+                Toast.show({
+                    type: 'error',
+                    text1: 'No se pudo registrar la devolución',
+                    text2: userMessage
+                });
             }
             /*if(res.status === '404'){
                 console.log(res);
@@ -157,6 +151,11 @@ const ReturnObjectForm = ({ route, navigation}) => {
             setError('ObjectOwnerUsername', {
                 type: 'manual',
                 message: 'Error de conexión. Por favor, intentá de nuevo más tarde.'
+            });
+            Toast.show({
+                type: 'error',
+                text1: 'No se pudo registrar la devolución',
+                text2: 'Error de conexión. Por favor, intentá de nuevo más tarde.'
             });
         } finally {
             setLoading(false);
@@ -313,14 +312,6 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         }]}>{"\n"}Por razones de seguridad, debes ingresar los siguientes datos de la persona a la que le entregarás el objeto. {"\n"}
                         </Text>
                     </View>
-
-                    {isSuspicious && (
-                        <View style={styles.fraudWarning}>
-                            <Text style={styles.fraudWarningText}>
-                                ⚠ El reclamante tiene alertas de fraude confirmadas. Verificá la identidad con cuidado.
-                            </Text>
-                        </View>
-                    )}
 
                     {policy && (
                         <View style={styles.policyBlock}>

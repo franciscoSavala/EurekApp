@@ -41,45 +41,92 @@ const Field = ({ label, value }) => (
     ) : null
 );
 
+const RequestCard = ({ request, onCancel }) => {
+    const statusCfg = STATUS_CONFIG[request.status] || STATUS_CONFIG.PENDING_APPROVAL;
+    const orgTypeLabel = ORG_TYPE_LABELS[request.organizationType] || request.organizationType;
+    const displayType = request.organizationType === "OTHER" && request.customOrganizationType
+        ? `Otro (${request.customOrganizationType})`
+        : orgTypeLabel;
+
+    return (
+        <View style={styles.card}>
+            <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + "22", borderColor: statusCfg.color }]}>
+                <Icon name={statusCfg.icon} size={16} color={statusCfg.color} />
+                <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+            </View>
+
+            <Text style={styles.sectionTitle}>Organización</Text>
+            <Field label="Nombre" value={request.organizationName} />
+            <Field label="Tipo" value={displayType} />
+
+            <Text style={styles.sectionTitle}>Dirección</Text>
+            <Field label="Calle" value={request.street && `${request.street} ${request.streetNumber}`} />
+            <Field label="Ciudad" value={request.city} />
+            <Field label="Provincia" value={request.province} />
+
+            <Text style={styles.sectionTitle}>Responsable propuesto</Text>
+            <Field label="Nombre" value={request.ownerFirstName && `${request.ownerFirstName} ${request.ownerLastName}`} />
+            <Field label="Email" value={request.ownerEmail} />
+
+            {request.reason ? (
+                <>
+                    <Text style={styles.sectionTitle}>Motivo</Text>
+                    <Text style={styles.reasonText}>{request.reason}</Text>
+                </>
+            ) : null}
+
+            {request.createdAt && (
+                <Text style={styles.dateText}>
+                    Enviada el {new Date(request.createdAt).toLocaleDateString("es-AR")}
+                </Text>
+            )}
+
+            {request.status === "PENDING_APPROVAL" && (
+                <TouchableOpacity style={styles.cancelButton} onPress={() => onCancel(request.id)}>
+                    <Text style={styles.cancelButtonText}>Cancelar solicitud</Text>
+                </TouchableOpacity>
+            )}
+        </View>
+    );
+};
+
 const MyOrganizationRequest = () => {
-    const [request, setRequest] = useState(null);
+    const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
-    const [notFound, setNotFound] = useState(false);
-    const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [cancelTargetId, setCancelTargetId] = useState(null);
 
-    const fetchRequest = async () => {
+    const fetchRequests = async () => {
         setLoading(true);
-        setNotFound(false);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.get(BACK_URL + "/organizations/requests/my", {
                 headers: { Authorization: "Bearer " + jwt },
             });
-            setRequest(res.data);
-        } catch (e) {
-            if (e?.response?.status === 404) setNotFound(true);
+            setRequests(res.data);
+        } catch {
+            setRequests([]);
         } finally {
             setLoading(false);
         }
     };
 
-    useFocusEffect(useCallback(() => { fetchRequest(); }, []));
+    useFocusEffect(useCallback(() => { fetchRequests(); }, []));
 
     const confirmCancel = async () => {
-        setCancelModalVisible(false);
         setCancelling(true);
         try {
             const jwt = await AsyncStorage.getItem("jwt");
-            await axiosInstance.delete(BACK_URL + `/organizations/requests/${request.id}`, {
+            await axiosInstance.delete(BACK_URL + `/organizations/requests/${cancelTargetId}`, {
                 headers: { Authorization: "Bearer " + jwt },
             });
             Toast.show({ type: "success", text1: "Solicitud cancelada." });
-            fetchRequest();
-        } catch (e) {
+            fetchRequests();
+        } catch {
             Toast.show({ type: "error", text1: "No se pudo cancelar la solicitud." });
         } finally {
             setCancelling(false);
+            setCancelTargetId(null);
         }
     };
 
@@ -91,7 +138,7 @@ const MyOrganizationRequest = () => {
         );
     }
 
-    if (notFound) {
+    if (requests.length === 0) {
         return (
             <View style={styles.centered}>
                 <Icon name="file-circle-question" size={50} color="#bdc1c1" />
@@ -103,62 +150,14 @@ const MyOrganizationRequest = () => {
         );
     }
 
-    const statusCfg = STATUS_CONFIG[request?.status] || STATUS_CONFIG.PENDING_APPROVAL;
-    const orgTypeLabel = ORG_TYPE_LABELS[request?.organizationType] || request?.organizationType;
-    const displayType = request?.organizationType === "OTHER" && request?.customOrganizationType
-        ? `Otro (${request.customOrganizationType})`
-        : orgTypeLabel;
-
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <View style={[styles.statusBadge, { backgroundColor: statusCfg.color + "22", borderColor: statusCfg.color }]}>
-                <Icon name={statusCfg.icon} size={18} color={statusCfg.color} />
-                <Text style={[styles.statusText, { color: statusCfg.color }]}>{statusCfg.label}</Text>
-            </View>
-
-            <Text style={styles.sectionTitle}>Organización</Text>
-            <Field label="Nombre" value={request?.organizationName} />
-            <Field label="Tipo" value={displayType} />
-
-            <Text style={styles.sectionTitle}>Dirección</Text>
-            <Field label="Calle" value={request?.street && `${request.street} ${request.streetNumber}`} />
-            <Field label="Ciudad" value={request?.city} />
-            <Field label="Provincia" value={request?.province} />
-            <Field label="País" value={request?.country} />
-            {request?.latitude && (
-                <Field label="Coordenadas" value={`${request.latitude.toFixed(5)}, ${request.longitude.toFixed(5)}`} />
-            )}
-
-            <Text style={styles.sectionTitle}>Responsable propuesto</Text>
-            <Field label="Nombre" value={request?.ownerFirstName && `${request.ownerFirstName} ${request.ownerLastName}`} />
-            <Field label="Email" value={request?.ownerEmail} />
-            <Field label="Teléfono" value={request?.ownerPhone} />
-
-            <Text style={styles.sectionTitle}>Motivo</Text>
-            <Text style={styles.reasonText}>{request?.reason}</Text>
-
-            {request?.createdAt && (
-                <Text style={styles.dateText}>
-                    Enviada el {new Date(request.createdAt).toLocaleDateString("es-AR")}
-                </Text>
-            )}
-
-            {request?.status === "PENDING_APPROVAL" && (
-                <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setCancelModalVisible(true)}
-                    disabled={cancelling}
-                >
-                    {cancelling
-                        ? <ActivityIndicator color="#fff" />
-                        : <Text style={styles.cancelButtonText}>Cancelar solicitud</Text>
-                    }
-                </TouchableOpacity>
-            )}
-
+            {requests.map((req) => (
+                <RequestCard key={req.id} request={req} onCancel={(id) => setCancelTargetId(id)} />
+            ))}
             <InfoModal
-                visible={cancelModalVisible}
-                onClose={() => setCancelModalVisible(false)}
+                visible={cancelTargetId !== null && !cancelling}
+                onClose={() => setCancelTargetId(null)}
                 type="warning"
                 title="¿Cancelar solicitud?"
                 message="Si cancelás la solicitud, deberás volver a iniciarla desde cero."
@@ -176,27 +175,31 @@ const styles = StyleSheet.create({
     centered: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32 },
     emptyTitle: { fontSize: 18, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", marginTop: 16 },
     emptyText: { fontSize: 14, fontFamily: "PlusJakartaSans-Regular", color: "#638888", textAlign: "center", marginTop: 8 },
+    card: {
+        backgroundColor: "#f9fafb", borderRadius: 12, padding: 16,
+        marginBottom: 20, borderWidth: 1, borderColor: "#E0E0E0",
+    },
     statusBadge: {
         flexDirection: "row", alignItems: "center", gap: 8,
-        borderWidth: 1, borderRadius: 12, paddingVertical: 8,
-        paddingHorizontal: 16, alignSelf: "flex-start", marginBottom: 20,
+        borderWidth: 1, borderRadius: 12, paddingVertical: 6,
+        paddingHorizontal: 12, alignSelf: "flex-start", marginBottom: 16,
     },
-    statusText: { fontSize: 14, fontFamily: "PlusJakartaSans-Bold" },
+    statusText: { fontSize: 13, fontFamily: "PlusJakartaSans-Bold" },
     sectionTitle: {
-        fontSize: 16, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434",
-        marginTop: 20, marginBottom: 8,
-        borderBottomWidth: 1, borderBottomColor: "#E0E0E0", paddingBottom: 4,
+        fontSize: 14, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434",
+        marginTop: 16, marginBottom: 6,
+        borderBottomWidth: 1, borderBottomColor: "#E0E0E0", paddingBottom: 3,
     },
-    field: { marginBottom: 10 },
-    fieldLabel: { fontSize: 12, fontFamily: "PlusJakartaSans-Regular", color: "#638888" },
-    fieldValue: { fontSize: 15, fontFamily: "PlusJakartaSans-Regular", color: "#111818" },
-    reasonText: { fontSize: 14, fontFamily: "PlusJakartaSans-Regular", color: "#111818", lineHeight: 22 },
-    dateText: { fontSize: 12, color: "#999", fontFamily: "PlusJakartaSans-Regular", marginTop: 20 },
+    field: { marginBottom: 8 },
+    fieldLabel: { fontSize: 11, fontFamily: "PlusJakartaSans-Regular", color: "#638888" },
+    fieldValue: { fontSize: 14, fontFamily: "PlusJakartaSans-Regular", color: "#111818" },
+    reasonText: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#111818", lineHeight: 20 },
+    dateText: { fontSize: 11, color: "#999", fontFamily: "PlusJakartaSans-Regular", marginTop: 12 },
     cancelButton: {
-        backgroundColor: "#CC4444", borderRadius: 12, paddingVertical: 14,
-        alignItems: "center", marginTop: 24,
+        backgroundColor: "#CC4444", borderRadius: 10, paddingVertical: 12,
+        alignItems: "center", marginTop: 16,
     },
-    cancelButtonText: { color: "#fff", fontSize: 15, fontFamily: "PlusJakartaSans-Bold" },
+    cancelButtonText: { color: "#fff", fontSize: 14, fontFamily: "PlusJakartaSans-Bold" },
 });
 
 export default MyOrganizationRequest;

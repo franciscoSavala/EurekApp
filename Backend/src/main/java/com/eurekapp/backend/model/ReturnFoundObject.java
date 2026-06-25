@@ -45,6 +45,11 @@ public class ReturnFoundObject {
     @Column(nullable = false)
     private LocalDateTime datetimeOfReturn;
 
+    // Empleado/usuario de la org que registró la devolución. Prerrequisito fraude Caso 3.
+    @ManyToOne
+    @JoinColumn(name = "returned_by_employee_id", nullable = true)
+    private UserEurekapp returnedByEmployee;
+
     // Fecha y hora en que se envió la notificación al finder. Null si no se envió o hubo error.
     @Column(name = "notification_sent_at")
     private LocalDateTime notificationSentAt;

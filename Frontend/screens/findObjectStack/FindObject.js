@@ -230,7 +230,15 @@ const FindObject = ({ navigation, route }) => {
             <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
             <EurekappButton
                 text="Buscar por foto"
-                onPress={() => navigation.navigate('SearchByPhoto')}
+                onPress={() => navigation.navigate('SearchByPhoto', {
+                    selectedInstitute,
+                    lostDate,
+                    latitude: objectMarker.latitude,
+                    longitude: objectMarker.longitude,
+                    filterCategory,
+                    filterColor,
+                    filterLostDateTo,
+                })}
                 backgroundColor={colors.surface}
                 textColor={colors.text}
             />

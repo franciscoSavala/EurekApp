@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useState } from "react";
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 import {
     ActivityIndicator,
     FlatList,
@@ -24,17 +25,15 @@ const TYPE_LABELS = {
     ROLE_CHANGED: "Cambio de rol",
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
+    REWARD_BLOCKED: "Recompensa no otorgada",
+    FRAUD_BLOCK_LIFTED: "Bloqueo levantado",
+    FRAUD_EMPLOYEE_INVOLVED: "Empleado involucrado en fraude",
     FRAUD_ALERT: "Alerta de fraude",
     ORG_REGISTRATION_REQUEST: "Solicitud de alta de organización",
     ORG_REQUEST_APPROVED: "Solicitud aprobada",
     ORG_REQUEST_REJECTED: "Solicitud rechazada",
 };
 
-const formatDate = (isoString) => {
-    if (!isoString) return "";
-    const d = new Date(isoString);
-    return d.toLocaleDateString("es-AR") + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
-};
 
 const Notifications = ({ navigation, route }) => {
     const { setUserRole } = useContext(LoginContext);
@@ -89,9 +88,16 @@ const Notifications = ({ navigation, route }) => {
                 { requestId },
                 { headers: { Authorization: "Bearer " + jwt } }
             );
+            if (res.data?.token) {
+                await AsyncStorage.setItem('jwt', res.data.token);
+            }
+            if (res.data?.refreshToken) {
+                await AsyncStorage.setItem('refreshToken', res.data.refreshToken);
+            }
             if (res.data?.user) {
                 await AsyncStorage.setItem('user.first_name', res.data.user.firstName.toString());
                 await AsyncStorage.setItem('user', JSON.stringify(res.data.user));
+                setUserRole(res.data.user.role);
             }
             if (res.data?.organization) {
                 await AsyncStorage.setItem('org.id', res.data.organization.id.toString());
@@ -154,6 +160,7 @@ const Notifications = ({ navigation, route }) => {
                 await AsyncStorage.setItem("organization", JSON.stringify(res.data.organization));
             }
             await markAsRead(notifId);
+            fetchNotifications();
             Toast.show({
                 type: "success",
                 text1: "¡Sesión actualizada!",
@@ -175,7 +182,7 @@ const Notifications = ({ navigation, route }) => {
         const isUnread = !item.is_read;
         const isPendingInvitation =
             item.type === "EMPLOYEE_INVITATION" && item.related_request_id != null;
-        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED";
+        const isApprovedOrgRequest = item.type === "ORG_REQUEST_APPROVED" && !item.is_read;
 
         return (
             <TouchableOpacity
@@ -191,7 +198,7 @@ const Notifications = ({ navigation, route }) => {
                 </View>
                 <Text style={styles.itemTitle}>{item.title}</Text>
                 <Text style={styles.itemDescription}>{item.description}</Text>
-                <Text style={styles.itemDate}>{formatDate(item.created_at)}</Text>
+                <Text style={styles.itemDate}>{formatDateTimeLocaleES(item.created_at)}</Text>
 
                 {isPendingInvitation && (
                     <View style={styles.actionRow}>
@@ -216,6 +223,22 @@ const Notifications = ({ navigation, route }) => {
                             onPress={() => handleRefreshSession(item.id)}
                         >
                             <Text style={styles.actionButtonText}>Actualizar sesión</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {item.type === "ORG_REGISTRATION_REQUEST" && item.related_request_id != null && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => {
+                                markAsRead(item.id);
+                                navigation.navigate("OrgRequestsAdminStackScreen", {
+                                    screen: "OrganizationRequestDetail",
+                                    params: { requestId: item.related_request_id },
+                                });
+                            }}
+                        >
+                            <Text style={styles.actionButtonText}>Ver solicitud</Text>
                         </TouchableOpacity>
                     </View>
                 )}

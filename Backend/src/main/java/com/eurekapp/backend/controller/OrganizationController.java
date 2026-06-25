@@ -129,6 +129,15 @@ public class OrganizationController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/requests/pending-count")
+    @Operation(summary = "Contar solicitudes pendientes (admin)",
+            description = "Devuelve la cantidad de solicitudes de registro con estado PENDING_APPROVAL. Solo para ADMIN.")
+    public ResponseEntity<java.util.Map<String, Long>> getPendingRequestsCount(
+            @AuthenticationPrincipal UserEurekapp user) {
+        long count = organizationService.getPendingRequestsCount(user);
+        return ResponseEntity.ok(java.util.Map.of("count", count));
+    }
+
     @GetMapping("/requests")
     @Operation(summary = "Listar solicitudes de organización (admin)",
             description = "Devuelve todas las solicitudes de registro. Solo para ADMIN.")
@@ -138,11 +147,11 @@ public class OrganizationController {
     }
 
     @GetMapping("/requests/my")
-    @Operation(summary = "Ver mi solicitud de organización",
-            description = "Devuelve la última solicitud del usuario autenticado.")
-    public ResponseEntity<OrganizationRequestDetailDto> getMyOrganizationRequest(
+    @Operation(summary = "Ver mis solicitudes de organización",
+            description = "Devuelve todas las solicitudes realizadas por el usuario autenticado, ordenadas por fecha descendente.")
+    public ResponseEntity<List<OrganizationRequestDetailDto>> getMyOrganizationRequests(
             @AuthenticationPrincipal UserEurekapp user) {
-        return ResponseEntity.ok(organizationService.getMyOrganizationRequest(user));
+        return ResponseEntity.ok(organizationService.getMyOrganizationRequests(user));
     }
 
     @DeleteMapping("/requests/{id}")

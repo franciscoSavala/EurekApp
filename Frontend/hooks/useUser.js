@@ -16,7 +16,7 @@ export default function useUser(callback, deps) {
         error: false,
         errorCode: null,
         errorMessage: '',
-        logged: true,
+        logged: false,
     });
 
     const logout = useCallback(async () => {

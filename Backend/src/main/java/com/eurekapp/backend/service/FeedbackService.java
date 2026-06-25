@@ -26,9 +26,7 @@ import java.util.stream.Collectors;
 public class FeedbackService {
 
     private final ISearchFeedbackRepository feedbackRepository;
-    private final ReclamoService reclamoService;
     private final FoundObjectRepository foundObjectRepository;
-    private final FraudDetectionService fraudDetectionService;
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
         FoundObject fo = null;
@@ -46,19 +44,11 @@ public class FeedbackService {
                 .starRating(dto.getStarRating())
                 .wasFound(dto.getWasFound())
                 .comment(dto.getComment())
+                .lostObjectText(dto.getLostObjectText())
                 .createdAt(LocalDateTime.now())
                 .user(user)
                 .build();
         feedbackRepository.save(fb);
-
-        if (Boolean.TRUE.equals(dto.getWasFound())
-                && dto.getFoundObjectUUID() != null
-                && !dto.getFoundObjectUUID().isBlank()) {
-            reclamoService.createReclamo(fb, fo, dto.getClaimDescription());
-            if (orgId != null) {
-                fraudDetectionService.checkForFraud(orgId, dto.getFoundObjectUUID(), user, dto.getClaimDescription(), fo);
-            }
-        }
     }
 
     public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {
@@ -108,15 +98,31 @@ public class FeedbackService {
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
-        return feedbacks.stream().map(f -> FeedbackRecordDto.builder()
-                .id(f.getId())
-                .organizationId(f.getOrganizationId())
-                .foundObjectUUID(f.getFoundObjectUUID())
-                .starRating(f.getStarRating())
-                .wasFound(f.getWasFound())
-                .createdAt(f.getCreatedAt())
-                .comment(f.getComment())
-                .build()).collect(Collectors.toList());
+        return feedbacks.stream().map(f -> {
+            String foTitle = null;
+            String foDescription = null;
+            if (f.getFoundObjectUUID() != null) {
+                try {
+                    FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
+                    if (fo != null) {
+                        foTitle = fo.getTitle();
+                        foDescription = fo.getHumanDescription();
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (foTitle == null) foTitle = f.getLostObjectText();
+            return FeedbackRecordDto.builder()
+                    .id(f.getId())
+                    .organizationId(f.getOrganizationId())
+                    .foundObjectUUID(f.getFoundObjectUUID())
+                    .foundObjectTitle(foTitle)
+                    .foundObjectDescription(foDescription)
+                    .starRating(f.getStarRating())
+                    .wasFound(f.getWasFound())
+                    .createdAt(f.getCreatedAt())
+                    .comment(f.getComment())
+                    .build();
+        }).collect(Collectors.toList());
     }
 
     public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {

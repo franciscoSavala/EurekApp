@@ -1,6 +1,7 @@
 package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
+import com.eurekapp.backend.dto.request.CloseLostObjectRequestDto;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.service.LostObjectService;
@@ -36,10 +37,23 @@ public class LostObjectController {
     }
 
     @GetMapping("/my")
-    @Operation(summary = "Mis búsquedas abiertas",
-            description = "Retorna las búsquedas abiertas registradas por el usuario autenticado.")
+    @Operation(summary = "Mis búsquedas guardadas",
+            description = "Retorna las búsquedas guardadas del usuario autenticado (activas y cerradas).")
     public ResponseEntity<List<LostObjectResponseDto>> getMyLostObjects(
             @AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(lostObjectService.getMyLostObjects(user.getUsername()));
+    }
+
+    @PostMapping("/{uuid}/close")
+    @PreAuthorize("hasAuthority('USER')")
+    @Operation(summary = "Cerrar una búsqueda guardada",
+            description = "Cierra (lógicamente) una búsqueda guardada del usuario. El cierre es terminal: "
+                    + "no se reabre. Registra la respuesta a '¿Recuperaste tu objeto?' como feedback.")
+    public ResponseEntity<Void> closeLostObject(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable String uuid,
+            @Valid @RequestBody CloseLostObjectRequestDto request) {
+        lostObjectService.closeLostObject(user.getUsername(), uuid, request.getRecovered());
+        return ResponseEntity.ok().build();
     }
 }

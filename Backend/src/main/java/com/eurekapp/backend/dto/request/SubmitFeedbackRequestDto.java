@@ -17,5 +17,5 @@ public class SubmitFeedbackRequestDto {
     @Size(max = 500)
     private String comment;             // nullable — comentario opcional
     @Size(max = 500)
-    private String claimDescription;    // requerido si wasFound=true
+    private String lostObjectText;      // texto de búsqueda del usuario
 }

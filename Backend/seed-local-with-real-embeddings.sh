@@ -122,11 +122,14 @@ header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE reclamo_history;
-TRUNCATE TABLE reclamos;
+-- (rework fraude/reclamos) Reclamo y Fraude deshabilitados en el seed:
+-- 'reclamo_history' ya no existe (EU-278) y 'reclamos' se extirpa (EU-292);
+-- el modelo de fraude se rediseñó (EU-282/284). Truncarlas rompía la sesión.
+-- TRUNCATE TABLE reclamo_history;
+-- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
 TRUNCATE TABLE usability_feedback;
-TRUNCATE TABLE fraud_alert;
+-- TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
@@ -388,36 +391,50 @@ success "7 registros de usability_feedback insertados"
 # ─── 16. Insertar FraudAlerts ────────────────────────────────────────────────
 header "Insertando FraudAlerts"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
-('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
-('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
-('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
-('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
-SQL
-success "4 fraud_alerts insertados (2 PENDING, 1 CONFIRMED_FRAUD, 1 FALSE_POSITIVE)"
+# DESHABILITADO (EU-282): el modelo de FraudAlert se rediseñó. La columna 'suspect_user_id'
+# ya no existe (los sospechosos viven en la tabla join 'fraud_alert_suspect_user') y los
+# 'reason' de abajo (MULTIPLE_CLAIMERS_SAME_OBJECT, etc.) corresponden a las reglas viejas
+# que se eliminan en EU-253/EU-284. En una DB fresca este INSERT rompía contra el esquema
+# nuevo. Se repuebla con alertas basadas en DNI cuando aterricen las reglas nuevas
+# (EU-284/EU-285). No reactivar tal cual: la data contradiría el modelo de devoluciones.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
+# ('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
+# ('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
+# ('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
+# ('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
+# SQL
+warn "FraudAlerts: seed deshabilitado por rediseño del modelo (EU-282). Se repuebla en EU-284/EU-285."
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
-('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
-('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
-('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
-('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
-('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
-SQL
-success "5 reclamos insertados"
+# DESHABILITADO (rework fraude/reclamos): la columna 'reclamos.status' se eliminó (EU-278)
+# y la entidad 'Reclamo' se extirpa por completo (EU-292). En una DB fresca este INSERT
+# rompía contra el esquema nuevo. No reactivar: el reclamo dejó de ser una entidad propia.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
+# ('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
+# ('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
+# ('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
+# ('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
+# ('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
+# SQL
+warn "Reclamos: seed deshabilitado (status eliminado en EU-278; entidad extirpada en EU-292)."
 
 # ─── 18. Insertar ReclamoHistory ─────────────────────────────────────────────
 header "Insertando ReclamoHistory"
 
-$MYSQL_EXEC 2>/dev/null <<'SQL'
-INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
-(1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
-SQL
-success "1 entrada de reclamo_history insertada"
+# DESHABILITADO (rework fraude/reclamos): la entidad 'ReclamoHistory' y su tabla
+# 'reclamo_history' se eliminaron (EU-278); en una DB fresca no existe y el INSERT rompía.
+#
+# $MYSQL_EXEC 2>/dev/null <<'SQL'
+# INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
+# (1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
+# SQL
+warn "ReclamoHistory: seed deshabilitado (tabla eliminada en EU-278)."
 
 # ─── 19. Insertar OrganizationRequests ──────────────────────────────────────
 header "Insertando OrganizationRequests"
@@ -427,34 +444,71 @@ INSERT INTO organization_request
   (id, requesting_user_id, organization_name, organization_type, custom_organization_type,
    street, street_number, city, province, country, latitude, longitude,
    owner_first_name, owner_last_name, owner_email, owner_phone,
-   reason, status, created_at, resolved_at, resolved_by_user_id, admin_note)
+   reason, status, created_at, resolved_at, resolved_by_user_id, admin_note, organization_id)
 VALUES
 (1, 7,  'Club Atletico Belgrano',       'CLUB',            NULL,
    'Av. Patria',       '1600', 'Cordoba', 'Cordoba', 'Argentina', -31.3720, -64.2080,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Queremos gestionar objetos perdidos en los partidos del estadio.',
-   'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL),
+   'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL, NULL),
 
 (2, 8,  'Hospital Privado',             'HOSPITAL',        NULL,
    'Naciones Unidas',  '346',  'Cordoba', 'Cordoba', 'Argentina', -31.3876, -64.1803,
    'Pedro',   'Soria',   'pedro@mail.com',  '+54 9 351 333 4444',
    'El hospital necesita un sistema para devolver objetos a pacientes y familiares.',
-   'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL),
+   'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL, NULL),
 
 (3, 9,  'Colegio Nacional de Monserrat','SCHOOL',          NULL,
    'Obispo Trejo',     '294',  'Cordoba', 'Cordoba', 'Argentina', -31.4155, -64.1841,
    'Valeria', 'Castro',  'valeria@mail.com', '+54 9 351 555 6666',
    'El colegio quiere digitalizar la gestion de objetos perdidos del alumnado.',
    'REJECTED',         '2026-05-15 14:00:00', '2026-05-17 11:30:00', 1,
-   'La organizacion no cumple con los requisitos minimos de infraestructura para gestionar objetos perdidos en la plataforma.'),
+   'La organizacion no cumple con los requisitos minimos de infraestructura para gestionar objetos perdidos en la plataforma.', NULL),
 
 (4, 7,  'Mercado Norte',                'OTHER',           'Mercado municipal',
    'Bvd. Illia',       '300',  'Cordoba', 'Cordoba', 'Argentina', -31.4125, -64.1862,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Los puestos del mercado frecuentemente reciben objetos olvidados por los clientes.',
-   'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL);
+   'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL, NULL),
+
+-- Solicitudes aprobadas para las organizaciones precargadas
+(5, 2,  'UTN FRC',                            'UNIVERSITY',    NULL,
+   'Maestro Marcelo Lopez', '3814', 'Cordoba', 'Cordoba', 'Argentina', -31.4377, -64.1829,
+   'Martina', 'Gonzalez',  'owner.utn@eurekapp.com',   '+54 9 351 000 0001',
+   'Gestion de objetos perdidos en la facultad.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 1),
+
+(6, 3,  'Terminal de Omnibus Cordoba',        'BUS_TERMINAL',  NULL,
+   'Bvd. Peron',            '380',  'Cordoba', 'Cordoba', 'Argentina', -31.4201, -64.1888,
+   'Rodrigo', 'Fernandez', 'owner.term@eurekapp.com',  '+54 9 351 000 0002',
+   'Gestion de objetos perdidos en la terminal de omnibus.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 2),
+
+(7, 1,  'Aeropuerto Internacional Cordoba',   'AIRPORT',       NULL,
+   'Av. Fuerza Aerea Argentina', '6900', 'Cordoba', 'Cordoba', 'Argentina', -31.3233, -64.2081,
+   'Sofia',   'Herrera',  'emp1.aero@eurekapp.com',   '+54 9 351 000 0003',
+   'Gestion de objetos perdidos en el aeropuerto.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 3),
+
+(8, 11, 'Shopping Patio Olmos',               'SHOPPING',      NULL,
+   'Velez Sarsfield',       '361',  'Cordoba', 'Cordoba', 'Argentina', -31.4163, -64.1885,
+   'Camila',  'Vargas',    'owner.patio@eurekapp.com', '+54 9 351 000 0004',
+   'Gestion de objetos perdidos en el shopping.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 4),
+
+(9, 13, 'UNC Ciudad Universitaria',           'UNIVERSITY',    NULL,
+   'Av. Velez Sarsfield',   '5000', 'Cordoba', 'Cordoba', 'Argentina', -31.4384, -64.1917,
+   'Diego',   'Salinas',   'owner.unc@eurekapp.com',   '+54 9 351 000 0005',
+   'Gestion de objetos perdidos en la universidad.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 5),
+
+(10, 15, 'Dinosaurio Mall',                   'SHOPPING_MALL', NULL,
+   'Av. Ejercito Argentino', '6050', 'Cordoba', 'Cordoba', 'Argentina', -31.3693, -64.2254,
+   'Sebastian', 'Romero',  'owner.dino@eurekapp.com',  '+54 9 351 000 0006',
+   'Gestion de objetos perdidos en el shopping mall.',
+   'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 6);
 SQL
-success "4 organization_requests insertados (1 PENDING, 1 APPROVED, 1 REJECTED, 1 CANCELLED)"
+success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING + 1 APPROVED + 1 REJECTED + 1 CANCELLED)"
 
 # ─── 20. Upload de imagenes a S3 ─────────────────────────────────────────────
 header "Imagenes S3"
@@ -527,10 +581,10 @@ echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Termina
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 1                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 4  (1 PENDING/APPROVED/REJECTED/CANCELLED)${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 0  (seed off — EU-278)        ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 10 (6 APPROVED precargadas + 1P/1A/1R/1C) ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                                ${GREEN}${BOLD}║${NC}"
 printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  FoundObjects          : ${FO_INSERTED} (embeddings reales)"
