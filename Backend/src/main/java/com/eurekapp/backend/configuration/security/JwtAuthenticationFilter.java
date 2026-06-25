@@ -1,6 +1,8 @@
 package com.eurekapp.backend.configuration.security;
 
+import com.eurekapp.backend.exception.ApiError;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -21,10 +23,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final static String BEARER = "Bearer ";
     private final JwtService jwtService;
     private final UserDetailsService userService;
+    private final ObjectMapper objectMapper;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService userService, ObjectMapper objectMapper) {
         this.jwtService = jwtService;
         this.userService = userService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -44,10 +48,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UserDetails userDetails = userService.loadUserByUsername(userName);
                 if(jwtService.isTokenValid(jwt, userDetails)){
                     UserEurekapp eurekappUser = (UserEurekapp) userDetails;
+                    if (!eurekappUser.isActive()) {
+                        writeErrorResponse(response, "user_deactivated",
+                                "Tu cuenta fue desactivada. Contactá al administrador de EurekApp.");
+                        return;
+                    }
                     if (eurekappUser.getOrganization() != null && !eurekappUser.getOrganization().isActive()) {
-                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                        response.setContentType("application/json;charset=UTF-8");
-                        response.getWriter().write("{\"error\":\"org_deactivated\",\"message\":\"Tu organización fue desactivada.\"}");
+                        writeErrorResponse(response, "org_deactivated",
+                                "Tu organización fue desactivada.");
                         return;
                     }
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
@@ -65,5 +73,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Token malformado o inválido — continuamos sin autenticar
         }
         filterChain.doFilter(request, response);
+    }
+
+    private void writeErrorResponse(HttpServletResponse response, String error, String message) throws IOException {
+        ApiError apiError = ApiError.builder()
+                .error(error)
+                .message(message)
+                .status(HttpServletResponse.SC_UNAUTHORIZED)
+                .build();
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        objectMapper.writeValue(response.getWriter(), apiError);
     }
 }

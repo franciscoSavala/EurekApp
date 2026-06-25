@@ -226,10 +226,13 @@ public class AuthService {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> validateGoogleToken(String idToken) {
-        String url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+    private Map<String, Object> validateGoogleToken(String accessToken) {
+        String url = "https://www.googleapis.com/oauth2/v3/userinfo";
         try {
-            ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setBearerAuth(accessToken);
+            org.springframework.http.HttpEntity<Void> entity = new org.springframework.http.HttpEntity<>(headers);
+            ResponseEntity<Map> response = restTemplate.exchange(url, org.springframework.http.HttpMethod.GET, entity, Map.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new BadRequestException(ValidationError.INVALID_SOCIAL_TOKEN);
             }
