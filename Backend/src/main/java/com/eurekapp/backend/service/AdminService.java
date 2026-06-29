@@ -122,6 +122,25 @@ public class AdminService {
         userRepository.save(target);
         log.info("[action:toggleUserActive] Admin {} set active={} for user {}",
                 admin.getUsername(), active, target.getUsername());
+
+        String notifType  = active ? "USER_REACTIVATED" : "USER_DEACTIVATED";
+        String notifTitle = active ? "Tu cuenta fue reactivada" : "Tu cuenta fue desactivada";
+        String notifDesc  = active
+                ? "Tu cuenta en EurekApp volvió a estar activa."
+                : "Tu cuenta en EurekApp fue desactivada por el administrador. Tu sesión será cerrada.";
+        String emailSubject = active
+                ? "EurekApp — Tu cuenta fue reactivada"
+                : "EurekApp — Tu cuenta fue desactivada";
+
+        inAppNotificationService.createNotification(target, notifTitle, notifDesc, notifType, null);
+        try {
+            String emailBody = active
+                    ? emailTemplateService.buildUserReactivatedEmail(target.getFirstName())
+                    : emailTemplateService.buildUserDeactivatedEmail(target.getFirstName());
+            notificationService.sendNotification(target.getUsername(), emailSubject, emailBody);
+        } catch (Exception e) {
+            log.warn("No se pudo enviar email a {}: {}", target.getUsername(), e.getMessage());
+        }
     }
 
     // ── Organizaciones ────────────────────────────────────────────────────────

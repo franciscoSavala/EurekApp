@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #c62828; margin-top: 0;">Tu cuenta fue desactivada</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Tu cuenta en EurekApp fue <strong style="color: #c62828;">desactivada</strong> por el administrador de la plataforma.
+    </p>
+    <div style="background-color: #fff8e1; border-left: 4px solid #f9a825; padding: 16px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0; color: #555; line-height: 1.6;">
+        Tu sesión será cerrada automáticamente. Mientras tu cuenta permanezca desactivada,
+        no podrás acceder a EurekApp.
+      </p>
+    </div>
+    <p style="color: #333; line-height: 1.6;">
+      Si creés que esto es un error, comunicate con el equipo de EurekApp.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>
