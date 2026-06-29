@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #2e7d32; margin-top: 0;">Tu cuenta fue reactivada</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Tu cuenta en EurekApp fue <strong style="color: #2e7d32;">reactivada</strong> por el administrador de la plataforma.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Ya podés volver a iniciar sesión y utilizar todos los servicios de EurekApp con normalidad.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>

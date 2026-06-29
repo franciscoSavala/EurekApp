@@ -196,4 +196,16 @@ public class EmailTemplateService {
         ctx.setVariable("orgName", orgName);
         return templateEngine.process("email/org-reactivated", ctx);
     }
+
+    public String buildUserDeactivatedEmail(String firstName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        return templateEngine.process("email/user-deactivated", ctx);
+    }
+
+    public String buildUserReactivatedEmail(String firstName) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        return templateEngine.process("email/user-reactivated", ctx);
+    }
 }
