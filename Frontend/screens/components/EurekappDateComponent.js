@@ -75,9 +75,10 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                         selected={date}
                         onChange={(date) => handleDateChange(date)}
                         dateFormat="dd/MM/yyyy"
-                        showTimeSelect={false} // Solo calendario
+                        showTimeSelect={false}
                         ref={datePickerRef}
-                        customInput={<div />} // Esconde el input propio de DatePicker
+                        customInput={<div />}
+                        popperPlacement="auto"
                     />
 
                     <DatePicker
@@ -85,11 +86,12 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                         onChange={(date) => handleDateChange(date)}
                         showTimeSelect
                         showTimeSelectOnly
-                        timeIntervals={15} // Intervalos de 15 minutos
+                        timeIntervals={15}
                         timeCaption="Hora"
                         dateFormat="h:mm aa"
                         ref={timePickerRef}
-                        customInput={<div />} // Esconde el input propio de DatePicker
+                        customInput={<div />}
+                        popperPlacement="auto"
                     />
                 </>
             ) : (
