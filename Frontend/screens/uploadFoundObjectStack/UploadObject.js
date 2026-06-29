@@ -295,6 +295,7 @@ const submitData = async () => {
             let body = [{name: 'title', data: objectTitle},
                 {name: 'found_date', data: toLocalISO(foundDate)},
                 {name: 'detailed_description', data: detailedDescription},
+                {name: 'object_finder_username', data: objectFinderUsername || ''},
                 {name: 'file', filename: 'found_object.jpg',
                     data: String(image.base64)}];
             if (category) body.push({name: 'category', data: category});

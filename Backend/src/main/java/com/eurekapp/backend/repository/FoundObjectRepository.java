@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @Component
@@ -39,7 +40,7 @@ public class FoundObjectRepository {
                 .id(foundObject.getUuid())
                 .className("FoundObject")
                 .properties(new java.util.HashMap<>(Map.of(
-                        "found_date", foundObject.getFoundDate().toString()+":00Z",
+                        "found_date", foundObject.getFoundDate().atOffset(ZoneOffset.UTC).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")),
                             "title", foundObject.getTitle(),
                         "object_finder_user_id", foundObject.getObjectFinderUser() != null? foundObject.getObjectFinderUser().getId().toString():"0",
                         "human_description", foundObject.getHumanDescription(),

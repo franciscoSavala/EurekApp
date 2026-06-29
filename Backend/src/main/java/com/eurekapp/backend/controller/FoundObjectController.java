@@ -40,7 +40,7 @@ public class FoundObjectController {
             description = "Registra un objeto encontrado en el inventario de una organización. La imagen es analizada por IA para generar una descripción automática.")
     public ResponseEntity<FoundObjectUploadedResponseDto> uploadFoundObject(
             @RequestParam("title") @Length(max = 100, message = "El título no puede superar los 100 caracteres") String title,
-            @RequestParam("object_finder_username") String objectFinderUsername,
+            @RequestParam(value = "object_finder_username", required = false) String objectFinderUsername,
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "detailed_description", required = false) String detailedDescription,
             @RequestParam(value = "found_date") LocalDateTime foundDate,
