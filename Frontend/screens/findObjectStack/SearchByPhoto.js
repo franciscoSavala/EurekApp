@@ -127,7 +127,7 @@ const SearchByPhoto = ({ navigation, route }) => {
                     {
                         'Content-Type': 'multipart/form-data',
                     },
-                    [{ name: 'file', filename: 'search_photo.jpg', data: String(image.base64) }]
+                    [{ name: 'file', filename: 'search_photo.jpg', type: image.mimeType || 'image/jpeg', data: 'RNFetchBlob-base64://' + String(image.base64) }]
                 );
                 if (response.info().status < 200 || response.info().status >= 300) {
                     throw new Error(`HTTP ${response.info().status}`);
