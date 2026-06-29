@@ -135,8 +135,9 @@ export default function useUser(callback, deps) {
                 setUserRole(userContext.user.role);
                 setState({ loading: false, error: false, logged: true });
             } catch (err) {
+                const code = err?.response?.data?.error || null;
                 const message = err?.response?.data?.message || err.message || 'Error al iniciar sesión social';
-                setState({ loading: false, error: true, errorMessage: message, logged: false });
+                setState({ loading: false, error: true, errorCode: code, errorMessage: message, logged: false });
             }
         },
         [setUser, setUserRole, setState]
