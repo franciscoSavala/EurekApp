@@ -146,6 +146,9 @@ public class FeedbackService {
                 FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
                 objTitle = fo != null && fo.getTitle() != null ? fo.getTitle() : "";
             }
+            if (objTitle.isEmpty() && f.getLostObjectText() != null) {
+                objTitle = f.getLostObjectText();
+            }
             String fechaStr = f.getCreatedAt() != null ? f.getCreatedAt().toLocalDate().toString() : "";
             String encontroStr = Boolean.TRUE.equals(f.getWasFound()) ? "Sí" : "No";
 
