@@ -316,6 +316,11 @@ public class AuthService {
                         ValidationError.USER_NOT_FOUND.getCode(),
                         String.format(ValidationError.USER_NOT_FOUND.getError(), username)));
 
+        if (user.getOrganization() != null && !user.getOrganization().isActive()) {
+            throw new ForbiddenException("org_deactivated",
+                    "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
+        }
+
         log.info("[action:refreshToken] Token renovado para el usuario {}", username);
 
         String newJwt = jwtService.generateToken(user);

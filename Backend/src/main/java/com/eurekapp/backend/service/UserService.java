@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.configuration.security.JwtService;
 import com.eurekapp.backend.dto.*;
 import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
@@ -30,6 +31,7 @@ public class UserService {
     private NotificationService notificationService;
     private InAppNotificationService inAppNotificationService;
     private EmailTemplateService emailTemplateService;
+    private JwtService jwtService;
 
     /*
     * Método usado para obtener todos los empleados de una organización.
@@ -327,7 +329,9 @@ public class UserService {
      * aceptar la solicitud su tipo de usuario y organización cambiaron, entonces deben solicitarse estos detalles
      * nuevamente para poder acceder a las funcionalidades desbloqueadas sin tener que volver a iniciar sesión.
      * */
-    public LoginResponseDto refreshUserDetails(UserEurekapp user){
+    public LoginResponseDto refreshUserDetails(UserEurekapp user) {
+        String jwt = jwtService.generateToken(user);
+        String refreshToken = jwtService.generateRefreshToken(user);
 
         UserDto userDto = UserDto.builder()
                 .username(user.getUsername())
@@ -337,7 +341,7 @@ public class UserService {
                 .build();
 
         OrganizationDto orgDto = null;
-        if(user.getOrganization() != null) {
+        if (user.getOrganization() != null) {
             orgDto = OrganizationDto.builder()
                     .id(user.getOrganization().getId())
                     .name(user.getOrganization().getName())
@@ -345,12 +349,12 @@ public class UserService {
                     .build();
         }
 
-        LoginResponseDto newDetails = LoginResponseDto.builder()
+        return LoginResponseDto.builder()
+                .token(jwt)
+                .refreshToken(refreshToken)
                 .user(userDto)
                 .organization(orgDto)
                 .build();
-
-        return newDetails;
     }
 
     private UserDto userToDto(UserEurekapp user) {
