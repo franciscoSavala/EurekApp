@@ -218,6 +218,15 @@ public class AuthService {
                         log.info("[action:socialLogin] Usuario {} asignado como ORGANIZATION_OWNER de '{}'",
                                 email, orgRequest.getOrganizationName());
                     });
+
+            try {
+                notificationService.sendNotification(
+                        email,
+                        "¡Bienvenido/a a EurekApp!",
+                        emailTemplateService.buildWelcomeEmail(user.getFirstName()));
+            } catch (Exception e) {
+                log.warn("[action:socialLogin] No se pudo enviar el email de bienvenida a {}: {}", email, e.getMessage());
+            }
         }
 
         log.info("[action:socialLogin] Usuario {} autenticado via {}", email, provider);
