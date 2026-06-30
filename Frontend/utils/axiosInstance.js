@@ -96,8 +96,10 @@ export function setupAxiosInterceptors(logoutFn) {
                 return Promise.reject(error);
             }
 
-            // El backend devuelve 403 (y a veces 401) cuando el JWT venció.
-            const isAuthError = status === 401 || status === 403;
+            // Solo el 401 indica que el JWT venció y se puede renovar.
+            // El 403 es un error de permisos (el usuario no tiene el rol necesario)
+            // y no debe disparar el flujo de renovación de token.
+            const isAuthError = status === 401;
 
             if (!isAuthError || !originalRequest || originalRequest._retry) {
                 if (isAuthError && originalRequest?._retry) {
