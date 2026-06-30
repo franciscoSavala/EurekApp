@@ -5,8 +5,9 @@ import { refreshJwt } from './axiosInstance';
 export { refreshJwt };
 
 function isAuthError(status) {
-    // El backend devuelve 403 (y a veces 401) cuando el JWT venció.
-    return status === 401 || status === 403;
+    // Solo el 401 indica token vencido. El 403 es un error de permisos
+    // y no debe disparar el flujo de renovación de token.
+    return status === 401;
 }
 
 function withAuthHeader(headers, jwt) {
@@ -15,8 +16,8 @@ function withAuthHeader(headers, jwt) {
 
 /**
  * Equivalente a `fetch` para requests autenticadas que no pasan por el
- * interceptor de axios. Inyecta el JWT actual y, si la respuesta es 401/403
- * por token vencido, lo renueva con refreshJwt() y reintenta una sola vez.
+ * interceptor de axios. Inyecta el JWT actual y, si la respuesta es 401
+ * (token vencido), lo renueva con refreshJwt() y reintenta una sola vez.
  *
  * @param {string} url
  * @param {RequestInit} options - se respetan headers/method/body del caller.
@@ -36,7 +37,7 @@ export async function fetchWithAuth(url, options = {}) {
 
 /**
  * Variante de ReactNativeBlobUtil.fetch (usado para subir multipart/imágenes)
- * con renovación automática de JWT ante 401/403.
+ * con renovación automática de JWT ante 401 (token vencido).
  *
  * @param {string} method
  * @param {string} url
