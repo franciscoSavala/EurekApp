@@ -36,7 +36,7 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
             setResponseOk(true);
             setTimeout(() => {
                 setModalVisible(false);
-                navigation.navigate('MyObjectsStackScreen');
+                navigation.navigate('MyObjectsStackScreen', { screen: 'MyObjectHistory' });
             }, 1500);
         } catch (error) {
             console.error(error);
