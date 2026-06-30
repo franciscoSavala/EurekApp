@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-elements';
 import Toast from 'react-native-toast-message';
 import * as Google from 'expo-auth-session/providers/google';
@@ -17,6 +17,7 @@ const GOOGLE_ANDROID_CLIENT_ID  = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_
 export default function SocialAuthButtons() {
     const { loginWithSocial, isLoginLoading, hasLoginError, loginErrorCode, loginErrorMessage, clearLoginError } = useUser();
     const [modalVisible, setModalVisible] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
     const [googleRequest, googleResponse, promptGoogle] = Google.useAuthRequest({
         clientId:        GOOGLE_WEB_CLIENT_ID,
@@ -30,6 +31,7 @@ export default function SocialAuthButtons() {
             const accessToken = googleResponse.authentication?.accessToken;
             if (accessToken) loginWithSocial({ provider: 'GOOGLE', idToken: accessToken });
         }
+        if (googleResponse) setIsGoogleLoading(false);
     }, [googleResponse]);
 
     React.useEffect(() => {
@@ -54,10 +56,16 @@ export default function SocialAuthButtons() {
             <Text style={styles.divider}>— o continuá con —</Text>
             <TouchableOpacity
                 style={[styles.btn, styles.googleBtn]}
-                onPress={() => promptGoogle()}
-                disabled={!googleRequest || isLoginLoading}
+                onPress={async () => {
+                    setIsGoogleLoading(true);
+                    try { await promptGoogle(); } catch { setIsGoogleLoading(false); }
+                }}
+                disabled={!googleRequest || isLoginLoading || isGoogleLoading}
             >
-                <Text style={styles.googleBtnText}>Continuar con Google</Text>
+                {isGoogleLoading
+                    ? <ActivityIndicator size="small" color="#017575" />
+                    : <Text style={styles.googleBtnText}>Continuar con Google</Text>
+                }
             </TouchableOpacity>
             <InfoModal
                 visible={modalVisible}
