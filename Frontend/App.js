@@ -658,7 +658,7 @@ const EurekappTab = () => {
                     })}
                     />
                     <Drawer.Screen name="MyOrganizationRequestOwner" options={{
-                        title: 'Mis solicitudes de alta',
+                        title: 'Mi solicitud de organización',
                         headerTitleAlign: 'center',
                         drawerIcon: historyIcon
                     }} component={MyOrganizationRequest}
