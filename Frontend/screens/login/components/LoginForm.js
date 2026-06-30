@@ -83,7 +83,7 @@ export default function LoginForm(props) {
                 <Text style={styles.textError}>{errors.Password.message}</Text>
             )}
 
-            {hasLoginError && loginErrorCode !== 'org_deactivated' && (
+            {hasLoginError && loginErrorCode !== 'org_deactivated' && loginErrorCode !== 'user_deactivated' && (
                 <Text style={styles.textError}>
                     {loginErrorMessage || 'No se pudo iniciar sesión. Intentá de nuevo.'}
                 </Text>
@@ -94,6 +94,15 @@ export default function LoginForm(props) {
                 onClose={clearLoginErrorDelayed}
                 type="error"
                 title="Organización suspendida"
+                message={loginErrorMessage}
+                confirmLabel="Entendido"
+            />
+
+            <InfoModal
+                visible={hasLoginError && loginErrorCode === 'user_deactivated'}
+                onClose={clearLoginErrorDelayed}
+                type="error"
+                title="Cuenta desactivada"
                 message={loginErrorMessage}
                 confirmLabel="Entendido"
             />

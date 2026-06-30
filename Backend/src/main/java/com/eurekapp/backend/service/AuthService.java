@@ -24,6 +24,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -93,9 +95,12 @@ public class AuthService {
             // Devolver el token, datos del usuario, y la organización si está presente.
             return createLoginResponse(userEurekapp, jwt);
 
+        } catch (DisabledException | LockedException e) {
+            log.warn("[action:login] Cuenta desactivada para el usuario {}", user.getUsername());
+            throw new ForbiddenException("user_deactivated",
+                    "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte@eurekapp.com");
         } catch (AuthenticationException e) {
             log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getUsername());
-            // Si la autenticación falla, lanzamos un error de credenciales inválidas
             throw new BadRequestException(ValidationError.INVALID_CREDENTIALS);
         }
     }
