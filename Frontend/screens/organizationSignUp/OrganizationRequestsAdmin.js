@@ -3,6 +3,7 @@ import {
     ActivityIndicator,
     FlatList,
     RefreshControl,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -103,14 +104,15 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
     return (
         <View style={styles.container}>
             <Text style={styles.screenTitle}>Solicitudes de alta</Text>
-            <FlatList
+            <ScrollView
                 horizontal
-                data={FILTERS}
-                keyExtractor={f => f}
                 showsHorizontalScrollIndicator={false}
                 style={styles.filterRow}
-                renderItem={({ item: f }) => (
+                contentContainerStyle={styles.filterRowContent}
+            >
+                {FILTERS.map(f => (
                     <TouchableOpacity
+                        key={f}
                         style={[styles.filterChip, activeFilter === f && styles.filterChipActive]}
                         onPress={() => setActiveFilter(f)}
                     >
@@ -118,8 +120,8 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
                             {FILTER_LABELS[f]}
                         </Text>
                     </TouchableOpacity>
-                )}
-            />
+                ))}
+            </ScrollView>
             <FlatList
                 data={filtered}
                 keyExtractor={item => item.id.toString()}
@@ -143,11 +145,14 @@ const styles = StyleSheet.create({
         fontSize: 22, fontFamily: "PlusJakartaSans-Bold",
         color: "#1A3434", paddingHorizontal: 16, marginBottom: 8,
     },
-    filterRow: { paddingHorizontal: 12, marginBottom: 8, flexGrow: 0 },
+    filterRow: { marginBottom: 8, flexGrow: 0 },
+    filterRowContent: {
+        flexDirection: "row", alignItems: "center", paddingHorizontal: 12,
+    },
     filterChip: {
         borderWidth: 1, borderColor: "#bdc1c1", borderRadius: 20,
         paddingHorizontal: 16, paddingVertical: 7, marginHorizontal: 5,
-        backgroundColor: "#fff", flexShrink: 0,
+        backgroundColor: "#fff",
     },
     filterChipActive: { borderColor: "#4A9999", backgroundColor: "#4A9999" },
     filterText: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#638888" },
