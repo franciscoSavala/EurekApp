@@ -182,7 +182,7 @@ public class AuthService {
             user = existingUser.get();
             if (!user.isActive()) {
                 throw new ForbiddenException("user_deactivated",
-                        "Tu cuenta fue desactivada. Contactá al administrador de EurekApp.");
+                        "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte@eurekapp.com");
             }
             if (user.getOrganization() != null && !user.getOrganization().isActive()) {
                 throw new ForbiddenException("org_deactivated",
