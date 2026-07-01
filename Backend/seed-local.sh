@@ -12,24 +12,30 @@ header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
 MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
 WEAVIATE_URL="http://localhost:8081"
 
+# Cargar credenciales AWS desde .env.local si existe y AWS CLI no tiene sesión activa
+ENV_LOCAL="$(dirname "$0")/.env.local"
+if [[ -f "$ENV_LOCAL" ]]; then
+  set -a; source "$ENV_LOCAL"; set +a
+fi
+
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════╗${NC}"
 echo -e "${CYAN}${BOLD}║    EurekApp — Seed Base de Datos     ║${NC}"
 echo -e "${CYAN}${BOLD}╚══════════════════════════════════════╝${NC}"
 echo ""
 
-# ─── 1. Verificar que los contenedores están corriendo ───────────────────────
+# ─── 1. Verificar que los contenedores estan corriendo ───────────────────────
 header "Verificando contenedores"
 
 docker inspect eurekapp-mysql  --format='{{.State.Status}}' 2>/dev/null | grep -q "running" \
-  || error "MySQL no está corriendo. Ejecutá primero: bash start-local.sh"
+  || error "MySQL no esta corriendo. Ejecuta primero: bash start-local.sh"
 docker inspect eurekapp-weaviate --format='{{.State.Status}}' 2>/dev/null | grep -q "running" \
-  || error "Weaviate no está corriendo. Ejecutá primero: bash start-local.sh"
+  || error "Weaviate no esta corriendo. Ejecuta primero: bash start-local.sh"
 
 success "Contenedores OK"
 
-# ─── 2. Generar hash BCrypt para la contraseña de seed ───────────────────────
-header "Generando hash de contraseña"
+# ─── 2. Generar hash BCrypt para la contrasena de seed ───────────────────────
+header "Generando hash de contrasena"
 
 SEED_PASSWORD="Eurekapp1!"
 
@@ -56,55 +62,38 @@ print(bcrypt.hashpw(pw, bcrypt.gensalt(10)).decode())
 PYEOF
 )
 
-# Fallback: hash conocido de Spring Security para la contraseña "Eurekapp1!"
+# Fallback: hash BCrypt precalculado para la contrasena "Eurekapp1!".
+# (Verificado con bcrypt.checkpw → True. NO degradar a otra contrasena.)
 if [[ -z "$BCRYPT_HASH" ]]; then
-  warn "python3/bcrypt no disponible. Usando hash de fallback."
-  BCRYPT_HASH='$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2uheWG/igi.'
-  SEED_PASSWORD="password"
+  warn "python3/bcrypt no disponible. Usando hash de fallback para 'Eurekapp1!'."
+  BCRYPT_HASH='$2b$10$ZH9ybHk6M3hzkYnpVH3FLudxIpTFnNxabcjxe.iQdvmZ7RBI.tCvW'
 fi
 
-info "Contraseña de todos los usuarios seed: ${BOLD}${SEED_PASSWORD}${NC}"
+info "Contrasena de todos los usuarios seed: ${BOLD}${SEED_PASSWORD}${NC}"
 success "Hash generado"
 
-# ─── 3. Generar vectores dummy para Weaviate ─────────────────────────────────
-header "Generando vectores para Weaviate"
+# ─── 3. Verificar archivos de datos de Weaviate ──────────────────────────────
+header "Verificando datos de Weaviate (embeddings reales)"
 
-generate_vector() {
-  local SEED="$1"
-  ${PYTHON_CMD} - <<PYEOF 2>/dev/null
-import random, math
-random.seed($SEED)
-v = [random.gauss(0, 1) for _ in range(1536)]
-mag = math.sqrt(sum(x*x for x in v))
-v = [x / mag for x in v]
-print(','.join(f'{x:.6f}' for x in v))
-PYEOF
-}
+# Los objetos de Weaviate (FoundObject / LostObject) ya no usan vectores dummy:
+# fueron cargados via la API real (OpenAI text-embedding-3-small) y exportados a NDJSON.
+# Cada linea de estos archivos es un objeto listo para POST a /v1/objects.
+SEED_DATA_DIR="$(dirname "$0")/seed-data"
+FOUND_NDJSON="$SEED_DATA_DIR/FoundObject.ndjson"
+LOST_NDJSON="$SEED_DATA_DIR/LostObject.ndjson"
 
-info "Generando 16 vectores (puede tardar unos segundos)..."
-VEC_1=$(generate_vector 101);  [[ -n "$VEC_1" ]] || error "No se pudo generar vectores. Verificá que python3 o python esté instalado."
-VEC_2=$(generate_vector 102)
-VEC_3=$(generate_vector 103)
-VEC_4=$(generate_vector 104)
-VEC_5=$(generate_vector 105)
-VEC_6=$(generate_vector 106)
-VEC_7=$(generate_vector 107)
-VEC_8=$(generate_vector 108)
-VEC_9=$(generate_vector 109)
-VEC_10=$(generate_vector 110)
-VEC_11=$(generate_vector 111)
-VEC_12=$(generate_vector 201)
-VEC_13=$(generate_vector 202)
-VEC_14=$(generate_vector 203)
-VEC_15=$(generate_vector 204)
-VEC_16=$(generate_vector 205)
-success "Vectores generados"
+[[ -f "$FOUND_NDJSON" ]] || error "No se encontro $FOUND_NDJSON"
+[[ -f "$LOST_NDJSON"  ]] || error "No se encontro $LOST_NDJSON"
+
+FOUND_COUNT=$(grep -c '[^[:space:]]' "$FOUND_NDJSON")
+LOST_COUNT=$(grep -c '[^[:space:]]' "$LOST_NDJSON")
+success "Datos OK — FoundObjects: $FOUND_COUNT, LostObjects: $LOST_COUNT"
 
 # ─── 4. Confirmar reset ──────────────────────────────────────────────────────
 echo ""
 echo -e "${YELLOW}${BOLD}⚠  Esto va a BORRAR todos los datos actuales y reemplazarlos con datos de seed.${NC}"
 if [[ "${1:-}" != "--force" ]]; then
-  read -rp "¿Continuar? (s/N): " CONFIRM
+  read -rp "Continuar? (s/N): " CONFIRM
   [[ "$CONFIRM" =~ ^[sS]$ ]] || { echo "Cancelado."; exit 0; }
 fi
 
@@ -133,11 +122,14 @@ header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
-TRUNCATE TABLE reclamo_history;
-TRUNCATE TABLE reclamos;
+-- (rework fraude/reclamos) Reclamo y Fraude deshabilitados en el seed:
+-- 'reclamo_history' ya no existe (EU-278) y 'reclamos' se extirpa (EU-292);
+-- el modelo de fraude se rediseñó (EU-282/284). Truncarlas rompía la sesión.
+-- TRUNCATE TABLE reclamo_history;
+-- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
 TRUNCATE TABLE usability_feedback;
-TRUNCATE TABLE fraud_alert;
+-- TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
@@ -208,8 +200,8 @@ header "Insertando Organizaciones"
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 INSERT INTO organizations (id, name, contact_data, street, street_number, city, province, country, organization_type, latitude, longitude, active) VALUES
 (1, 'UTN FRC',                            'objetos.perdidos@frc.utn.edu.ar',  'Maestro Marcelo López',      '3814', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4377, -64.1829, 1),
-(2, 'Terminal de Ómnibus Córdoba',        'objetos@terminalcordoba.com',       'Bvd. Perón',                 '380',  'Córdoba', 'Córdoba', 'Argentina', 'BUS_TERMINAL',  -31.4201, -64.1888, 1),
-(3, 'Aeropuerto Internacional Córdoba',   'objetosperdidos@aa2000.com.ar',     'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', 'AIRPORT',       -31.3233, -64.2081, 1),
+(2, 'Terminal de Omnibus Cordoba',        'objetos@terminalcordoba.com',       'Bvd. Perón',                 '380',  'Córdoba', 'Córdoba', 'Argentina', 'BUS_TERMINAL',  -31.4201, -64.1888, 1),
+(3, 'Aeropuerto Internacional Cordoba',   'objetosperdidos@aa2000.com.ar',     'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', 'AIRPORT',       -31.3233, -64.2081, 1),
 (4, 'Shopping Patio Olmos',               'objetos@patioolomos.com.ar',        'Vélez Sársfield',            '361',  'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING',      -31.4163, -64.1885, 1),
 (5, 'UNC Ciudad Universitaria',           'objetosperdidos@unc.edu.ar',        'Av. Vélez Sársfield',        '5000', 'Córdoba', 'Córdoba', 'Argentina', 'UNIVERSITY',    -31.4384, -64.1917, 1),
 (6, 'Dinosaurio Mall',                    'objetos@dinosauriomall.com.ar',     'Av. Ejército Argentino',     '6050', 'Córdoba', 'Córdoba', 'Argentina', 'SHOPPING_MALL', -31.3693, -64.2254, 1);
@@ -224,14 +216,14 @@ HASH_ESCAPED="${BCRYPT_HASH//\'/\'\'}"
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO users (id, username, password, active, first_name, last_name, role, organization_id, XP, returned_objects) VALUES
 (1,  'admin@eurekapp.com',          '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 0,   0),
-(2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'González',  'ORGANIZATION_OWNER',     1,    150,  3),
-(3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernández', 'ORGANIZATION_OWNER',     2,    80,   2),
+(2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'Gonzalez',  'ORGANIZATION_OWNER',     1,    150,  3),
+(3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernandez', 'ORGANIZATION_OWNER',     2,    80,   2),
 (4,  'encargado.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Carlos',   'Mendoza',   'ENCARGADO',              1,    0,    0),
-(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucía',    'Pérez',     'ORGANIZATION_EMPLOYEE',  1,    20,   0),
-(6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomás',    'Ramírez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
+(5,  'emp1.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Lucia',    'Perez',     'ORGANIZATION_EMPLOYEE',  1,    20,   0),
+(6,  'emp2.utn@eurekapp.com',       '$HASH_ESCAPED', 1, 'Tomas',    'Ramirez',   'ORGANIZATION_EMPLOYEE',  1,    20,   0),
 (7,  'julia@mail.com',              '$HASH_ESCAPED', 1, 'Julia',    'Morales',   'USER',                   NULL, 20,   1),
 (8,  'pedro@mail.com',              '$HASH_ESCAPED', 1, 'Pedro',    'Soria',     'USER',                   NULL, 20,   1),
-(9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 10,   1),
+(9,  'valeria@mail.com',            '$HASH_ESCAPED', 1, 'Valeria',  'Castro',    'USER',                   NULL, 0,    0),
 (10, 'emp1.aero@eurekapp.com',      '$HASH_ESCAPED', 1, 'Sofia',     'Herrera',   'ORGANIZATION_EMPLOYEE',  3,    0,    0),
 (11, 'owner.patio@eurekapp.com',    '$HASH_ESCAPED', 1, 'Camila',    'Vargas',    'ORGANIZATION_OWNER',     4,    0,    0),
 (12, 'emp1.patio@eurekapp.com',     '$HASH_ESCAPED', 1, 'Ignacio',   'Molina',    'ORGANIZATION_EMPLOYEE',  4,    0,    0),
@@ -242,128 +234,47 @@ INSERT INTO users (id, username, password, active, first_name, last_name, role, 
 SQL
 success "16 usuarios insertados"
 
-# ─── 10. Insertar FoundObjects en Weaviate ───────────────────────────────────
+# ─── 10. Insertar FoundObjects en Weaviate (desde NDJSON con embeddings reales) ─
 header "Insertando FoundObjects en Weaviate"
 
-FO_UUID_1="a1b2c3d4-0001-0001-0001-000000000001"
-FO_UUID_2="a1b2c3d4-0001-0001-0001-000000000002"
-FO_UUID_3="a1b2c3d4-0001-0001-0001-000000000003"
-FO_UUID_4="a1b2c3d4-0001-0001-0001-000000000004"
-FO_UUID_5="a1b2c3d4-0001-0001-0001-000000000005"
-FO_UUID_6="a1b2c3d4-0001-0001-0001-000000000006"
-FO_UUID_7="a1b2c3d4-0001-0001-0001-000000000007"
-FO_UUID_8="a1b2c3d4-0001-0001-0001-000000000008"
-FO_UUID_9="a1b2c3d4-0001-0001-0001-000000000009"
-FO_UUID_10="a1b2c3d4-0001-0001-0001-000000000010"
-FO_UUID_11="a1b2c3d4-0001-0001-0001-000000000011"
-
-insert_found_object() {
-  local UUID="$1" TITLE="$2" HUMAN_DESC="$3" AI_DESC="$4" ORG_ID="$5"
-  local LAT="$6" LNG="$7" DATE="$8" RETURNED="$9" CATEGORY="${10}" VECTOR="${11}"
-
-  local HTTP
+# Cada linea del NDJSON ya es un objeto completo (class, id, properties, vector)
+# listo para POST a /v1/objects. Los vectores son embeddings reales de OpenAI.
+FO_INSERTED=0
+while IFS= read -r line; do
+  [[ -z "${line// }" ]] && continue
   HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "$WEAVIATE_URL/v1/objects" \
     -H "Content-Type: application/json" \
-    -d "{
-      \"class\": \"FoundObject\",
-      \"id\": \"$UUID\",
-      \"vector\": [$VECTOR],
-      \"properties\": {
-        \"title\": \"$TITLE\",
-        \"human_description\": \"$HUMAN_DESC\",
-        \"ai_description\": \"$AI_DESC\",
-        \"organization_id\": \"$ORG_ID\",
-        \"found_date\": \"${DATE}T10:00:00Z\",
-        \"coordinates\": { \"latitude\": $LAT, \"longitude\": $LNG },
-        \"was_returned\": $RETURNED,
-        \"object_finder_user_id\": \"0\",
-        \"category\": \"$CATEGORY\"
-      }
-    }")
-  [[ "$HTTP" == "200" ]] || warn "  FoundObject '$TITLE' → HTTP $HTTP"
-}
+    --data-binary "$line")
+  if [[ "$HTTP" == "200" ]]; then
+    FO_INSERTED=$((FO_INSERTED + 1))
+  else
+    warn "  FoundObject → HTTP $HTTP"
+  fi
+done < "$FOUND_NDJSON"
+success "  $FO_INSERTED FoundObjects insertados"
 
-insert_found_object "$FO_UUID_1" \
-  "Billetera negra de cuero" \
-  "Billetera negra de cuero con tarjetas y algo de efectivo" \
-  "Una billetera de cuero negro con compartimentos para tarjetas, billetes y una moneda" \
-  "1" "-31.4377" "-64.1829" "2026-04-28" "false" "Billeteras" "$VEC_1"
-success "  FO-1: Billetera negra (Billeteras)"
-
-insert_found_object "$FO_UUID_2" \
-  "Llave con llavero azul" \
-  "Llave suelta con llavero de goma azul" \
-  "Una llave de metal plateada con un llavero de goma de color azul sin inscripciones" \
-  "1" "-31.4377" "-64.1829" "2026-05-02" "false" "Llaves" "$VEC_2"
-success "  FO-2: Llave (Llaves)"
-
-insert_found_object "$FO_UUID_3" \
-  "Auriculares inalámbricos blancos" \
-  "Auriculares over-ear blancos, sin cables, marca no visible" \
-  "Auriculares inalámbricos de color blanco con almohadillas negras y sin etiqueta visible" \
-  "2" "-31.4201" "-64.1888" "2026-05-05" "true" "Electrónica" "$VEC_3"
-success "  FO-3: Auriculares (Electrónica) — retornado"
-
-insert_found_object "$FO_UUID_4" \
-  "Mochila azul con libros" \
-  "Mochila azul mediana con varios libros y un estuche adentro" \
-  "Mochila de tela de color azul marino con logo desgastado, contiene libros de texto y un estuche escolar" \
-  "1" "-31.4375" "-64.1831" "2026-05-07" "false" "Mochilas" "$VEC_4"
-success "  FO-4: Mochila azul (Mochilas)"
-
-insert_found_object "$FO_UUID_5" \
-  "Celular Samsung negro" \
-  "Celular Samsung con pantalla rota y funda gris" \
-  "Smartphone Samsung de color negro con la pantalla fisurada y una funda protectora gris oscuro" \
-  "3" "-31.3233" "-64.2081" "2026-05-09" "false" "Celulares" "$VEC_5"
-success "  FO-5: Celular Samsung (Celulares)"
-
-insert_found_object "$FO_UUID_6" \
-  "Paraguas negro plegable" \
-  "Paraguas negro plegable de tamaño compacto, sin marca visible" \
-  "Paraguas plegable de color negro con mango recto y funda de tela" \
-  "1" "-31.4377" "-64.1829" "2026-04-15" "true" "Paraguas" "$VEC_6"
-success "  FO-6: Paraguas (Paraguas) — retornado"
-
-insert_found_object "$FO_UUID_7" \
-  "Tarjeta de acceso universitaria" \
-  "Tarjeta de acceso universitaria plastificada con foto de alumno" \
-  "Tarjeta de identificación universitaria con foto carnet, nombre impreso y código de barras" \
-  "1" "-31.4375" "-64.1831" "2026-04-22" "true" "Documentos" "$VEC_7"
-success "  FO-7: Tarjeta universitaria (Documentos) — retornada"
-
-insert_found_object "$FO_UUID_8" \
-  "Notebook Dell gris" \
-  "Notebook Dell gris de 15 pulgadas con stickers en la tapa" \
-  "Laptop Dell Inspiron de 15 pulgadas color gris plateado, con varios stickers decorativos en la cubierta" \
-  "2" "-31.4201" "-64.1888" "2026-04-25" "true" "Computadoras" "$VEC_8"
-success "  FO-8: Notebook Dell (Computadoras) — retornada"
-
-insert_found_object "$FO_UUID_9" \
-  "Billetera marrón con DNI" \
-  "Billetera marrón de cuero con DNI y tarjetas bancarias adentro" \
-  "Billetera de cuero marrón con múltiples compartimentos, contiene DNI y tarjetas de crédito visibles" \
-  "2" "-31.4201" "-64.1888" "2026-05-12" "true" "Billeteras" "$VEC_9"
-success "  FO-9: Billetera marrón (Billeteras) — retornada"
-
-insert_found_object "$FO_UUID_10" \
-  "Cargador USB-C blanco" \
-  "Cargador USB-C blanco de 20W con cable incluido" \
-  "Adaptador de corriente blanco con puerto USB-C y cable corto, potencia 20W, sin marca visible" \
-  "3" "-31.3233" "-64.2081" "2026-05-14" "false" "Electrónica" "$VEC_10"
-success "  FO-10: Cargador USB-C (Electrónica)"
-
-insert_found_object "$FO_UUID_11" \
-  "Anteojos de sol negros" \
-  "Anteojos de sol con montura negra y lentes espejados" \
-  "Lentes de sol con armazón negro mate y cristales espejados dorados, sin estuche" \
-  "1" "-31.4377" "-64.1829" "2026-05-20" "false" "Accesorios" "$VEC_11"
-success "  FO-11: Anteojos de sol (Accesorios)"
+# UUID reales de cada FoundObject. Como insertamos directo en Weaviate con un "id"
+# que elegimos nosotros, estos UUID son fijos y conocidos: son los mismos que
+# figuran en el campo "id" de FoundObject.ndjson, y apuntan a las imagenes que ya
+# existen en S3. Las secciones MySQL (retornos, fraud_alerts, feedback, reclamos)
+# referencian estos UUID directamente, sin depender de titulos.
+# (FO_UUID_7 no existe: la "Tarjeta universitaria" fue descartada del dataset.)
+FO_UUID_1="7ea43eba-7343-4cd8-b5d0-b736e3d575a3"   # Billetera negra de cuero      (org 1)
+FO_UUID_2="df2aa6a0-d15c-46e8-902a-e5394538a43e"   # Llave con llavero azul        (org 1)
+FO_UUID_3="25e71dcb-9d0d-4b75-96f2-df60b7d99261"   # Auriculares inalambricos      (org 2)
+FO_UUID_4="494ddbc4-b4d8-4935-a77c-1d3e7363b67d"   # Mochila azul con libros       (org 1)
+FO_UUID_5="18da5796-50dc-4383-8b1f-27e524b04b5d"   # Celular Samsung negro         (org 3)
+FO_UUID_6="4b43a1d8-1491-4077-9c1c-463e5906cdeb"   # Paraguas negro plegable       (org 1)
+FO_UUID_8="85c55156-216f-4b6c-aa65-782e066567b6"   # Notebook Dell gris            (org 2)
+FO_UUID_9="ebaa9336-e9fd-4556-a96e-9c1538d165cb"   # Billetera marron con DNI      (org 2)
+FO_UUID_10="498d742e-49e6-4c88-bf8d-f0313581dfaa"  # Cargador USB-C blanco         (org 3)
+FO_UUID_11="a1047f2f-0fcd-41b1-92ad-485dd04cb5d8"  # Anteojos de sol negros        (org 1)
 
 # ─── 10b. Asignar finders a FoundObjects ─────────────────────────────────────
 header "Asignando finders a FoundObjects (object_finder_user_id)"
 
+# Todos los objetos donde el finder tiene cuenta en la app.
 # FO_UUID_2 (Llave) queda con finder_id="0" (anonimo, sin cuenta — caso de uso alternativo).
 declare -A FO_FINDERS=(
   ["$FO_UUID_1"]="9"    # Billetera negra de cuero → valeria
@@ -371,11 +282,10 @@ declare -A FO_FINDERS=(
   ["$FO_UUID_4"]="6"    # Mochila azul             → emp2.utn  (Tomas Ramirez)
   ["$FO_UUID_5"]="8"    # Celular Samsung          → pedro
   ["$FO_UUID_6"]="5"    # Paraguas                 → emp1.utn  (Lucia Perez)
-  ["$FO_UUID_7"]="10"   # Tarjeta universitaria    → emp1.aero (Sofia Herrera)
   ["$FO_UUID_8"]="8"    # Notebook Dell            → pedro
-  ["$FO_UUID_9"]="7"    # Billetera marron con DNI → julia
+  ["$FO_UUID_9"]="10"   # Billetera marron con DNI → emp1.aero (Sofia Herrera)
   ["$FO_UUID_10"]="7"   # Cargador USB-C           → julia
-  ["$FO_UUID_11"]="6"   # Anteojos de sol          → emp2.utn  (Tomas Ramirez)
+  ["$FO_UUID_11"]="7"   # Anteojos                 → julia
 )
 for UUID in "${!FO_FINDERS[@]}"; do
   USER_ID="${FO_FINDERS[$UUID]}"
@@ -388,84 +298,49 @@ for UUID in "${!FO_FINDERS[@]}"; do
     || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
 done
 
-# ─── 11. Insertar LostObjects en Weaviate ────────────────────────────────────
+# ─── 11. Insertar LostObjects en Weaviate (desde NDJSON con embeddings reales) ──
 header "Insertando LostObjects en Weaviate"
 
-LO_UUID_1="b2c3d4e5-0002-0002-0002-000000000001"
-LO_UUID_2="b2c3d4e5-0002-0002-0002-000000000002"
-LO_UUID_3="b2c3d4e5-0002-0002-0002-000000000003"
-LO_UUID_4="b2c3d4e5-0002-0002-0002-000000000004"
-LO_UUID_5="b2c3d4e5-0002-0002-0002-000000000005"
-LO_UUID_6="b2c3d4e5-0002-0002-0002-000000000006"
-
-insert_lost_object() {
-  local UUID="$1" DESC="$2" USERNAME="$3" DATE="$4" ORG_ID="$5"
-  local LAT="$6" LNG="$7" VECTOR="$8"
-
-  local HTTP
+LO_INSERTED=0
+while IFS= read -r line; do
+  [[ -z "${line// }" ]] && continue
   HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "$WEAVIATE_URL/v1/objects" \
     -H "Content-Type: application/json" \
-    -d "{
-      \"class\": \"LostObject\",
-      \"id\": \"$UUID\",
-      \"vector\": [$VECTOR],
-      \"properties\": {
-        \"description\": \"$DESC\",
-        \"username\": \"$USERNAME\",
-        \"organization_id\": \"$ORG_ID\",
-        \"lost_date\": \"${DATE}T08:00:00Z\",
-        \"coordinates\": { \"latitude\": $LAT, \"longitude\": $LNG }
-      }
-    }")
-  [[ "$HTTP" == "200" ]] || warn "  LostObject '$DESC' → HTTP $HTTP"
-}
+    --data-binary "$line")
+  if [[ "$HTTP" == "200" ]]; then
+    LO_INSERTED=$((LO_INSERTED + 1))
+  else
+    warn "  LostObject → HTTP $HTTP"
+  fi
+done < "$LOST_NDJSON"
+success "  $LO_INSERTED LostObjects insertados"
 
-insert_lost_object "$LO_UUID_1" \
-  "Perdí mi billetera negra de cuero cerca de la facultad, tenía DNI y tarjetas" \
-  "julia@mail.com" "2026-04-29" "1" "-31.4377" "-64.1829" "$VEC_12"
-success "  LO-1: Billetera (julia)"
-
-insert_lost_object "$LO_UUID_2" \
-  "Se me cayeron unos auriculares inalámbricos blancos en la terminal" \
-  "pedro@mail.com" "2026-05-06" "2" "-31.4201" "-64.1888" "$VEC_13"
-success "  LO-2: Auriculares (pedro)"
-
-insert_lost_object "$LO_UUID_3" \
-  "Perdí una mochila azul con libros de ingeniería en UTN" \
-  "valeria@mail.com" "2026-05-08" "1" "-31.4375" "-64.1831" "$VEC_14"
-success "  LO-3: Mochila (valeria)"
-
-insert_lost_object "$LO_UUID_4" \
-  "Se me olvidó mi paraguas negro en el aula magna de UTN" \
-  "julia@mail.com" "2026-04-16" "1" "-31.4377" "-64.1829" "$VEC_15"
-success "  LO-4: Paraguas (julia)"
-
-insert_lost_object "$LO_UUID_5" \
-  "Perdí mi tarjeta universitaria en la biblioteca de UTN" \
-  "pedro@mail.com" "2026-04-23" "1" "-31.4375" "-64.1831" "$VEC_16"
-success "  LO-5: Tarjeta universitaria (pedro)"
-
-insert_lost_object "$LO_UUID_6" \
-  "Olvidé mi notebook Dell gris en la sala de espera de la terminal" \
-  "valeria@mail.com" "2026-04-26" "2" "-31.4201" "-64.1888" "$VEC_1"
-success "  LO-6: Notebook (valeria)"
-
-# ─── 12. Insertar ReturnFoundObjects ─────────────────────────────────────────
-header "Insertando ReturnFoundObjects"
+# ─── 12. Insertar Retornos ───────────────────────────────────────────────────
+header "Insertando Retornos"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
-  (id, user_id, DNI, phone_number, found_objectuuid, person_photo_uuid, datetime_of_return)
+  (found_objectuuid, user_id, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-(1, 8,    '35123456', '3516001122', '$FO_UUID_3', 'person-photo-001', '2026-05-06 14:35:00'),
-(2, 7,    '28123456', '3516003344', '$FO_UUID_9', 'person-photo-002', '2026-05-13 12:00:00'),
-(3, NULL, '30987654', '3515009988', '$FO_UUID_6', 'person-photo-003', '2026-04-20 10:00:00'),
-(4, 8,    '35123456', '3516001122', '$FO_UUID_7', 'person-photo-004', '2026-05-01 10:00:00'),
-(5, NULL, '42111222', '3517005566', '$FO_UUID_8', 'person-photo-005', '2026-05-05 10:00:00');
+('$FO_UUID_6',  7,    '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
+('$FO_UUID_11', NULL, '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
+('$FO_UUID_2',  NULL, '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
+('$FO_UUID_8',  8,    '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
+('$FO_UUID_9',  7,    '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
 SQL
+success "5 retornos insertados (3 UTN, 2 Terminal)"
 
-success "5 retornos registrados"
+header "Marcando objetos devueltos en Weaviate (was_returned=true)"
+for UUID in "$FO_UUID_6" "$FO_UUID_11" "$FO_UUID_2" "$FO_UUID_8" "$FO_UUID_9"; do
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
+    -H "Content-Type: application/json" \
+    -d '{"properties": {"was_returned": true}}')
+  [[ "$HTTP" == "200" ]] \
+    && success "  was_returned=true → $UUID" \
+    || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
+done
 
 # ─── 13. Insertar exclusiones de recompensa ──────────────────────────────────
 header "Insertando exclusiones de recompensa"
@@ -474,27 +349,26 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reward_exclusions
   (found_objectuuid, user_id, user_role, reason, excluded_at, organization_id)
 VALUES
-('$FO_UUID_4',  6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 09:00:00', '1'),
-('$FO_UUID_6',  5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 09:00:00', '1'),
-('$FO_UUID_7',  10,'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-22 09:00:00', '1'),
-('$FO_UUID_11', 6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-20 09:00:00', '1');
+('$FO_UUID_4', 6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 09:00:00', '1'),
+('$FO_UUID_6', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 09:00:00', '1'),
+('$FO_UUID_9', 10,'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-12 09:00:00', '3');
 SQL
-success "4 exclusiones de recompensa registradas (empleados internos)"
+success "3 exclusiones de recompensa registradas (empleados internos)"
 
 # ─── 14. Insertar SearchFeedback ─────────────────────────────────────────────
 header "Insertando SearchFeedback"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO search_feedback (organization_id, found_object_uuid, star_rating, was_found, comment, created_at, user_id) VALUES
-('1', '$FO_UUID_1', 5, 1, 'Lo encontré rápido, excelente sistema',             '2026-04-29 11:00:00', 7),
-('1', NULL,          2, 0, 'No encontré mi objeto, poca descripción disponible', '2026-05-03 09:30:00', 8),
+('1', '$FO_UUID_1', 5, 1, 'Lo encontre rapido, excelente sistema',             '2026-04-29 11:00:00', 7),
+('1', NULL,          2, 0, 'No encontre mi objeto, poca descripcion disponible', '2026-05-03 09:30:00', 8),
 ('2', '$FO_UUID_3',  4, 1, NULL,                                                 '2026-05-06 15:00:00', 8),
-('1', NULL,          1, 0, 'La búsqueda no funcionó bien',                       '2026-05-07 10:00:00', 9),
-('1', '$FO_UUID_4',  3, 1, 'Tardó un poco pero lo encontré',                    '2026-05-08 14:00:00', 9),
+('1', NULL,          1, 0, 'La busqueda no funciono bien',                       '2026-05-07 10:00:00', 9),
+('1', '$FO_UUID_4',  3, 1, 'Tardo un poco pero lo encontre',                    '2026-05-08 14:00:00', 9),
 ('3', NULL,          5, 0, NULL,                                                 '2026-05-10 08:00:00', 7),
-('1', '$FO_UUID_2',  4, 1, 'Muy útil la app',                                   '2026-05-11 16:00:00', 7),
-('2', NULL,          2, 0, 'No había resultados precisos',                       '2026-05-12 12:00:00', 9),
-('2', '$FO_UUID_9',  5, 1, 'Recuperé mi billetera al día siguiente!',            '2026-05-13 10:00:00', 7),
+('1', '$FO_UUID_2',  4, 1, 'Muy util la app',                                   '2026-05-11 16:00:00', 7),
+('2', NULL,          2, 0, 'No habia resultados precisos',                       '2026-05-12 12:00:00', 9),
+('2', '$FO_UUID_9',  5, 1, 'Recupere mi billetera al dia siguiente!',            '2026-05-13 10:00:00', 7),
 ('1', NULL,          3, 0, NULL,                                                 '2026-05-15 09:00:00', 8);
 SQL
 success "10 registros de search_feedback insertados"
@@ -504,51 +378,63 @@ header "Insertando UsabilityFeedback"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 INSERT INTO usability_feedback (star_rating, aspects, comment, context, created_at, user_id) VALUES
-(5, 'FACILIDAD_USO,NAVEGACION', 'Muy fácil de usar',                     'search',        '2026-04-20 10:00:00', 5),
+(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                     'search',        '2026-04-20 10:00:00', 5),
 (4, 'CLARIDAD',                  NULL,                                    'profile',       '2026-04-25 11:00:00', 6),
-(2, 'NAVEGACION',               'Me confundí con los menús',              'upload_object', '2026-05-01 09:00:00', 5),
+(2, 'NAVEGACION',               'Me confundi con los menus',              'upload_object', '2026-05-01 09:00:00', 5),
 (5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',                  'search',        '2026-05-05 14:00:00', 2),
 (3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',     'profile',       '2026-05-10 16:00:00', 6),
 (4, 'CLARIDAD',                  NULL,                                    'upload_object', '2026-05-14 08:00:00', 5),
-(1, 'NAVEGACION',               'No entendí cómo reportar un objeto',     'upload_object', '2026-05-18 10:00:00', 6);
+(1, 'NAVEGACION',               'No entendi como reportar un objeto',     'upload_object', '2026-05-18 10:00:00', 6);
 SQL
 success "7 registros de usability_feedback insertados"
 
 # ─── 16. Insertar FraudAlerts ────────────────────────────────────────────────
 header "Insertando FraudAlerts"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
-('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
-('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizó 8 reclamos en 2 días',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
-('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
-('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
-SQL
-success "4 fraud_alerts insertados (2 PENDING, 1 CONFIRMED_FRAUD, 1 FALSE_POSITIVE)"
+# DESHABILITADO (EU-282): el modelo de FraudAlert se rediseñó. La columna 'suspect_user_id'
+# ya no existe (los sospechosos viven en la tabla join 'fraud_alert_suspect_user') y los
+# 'reason' de abajo (MULTIPLE_CLAIMERS_SAME_OBJECT, etc.) corresponden a las reglas viejas
+# que se eliminan en EU-253/EU-284. En una DB fresca este INSERT rompía contra el esquema
+# nuevo. Se repuebla con alertas basadas en DNI cuando aterricen las reglas nuevas
+# (EU-284/EU-285). No reactivar tal cual: la data contradiría el modelo de devoluciones.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
+# ('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
+# ('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
+# ('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
+# ('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
+# SQL
+warn "FraudAlerts: seed deshabilitado por rediseño del modelo (EU-282). Se repuebla en EU-284/EU-285."
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
 
-$MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
-('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenía mi DNI y tarjeta VISA',    4, 'DEVUELTO',    '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
-('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingeniería', 'Mochila azul con libros de cálculo y física',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
-('2', '$FO_UUID_3', 'Electrónica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenían funda negra',    5, 'APROBADO',    '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
-('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plástico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
-('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
-SQL
-success "5 reclamos insertados"
+# DESHABILITADO (rework fraude/reclamos): la columna 'reclamos.status' se eliminó (EU-278)
+# y la entidad 'Reclamo' se extirpa por completo (EU-292). En una DB fresca este INSERT
+# rompía contra el esquema nuevo. No reactivar: el reclamo dejó de ser una entidad propia.
+#
+# $MYSQL_EXEC 2>/dev/null <<SQL
+# INSERT INTO reclamos (organization_id, found_object_uuid, found_object_category, user_id, comment, claim_description, star_rating, status, created_at, updated_at, search_feedback_id) VALUES
+# ('1', '$FO_UUID_1', 'Billeteras',  7, 'Creo que es mi billetera',    'Billetera negra, tenia mi DNI y tarjeta VISA',    4, 'EN_REVISION', '2026-04-30 10:00:00', '2026-05-02 14:00:00', 1),
+# ('1', '$FO_UUID_4', 'Mochilas',    9, 'Es mi mochila de ingenieria', 'Mochila azul con libros de calculo y fisica',     3, 'EN_REVISION', '2026-05-08 15:00:00', '2026-05-09 09:00:00', 5),
+# ('2', '$FO_UUID_3', 'Electronica', 8, 'Son mis auriculares',         'Auriculares Sony blancos, tenian funda negra',    5, 'EN_REVISION', '2026-05-06 16:00:00', '2026-05-07 11:00:00', 3),
+# ('1', '$FO_UUID_2', 'Llaves',      7, 'Parecen mis llaves',          'Llave de casa con llavero azul de plastico',      2, 'RECHAZADO',   '2026-05-03 09:00:00', '2026-05-04 08:00:00', 7),
+# ('3', '$FO_UUID_5', 'Celulares',   9, 'Es mi celular Samsung',       'Samsung Galaxy A54 negro, pantalla rota',         1, 'PENDIENTE',   '2026-05-10 12:00:00', NULL,                  NULL);
+# SQL
+warn "Reclamos: seed deshabilitado (status eliminado en EU-278; entidad extirpada en EU-292)."
 
 # ─── 18. Insertar ReclamoHistory ─────────────────────────────────────────────
 header "Insertando ReclamoHistory"
 
-$MYSQL_EXEC 2>/dev/null <<'SQL'
-INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
-(1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revisión del caso'),
-(1, 'EN_REVISION',  'APROBADO',    2, '2026-05-01 16:00:00', 'Verificado: la billetera corresponde al reclamante'),
-(1, 'APROBADO',     'DEVUELTO',    2, '2026-05-02 14:00:00', 'Objeto entregado al dueño');
-SQL
-success "3 entradas de reclamo_history insertadas"
+# DESHABILITADO (rework fraude/reclamos): la entidad 'ReclamoHistory' y su tabla
+# 'reclamo_history' se eliminaron (EU-278); en una DB fresca no existe y el INSERT rompía.
+#
+# $MYSQL_EXEC 2>/dev/null <<'SQL'
+# INSERT INTO reclamo_history (reclamo_id, previous_status, new_status, changed_by_id, changed_at, note) VALUES
+# (1, 'PENDIENTE',    'EN_REVISION', 2, '2026-05-01 09:00:00', 'Iniciando revision del caso');
+# SQL
+warn "ReclamoHistory: seed deshabilitado (tabla eliminada en EU-278)."
 
 # ─── 19. Insertar OrganizationRequests ──────────────────────────────────────
 header "Insertando OrganizationRequests"
@@ -560,113 +446,127 @@ INSERT INTO organization_request
    owner_first_name, owner_last_name, owner_email, owner_phone,
    reason, status, created_at, resolved_at, resolved_by_user_id, admin_note, organization_id)
 VALUES
-(1, 7,  'Club Atlético Belgrano',      'CLUB',            NULL,
-   'Av. Patria',       '1600', 'Córdoba', 'Córdoba', 'Argentina', -31.3720, -64.2080,
+(1, 7,  'Club Atletico Belgrano',       'CLUB',            NULL,
+   'Av. Patria',       '1600', 'Cordoba', 'Cordoba', 'Argentina', -31.3720, -64.2080,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Queremos gestionar objetos perdidos en los partidos del estadio.',
    'PENDING_APPROVAL', '2026-06-01 09:00:00', NULL, NULL, NULL, NULL),
 
-(2, 8,  'Hospital Privado',            'HOSPITAL',        NULL,
-   'Naciones Unidas',  '346',  'Córdoba', 'Córdoba', 'Argentina', -31.3876, -64.1803,
+(2, 8,  'Hospital Privado',             'HOSPITAL',        NULL,
+   'Naciones Unidas',  '346',  'Cordoba', 'Cordoba', 'Argentina', -31.3876, -64.1803,
    'Pedro',   'Soria',   'pedro@mail.com',  '+54 9 351 333 4444',
    'El hospital necesita un sistema para devolver objetos a pacientes y familiares.',
    'APPROVED',         '2026-05-20 10:30:00', '2026-05-22 09:15:00', 1, NULL, NULL),
 
 (3, 9,  'Colegio Nacional de Monserrat','SCHOOL',          NULL,
-   'Obispo Trejo',     '294',  'Córdoba', 'Córdoba', 'Argentina', -31.4155, -64.1841,
+   'Obispo Trejo',     '294',  'Cordoba', 'Cordoba', 'Argentina', -31.4155, -64.1841,
    'Valeria', 'Castro',  'valeria@mail.com', '+54 9 351 555 6666',
-   'El colegio quiere digitalizar la gestión de objetos perdidos del alumnado.',
+   'El colegio quiere digitalizar la gestion de objetos perdidos del alumnado.',
    'REJECTED',         '2026-05-15 14:00:00', '2026-05-17 11:30:00', 1,
-   'La organización no cumple con los requisitos mínimos de infraestructura para gestionar objetos perdidos en la plataforma.', NULL),
+   'La organizacion no cumple con los requisitos minimos de infraestructura para gestionar objetos perdidos en la plataforma.', NULL),
 
-(4, 7,  'Mercado Norte',               'OTHER',           'Mercado municipal',
-   'Bvd. Illia',       '300',  'Córdoba', 'Córdoba', 'Argentina', -31.4125, -64.1862,
+(4, 7,  'Mercado Norte',                'OTHER',           'Mercado municipal',
+   'Bvd. Illia',       '300',  'Cordoba', 'Cordoba', 'Argentina', -31.4125, -64.1862,
    'Juliana', 'Morales', 'julia@mail.com',  '+54 9 351 111 2222',
    'Los puestos del mercado frecuentemente reciben objetos olvidados por los clientes.',
    'CANCELLED',        '2026-05-10 11:00:00', NULL, NULL, NULL, NULL),
 
 -- Solicitudes aprobadas para las organizaciones precargadas
 (5, 2,  'UTN FRC',                            'UNIVERSITY',    NULL,
-   'Maestro Marcelo Lopez', '3814', 'Córdoba', 'Córdoba', 'Argentina', -31.4377, -64.1829,
-   'Martina', 'González',  'owner.utn@eurekapp.com',   '+54 9 351 000 0001',
-   'Gestión de objetos perdidos en la facultad.',
+   'Maestro Marcelo Lopez', '3814', 'Cordoba', 'Cordoba', 'Argentina', -31.4377, -64.1829,
+   'Martina', 'Gonzalez',  'owner.utn@eurekapp.com',   '+54 9 351 000 0001',
+   'Gestion de objetos perdidos en la facultad.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 1),
 
-(6, 3,  'Terminal de Ómnibus Córdoba',        'BUS_TERMINAL',  NULL,
-   'Bvd. Perón',            '380',  'Córdoba', 'Córdoba', 'Argentina', -31.4201, -64.1888,
-   'Rodrigo', 'Fernández', 'owner.term@eurekapp.com',  '+54 9 351 000 0002',
-   'Gestión de objetos perdidos en la terminal de ómnibus.',
+(6, 3,  'Terminal de Omnibus Cordoba',        'BUS_TERMINAL',  NULL,
+   'Bvd. Peron',            '380',  'Cordoba', 'Cordoba', 'Argentina', -31.4201, -64.1888,
+   'Rodrigo', 'Fernandez', 'owner.term@eurekapp.com',  '+54 9 351 000 0002',
+   'Gestion de objetos perdidos en la terminal de omnibus.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 2),
 
-(7, 1,  'Aeropuerto Internacional Córdoba',   'AIRPORT',       NULL,
-   'Av. Fuerza Aérea Argentina', '6900', 'Córdoba', 'Córdoba', 'Argentina', -31.3233, -64.2081,
+(7, 1,  'Aeropuerto Internacional Cordoba',   'AIRPORT',       NULL,
+   'Av. Fuerza Aerea Argentina', '6900', 'Cordoba', 'Cordoba', 'Argentina', -31.3233, -64.2081,
    'Sofia',   'Herrera',  'emp1.aero@eurekapp.com',   '+54 9 351 000 0003',
-   'Gestión de objetos perdidos en el aeropuerto.',
+   'Gestion de objetos perdidos en el aeropuerto.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 3),
 
 (8, 11, 'Shopping Patio Olmos',               'SHOPPING',      NULL,
-   'Vélez Sársfield',       '361',  'Córdoba', 'Córdoba', 'Argentina', -31.4163, -64.1885,
+   'Velez Sarsfield',       '361',  'Cordoba', 'Cordoba', 'Argentina', -31.4163, -64.1885,
    'Camila',  'Vargas',    'owner.patio@eurekapp.com', '+54 9 351 000 0004',
-   'Gestión de objetos perdidos en el shopping.',
+   'Gestion de objetos perdidos en el shopping.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 4),
 
 (9, 13, 'UNC Ciudad Universitaria',           'UNIVERSITY',    NULL,
-   'Av. Vélez Sársfield',   '5000', 'Córdoba', 'Córdoba', 'Argentina', -31.4384, -64.1917,
+   'Av. Velez Sarsfield',   '5000', 'Cordoba', 'Cordoba', 'Argentina', -31.4384, -64.1917,
    'Diego',   'Salinas',   'owner.unc@eurekapp.com',   '+54 9 351 000 0005',
-   'Gestión de objetos perdidos en la universidad.',
+   'Gestion de objetos perdidos en la universidad.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 5),
 
 (10, 15, 'Dinosaurio Mall',                   'SHOPPING_MALL', NULL,
-   'Av. Ejército Argentino', '6050', 'Córdoba', 'Córdoba', 'Argentina', -31.3693, -64.2254,
-   'Sebastián', 'Romero',  'owner.dino@eurekapp.com',  '+54 9 351 000 0006',
-   'Gestión de objetos perdidos en el shopping mall.',
+   'Av. Ejercito Argentino', '6050', 'Cordoba', 'Cordoba', 'Argentina', -31.3693, -64.2254,
+   'Sebastian', 'Romero',  'owner.dino@eurekapp.com',  '+54 9 351 000 0006',
+   'Gestion de objetos perdidos en el shopping mall.',
    'APPROVED', '2025-01-10 10:00:00', '2025-01-12 09:00:00', 1, NULL, 6);
 SQL
 success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING + 1 APPROVED + 1 REJECTED + 1 CANCELLED)"
 
-# ─── 20. Upload de imágenes a S3 (opcional) ──────────────────────────────────
-header "Imágenes S3"
+# ─── 20. Upload de imagenes a S3 ─────────────────────────────────────────────
+header "Imagenes S3"
 
 S3_BUCKET="eurekapp-temp-local"
 S3_REGION="sa-east-1"
-S3_IMAGES_UPLOADED=0
+IMG_DIR="$(dirname "$0")/seed-data/images"
+mkdir -p "$IMG_DIR"
 
-upload_to_s3() {
-  local KEY="$1" URL="$2"
-  local TMP="/tmp/seed_img_${KEY}.jpg"
-  curl -sL "$URL" -o "$TMP" 2>/dev/null || { warn "  No se pudo descargar imagen para $KEY"; return; }
-  aws s3 cp "$TMP" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
-    && { info "  S3 ✓ $KEY"; S3_IMAGES_UPLOADED=$((S3_IMAGES_UPLOADED + 1)); } \
-    || warn "  S3 ✗ $KEY (verificá tus credenciales AWS)"
-  rm -f "$TMP"
+FO_KEYS=(
+  "$FO_UUID_1" "$FO_UUID_2" "$FO_UUID_3" "$FO_UUID_4"
+  "$FO_UUID_5" "$FO_UUID_6" "$FO_UUID_8" "$FO_UUID_9"
+  "$FO_UUID_10" "$FO_UUID_11"
+)
+PERSON_KEYS=("person-photo-001" "person-photo-002" "person-photo-003" "person-photo-004" "person-photo-005")
+
+S3_UPLOADED=0
+
+upload_image() {
+  local KEY="$1" SEED="$2" IS_PORTRAIT="${3:-false}"
+  local CACHED="$IMG_DIR/${KEY}.jpg"
+
+  # Si ya existe en S3, saltear
+  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
+    info "  S3 ✓ $KEY (ya existia)"
+    S3_UPLOADED=$((S3_UPLOADED + 1))
+    return
+  fi
+
+  # Descargar solo si no esta cacheada localmente
+  if [[ ! -f "$CACHED" ]]; then
+    local SIZE="400/300"
+    [[ "$IS_PORTRAIT" == "true" ]] && SIZE="300/400"
+    curl -sL "https://picsum.photos/seed/${SEED}/${SIZE}" -o "$CACHED" 2>/dev/null \
+      || { warn "  No se pudo descargar imagen para $KEY"; return; }
+  fi
+
+  aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
+    && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
+    || warn "  S3 ✗ $KEY"
 }
 
 if command -v aws &>/dev/null && aws sts get-caller-identity --region "$S3_REGION" >/dev/null 2>&1; then
-  info "AWS CLI detectado — subiendo imágenes placeholder..."
-  # FoundObjects: key = UUID del objeto (así lo resuelve S3Service.generatePresignedUrl)
-  upload_to_s3 "$FO_UUID_1"  "https://picsum.photos/seed/fo01/400/300"
-  upload_to_s3 "$FO_UUID_2"  "https://picsum.photos/seed/fo02/400/300"
-  upload_to_s3 "$FO_UUID_3"  "https://picsum.photos/seed/fo03/400/300"
-  upload_to_s3 "$FO_UUID_4"  "https://picsum.photos/seed/fo04/400/300"
-  upload_to_s3 "$FO_UUID_5"  "https://picsum.photos/seed/fo05/400/300"
-  upload_to_s3 "$FO_UUID_6"  "https://picsum.photos/seed/fo06/400/300"
-  upload_to_s3 "$FO_UUID_7"  "https://picsum.photos/seed/fo07/400/300"
-  upload_to_s3 "$FO_UUID_8"  "https://picsum.photos/seed/fo08/400/300"
-  upload_to_s3 "$FO_UUID_9"  "https://picsum.photos/seed/fo09/400/300"
-  upload_to_s3 "$FO_UUID_10" "https://picsum.photos/seed/fo10/400/300"
-  upload_to_s3 "$FO_UUID_11" "https://picsum.photos/seed/fo11/400/300"
-  # ReturnFoundObjects: key = person_photo_uuid (foto de la persona que retira el objeto)
-  upload_to_s3 "person-photo-001" "https://picsum.photos/seed/pp01/300/400"
-  upload_to_s3 "person-photo-002" "https://picsum.photos/seed/pp02/300/400"
-  upload_to_s3 "person-photo-003" "https://picsum.photos/seed/pp03/300/400"
-  upload_to_s3 "person-photo-004" "https://picsum.photos/seed/pp04/300/400"
-  upload_to_s3 "person-photo-005" "https://picsum.photos/seed/pp05/300/400"
-  success "$S3_IMAGES_UPLOADED imágenes subidas a S3 (bucket: $S3_BUCKET)"
+  info "AWS CLI detectado — verificando/subiendo imagenes..."
+  i=1
+  for KEY in "${FO_KEYS[@]}"; do
+    upload_image "$KEY" "fo$(printf '%02d' $i)"
+    i=$((i + 1))
+  done
+  i=1
+  for KEY in "${PERSON_KEYS[@]}"; do
+    upload_image "$KEY" "pp$(printf '%02d' $i)" "true"
+    i=$((i + 1))
+  done
+  success "$S3_UPLOADED imagenes OK en S3 (bucket: $S3_BUCKET)"
 else
-  warn "AWS CLI no disponible o sin credenciales — se omite upload de imágenes"
-  warn "Para subir imágenes: configurar 'aws configure' y correr el script nuevamente"
-  warn "Para limpiar el bucket: aws s3 rm s3://${S3_BUCKET}/ --recursive"
-  S3_IMAGES_UPLOADED="— (sin AWS CLI)"
+  warn "AWS CLI no disponible o sin credenciales — se omite upload de imagenes"
+  warn "Al tener credenciales, correr el script de nuevo para subir las imagenes"
 fi
 
 # ─── 21. Resumen ─────────────────────────────────────────────────────────────
@@ -677,23 +577,23 @@ echo -e "${GREEN}${BOLD}╠═════════════════�
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 6                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 4                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 4                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 5                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 3                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 0  (seed off — EU-278)        ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 10 (6 APPROVED precargadas + 1P/1A/1R/1C) ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Weaviate                                                ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    FoundObjects          : 11  (todos con categoría)     ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    LostObjects           : 6                             ${GREEN}${BOLD}║${NC}"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  FoundObjects          : ${FO_INSERTED} (embeddings reales)"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  LostObjects           : ${LO_INSERTED}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  S3                                                      ${GREEN}${BOLD}║${NC}"
-printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  Imágenes subidas      : ${S3_IMAGES_UPLOADED}"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  Imagenes subidas      : 0 (ya existen por UUID)"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
-echo -e "${GREEN}${BOLD}║${NC}  Contraseña de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}  Contrasena de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}           ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Usuarios disponibles:                                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    admin@eurekapp.com          → ADMIN                   ${GREEN}${BOLD}║${NC}"
@@ -702,6 +602,7 @@ echo -e "${GREEN}${BOLD}║${NC}    owner.term@eurekapp.com     → OWNER  (Term
 echo -e "${GREEN}${BOLD}║${NC}    encargado.utn@eurekapp.com  → ENCARGADO (UTN FRC)     ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    emp1.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    emp2.utn@eurekapp.com       → EMPLOYEE (UTN FRC)      ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    emp1.aero@eurekapp.com      → EMPLOYEE (Aeropuerto)   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    owner.patio@eurekapp.com   → OWNER  (Patio Olmos)    ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    emp1.patio@eurekapp.com    → EMPLOYEE (Patio Olmos)  ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    owner.unc@eurekapp.com     → OWNER  (UNC)            ${GREEN}${BOLD}║${NC}"
