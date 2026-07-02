@@ -164,7 +164,10 @@ public class FoundObjectService implements IFoundObjectService {
         // Guardamos la imagen en Amazon S3
         Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes, foundObjectId));
         // Ahora solicitamos a "OpenAI Chat Completion" una descripción textual de la foto.
-        String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
+        // Deshabilitado temporalmente: la descripción por IA (gpt-4o) es lo que más tokens de OpenAI consume.
+        // Se fuerza a string vacío para no romper la carga mientras se migra el algoritmo de búsqueda a CLIP.
+        // String textRepresentation = descriptionService.getImageTextRepresentation(imageBytes);
+        String textRepresentation = "";
 
 
 
@@ -413,7 +416,10 @@ public class FoundObjectService implements IFoundObjectService {
     @SneakyThrows
     public FoundObjectsListDto searchByPhoto(MultipartFile image, SimilarObjectsCommand filters) {
         byte[] imageBytes = image.getBytes();
-        String description = descriptionService.getImageTextRepresentation(imageBytes);
+        // Deshabilitado temporalmente: la descripción por IA (gpt-4o) es lo que más tokens de OpenAI consume.
+        // Se fuerza a string vacío para no romper la búsqueda por foto mientras se migra el algoritmo a CLIP.
+        // String description = descriptionService.getImageTextRepresentation(imageBytes);
+        String description = "";
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
 
         String orgIdStr = filters.getOrganizationId() != null ? filters.getOrganizationId().toString() : null;
