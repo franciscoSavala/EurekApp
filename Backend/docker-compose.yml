@@ -37,6 +37,30 @@ services:
       retries: 20
       start_period: 15s
 
+  # Vectorización de imágenes con CLIP (EU-321). Se buildea local desde ../clip-service.
+  # La primera vez descarga ~600MB de pesos al volumen eurekapp_clip_models (una sola vez).
+  clip-service:
+    build:
+      context: ../clip-service
+    container_name: eurekapp-clip
+    ports:
+      - "8000:8000"
+    environment:
+      HF_HOME: /models
+      # hf-xet (transferencia por chunks de HuggingFace) se cuelga al bajar los pesos sin HF_TOKEN.
+      # Forzamos la descarga HTTP clásica (con timeouts y reintentos) para que el primer arranque
+      # no se quede colgado. Es descarga de una sola vez; luego queda cacheada en el volumen.
+      HF_HUB_DISABLE_XET: "1"
+    volumes:
+      - eurekapp_clip_models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+
 volumes:
   eurekapp_mysql_data:
   eurekapp_weaviate_data:
+  eurekapp_clip_models:

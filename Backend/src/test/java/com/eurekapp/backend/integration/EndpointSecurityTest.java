@@ -5,7 +5,9 @@ import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +47,14 @@ public class EndpointSecurityTest {
 
     @MockBean
     ImageDescriptionService imageDescriptionService;
+
+    // El profile "test" desactiva RestClientConfiguration (no existe el bean clipClient), así que
+    // mockeamos las interfaces para que el contexto no intente construir las impls basadas en CLIP.
+    @MockBean
+    ImageEmbeddingService imageEmbeddingService;
+
+    @MockBean
+    ImageClassificationService imageClassificationService;
 
     /*@MockBean
     VectorStorage<FoundObjectStructVector> vectorStorage;

@@ -42,6 +42,17 @@ public class RestClientConfiguration {
     }
 
     @Bean
+    @Qualifier("clipClient")
+    public RestClient clipClient(
+            @Value("${application.clip.url}") String url
+    ){
+        // Microservicio CLIP self-hosted (clip-service, EU-321). Sin auth: corre en la red interna.
+        return RestClient.builder()
+                .baseUrl(url)
+                .build();
+    }
+
+    @Bean
     @Qualifier("weaviateClient")
     public WeaviateClient weaviateClient(
             @Value("${application.weaviate.schema}") String schema,

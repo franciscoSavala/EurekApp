@@ -29,6 +29,10 @@ application:
   openai:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}
+  clip:
+    # Microservicio de vectorización de imágenes (clip-service, EU-321). En local corre en
+    # Docker publicado en localhost:8000; en prod se apunta con la env CLIP_URL.
+    url: ${CLIP_URL:http://localhost:8000}
   pinecone:
     api-key: ${PINECONE_SECRET_KEY:unused}
   jwt:
