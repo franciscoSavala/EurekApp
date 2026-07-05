@@ -11,12 +11,14 @@ import java.util.List;
 @Builder
 public class FoundObject {
     private String uuid;
-    private List<Float> embeddings;
+    // EU-323: dos vectores nombrados por objeto. "image" (CLIP, foto) y "text" (OpenAI, título+descripción).
+    // Cualquiera puede ser null (p. ej. una búsqueda sin foto); el repositorio persiste sólo los presentes.
+    private List<Float> imageEmbedding;
+    private List<Float> textEmbedding;
     private LocalDateTime foundDate;
     private String title;
     private UserEurekapp objectFinderUser;
     private String humanDescription;
-    private String aiDescription;
     private String organizationId;
     private GeoCoordinates coordinates;
     private Boolean wasReturned;

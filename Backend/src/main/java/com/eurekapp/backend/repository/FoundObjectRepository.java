@@ -44,7 +44,6 @@ public class FoundObjectRepository {
                             "title", foundObject.getTitle(),
                         "object_finder_user_id", foundObject.getObjectFinderUser() != null? foundObject.getObjectFinderUser().getId().toString():"0",
                         "human_description", foundObject.getHumanDescription(),
-                        "ai_description", foundObject.getAiDescription(),
                         "organization_id", foundObject.getOrganizationId(),
                         "was_returned", foundObject.getWasReturned(),
                         "category", foundObject.getCategory() != null ? foundObject.getCategory() : "",
@@ -53,10 +52,26 @@ public class FoundObjectRepository {
                                 "longitude", foundObject.getCoordinates().getLongitude()
                         )
                 )))
-                .vector(foundObject.getEmbeddings().toArray(new Float[0]))
+                // EU-323: dos vectores nombrados (image/text). Persistimos sólo los que estén presentes.
+                .vectors(namedVectors(foundObject.getImageEmbedding(), foundObject.getTextEmbedding()))
                 .build();
-        log.info("Uplading vector: {}", object);
+        log.info("Uploading FoundObject with named vectors: {}", object.getId());
         weaviateService.createObject(object);
+    }
+
+    /**
+     * EU-323: arma el mapa de vectores nombrados (image/text) para Weaviate, incluyendo sólo los que
+     * no son nulos ni vacíos. Un objeto puede tener sólo uno (p. ej. una búsqueda sin foto).
+     */
+    static Map<String, Float[]> namedVectors(List<Float> imageEmbedding, List<Float> textEmbedding) {
+        Map<String, Float[]> vectors = new java.util.HashMap<>();
+        if (imageEmbedding != null && !imageEmbedding.isEmpty()) {
+            vectors.put("image", imageEmbedding.toArray(new Float[0]));
+        }
+        if (textEmbedding != null && !textEmbedding.isEmpty()) {
+            vectors.put("text", textEmbedding.toArray(new Float[0]));
+        }
+        return vectors;
     }
 
     public List<FoundObject> query(List<Float> vector,
@@ -173,13 +188,14 @@ public class FoundObjectRepository {
                     .build();
         }
 
+        // EU-323: la búsqueda textual (única por ahora) va contra el vector nombrado "text".
         List<WeaviateObject> result = weaviateService.queryObjects("FoundObject",
                 vector,
+                "text",
                 filter,
                 List.of("title",
                         "object_finder_user_id",
                         "human_description",
-                        "ai_description",
                         "found_date",
                         "was_returned",
                         "coordinates",
@@ -235,7 +251,6 @@ public class FoundObjectRepository {
                 .title((String) properties.get("title"))
                 .objectFinderUser(objectFinderUser)
                 .humanDescription((String) properties.get("human_description"))
-                .aiDescription((String) properties.get("ai_description"))
                 .foundDate(CommonFunctions.convertToLocalDateTime((String) properties.get("found_date")))
                 .wasReturned((Boolean) properties.get("was_returned"))
                 .coordinates(location)

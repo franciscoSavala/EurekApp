@@ -70,7 +70,8 @@ public class LostObjectService {
         LostObject lostObject = LostObject.builder()
                 .uuid(id)
                 .username(command.getUsername())
-                .embeddings(embeddings)
+                // EU-323: embedding textual → vector nombrado "text" (el "image" se cablea en EU-324).
+                .textEmbedding(embeddings)
                 .coordinates(command.getGeoCoordinates())
                 .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
@@ -97,7 +98,8 @@ public class LostObjectService {
      * @param foundObject objeto encontrado recién cargado (con embeddings, coordenadas y fecha).
      */
     public void notifyMatchingSavedSearches(FoundObject foundObject) {
-        List<Float> embeddings = foundObject.getEmbeddings();
+        // EU-323: la búsqueda inversa (found→lost) compara texto contra texto → vector nombrado "text".
+        List<Float> embeddings = foundObject.getTextEmbedding();
         GeoCoordinates foundCoordinates = foundObject.getCoordinates();
         LocalDateTime foundDate = foundObject.getFoundDate();
 

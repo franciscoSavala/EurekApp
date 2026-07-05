@@ -75,12 +75,15 @@ public class LostObjectRepository {
         // EU-292: toda búsqueda nace ACTIVE. El cierre es lógico (ver close()).
         LostObjectStatus status = lostObject.getStatus() != null ? lostObject.getStatus() : LostObjectStatus.ACTIVE;
         properties.put("status", status.name());
+        // EU-323: categoría dura (definida por IA desde la imagen). Vacío si aún no se clasificó.
+        properties.put("category", lostObject.getCategory() != null ? lostObject.getCategory() : "");
 
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
                 .className("LostObject")
                 .properties(properties)
-                .vector(lostObject.getEmbeddings().toArray(new Float[0]))
+                // EU-323: dos vectores nombrados (image/text). Persistimos sólo los presentes.
+                .vectors(FoundObjectRepository.namedVectors(lostObject.getImageEmbedding(), lostObject.getTextEmbedding()))
                 .build();
 
         weaviateService.createObject(object);
@@ -161,8 +164,10 @@ public class LostObjectRepository {
                     .build();
         }
 
+        // EU-323: la búsqueda inversa (found→lost) es textual y va contra el vector nombrado "text".
         List<WeaviateObject> result = weaviateService.queryObjects("LostObject",
                 vector,
+                "text",
                 filter,
                 List.of("username",
                         "description",
@@ -171,7 +176,8 @@ public class LostObjectRepository {
                         "coordinates",
                         "status",
                         "closed_date",
-                        "recovered"),
+                        "recovered",
+                        "category"),
                 limit,
                 offset
         );
@@ -213,6 +219,7 @@ public class LostObjectRepository {
                 .lostDate(CommonFunctions.convertToLocalDateTime((String) properties.get("lost_date")))
                 .coordinates(location)
                 .organizationId((String) properties.get("organization_id"))
+                .category((String) properties.get("category"))
                 .score(certainty)
                 .status(status)
                 .closedDate(closedDate)
@@ -250,6 +257,7 @@ public class LostObjectRepository {
                 .lostDate(CommonFunctions.convertToLocalDateTime((String) properties.get("lost_date")))
                 .coordinates(location)
                 .organizationId((String) properties.get("organization_id"))
+                .category((String) properties.get("category"))
                 .status(status)
                 .closedDate(closedDate)
                 .recovered((Boolean) properties.get("recovered"))

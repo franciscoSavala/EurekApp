@@ -148,16 +148,24 @@ create_class_if_missing() {
   fi
 }
 
+# EU-323: cada objeto tiene DOS vectores nombrados (named vectors, Weaviate 1.24+):
+#   - "image": embedding visual de la foto (CLIP).
+#   - "text":  embedding textual (OpenAI) del título/descripción.
+# Ambos con vectorizer "none" (los vectores los provee el backend) y distancia coseno.
+# OJO: esto es un cambio de esquema INCOMPATIBLE con el vector único anterior. create_class_if_missing
+# NO recrea una clase que ya exista, así que en una BD de desarrollo previa hay que borrar las clases
+# (o el volumen eurekapp_weaviate_data) para que tomen los named vectors y luego regenerar el seed (EU-325).
 create_class_if_missing "FoundObject" '{
   "class": "FoundObject",
   "description": "Clase para representar objetos encontrados.",
-  "vectorIndexType": "hnsw",
-  "vectorIndexConfig": { "distance": "cosine" },
+  "vectorConfig": {
+    "image": { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } },
+    "text":  { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } }
+  },
   "properties": [
     { "name": "found_date",        "dataType": ["date"] },
     { "name": "title",             "dataType": ["string"] },
     { "name": "human_description", "dataType": ["string"] },
-    { "name": "ai_description",    "dataType": ["string"] },
     { "name": "organization_id",   "dataType": ["text"] },
     { "name": "coordinates",            "dataType": ["geoCoordinates"] },
     { "name": "was_returned",           "dataType": ["boolean"] },
@@ -169,8 +177,10 @@ create_class_if_missing "FoundObject" '{
 create_class_if_missing "LostObject" '{
   "class": "LostObject",
   "description": "Clase para representar busquedas abiertas de un objeto perdido.",
-  "vectorIndexType": "hnsw",
-  "vectorIndexConfig": { "distance": "cosine" },
+  "vectorConfig": {
+    "image": { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } },
+    "text":  { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } }
+  },
   "properties": [
     { "name": "lost_date",       "dataType": ["date"] },
     { "name": "description",     "dataType": ["string"] },
@@ -179,21 +189,25 @@ create_class_if_missing "LostObject" '{
     { "name": "coordinates",     "dataType": ["geoCoordinates"] },
     { "name": "status",          "dataType": ["text"] },
     { "name": "closed_date",     "dataType": ["date"] },
-    { "name": "recovered",       "dataType": ["boolean"] }
+    { "name": "recovered",       "dataType": ["boolean"] },
+    { "name": "category",        "dataType": ["text"] }
   ]
 }'
 
-# EU-292: si la clase LostObject ya existía (creada antes del rework), le faltan las propiedades
-# del cierre lógico. Las agregamos de forma idempotente (si ya existen, Weaviate responde error y
-# se ignora). En una instalación fresca el bloque de arriba ya las crea.
+# EU-292/EU-323: si la clase LostObject ya existía (creada antes del rework), le faltan propiedades
+# nuevas (cierre lógico y categoría). Las agregamos de forma idempotente (si ya existen, Weaviate
+# responde error y se ignora). En una instalación fresca el bloque de arriba ya las crea.
+# NOTA: los named vectors (image/text) NO se pueden agregar por properties a una clase con vector único
+# preexistente; para eso hay que recrear la clase (ver comentario del bloque create_class_if_missing).
 if [[ "$(curl -s -o /dev/null -w "%{http_code}" "$WEAVIATE_URL/v1/schema/LostObject")" == "200" ]]; then
   for PROP in '{"name":"status","dataType":["text"]}' \
               '{"name":"closed_date","dataType":["date"]}' \
-              '{"name":"recovered","dataType":["boolean"]}'; do
+              '{"name":"recovered","dataType":["boolean"]}' \
+              '{"name":"category","dataType":["text"]}'; do
     curl -s -o /dev/null -X POST "$WEAVIATE_URL/v1/schema/LostObject/properties" \
       -H "Content-Type: application/json" -d "$PROP"
   done
-  info "LostObject: propiedades de cierre (status/closed_date/recovered) aseguradas."
+  info "LostObject: propiedades de cierre (status/closed_date/recovered) y categoría aseguradas."
 fi
 
 # ─── 8. Levantar backend Spring Boot ─────────────────────────────────────────

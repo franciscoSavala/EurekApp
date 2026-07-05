@@ -45,12 +45,20 @@ public class WeaviateService {
      *      usado por el repositorio de cualquier clase.
      * ***/
     public void createObject(WeaviateObject object) {
-        Result<WeaviateObject> result = weaviateClient.data().creator()
+        io.weaviate.client.v1.data.api.ObjectCreator creator = weaviateClient.data().creator()
                 .withClassName(object.getClassName())
                 .withID(object.getId())
-                .withProperties(object.getProperties())
-                .withVector(object.getVector())
-                .run();
+                .withProperties(object.getProperties());
+
+        // EU-323: named vectors (image/text). Si el objeto trae el mapa de vectores nombrados usamos ese;
+        // en su defecto, caemos al vector único legacy (compatibilidad con clases de vector único).
+        if (object.getVectors() != null && !object.getVectors().isEmpty()) {
+            creator.withVectors(object.getVectors());
+        } else if (object.getVector() != null) {
+            creator.withVector(object.getVector());
+        }
+
+        Result<WeaviateObject> result = creator.run();
         if (result.hasErrors()) {
             log.error(result.getError().toString());
             throw new ApiException("database_error",
@@ -97,13 +105,15 @@ public class WeaviateService {
      * ***/
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
+                                                     String targetVector,
                                                      WhereFilter filter,
                                                      List<String> fieldNames) {
-        return queryObjects(className, vector, filter, fieldNames, null, null);
+        return queryObjects(className, vector, targetVector, filter, fieldNames, null, null);
     }
 
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
+                                                     String targetVector,
                                                      WhereFilter filter,
                                                      List<String> fieldNames,
                                                      Integer limit,
@@ -123,10 +133,14 @@ public class WeaviateService {
                     .append(toGraphQLString(filter))
                     .append("} ");}
 
-        // 3- Agregar el vector, si se proporciona
+        // 3- Agregar el vector, si se proporciona. EU-323: con named vectors hay que indicar contra
+        //  cuál de los vectores nombrados (image/text) se busca, vía "targetVectors".
         if (vector != null && !vector.isEmpty()) {
-            queryBuilder.append("nearVector: { vector: ").append(vector.toString())
-                    .append(", certainty: 0.0} ");}
+            queryBuilder.append("nearVector: { vector: ").append(vector.toString());
+            if (targetVector != null && !targetVector.isEmpty()) {
+                queryBuilder.append(", targetVectors: [\"").append(targetVector).append("\"]");
+            }
+            queryBuilder.append(", certainty: 0.0} ");}
 
         // 4a- Paginación
         if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }

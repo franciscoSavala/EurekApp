@@ -248,7 +248,7 @@ class LostObjectServiceTest {
         return FoundObject.builder()
                 .uuid("fo-1")
                 .title("Objeto encontrado")
-                .embeddings(List.of(0.1f, 0.2f, 0.3f))
+                .textEmbedding(List.of(0.1f, 0.2f, 0.3f))
                 .coordinates(coordinates)
                 .foundDate(LocalDateTime.now())
                 .organizationId("1")

@@ -15,7 +15,11 @@ public class LostObject {
     private LocalDateTime lostDate;
     private String organizationId;
     private GeoCoordinates coordinates;
-    private List<Float> embeddings;
+    // EU-323: dos vectores nombrados por objeto (ver FoundObject). Cualquiera puede ser null.
+    private List<Float> imageEmbedding;
+    private List<Float> textEmbedding;
+    // EU-323: categoría dura (definida por IA desde la imagen). Filtro previo del matching.
+    private String category;
     private Float score;
     // Estado de la búsqueda guardada (EU-292). El cierre es LÓGICO: la búsqueda nunca se borra
     // de Weaviate, sólo pasa a CLOSED y deja de mostrarse como activa / de disparar avisos.
