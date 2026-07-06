@@ -10,7 +10,11 @@ import java.util.Optional;
 import com.eurekapp.backend.repository.*;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
+import lombok.SneakyThrows;
+import org.springframework.web.multipart.MultipartFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -27,6 +31,8 @@ public class LostObjectService {
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
     private final EmbeddingService embeddingService;
+    private final ImageEmbeddingService imageEmbeddingService;
+    private final ImageClassificationService imageClassificationService;
     private final EmailTemplateService emailTemplateService;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
@@ -38,6 +44,8 @@ public class LostObjectService {
 
     public LostObjectService(
             EmbeddingService embeddingService,
+            ImageEmbeddingService imageEmbeddingService,
+            ImageClassificationService imageClassificationService,
             EmailTemplateService emailTemplateService,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
@@ -47,6 +55,8 @@ public class LostObjectService {
             InAppNotificationService inAppNotificationService,
             SearchScoringService searchScoringService) {
         this.embeddingService = embeddingService;
+        this.imageEmbeddingService = imageEmbeddingService;
+        this.imageClassificationService = imageClassificationService;
         this.emailTemplateService = emailTemplateService;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
@@ -59,19 +69,32 @@ public class LostObjectService {
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
     // similar a la publicación.
+    @SneakyThrows
     public void reportLostObject(ReportLostObjectCommand command) {
-        if (command.getDescription() == null || command.getDescription().isBlank()) {
-            throw new BadRequestException("description_required", "No se pudo analizar la imagen para guardar la búsqueda.");
+        // La búsqueda del rework es foto + texto, ambos obligatorios (ver REWORK-ALGORITMO-BUSQUEDA).
+        MultipartFile image = command.getImage();
+        if (image == null || image.isEmpty()) {
+            throw new BadRequestException("image_required", "La foto es obligatoria para guardar la búsqueda.");
         }
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(command.getDescription());
+        if (command.getDescription() == null || command.getDescription().isBlank()) {
+            throw new BadRequestException("description_required", "La descripción es obligatoria para guardar la búsqueda.");
+        }
+
+        byte[] imageBytes = image.getBytes();
+        // EU-324: vector VISUAL (CLIP) + categoría dura por IA desde la imagen, y vector TEXTUAL (OpenAI)
+        // de la descripción del usuario. Se persisten como los dos vectores nombrados "image"/"text".
+        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
+        ObjectCategory category = imageClassificationService.classify(imageBytes);
+        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(command.getDescription());
         String id = UUID.randomUUID().toString();
 
-        // TODO: Agregar atributos faltantes. Chequear que estén siendo enviados desde el front.
         LostObject lostObject = LostObject.builder()
                 .uuid(id)
                 .username(command.getUsername())
-                // EU-323: embedding textual → vector nombrado "text" (el "image" se cablea en EU-324).
-                .textEmbedding(embeddings)
+                .imageEmbedding(imageEmbedding)
+                .textEmbedding(textEmbedding)
+                // Categoría dura determinada por IA desde la imagen (no la elige el usuario).
+                .category(category.name())
                 .coordinates(command.getGeoCoordinates())
                 .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
@@ -79,6 +102,10 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
+
+        // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
+        // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
+        objectStorage.putObject(imageBytes, id);
     }
 
     /**

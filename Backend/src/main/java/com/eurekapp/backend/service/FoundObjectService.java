@@ -16,7 +16,9 @@ import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
@@ -45,6 +47,8 @@ public class FoundObjectService implements IFoundObjectService {
     private final ObjectStorage s3Service;
     private final ImageDescriptionService descriptionService;
     private final EmbeddingService embeddingService;
+    private final ImageEmbeddingService imageEmbeddingService;
+    private final ImageClassificationService imageClassificationService;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
@@ -61,6 +65,8 @@ public class FoundObjectService implements IFoundObjectService {
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
                               EmbeddingService embeddingService,
+                              ImageEmbeddingService imageEmbeddingService,
+                              ImageClassificationService imageClassificationService,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
@@ -75,6 +81,8 @@ public class FoundObjectService implements IFoundObjectService {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
+        this.imageEmbeddingService = imageEmbeddingService;
+        this.imageClassificationService = imageClassificationService;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
@@ -179,6 +187,12 @@ public class FoundObjectService implements IFoundObjectService {
         */
         List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
 
+        // EU-324: vector VISUAL de la imagen (CLIP, foto → vector directo) para el vector nombrado "image",
+        // y clasificación por IA en categorías duras (define α/β y es filtro previo del matching). La
+        // categoría la determina la IA a partir de la imagen: sobrescribe cualquier valor que venga del usuario.
+        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
+        ObjectCategory category = imageClassificationService.classify(imageBytes);
+
 
                     // 7- CREACIÓN DEL FOUNDOBJECT Y PERSISTENCIA DEL MISMO
         FoundObject foundObject = FoundObject.builder()
@@ -186,14 +200,15 @@ public class FoundObjectService implements IFoundObjectService {
                 .title(command.getTitle())
                 .objectFinderUser(objectFinderUser)
                 .humanDescription(command.getDetailedDescription())
-                // EU-323: el embedding textual va al vector nombrado "text". El vector "image" (CLIP)
-                // se cableará en EU-324; por ahora queda null y no se persiste.
+                // EU-324: dos vectores nombrados: "text" (OpenAI, título+descripción) e "image" (CLIP, foto).
                 .textEmbedding(embeddings)
+                .imageEmbedding(imageEmbedding)
                 .organizationId(String.valueOf(command.getOrganizationId()))
                 .foundDate(command.getFoundDate())
                 .coordinates(GeoCoordinates.builder().latitude(objectLatitude).longitude(objectLongitude).build())
                 .wasReturned(false)
-                .category(command.getCategory())
+                // Categoría dura determinada por IA desde la imagen (no la elige el usuario).
+                .category(category.name())
                 .build();
         Future<Void> addFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.add(foundObject));
 

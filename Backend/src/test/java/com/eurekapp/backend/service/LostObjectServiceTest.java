@@ -1,8 +1,10 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.FoundObject;
+import com.eurekapp.backend.model.ObjectCategory;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.LostObject;
 import com.eurekapp.backend.model.LostObjectStatus;
@@ -14,6 +16,8 @@ import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.LostObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -57,6 +62,8 @@ class LostObjectServiceTest {
             GeoCoordinates.builder().latitude(-34.6037).longitude(-58.3816).build();
 
     @Mock EmbeddingService embeddingService;
+    @Mock ImageEmbeddingService imageEmbeddingService;
+    @Mock ImageClassificationService imageClassificationService;
     @Mock EmailTemplateService emailTemplateService;
     @Mock NotificationService notificationService;
     @Mock IOrganizationRepository organizationRepository;
@@ -70,7 +77,8 @@ class LostObjectServiceTest {
     @BeforeEach
     void setUp() {
         service = new LostObjectService(
-                embeddingService, emailTemplateService, notificationService, organizationRepository,
+                embeddingService, imageEmbeddingService, imageClassificationService,
+                emailTemplateService, notificationService, organizationRepository,
                 objectStorage, lostObjectRepository, userRepository, inAppNotificationService,
                 new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties()));
 
@@ -240,6 +248,66 @@ class LostObjectServiceTest {
                 .isInstanceOf(NotFoundException.class);
 
         verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
+    }
+
+    // ---- reportLostObject (EU-324-C): guardar búsqueda = foto + texto, CLIP + categoría IA + S3 al guardar ----
+
+    @Test
+    void reportLostObject_persistsBothVectorsAndCategory_andUploadsPhoto() {
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(photo)
+                .description("billetera de cuero marrón")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f, 0.5f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        assertThat(saved.getImageEmbedding()).containsExactly(0.4f, 0.5f);
+        assertThat(saved.getTextEmbedding()).containsExactly(0.1f, 0.2f);
+        assertThat(saved.getCategory()).isEqualTo(ObjectCategory.BILLETERA.name());
+        // La foto se sube a S3 sólo al guardar, con key = uuid de la búsqueda.
+        verify(objectStorage).putObject(eq(new byte[]{1, 2, 3}), eq(saved.getUuid()));
+    }
+
+    @Test
+    void reportLostObject_withoutPhoto_throwsBadRequest() {
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(null)
+                .description("billetera")
+                .username("u1@test.com")
+                .build();
+
+        assertThatThrownBy(() -> service.reportLostObject(command))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).add(any());
+        verify(objectStorage, never()).putObject(any(), anyString());
+    }
+
+    @Test
+    void reportLostObject_withoutDescription_throwsBadRequest() {
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(photo)
+                .description("   ")
+                .username("u1@test.com")
+                .build();
+
+        assertThatThrownBy(() -> service.reportLostObject(command))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).add(any());
+        verify(objectStorage, never()).putObject(any(), anyString());
     }
 
     // ---- helpers ----

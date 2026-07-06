@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 
 @Getter
@@ -14,6 +15,9 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class ReportLostObjectCommand {
+    // EU-324: foto de la búsqueda. El front la reenvía al GUARDAR la búsqueda (stateless); se
+    // vectoriza con CLIP y se clasifica por IA, y se sube a S3 sólo aquí (al guardar).
+    private MultipartFile image;
     @JsonProperty("description")
     private String description;
     @JsonProperty("username")

@@ -44,6 +44,16 @@ Jira: **EU-320** (Story, epic EU-5 "Búsqueda de objetos perdidos", 5 puntos, as
    **escala** la suma (sim_imagen + sim_texto) dentro del radio.
 7. **Umbral:** se conserva el mínimo (hoy MIN_SCORE = 0.75) para disparar notificación de
    búsqueda guardada, complementado por el filtro duro de categoría.
+8bis. **Categoría: la decide siempre la IA, el usuario la VE pero NO la edita.** La clasificación
+   por IA se **muestra** al usuario (read-only) por transparencia y como red de seguridad ante un fallo
+   silencioso (una categoría mal elegida vuelve al objeto invisible para las búsquedas de la categoría
+   correcta, porque es un filtro duro). Si el usuario la ve mal, el recurso es **reintentar con otra
+   foto** —no hay override manual—. Motivo: el filtro sólo es consistente si ambos lados (objeto
+   encontrado y búsqueda) se clasifican con el MISMO criterio; como los dos pasan por el mismo modelo,
+   coinciden por construcción. Un override manual de un solo lado reintroduce la inconsistencia humana
+   que el diseño quiso eliminar (decisión 5). El error temido —confundir dos categorías CONCRETAS— es
+   improbable: el clasificador cae en OTROS por margen top1-top2 ante la duda, así que el error típico
+   es "ambiguo→OTROS" (deseado), no "billetera→celular". Se reevalúa con datos reales en EU-327.
 8. **Foto de la búsqueda: se persiste sólo al guardar.** La búsqueda por foto vectoriza la
    imagen en memoria (CLIP) y **NO** la sube a S3. Recién cuando el usuario **guarda** la
    búsqueda se sube a S3 (key = uuid del `LostObject`), para poder mostrarla al ver la
@@ -89,8 +99,8 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | TODO | Corazón. Depende de 1, 2, 3. Tests unitarios. `reportLostObject` sube la foto a S3 al guardar; `searchByPhoto` no sube |
 | 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | TODO | **Manual**: requiere datos reales de Facundo. Depende de 3 **y de 4** (necesita la huella visual CLIP cableada). Cubre `seed-local.sh` COMPLETO: (a) el bloque que recrea el esquema (líneas ~159-196, hoy copia duplicada en formato viejo → pasarlo a named vectors image+text, +category en LostObject, −ai_description) **y** (b) los NDJSON `seed-data/{FoundObject,LostObject}.ndjson` (hoy `vector` único → `vectors:{image,text}` + category + sin ai_description). Van acoplados: el seed recrea el esquema e inserta los NDJSON, así que tocar uno sin el otro rompe la inserción. **Ojo:** mientras EU-325 no se haga, correr `seed-local.sh` revierte el esquema de EU-323 (recrea las clases en formato de vector único) |
-| 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada |
-| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación |
+| 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
+| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 
 Orden sugerido: **1 → 2 → 3 → 4 → 5 → 7**, con **6** en paralelo desde que el contrato del back esté claro.
 

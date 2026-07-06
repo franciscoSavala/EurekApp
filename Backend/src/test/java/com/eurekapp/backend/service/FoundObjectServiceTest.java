@@ -10,7 +10,9 @@ import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,6 +47,8 @@ class FoundObjectServiceTest {
     @Mock ObjectStorage s3Service;
     @Mock ImageDescriptionService descriptionService;
     @Mock EmbeddingService embeddingService;
+    @Mock ImageEmbeddingService imageEmbeddingService;
+    @Mock ImageClassificationService imageClassificationService;
     @Mock IOrganizationRepository organizationRepository;
     @Mock OrganizationService organizationService;
     @Mock LostObjectService lostObjectService;
@@ -62,7 +66,8 @@ class FoundObjectServiceTest {
     @BeforeEach
     void setUp() {
         service = new FoundObjectService(
-                s3Service, descriptionService, embeddingService, organizationRepository,
+                s3Service, descriptionService, embeddingService, imageEmbeddingService,
+                imageClassificationService, organizationRepository,
                 organizationService, lostObjectService, executorService, foundObjectRepository,
                 userRepository, rewardExclusionRepository, notificationService,
                 emailTemplateService, fraudBlockService, searchScoringService);
