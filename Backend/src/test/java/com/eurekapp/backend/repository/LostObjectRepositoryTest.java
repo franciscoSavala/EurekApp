@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -86,5 +87,52 @@ class LostObjectRepositoryTest {
         assertThat(found.get(0).getScore()).isEqualTo(0.8f);
         // La búsqueda inversa (texto) apunta al vector nombrado "text".
         verify(weaviateService).queryObjects(eq("LostObject"), any(), eq("text"), any(), any(), any(), any());
+    }
+
+    private static WeaviateObject candidate(String uuid, double certainty) {
+        return WeaviateObject.builder()
+                .id(uuid)
+                .properties(new HashMap<>(Map.of(
+                        "username", "user@test.com",
+                        "description", "billetera negra",
+                        "category", "BILLETERA")))
+                .additional(Map.of("certainty", certainty))
+                .build();
+    }
+
+    @Test
+    void queryDual_mergesByUuid_exposingBothCertainties() {
+        // lo-1 aparece por ambas modalidades; lo-2 sólo por imagen; lo-3 sólo por texto.
+        when(weaviateService.queryObjects(eq("LostObject"), any(), eq("image"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("lo-1", 0.9d), candidate("lo-2", 0.8d)));
+        when(weaviateService.queryObjects(eq("LostObject"), any(), eq("text"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("lo-1", 0.7d), candidate("lo-3", 0.6d)));
+
+        List<LostObject> found = repository().queryDual(
+                List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), null, null, null, null, null, null);
+
+        assertThat(found).extracting(LostObject::getUuid).containsExactly("lo-1", "lo-2", "lo-3");
+        assertThat(found).extracting(LostObject::getScore).containsOnlyNulls();
+
+        assertThat(found.get(0).getImageCertainty()).isEqualTo(0.9f);
+        assertThat(found.get(0).getTextCertainty()).isEqualTo(0.7f);
+        assertThat(found.get(1).getImageCertainty()).isEqualTo(0.8f);
+        assertThat(found.get(1).getTextCertainty()).isNull();
+        assertThat(found.get(2).getImageCertainty()).isNull();
+        assertThat(found.get(2).getTextCertainty()).isEqualTo(0.6f);
+    }
+
+    @Test
+    void queryDual_withoutImageVector_queriesOnlyText() {
+        when(weaviateService.queryObjects(eq("LostObject"), any(), eq("text"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("lo-1", 0.7d)));
+
+        List<LostObject> found = repository().queryDual(
+                null, List.of(0.3f, 0.4f), null, null, null, null, null, null);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).getImageCertainty()).isNull();
+        assertThat(found.get(0).getTextCertainty()).isEqualTo(0.7f);
+        verify(weaviateService, never()).queryObjects(eq("LostObject"), any(), eq("image"), any(), any(), any(), any());
     }
 }

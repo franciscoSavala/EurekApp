@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -105,64 +106,7 @@ public class LostObjectRepository {
                                    Integer limit,
                                    Integer offset){
 
-        // Lista de filtros
-        List<WhereFilter> filters = new ArrayList<>();
-
-        /* No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter.
-            Si el vector es null, WeaviateService decidirá cómo lidiar con eso. */
-
-        // Agregar filtro opcional para username
-        if (username != null) {
-            filters.add(WhereFilter.builder()
-                    .path("username")
-                    .operator(Operator.Equal)
-                    .valueText(username)
-                    .build());
-        }
-
-        // Agregar filtro opcional para organization_id
-        if (orgId != null) {
-            filters.add(WhereFilter.builder()
-                    .path("organization_id")
-                    .operator(Operator.Equal)
-                    .valueText(orgId)
-                    .build());
-        }
-
-        // Agregar filtro opcional para lostDateFrom (lower bound)
-        if (lostDateFrom != null) {
-            ZonedDateTime zonedDateTimeFrom = lostDateFrom.atZone(ZoneId.of("GMT"));
-            Date castedLostDateFrom = Date.from(zonedDateTimeFrom.toInstant());
-            filters.add(WhereFilter.builder()
-                    .path("lost_date")
-                    .operator(Operator.GreaterThanEqual)
-                    .valueDate(castedLostDateFrom)
-                    .build());
-        }
-
-        // Agregar filtro opcional para lostDateTo (upper bound)
-        if (lostDateTo != null) {
-            ZonedDateTime zonedDateTimeTo = lostDateTo.atZone(ZoneId.of("GMT"));
-            Date castedLostDateTo = Date.from(zonedDateTimeTo.toInstant());
-            filters.add(WhereFilter.builder()
-                    .path("lost_date")
-                    .operator(Operator.LessThan)
-                    .valueDate(castedLostDateTo)
-                    .build());
-        }
-
-        // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
-
-        // Construir el filtro compuesto (And), si es que efectivamente hay filtros.
-        WhereFilter filter = null;
-        if (filters.size() == 1) {
-            filter = filters.get(0);
-        } else if (filters.size() > 1) {
-            filter = WhereFilter.builder()
-                    .operator(Operator.And)
-                    .operands(filters.toArray(new WhereFilter[0]))
-                    .build();
-        }
+        WhereFilter filter = buildFilter(username, orgId, lostDateFrom, lostDateTo);
 
         // EU-323: la búsqueda inversa (found→lost) es textual y va contra el vector nombrado "text".
         List<WeaviateObject> result = weaviateService.queryObjects("LostObject",
@@ -190,6 +134,125 @@ public class LostObjectRepository {
         }
 
         return lostObjects;
+    }
+
+    /**
+     * EU-324: construye el filtro compuesto (And) a partir de los filtros opcionales de la búsqueda
+     * inversa. Extraído para reutilizarlo entre la query textual legacy y {@link #queryDual}.
+     * Devuelve {@code null} si no hay ningún filtro.
+     */
+    private WhereFilter buildFilter(String username,
+                                    String orgId,
+                                    LocalDateTime lostDateFrom,
+                                    LocalDateTime lostDateTo) {
+        List<WhereFilter> filters = new ArrayList<>();
+
+        if (username != null) {
+            filters.add(WhereFilter.builder()
+                    .path("username")
+                    .operator(Operator.Equal)
+                    .valueText(username)
+                    .build());
+        }
+
+        if (orgId != null) {
+            filters.add(WhereFilter.builder()
+                    .path("organization_id")
+                    .operator(Operator.Equal)
+                    .valueText(orgId)
+                    .build());
+        }
+
+        if (lostDateFrom != null) {
+            ZonedDateTime zonedDateTimeFrom = lostDateFrom.atZone(ZoneId.of("GMT"));
+            Date castedLostDateFrom = Date.from(zonedDateTimeFrom.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("lost_date")
+                    .operator(Operator.GreaterThanEqual)
+                    .valueDate(castedLostDateFrom)
+                    .build());
+        }
+
+        if (lostDateTo != null) {
+            ZonedDateTime zonedDateTimeTo = lostDateTo.atZone(ZoneId.of("GMT"));
+            Date castedLostDateTo = Date.from(zonedDateTimeTo.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("lost_date")
+                    .operator(Operator.LessThan)
+                    .valueDate(castedLostDateTo)
+                    .build());
+        }
+
+        // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
+
+        if (filters.size() == 1) {
+            return filters.get(0);
+        } else if (filters.size() > 1) {
+            return WhereFilter.builder()
+                    .operator(Operator.And)
+                    .operands(filters.toArray(new WhereFilter[0]))
+                    .build();
+        }
+        return null;
+    }
+
+    /**
+     * EU-324: búsqueda inversa combinada imagen + texto. Corre dos consultas contra los vectores
+     * nombrados "image" y "text" (según cuál vector se reciba) y fusiona los candidatos por UUID,
+     * exponiendo en cada uno su certeza coseno por modalidad ({@code imageCertainty}/{@code textCertainty}).
+     * Un candidato que sólo aparece por una modalidad queda con la otra certeza en {@code null}.
+     *
+     * <p>No calcula el puntaje final (lo hace {@code SearchScoringService} aguas arriba, EU-324-D);
+     * el {@code score} de cada candidato queda en {@code null}.</p>
+     */
+    public List<LostObject> queryDual(List<Float> imageVector,
+                                      List<Float> textVector,
+                                      String username,
+                                      String orgId,
+                                      LocalDateTime lostDateFrom,
+                                      LocalDateTime lostDateTo,
+                                      Integer limit,
+                                      Integer offset) {
+        WhereFilter filter = buildFilter(username, orgId, lostDateFrom, lostDateTo);
+        List<String> fields = List.of("username",
+                "description",
+                "lost_date",
+                "organization_id",
+                "coordinates",
+                "status",
+                "closed_date",
+                "recovered",
+                "category");
+
+        // Preservamos el orden de aparición (primero los candidatos por imagen, luego los nuevos por texto).
+        Map<String, LostObject> merged = new LinkedHashMap<>();
+
+        if (imageVector != null && !imageVector.isEmpty()) {
+            for (WeaviateObject wo : weaviateService.queryObjects("LostObject", imageVector, "image",
+                    filter, fields, limit, offset)) {
+                LostObject candidate = convertToLostObject(wo);
+                candidate.setImageCertainty(candidate.getScore());
+                candidate.setScore(null);
+                merged.put(candidate.getUuid(), candidate);
+            }
+        }
+
+        if (textVector != null && !textVector.isEmpty()) {
+            for (WeaviateObject wo : weaviateService.queryObjects("LostObject", textVector, "text",
+                    filter, fields, limit, offset)) {
+                LostObject candidate = convertToLostObject(wo);
+                LostObject existing = merged.get(candidate.getUuid());
+                if (existing != null) {
+                    existing.setTextCertainty(candidate.getScore());
+                } else {
+                    candidate.setTextCertainty(candidate.getScore());
+                    candidate.setScore(null);
+                    merged.put(candidate.getUuid(), candidate);
+                }
+            }
+        }
+
+        return new ArrayList<>(merged.values());
     }
 
     private LostObject convertToLostObject(WeaviateObject weaviateObject) {

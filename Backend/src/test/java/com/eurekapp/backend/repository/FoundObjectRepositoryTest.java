@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +109,60 @@ class FoundObjectRepositoryTest {
         assertThat(found.get(0).getScore()).isEqualTo(0.9f);
         // La búsqueda vectorial (texto) apunta al vector nombrado "text".
         verify(weaviateService).queryObjects(eq("FoundObject"), any(), eq("text"), any(), any(), any(), any());
+    }
+
+    private static WeaviateObject candidate(String uuid, double certainty) {
+        return WeaviateObject.builder()
+                .id(uuid)
+                .properties(new HashMap<>(Map.of(
+                        "title", "Billetera",
+                        "category", "BILLETERA",
+                        "found_date", "2026-07-05T10:00:00Z")))
+                .additional(Map.of("certainty", certainty))
+                .build();
+    }
+
+    @Test
+    void queryDual_mergesByUuid_exposingBothCertainties() {
+        // fo-1 aparece por ambas modalidades; fo-2 sólo por imagen; fo-3 sólo por texto.
+        when(weaviateService.queryObjects(eq("FoundObject"), any(), eq("image"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("fo-1", 0.9d), candidate("fo-2", 0.8d)));
+        when(weaviateService.queryObjects(eq("FoundObject"), any(), eq("text"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("fo-1", 0.7d), candidate("fo-3", 0.6d)));
+
+        List<FoundObject> found = repository().queryDual(
+                List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), "1", null, null, null, false, "BILLETERA", null, null);
+
+        assertThat(found).extracting(FoundObject::getUuid).containsExactly("fo-1", "fo-2", "fo-3");
+        // El puntaje final lo calcula el scoring aguas arriba (EU-324-D); acá queda sin fijar.
+        assertThat(found).extracting(FoundObject::getScore).containsOnlyNulls();
+
+        FoundObject both = found.get(0);
+        assertThat(both.getImageCertainty()).isEqualTo(0.9f);
+        assertThat(both.getTextCertainty()).isEqualTo(0.7f);
+
+        FoundObject onlyImage = found.get(1);
+        assertThat(onlyImage.getImageCertainty()).isEqualTo(0.8f);
+        assertThat(onlyImage.getTextCertainty()).isNull();
+
+        FoundObject onlyText = found.get(2);
+        assertThat(onlyText.getImageCertainty()).isNull();
+        assertThat(onlyText.getTextCertainty()).isEqualTo(0.6f);
+    }
+
+    @Test
+    void queryDual_withoutImageVector_queriesOnlyText() {
+        when(weaviateService.queryObjects(eq("FoundObject"), any(), eq("text"), any(), any(), any(), any()))
+                .thenReturn(List.of(candidate("fo-1", 0.7d)));
+
+        List<FoundObject> found = repository().queryDual(
+                null, List.of(0.3f, 0.4f), "1", null, null, null, false, "BILLETERA", null, null);
+
+        assertThat(found).hasSize(1);
+        assertThat(found.get(0).getImageCertainty()).isNull();
+        assertThat(found.get(0).getTextCertainty()).isEqualTo(0.7f);
+        // No debe consultarse el vector de imagen si no se recibió.
+        verify(weaviateService, never()).queryObjects(eq("FoundObject"), any(), eq("image"), any(), any(), any(), any());
     }
 
     @Test

@@ -28,4 +28,10 @@ public class FoundObject {
     //Estos dos atributos son usados sólo cuando se hace una búsqueda.
     private Float score;
     private Float distance;
+
+    // EU-324: certezas coseno crudas por modalidad, expuestas por la búsqueda combinada (queryDual).
+    // Cada una puede ser null si el candidato no matcheó por esa modalidad (o no se consultó).
+    // Alimentan a SearchScoringService.combinedScore; NO se persisten.
+    private Float imageCertainty;
+    private Float textCertainty;
 }

@@ -72,7 +72,7 @@ class LostObjectServiceTest {
         service = new LostObjectService(
                 embeddingService, emailTemplateService, notificationService, organizationRepository,
                 objectStorage, lostObjectRepository, userRepository, inAppNotificationService,
-                new SearchScoringService());
+                new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties()));
 
         Organization organization = mock(Organization.class);
         when(organization.getName()).thenReturn("Org Test");

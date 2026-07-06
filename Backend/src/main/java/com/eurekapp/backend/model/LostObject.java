@@ -21,6 +21,11 @@ public class LostObject {
     // EU-323: categoría dura (definida por IA desde la imagen). Filtro previo del matching.
     private String category;
     private Float score;
+    // EU-324: certezas coseno crudas por modalidad, expuestas por la búsqueda combinada (queryDual).
+    // Cada una puede ser null si el candidato no matcheó por esa modalidad (o no se consultó).
+    // Alimentan a SearchScoringService.combinedScore; NO se persisten.
+    private Float imageCertainty;
+    private Float textCertainty;
     // Estado de la búsqueda guardada (EU-292). El cierre es LÓGICO: la búsqueda nunca se borra
     // de Weaviate, sólo pasa a CLOSED y deja de mostrarse como activa / de disparar avisos.
     private LostObjectStatus status;

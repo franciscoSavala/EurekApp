@@ -94,99 +94,7 @@ public class FoundObjectRepository {
                                    Integer limit,
                                    Integer offset){
 
-        // Lista de filtros
-        List<WhereFilter> filters = new ArrayList<>();
-
-        /*
-        *   No agregamos el vector al filtro, porque el vector NO VA dentro del WhereFilter, sino que es pasado
-        *  de forma directa a Weaviate.
-        *  WeaviateService decidirá qué hacer si el vector recibido es null.
-        * */
-
-        // Agregamos un filtro opcional para las coordenadas.
-        if(coordinates != null){
-            /*
-             * Definimos el radio al cual vamos a circunscribir la búsqueda.
-            *  Esta definición es una regla de negocio.
-            *  Esta distancia será igual a 50 km. Está expresada en metros.
-            * */
-            Float maxDistance = (maxRadius).floatValue();
-
-            //El siguiente código está comentado temporalmente, hasta que solucionemos el bug de Weaviate con "WithinGeoRange".
-            /*filters.add(WhereFilter.builder()
-                    .path("coordinates")
-                    .operator(Operator.WithinGeoRange)
-                    .valueGeoRange(WhereFilter.GeoRange.builder()
-                            .geoCoordinates(WhereFilter.GeoCoordinates.builder()
-                                            .latitude(coordinates.getLatitude().floatValue())
-                                            .longitude(coordinates.getLongitude().floatValue())
-                                            .build())
-                            .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
-                            .build())
-                    .build());*/
-        }
-
-        // Agregamos un filtro opcional para la organización.
-        if (orgId != null) {
-            filters.add(WhereFilter.builder()
-                    .path("organization_id")
-                    .operator(Operator.Equal)
-                    .valueText(orgId)
-                    .build());
-        }
-
-        // Agregamos un filtro opcional para foundDate.
-        if (foundDate != null) {
-            ZonedDateTime zonedDateTime = foundDate.atZone(ZoneId.of("GMT"));
-            Date castedLostDate = Date.from(zonedDateTime.toInstant());
-
-            filters.add(WhereFilter.builder()
-                    .path("found_date")
-                    .operator(Operator.GreaterThanEqual)
-                    .valueDate(castedLostDate)
-                    .build());
-        }
-
-        // Agregamos un filtro opcional para foundDateTo (upper bound).
-        if (foundDateTo != null) {
-            ZonedDateTime zonedDateTimeTo = foundDateTo.atZone(ZoneId.of("GMT"));
-            Date castedFoundDateTo = Date.from(zonedDateTimeTo.toInstant());
-
-            filters.add(WhereFilter.builder()
-                    .path("found_date")
-                    .operator(Operator.LessThan)
-                    .valueDate(castedFoundDateTo)
-                    .build());
-        }
-
-        // Agregamos el filtro para was_returned.
-        if (wasReturned != null) {
-            filters.add(WhereFilter.builder()
-                    .path("was_returned")
-                    .operator(Operator.Equal)
-                    .valueBoolean(wasReturned)
-                    .build());
-        }
-
-        // Agregamos un filtro opcional para la categoría.
-        if (category != null) {
-            filters.add(WhereFilter.builder()
-                    .path("category")
-                    .operator(Operator.Equal)
-                    .valueText(category)
-                    .build());
-        }
-
-        // Construimos el filtro compuesto (And).
-        WhereFilter filter = null;
-        if (filters.size() == 1) {
-            filter = filters.get(0);
-        } else if (filters.size() > 1) {
-            filter = WhereFilter.builder()
-                    .operator(Operator.And)
-                    .operands(filters.toArray(new WhereFilter[0]))
-                    .build();
-        }
+        WhereFilter filter = buildFilter(orgId, coordinates, foundDate, foundDateTo, wasReturned, category);
 
         // EU-323: la búsqueda textual (única por ahora) va contra el vector nombrado "text".
         List<WeaviateObject> result = weaviateService.queryObjects("FoundObject",
@@ -213,6 +121,151 @@ public class FoundObjectRepository {
         }
 
         return foundObjects;
+    }
+
+    /**
+     * EU-324: construye el filtro compuesto (And) de la búsqueda a partir de los filtros opcionales.
+     * Extraído para poder reutilizarlo entre la query textual legacy y {@link #queryDual}.
+     * Devuelve {@code null} si no hay ningún filtro.
+     */
+    private WhereFilter buildFilter(String orgId,
+                                    GeoCoordinates coordinates,
+                                    LocalDateTime foundDate,
+                                    LocalDateTime foundDateTo,
+                                    Boolean wasReturned,
+                                    String category) {
+        List<WhereFilter> filters = new ArrayList<>();
+
+        // El filtro geográfico (WithinGeoRange) está deshabilitado por un bug de Weaviate; el radio
+        // se aplica aguas arriba. Dejamos el parámetro para no cambiar el contrato de la búsqueda.
+        if (coordinates != null) {
+            Float maxDistance = (maxRadius).floatValue();
+            /*filters.add(WhereFilter.builder()
+                    .path("coordinates")
+                    .operator(Operator.WithinGeoRange)
+                    .valueGeoRange(WhereFilter.GeoRange.builder()
+                            .geoCoordinates(WhereFilter.GeoCoordinates.builder()
+                                            .latitude(coordinates.getLatitude().floatValue())
+                                            .longitude(coordinates.getLongitude().floatValue())
+                                            .build())
+                            .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
+                            .build())
+                    .build());*/
+        }
+
+        if (orgId != null) {
+            filters.add(WhereFilter.builder()
+                    .path("organization_id")
+                    .operator(Operator.Equal)
+                    .valueText(orgId)
+                    .build());
+        }
+
+        if (foundDate != null) {
+            ZonedDateTime zonedDateTime = foundDate.atZone(ZoneId.of("GMT"));
+            Date castedLostDate = Date.from(zonedDateTime.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("found_date")
+                    .operator(Operator.GreaterThanEqual)
+                    .valueDate(castedLostDate)
+                    .build());
+        }
+
+        if (foundDateTo != null) {
+            ZonedDateTime zonedDateTimeTo = foundDateTo.atZone(ZoneId.of("GMT"));
+            Date castedFoundDateTo = Date.from(zonedDateTimeTo.toInstant());
+            filters.add(WhereFilter.builder()
+                    .path("found_date")
+                    .operator(Operator.LessThan)
+                    .valueDate(castedFoundDateTo)
+                    .build());
+        }
+
+        if (wasReturned != null) {
+            filters.add(WhereFilter.builder()
+                    .path("was_returned")
+                    .operator(Operator.Equal)
+                    .valueBoolean(wasReturned)
+                    .build());
+        }
+
+        if (category != null) {
+            filters.add(WhereFilter.builder()
+                    .path("category")
+                    .operator(Operator.Equal)
+                    .valueText(category)
+                    .build());
+        }
+
+        if (filters.size() == 1) {
+            return filters.get(0);
+        } else if (filters.size() > 1) {
+            return WhereFilter.builder()
+                    .operator(Operator.And)
+                    .operands(filters.toArray(new WhereFilter[0]))
+                    .build();
+        }
+        return null;
+    }
+
+    /**
+     * EU-324: búsqueda combinada imagen + texto. Corre dos consultas vectoriales contra los vectores
+     * nombrados "image" y "text" (según cuál vector se reciba) y fusiona los candidatos por UUID,
+     * exponiendo en cada uno su certeza coseno por modalidad ({@code imageCertainty}/{@code textCertainty}).
+     * Un candidato que sólo aparece por una modalidad queda con la otra certeza en {@code null}.
+     *
+     * <p>No calcula el puntaje final: eso lo hace {@link com.eurekapp.backend.service.SearchScoringService}
+     * aguas arriba (EU-324-D). El {@code score} de cada candidato queda en {@code null}.</p>
+     */
+    public List<FoundObject> queryDual(List<Float> imageVector,
+                                       List<Float> textVector,
+                                       String orgId,
+                                       GeoCoordinates coordinates,
+                                       LocalDateTime foundDate,
+                                       LocalDateTime foundDateTo,
+                                       Boolean wasReturned,
+                                       String category,
+                                       Integer limit,
+                                       Integer offset) {
+        WhereFilter filter = buildFilter(orgId, coordinates, foundDate, foundDateTo, wasReturned, category);
+        List<String> fields = List.of("title",
+                "object_finder_user_id",
+                "human_description",
+                "found_date",
+                "was_returned",
+                "coordinates",
+                "organization_id",
+                "category");
+
+        // Preservamos el orden de aparición (primero los candidatos por imagen, luego los nuevos por texto).
+        Map<String, FoundObject> merged = new LinkedHashMap<>();
+
+        if (imageVector != null && !imageVector.isEmpty()) {
+            for (WeaviateObject wo : weaviateService.queryObjects("FoundObject", imageVector, "image",
+                    filter, fields, limit, offset)) {
+                FoundObject candidate = convertToFoundObject(wo);
+                candidate.setImageCertainty(candidate.getScore());
+                candidate.setScore(null);
+                merged.put(candidate.getUuid(), candidate);
+            }
+        }
+
+        if (textVector != null && !textVector.isEmpty()) {
+            for (WeaviateObject wo : weaviateService.queryObjects("FoundObject", textVector, "text",
+                    filter, fields, limit, offset)) {
+                FoundObject candidate = convertToFoundObject(wo);
+                FoundObject existing = merged.get(candidate.getUuid());
+                if (existing != null) {
+                    existing.setTextCertainty(candidate.getScore());
+                } else {
+                    candidate.setTextCertainty(candidate.getScore());
+                    candidate.setScore(null);
+                    merged.put(candidate.getUuid(), candidate);
+                }
+            }
+        }
+
+        return new ArrayList<>(merged.values());
     }
 
     public FoundObject getByUuid(String uuid){
