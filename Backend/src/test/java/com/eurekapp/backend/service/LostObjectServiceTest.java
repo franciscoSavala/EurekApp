@@ -95,7 +95,7 @@ class LostObjectServiceTest {
     void match_aboveThreshold_notifiesOwner() {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
 
@@ -111,7 +111,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         // Coseno bajo (0.6 => normalizado 0.2 => 0.19) y lejos => total muy por debajo de 0,75.
         LostObject search = savedSearch("u1@test.com", "algo", 0.6f, BUENOS_AIRES);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
 
         service.notifyMatchingSavedSearches(found);
 
@@ -124,7 +124,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject s1 = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
         LostObject s2 = savedSearch("u2@test.com", "cartera", 1.0f, CORDOBA);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
         when(userRepository.findByUsername("u2@test.com"))
@@ -145,7 +145,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject s1 = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
         LostObject s2 = savedSearch("u1@test.com", "cartera negra", 1.0f, CORDOBA);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
 
@@ -171,7 +171,7 @@ class LostObjectServiceTest {
     void nonUserRecipient_isSkipped() {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("owner@org.com", "mochila", 1.0f, CORDOBA);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
         when(userRepository.findByUsername("owner@org.com"))
                 .thenReturn(Optional.of(user("owner@org.com", Role.ORGANIZATION_OWNER)));
 
@@ -184,7 +184,7 @@ class LostObjectServiceTest {
     @Test
     void noCandidates_doesNotNotify() {
         FoundObject found = foundObjectAt(CORDOBA);
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of());
 
         service.notifyMatchingSavedSearches(found);
 
@@ -197,7 +197,22 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
         search.setStatus(LostObjectStatus.CLOSED); // ya cerrada => no debe disparar aviso
-        when(lostObjectRepository.query(any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void differentCategory_isNotNotified() {
+        // El objeto encontrado es OTROS; una búsqueda de otra categoría (BILLETERA) NUNCA se cruza,
+        // aunque su parecido sea perfecto (filtro DURO por categoría, decisión 5).
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "billetera", 1.0f, CORDOBA, ObjectCategory.BILLETERA);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(search));
 
         service.notifyMatchingSavedSearches(found);
 
@@ -316,19 +331,33 @@ class LostObjectServiceTest {
         return FoundObject.builder()
                 .uuid("fo-1")
                 .title("Objeto encontrado")
+                .imageEmbedding(List.of(0.4f, 0.5f, 0.6f))
                 .textEmbedding(List.of(0.1f, 0.2f, 0.3f))
+                // EU-324: la búsqueda inversa filtra por categoría dura y puntúa con α/β de esa categoría.
+                .category(ObjectCategory.OTROS.name())
                 .coordinates(coordinates)
                 .foundDate(LocalDateTime.now())
                 .organizationId("1")
                 .build();
     }
 
+    /**
+     * Búsqueda guardada candidata. {@code certainty} alimenta AMBAS modalidades (imagen y texto) para
+     * el {@code combinedScore}; misma categoría que el objeto encontrado (OTROS) salvo que se indique otra.
+     */
     private LostObject savedSearch(String username, String description, Float certainty, GeoCoordinates coordinates) {
+        return savedSearch(username, description, certainty, coordinates, ObjectCategory.OTROS);
+    }
+
+    private LostObject savedSearch(String username, String description, Float certainty,
+                                   GeoCoordinates coordinates, ObjectCategory category) {
         return LostObject.builder()
                 .uuid(UUID.randomUUID().toString())
                 .username(username)
                 .description(description)
-                .score(certainty)
+                .imageCertainty(certainty)
+                .textCertainty(certainty)
+                .category(category.name())
                 .coordinates(coordinates)
                 .lostDate(LocalDateTime.now().minusDays(1))
                 .build();

@@ -30,6 +30,12 @@ public class LostObjectService {
 
     private static final Logger log = LoggerFactory.getLogger(LostObjectService.class);
 
+    /**
+     * EU-324: límite altísimo para la recuperación de candidatos ({@code queryDual}). No es poda: es
+     * un fusible defensivo que a la escala real del producto nunca se alcanza (ver EU-324-SUBTAREAS).
+     */
+    private static final int SEARCH_CANDIDATE_LIMIT = 5000;
+
     private final EmbeddingService embeddingService;
     private final ImageEmbeddingService imageEmbeddingService;
     private final ImageClassificationService imageClassificationService;
@@ -125,24 +131,35 @@ public class LostObjectService {
      * @param foundObject objeto encontrado recién cargado (con embeddings, coordenadas y fecha).
      */
     public void notifyMatchingSavedSearches(FoundObject foundObject) {
-        // EU-323: la búsqueda inversa (found→lost) compara texto contra texto → vector nombrado "text".
-        List<Float> embeddings = foundObject.getTextEmbedding();
+        // EU-324: la búsqueda inversa (found→lost) espeja la búsqueda en vivo: combina las DOS
+        // modalidades (vector "image" de CLIP + vector "text" de OpenAI) y puntúa con combinedScore.
+        List<Float> imageEmbedding = foundObject.getImageEmbedding();
+        List<Float> textEmbedding = foundObject.getTextEmbedding();
         GeoCoordinates foundCoordinates = foundObject.getCoordinates();
         LocalDateTime foundDate = foundObject.getFoundDate();
+        // Categoría dura del objeto encontrado: define α/β y es filtro previo (nunca se cruza entre categorías).
+        ObjectCategory category = ObjectCategory.fromLabel(foundObject.getCategory());
 
         // Traemos las búsquedas guardadas con lostDate ANTERIOR al foundDate (lostDateTo => lost_date < foundDate).
-        // Cross-org (orgId null): la cercanía la maneja el geoScore del puntaje, igual que la búsqueda regular.
-        List<LostObject> candidates = lostObjectRepository.query(embeddings, null, null, null, foundDate);
+        // Cross-org (orgId null): la cercanía la maneja el geoScore del puntaje. Sin poda por límite ni umbral
+        // en la recuperación (limit alto, ver "Poda del universo" en EU-324).
+        List<LostObject> candidates = lostObjectRepository.queryDual(imageEmbedding, textEmbedding,
+                null, null, null, foundDate, SEARCH_CANDIDATE_LIMIT, null);
 
-        // Puntuamos con el MISMO algoritmo que la búsqueda regular y nos quedamos con las que superan el umbral.
+        // Puntuamos con el MISMO algoritmo que la búsqueda en vivo y nos quedamos con las que superan el umbral.
         // EU-292: las búsquedas CERRADAS no disparan avisos (el usuario ya recuperó / dejó de buscar).
         List<LostObject> matches = new ArrayList<>();
         for (LostObject candidate : candidates) {
             if (candidate.getStatus() == LostObjectStatus.CLOSED) {
                 continue;
             }
-            double totalScore = searchScoringService.totalScore(
-                    candidate.getScore(), candidate.getCoordinates(), foundCoordinates);
+            // Filtro DURO por categoría: nunca se notifica entre categorías distintas (decisión 5).
+            if (ObjectCategory.fromLabel(candidate.getCategory()) != category) {
+                continue;
+            }
+            double totalScore = searchScoringService.combinedScore(
+                    candidate.getImageCertainty(), candidate.getTextCertainty(), category,
+                    candidate.getCoordinates(), foundCoordinates);
             if (searchScoringService.isMatch(totalScore)) {
                 candidate.setScore((float) totalScore);
                 matches.add(candidate);

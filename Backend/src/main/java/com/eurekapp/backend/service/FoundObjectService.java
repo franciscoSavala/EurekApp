@@ -39,6 +39,13 @@ import java.util.concurrent.Future;
 public class FoundObjectService implements IFoundObjectService {
     private static final int GRACE_HOURS = 6;
 
+    /**
+     * EU-324: límite altísimo para la recuperación de candidatos ({@code queryDual}). NO es una poda
+     * (eso descartaría buenos candidatos antes de ponderar): es un fusible defensivo que a la escala
+     * real del producto nunca se alcanza (el universo ya viene acotado por categoría + org/zona).
+     */
+    private static final int SEARCH_CANDIDATE_LIMIT = 5000;
+
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
             Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER);
 
@@ -428,54 +435,75 @@ public class FoundObjectService implements IFoundObjectService {
         return dto;
     }
 
+    /**
+     * Búsqueda en vivo del rework (EU-324): unifica FOTO + TEXTO, ambos obligatorios. La foto se
+     * vectoriza en memoria con CLIP (NO se sube a S3 —eso ocurre sólo al guardar la búsqueda,
+     * decisión 8) y se clasifica en una categoría dura por IA (filtro previo + define α/β); el texto
+     * se vectoriza con OpenAI. Se recuperan las dos similitudes por candidato ({@code queryDual}) y
+     * se puntúa con {@link SearchScoringService#combinedScore} (α·sim_img + β·sim_txt, modulado por
+     * geografía). La ubicación (organización o coordenadas) es OBLIGATORIA: sin ella no se puede
+     * circunscribir el radio.
+     */
     @SneakyThrows
-    public FoundObjectsListDto searchByPhoto(MultipartFile image, SimilarObjectsCommand filters) {
-        byte[] imageBytes = image.getBytes();
-        // Deshabilitado temporalmente: la descripción por IA (gpt-4o) es lo que más tokens de OpenAI consume.
-        // Se fuerza a string vacío para no romper la búsqueda por foto mientras se migra el algoritmo a CLIP.
-        // String description = descriptionService.getImageTextRepresentation(imageBytes);
-        String description = "";
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
-
+    public FoundObjectsListDto searchByPhoto(MultipartFile image, String query, SimilarObjectsCommand filters) {
+        // Foto + texto, ambos obligatorios (ver REWORK-ALGORITMO-BUSQUEDA, decisiones 3 y 324-D).
+        if (image == null || image.isEmpty()) {
+            throw new BadRequestException("image_required", "La foto es obligatoria para buscar.");
+        }
+        if (query == null || query.isBlank()) {
+            throw new BadRequestException("description_required", "La descripción es obligatoria para buscar.");
+        }
+        // Ubicación obligatoria: organización o coordenadas (sin ella no hay radio geográfico).
         String orgIdStr = filters.getOrganizationId() != null ? filters.getOrganizationId().toString() : null;
+        if (orgIdStr == null && (filters.getLatitude() == null || filters.getLongitude() == null)) {
+            throw new BadRequestException("location_required",
+                    "Debés indicar una organización o unas coordenadas para buscar.");
+        }
+
+        byte[] imageBytes = image.getBytes();
+        // Vector VISUAL (CLIP) en memoria + categoría dura por IA desde la imagen, y vector TEXTUAL (OpenAI).
+        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
+        ObjectCategory category = imageClassificationService.classify(imageBytes);
+        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(query);
 
         GeoCoordinates queryCoordinates = null;
         if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {
             queryCoordinates = organizationRepository.findById(filters.getOrganizationId())
                     .get()
                     .getCoordinates();
-        } else if (filters.getLatitude() != null && filters.getLongitude() != null) {
+        } else {
             queryCoordinates = GeoCoordinates.builder()
                     .latitude(filters.getLatitude())
                     .longitude(filters.getLongitude())
                     .build();
         }
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, queryCoordinates,
-                filters.getLostDate(), filters.getLostDateTo(), false, filters.getCategory());
+        // Filtro DURO por categoría: la decide la IA desde la foto (no la elige el usuario). Sin poda
+        // por límite ni umbral en la recuperación (limit alto, ver "Poda del universo" en EU-324).
+        List<FoundObject> foundObjects = foundObjectRepository.queryDual(imageEmbedding, textEmbedding,
+                orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
+                category.name(), SEARCH_CANDIDATE_LIMIT, null);
 
         final GeoCoordinates finalCoords = queryCoordinates;
         for (FoundObject fo : foundObjects) {
-            // Búsqueda por foto: parecido visual combinado con cercanía geográfica (MOORA), vía SearchScoringService.
-            if (finalCoords != null) {
-                Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
-                fo.setDistance(distance.floatValue());
-                fo.setScore((float) searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), finalCoords));
-            } else {
-                fo.setScore((float) searchScoringService.normalizeCosineScore(fo.getScore()));
-            }
+            // Puntaje combinado imagen+texto modulado por geografía (SearchScoringService.combinedScore).
+            double score = searchScoringService.combinedScore(fo.getImageCertainty(), fo.getTextCertainty(),
+                    category, fo.getCoordinates(), finalCoords);
+            fo.setScore((float) score);
+            Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
+            fo.setDistance(distance.floatValue());
         }
 
         List<FoundObjectDto> result = foundObjects.stream()
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && dto.getScore() > 0)
+                .filter(dto -> dto.getScore() != null && searchScoringService.isMatch(dto.getScore()))
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
-                .limit(5)
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
-                .generatedDescription(description)
+                // Categoría clasificada por IA: el front la muestra read-only (decisión 8bis).
+                .category(category.name())
                 .build();
     }
 
