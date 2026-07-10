@@ -156,18 +156,23 @@ done
 
 sleep 2
 
+# EU-323/EU-325: dos VECTORES NOMBRADOS por objeto ("image" = CLIP de la foto, "text" = OpenAI del
+# título/descripción), ambos con vectorizer "none" (los provee el seed/backend) y distancia coseno.
+# Debe coincidir con el esquema de start-local.sh. FoundObject ya NO tiene ai_description (deprecada);
+# LostObject suma category (filtro duro, definido por IA desde la foto).
 curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
   -H "Content-Type: application/json" \
   -d '{
     "class": "FoundObject",
     "description": "Clase para representar objetos encontrados.",
-    "vectorIndexType": "hnsw",
-    "vectorIndexConfig": {"distance": "cosine"},
+    "vectorConfig": {
+      "image": { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } },
+      "text":  { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } }
+    },
     "properties": [
       {"name": "found_date",            "dataType": ["date"]},
       {"name": "title",                 "dataType": ["string"]},
       {"name": "human_description",     "dataType": ["string"]},
-      {"name": "ai_description",        "dataType": ["string"]},
       {"name": "organization_id",       "dataType": ["text"]},
       {"name": "coordinates",           "dataType": ["geoCoordinates"]},
       {"name": "was_returned",          "dataType": ["boolean"]},
@@ -181,8 +186,10 @@ curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
   -d '{
     "class": "LostObject",
     "description": "Clase para representar busquedas abiertas de un objeto perdido.",
-    "vectorIndexType": "hnsw",
-    "vectorIndexConfig": {"distance": "cosine"},
+    "vectorConfig": {
+      "image": { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } },
+      "text":  { "vectorizer": { "none": {} }, "vectorIndexType": "hnsw", "vectorIndexConfig": { "distance": "cosine" } }
+    },
     "properties": [
       {"name": "lost_date",       "dataType": ["date"]},
       {"name": "description",     "dataType": ["string"]},
@@ -191,7 +198,8 @@ curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
       {"name": "coordinates",     "dataType": ["geoCoordinates"]},
       {"name": "status",          "dataType": ["text"]},
       {"name": "closed_date",     "dataType": ["date"]},
-      {"name": "recovered",       "dataType": ["boolean"]}
+      {"name": "recovered",       "dataType": ["boolean"]},
+      {"name": "category",        "dataType": ["text"]}
     ]
   }' >/dev/null && success "  Schema LostObject recreado" || warn "  No se pudo recrear LostObject"
 
@@ -519,51 +527,71 @@ header "Imagenes S3"
 S3_BUCKET="eurekapp-temp-local"
 S3_REGION="sa-east-1"
 IMG_DIR="$(dirname "$0")/seed-data/images"
+# EU-325: las fotos REALES de cada objeto (found + búsquedas guardadas) viven versionadas acá,
+# nombradas por UUID (= key de S3). Son las mismas que vectorizó generate_seed_vectors.py, así que
+# lo que se ve en la app coincide con lo que se buscó por similitud.
+PHOTOS_DIR="$(dirname "$0")/seed-data/photos"
 mkdir -p "$IMG_DIR"
 
+# FoundObjects y LostObjects: la key S3 es el UUID; la foto real está en PHOTOS_DIR/<uuid>.jpg.
 FO_KEYS=(
   "$FO_UUID_1" "$FO_UUID_2" "$FO_UUID_3" "$FO_UUID_4"
   "$FO_UUID_5" "$FO_UUID_6" "$FO_UUID_8" "$FO_UUID_9"
   "$FO_UUID_10" "$FO_UUID_11"
 )
+# UUID de las 5 búsquedas guardadas (LostObject). Su foto se persiste en S3 al guardar (decisión 8),
+# por eso el seed también las sube (para poder mostrarlas al ver la búsqueda guardada).
+LO_KEYS=(
+  "ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6"  # billetera negra
+  "771c2c2b-4dd2-45e4-977b-3a2186e86b6e"  # auriculares
+  "8ec5ebe1-5b65-412a-9cda-576f42401e35"  # mochila azul
+  "26f82583-f553-40a1-a1b8-3775c384971f"  # paraguas
+  "56d511e3-899b-41cf-9f2c-a811437b0b28"  # notebook Dell
+)
 PERSON_KEYS=("person-photo-001" "person-photo-002" "person-photo-003" "person-photo-004" "person-photo-005")
 
 S3_UPLOADED=0
 
-upload_image() {
-  local KEY="$1" SEED="$2" IS_PORTRAIT="${3:-false}"
+# Sube la foto REAL de un objeto (found/lost), tomada de PHOTOS_DIR/<KEY>.jpg.
+upload_real_photo() {
+  local KEY="$1"
+  local SRC="$PHOTOS_DIR/${KEY}.jpg"
+
+  if [[ ! -f "$SRC" ]]; then
+    warn "  Falta foto real $SRC (no se sube $KEY)"; return
+  fi
+  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
+    info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
+  fi
+  aws s3 cp "$SRC" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
+    && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
+    || warn "  S3 ✗ $KEY"
+}
+
+# Placeholder para las fotos de PERSONA de las devoluciones (no hay fotos reales): random de picsum.
+upload_placeholder() {
+  local KEY="$1" SEED="$2"
   local CACHED="$IMG_DIR/${KEY}.jpg"
 
-  # Si ya existe en S3, saltear
   if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
-    info "  S3 ✓ $KEY (ya existia)"
-    S3_UPLOADED=$((S3_UPLOADED + 1))
-    return
+    info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
   fi
-
-  # Descargar solo si no esta cacheada localmente
   if [[ ! -f "$CACHED" ]]; then
-    local SIZE="400/300"
-    [[ "$IS_PORTRAIT" == "true" ]] && SIZE="300/400"
-    curl -sL "https://picsum.photos/seed/${SEED}/${SIZE}" -o "$CACHED" 2>/dev/null \
+    curl -sL "https://picsum.photos/seed/${SEED}/300/400" -o "$CACHED" 2>/dev/null \
       || { warn "  No se pudo descargar imagen para $KEY"; return; }
   fi
-
   aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
     && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
     || warn "  S3 ✗ $KEY"
 }
 
 if command -v aws &>/dev/null && aws sts get-caller-identity --region "$S3_REGION" >/dev/null 2>&1; then
-  info "AWS CLI detectado — verificando/subiendo imagenes..."
-  i=1
-  for KEY in "${FO_KEYS[@]}"; do
-    upload_image "$KEY" "fo$(printf '%02d' $i)"
-    i=$((i + 1))
-  done
+  info "AWS CLI detectado — subiendo fotos reales (found + búsquedas) y placeholders de persona..."
+  for KEY in "${FO_KEYS[@]}"; do upload_real_photo "$KEY"; done
+  for KEY in "${LO_KEYS[@]}"; do upload_real_photo "$KEY"; done
   i=1
   for KEY in "${PERSON_KEYS[@]}"; do
-    upload_image "$KEY" "pp$(printf '%02d' $i)" "true"
+    upload_placeholder "$KEY" "pp$(printf '%02d' $i)"
     i=$((i + 1))
   done
   success "$S3_UPLOADED imagenes OK en S3 (bucket: $S3_BUCKET)"
