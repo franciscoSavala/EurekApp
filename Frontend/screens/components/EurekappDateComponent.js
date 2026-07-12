@@ -79,6 +79,7 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                         ref={datePickerRef}
                         customInput={<div />}
                         popperPlacement="auto"
+                        popperProps={{ strategy: 'fixed' }}
                     />
 
                     <DatePicker
@@ -92,6 +93,7 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                         ref={timePickerRef}
                         customInput={<div />}
                         popperPlacement="auto"
+                        popperProps={{ strategy: 'fixed' }}
                     />
                 </>
             ) : (
