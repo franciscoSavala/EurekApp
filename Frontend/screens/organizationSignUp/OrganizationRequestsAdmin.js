@@ -152,11 +152,11 @@ const styles = StyleSheet.create({
     filterChip: {
         borderWidth: 1, borderColor: "#bdc1c1", borderRadius: 20,
         paddingHorizontal: 16, paddingVertical: 7, marginHorizontal: 5,
-        backgroundColor: "#fff",
+        backgroundColor: "#fff", flexShrink: 0,
     },
     filterChipActive: { borderColor: "#4A9999", backgroundColor: "#4A9999" },
-    filterText: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#638888" },
-    filterTextActive: { color: "#fff", fontFamily: "PlusJakartaSans-Bold" },
+    filterText: { fontSize: 13, fontFamily: "PlusJakartaSans-Bold", color: "#638888" },
+    filterTextActive: { color: "#fff" },
     list: { paddingHorizontal: 16, paddingBottom: 20 },
     card: {
         backgroundColor: "#fff", borderRadius: 12, padding: 16,
