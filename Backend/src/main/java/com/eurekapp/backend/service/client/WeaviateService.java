@@ -204,6 +204,111 @@ public class WeaviateService {
 
 
     /***
+     *      EU-142: búsqueda HÍBRIDA de texto (denso + BM25) en una sola query. Mientras {@link #queryObjects}
+     *      compara sólo por vector (nearVector, 100% semántica), esta combina dos señales que viven en
+     *      escalas distintas y Weaviate fusiona en un único `score` 0–1:
+     *        - vector = embedding denso (lado semántico: "mochila roja" ≈ "bolsa bermeja"),
+     *        - query  = texto crudo del usuario (lado BM25: pondera términos raros como una marca "prince"
+     *                   y, con tokenización por n-gramas, tolera typos e identificadores con otro formato).
+     *
+     *      `alpha` ∈ [0,1] pesa las dos señales: 1 = puro denso, 0 = puro BM25 (a calibrar, EU-327).
+     *      `fusionType` = "relativeScoreFusion" (reescala por valor) o "rankedFusion" (sólo por posición).
+     *      El resultado pide `score` en lugar de `certainty` (el híbrido no expone certainty).
+     * ***/
+    public List<WeaviateObject> hybridQuery(String className,
+                                            String query,
+                                            List<Float> vector,
+                                            String targetVector,
+                                            List<String> bm25Properties,
+                                            Double alpha,
+                                            String fusionType,
+                                            WhereFilter filter,
+                                            List<String> fieldNames,
+                                            Integer limit) {
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("{ Get { ").append(className).append(" ( ");
+
+        if (filter != null) {
+            queryBuilder.append("where: { ").append(toGraphQLString(filter)).append("} ");
+        }
+
+        // Bloque hybrid: query (BM25) + vector (denso) + alpha + fusión. targetVectors indica contra cuál
+        // de los vectores nombrados corre el lado denso; properties acota el BM25 a las propiedades de texto
+        // elegidas (si no, Weaviate lo corre sobre todas las indexables, ensuciando con metadata).
+        queryBuilder.append("hybrid: { query: \"").append(escapeGraphQL(query)).append("\"");
+        if (vector != null && !vector.isEmpty()) {
+            queryBuilder.append(", vector: ").append(vector.toString());
+        }
+        if (targetVector != null && !targetVector.isEmpty()) {
+            queryBuilder.append(", targetVectors: [\"").append(targetVector).append("\"]");
+        }
+        if (bm25Properties != null && !bm25Properties.isEmpty()) {
+            queryBuilder.append(", properties: [")
+                    .append(bm25Properties.stream()
+                            .map(p -> "\"" + p + "\"")
+                            .collect(Collectors.joining(", ")))
+                    .append("]");
+        }
+        if (alpha != null) {
+            queryBuilder.append(", alpha: ").append(alpha);
+        }
+        if (fusionType != null && !fusionType.isEmpty()) {
+            // fusionType es un enum de GraphQL: va SIN comillas.
+            queryBuilder.append(", fusionType: ").append(fusionType);
+        }
+        queryBuilder.append(" } ");
+
+        if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
+        queryBuilder.append(")");
+
+        queryBuilder.append("{ ");
+        for (String fieldName : fieldNames) {
+            queryBuilder.append(fieldName).append(" ");
+            if (fieldName.equals("coordinates")) {
+                queryBuilder.append("{ latitude longitude }");
+            }
+        }
+        // Con hybrid el puntaje combinado viene en `score` (no `certainty`).
+        queryBuilder.append("_additional { id score } ");
+        queryBuilder.append("}");
+        queryBuilder.append("}}");
+
+        Result<GraphQLResponse> response = weaviateClient.graphQL().raw().withQuery(queryBuilder.toString()).run();
+        if (response.hasErrors()) {
+            throw new RuntimeException("Error en la consulta híbrida GraphQL: " + response.getError());
+        }
+
+        List<WeaviateObject> weaviateObjects = new ArrayList<>();
+        GraphQLResponse graphQLResponse = response.getResult();
+        if (graphQLResponse.getData() instanceof Map<?, ?>) {
+            Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData();
+            Map<String, Object> objectsMap = (Map<String, Object>) dataMap.get("Get");
+            List<Map<String, Object>> objectsList = (List<Map<String, Object>>) objectsMap.get(className);
+            if (objectsList == null) {
+                return weaviateObjects;
+            }
+            for (Map<String, Object> objectData : objectsList) {
+                weaviateObjects.add(convertToWeaviateObject(objectData));
+            }
+        } else {
+            throw new RuntimeException("El formato de los datos en la respuesta no es válido.");
+        }
+
+        return weaviateObjects;
+    }
+
+    /***
+     *      Escapa comillas y barras invertidas de un texto que se inserta como literal en la query GraphQL
+     *      cruda (evita romper la consulta si el usuario escribió comillas en la búsqueda).
+     * ***/
+    private static String escapeGraphQL(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /***
      *      Dado el nombre de la clase y un UUID, devuelve el objeto correspondiente.
      * ***/
     public WeaviateObject getObjectByUuid(String className, String uuid){
