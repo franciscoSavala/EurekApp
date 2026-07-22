@@ -295,6 +295,36 @@ class LostObjectServiceTest {
     }
 
     @Test
+    void reportLostObject_normalizesDescriptionBeforeEmbedding() {
+        // EU-142: el texto que alimenta el vector se normaliza (minúsculas, tildes, formato de
+        // identificadores) para que el mismo dato escrito distinto coincida. La descripción SE PERSISTE
+        // tal cual la escribió el usuario; sólo lo que va al vector queda "parejo".
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(photo)
+                .description("Billétera con DNI 40.682.351")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f, 0.5f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<String> textToEmbed = ArgumentCaptor.forClass(String.class);
+        verify(embeddingService).getTextVectorRepresentation(textToEmbed.capture());
+        assertThat(textToEmbed.getValue()).isEqualTo("billetera con dni 40682351");
+
+        // Lo persistido conserva el texto original del usuario (tildes, mayúsculas y puntos del DNI).
+        ArgumentCaptor<LostObject> saved = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(saved.capture());
+        assertThat(saved.getValue().getDescription()).isEqualTo("Billétera con DNI 40.682.351");
+    }
+
+    @Test
     void reportLostObject_withoutPhoto_throwsBadRequest() {
         ReportLostObjectCommand command = ReportLostObjectCommand.builder()
                 .image(null)

@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.util.TextNormalizer;
 import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
@@ -192,7 +193,12 @@ public class FoundObjectService implements IFoundObjectService {
         *   descripción textual que nos dio "OpenAiChat Completion", y de la descripción y título provistos por el
         *   usuario.
         */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
+        // EU-142: el texto se NORMALIZA antes de vectorizar (minúsculas, tildes, formato de identificadores)
+        // para que el mismo dato escrito distinto coincida. Se normaliza SÓLO lo que alimenta el vector;
+        // título/descripción se persisten y se muestran tal cual los escribió el usuario.
+        String textRepresentationNormalized = TextNormalizer.normalize(
+                textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentationNormalized);
 
         // EU-324: vector VISUAL de la imagen (CLIP, foto → vector directo) para el vector nombrado "image",
         // y clasificación por IA en categorías duras (define α/β y es filtro previo del matching). La
@@ -291,7 +297,7 @@ public class FoundObjectService implements IFoundObjectService {
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
         * */
         List<Float> embeddings = (command.getQuery() != null && !command.getQuery().isBlank())
-                ? embeddingService.getTextVectorRepresentation(command.getQuery())
+                ? embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(command.getQuery()))
                 : null;
 
         /*
@@ -464,7 +470,7 @@ public class FoundObjectService implements IFoundObjectService {
         // Vector VISUAL (CLIP) en memoria + categoría dura por IA desde la imagen, y vector TEXTUAL (OpenAI).
         List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
         ObjectCategory category = imageClassificationService.classify(imageBytes);
-        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(query);
+        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(query));
 
         GeoCoordinates queryCoordinates = null;
         if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {

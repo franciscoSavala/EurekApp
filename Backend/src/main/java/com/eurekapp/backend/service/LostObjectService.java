@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.util.TextNormalizer;
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.exception.ApiException;
@@ -91,7 +92,9 @@ public class LostObjectService {
         // de la descripción del usuario. Se persisten como los dos vectores nombrados "image"/"text".
         List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
         ObjectCategory category = imageClassificationService.classify(imageBytes);
-        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(command.getDescription());
+        // EU-142: se normaliza SÓLO el texto que alimenta el vector; la descripción se persiste tal cual.
+        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(
+                TextNormalizer.normalize(command.getDescription()));
         String id = UUID.randomUUID().toString();
 
         LostObject lostObject = LostObject.builder()

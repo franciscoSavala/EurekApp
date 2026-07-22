@@ -23,6 +23,7 @@ import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -31,6 +32,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -180,5 +182,57 @@ class FoundObjectServiceTest {
         // Recupera candidatos con AMBOS vectores (imagen + texto), no la query textual legacy.
         verify(foundObjectRepository)
                 .queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any());
+    }
+
+    // ---- EU-142: normalización del texto que alimenta el vector (misma limpieza en ambos lados) ----
+
+    @Test
+    void searchByPhoto_normalizesQueryBeforeEmbedding() {
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        SimilarObjectsCommand filters = SimilarObjectsCommand.builder().organizationId(1L).build();
+
+        Organization org = mock(Organization.class);
+        when(org.getCoordinates()).thenReturn(CORDOBA);
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f, 0.5f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of());
+
+        service.searchByPhoto(photo, "Billétera Marrón", filters);
+
+        // La query se normaliza (minúsculas, tildes) antes de vectorizar, igual que el texto persistido.
+        ArgumentCaptor<String> textToEmbed = ArgumentCaptor.forClass(String.class);
+        verify(embeddingService).getTextVectorRepresentation(textToEmbed.capture());
+        assertThat(textToEmbed.getValue()).isEqualTo("billetera marron");
+    }
+
+    @Test
+    void uploadFoundObject_normalizesTextBeforeEmbedding() {
+        UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
+                .title("Billétera Roja")
+                .detailedDescription("DNI 40.682.351")
+                .foundDate(LocalDateTime.now().minusDays(1))
+                .latitude(CORDOBA.getLatitude())
+                .longitude(CORDOBA.getLongitude())
+                .organizationId(1L)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f, 0.5f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(executorService.submit(any(Runnable.class))).thenReturn(CompletableFuture.completedFuture(null));
+
+        service.uploadFoundObject(command);
+
+        // El vector se calcula sobre título+descripción normalizados: minúsculas, sin tildes y con el
+        // DNI sin puntos ("40.682.351" -> "40682351"), para que el mismo dato escrito distinto coincida.
+        ArgumentCaptor<String> textToEmbed = ArgumentCaptor.forClass(String.class);
+        verify(embeddingService).getTextVectorRepresentation(textToEmbed.capture());
+        assertThat(textToEmbed.getValue()).isEqualTo("dni 40682351 billetera roja");
     }
 }
