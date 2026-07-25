@@ -47,8 +47,16 @@ public class RestClientConfiguration {
             @Value("${application.clip.url}") String url
     ){
         // Microservicio CLIP self-hosted (clip-service, EU-321). Sin auth: corre en la red interna.
+        // Forzamos HTTP/1.1: el HttpClient del JDK intenta por defecto un upgrade a HTTP/2 en claro (h2c)
+        // agregando los headers Connection: Upgrade / Upgrade: h2c. El micro (uvicorn/FastAPI) no soporta
+        // ese upgrade y, ante un POST multipart con esos headers, no reconoce el campo "file" (responde 422
+        // "field required"). Con HTTP/1.1 puro —igual que curl— el multipart se procesa bien.
+        java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .build();
         return RestClient.builder()
                 .baseUrl(url)
+                .requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient))
                 .build();
     }
 

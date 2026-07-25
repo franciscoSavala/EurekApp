@@ -5,11 +5,9 @@ import com.eurekapp.backend.exception.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
+import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -40,20 +38,18 @@ public class ClipImageEmbeddingService implements ImageEmbeddingService {
         }
 
         // Armamos el cuerpo multipart/form-data con la imagen bajo el campo "file".
-        // El nombre de archivo es irrelevante para el micro (lee los bytes), pero debe existir.
-        ByteArrayResource imageResource = new ByteArrayResource(imageBytes) {
-            @Override
-            public String getFilename() {
-                return "image";
-            }
-        };
-        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", imageResource);
+        // El micro (FastAPI, UploadFile) exige que la parte lleve filename y content-type en su
+        // Content-Disposition; MultipartBodyBuilder los fija explícitamente. Un ByteArrayResource suelto
+        // no siempre emite el filename → FastAPI la toma como campo de texto y responde 422 "file required".
+        MultipartBodyBuilder builder = new MultipartBodyBuilder();
+        builder.part("file", imageBytes).filename("image.jpg").contentType(MediaType.IMAGE_JPEG);
 
         ClipEmbeddingResponse response = clipClient.post()
                 .uri("/embed/image")
-                .contentType(MediaType.MULTIPART_FORM_DATA)
-                .body(body)
+                // NO fijar contentType a MULTIPART_FORM_DATA a mano: eso setea el header SIN boundary y el
+                // micro parsea un form vacío (422 "file required"). Dejamos que el converter emita el
+                // Content-Type con boundary a partir del cuerpo multipart.
+                .body(builder.build())
                 .retrieve()
                 .body(ClipEmbeddingResponse.class);
 

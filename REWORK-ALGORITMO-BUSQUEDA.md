@@ -98,7 +98,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 2 | Clasificación por IA en categorías duras | EU-322 | 5 | **HECHO** | **Local, sin OpenAI**: CLIP zero-shot en el micro (`/classify`, nubes de prompts + fallback OTROS por MARGEN top1-top2, no umbral absoluto). Abstraído en Java: `ImageClassificationService` + `ClipImageClassificationService` + enum `ObjectCategory`. Smoke 9/9 sobre fixtures + tests unitarios (12 verdes). Falta cablearlo (EU-324) |
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
-| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | TODO (con insumos listos) | Se hace **DESPUÉS de EU-142/#8/#9** (el esquema de texto debe estar cerrado, para plantar una sola vez). El NDJSON se genera fresco entonces. **Insumos ya preparados** (ver sección 7): 15 fotos reales mapeadas en `seed-data/photos/`, generador `generate_seed_vectors.py`, y `seed-local.sh` con esquema named vectors + upload de fotos reales. Al retomar: (ajustar la parte de texto del generador si EU-142 lo cambió) → correr generador → `seed-local.sh --force` → validar |
+| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **EN CURSO — DESBLOQUEADO** | Flujo redefinido por Facundo (cargar por **API real**, no inyectar NDJSON). **El bug que lo bloqueaba (carga por API muere en CLIP con 200 vacío) YA ESTÁ ARREGLADO** (2026-07-25, ver §9-ter parte A: causa raíz = el HttpClient del JDK forzaba upgrade h2c que uvicorn no soporta → se fuerza HTTP/1.1 en el `clipClient`). Verificado end-to-end: found/lost persisten, search-by-photo clasifica. **Listo para retomar el reseed (parte B) en un chat NUEVO.** |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
@@ -392,3 +392,152 @@ writes con vectores de otra dimensión sobre la clase recién creada, o el load 
 - `Backend/src/test/java/com/eurekapp/backend/poc/PocHybridTextHarness.java` — infra (load/embed/query).
 - `Backend/src/test/java/com/eurekapp/backend/poc/PocCorpusLoadTest.java` — verifica carga (48).
 - `Backend/src/test/java/com/eurekapp/backend/poc/PocHybridTextComparisonTest.java` — harness de comparación (directo + inverso/omisión, con volcado de ranking).
+
+---
+
+## 9-ter. EU-325 — HANDOFF (retomar en chat limpio)
+
+> Escrito para que **otra instancia de Claude retome sin este chat**. Orden: **(A) arreglar el BUG de carga
+> por API (tarea aparte) → (B) recién ahí seguir el reseed**.
+>
+> 🛑 **PARAR AL TERMINAR (A). NO seguir de largo con (B) en el mismo chat.** Una vez arreglado y verificado el
+> bug, **frená y devolvé el control a Facundo**: el reseed (B) se hace en un chat nuevo/aparte. Motivo: si un
+> solo chat encadena A+B el contexto se vuelve larguísimo y consume la quota. (B) queda acá documentado sólo
+> como contexto de por qué se arregla A, no para ejecutarlo a continuación.
+>
+> La rama `EU-142-poc-hybrid-text` ya se
+> **mergeó al tronco** `EU-320-rework-algoritmo-busqueda` (fast-forward, incluye la normalización de EU-142
+> cableada en producción). Todo lo de abajo es sobre el tronco.
+
+### Estado del entorno al cerrar
+
+- Contenedores arriba: `eurekapp-mysql` (:3306), `eurekapp-weaviate` (:8081, **1.24.1**), `eurekapp-clip` (:8000). MySQL con el seed de usuarios/orgs de `seed-local.sh` (password `Eurekapp1!`).
+- **Weaviate: clases `FoundObject` y `LostObject` recreadas y VACÍAS (0/0)**, esquema named vectors (`image`+`text`). `PocTextObject` sigue existiendo.
+- Backend **apagado**. Comando para levantarlo: memoria `project-run-backend-local` (PowerShell, perfil `local`, carga `.env.local`).
+- `.env.local` tiene `OPENAI_SECRET_KEY` (con crédito), `AWS_ACCESS_KEY_ID/SECRET`. Working tree limpio.
+
+### (A) ✅ RESUELTO (2026-07-25) — carga por API no persistía (moría en CLIP)
+
+**Causa raíz:** el `RestClient` del `clipClient` usa por debajo el `HttpClient` del JDK 21, que por
+defecto intenta un **upgrade a HTTP/2 en claro (h2c)** agregando `Connection: Upgrade` / `Upgrade: h2c`.
+El micro **uvicorn/FastAPI no soporta h2c**: ante un POST multipart con esos headers, no reconoce el
+campo `file` y responde **422 "field required"**. Esa 422 se propagaba como excepción no capturada y el
+endpoint terminaba en 200 con body vacío sin persistir. (El multipart en sí estaba perfecto: boundary,
+`name="file"; filename="image.jpg"`, JPEG válido — se confirmó capturando los bytes crudos.) `curl -F`
+funcionaba porque usa HTTP/1.1 puro.
+
+**Fix (mínimo, quirúrgico):** en `RestClientConfiguration.clipClient(...)` se construye el `RestClient`
+con un `JdkClientHttpRequestFactory` sobre un `HttpClient` fijado a **`Version.HTTP_1_1`**. Sólo afecta al
+`clipClient` (los clientes de OpenAI siguen igual: OpenAI sí soporta HTTP/2). Sin dependencias nuevas.
+
+**Verificado end-to-end (micro CLIP real):** `POST /found-objects/organizations/1` → 200 con body real y
+FoundObject en Weaviate (embed 512-dim + categoría BILLETERA + named vectors); `POST /lost-objects` → LostObject
+persistido; `POST /found-objects/search-by-photo` → 200 clasificando BILLETERA. Tests unitarios de los servicios
+CLIP verdes (10). **Nota:** los tests unitarios NO cazan esta clase de bug (mockean el `RestClient`/transporte);
+la verificación válida es el flujo real. Quedó 1 FoundObject + 1 LostObject de prueba en Weaviate (la parte B
+limpia con drop+recreate de todos modos).
+
+<details><summary>Descripción original del bug (histórico)</summary>
+
+
+**Síntoma:** `POST /found-objects/organizations/{org}` (multipart) responde **HTTP 200 con body vacío
+(Content-Length 0, sin Content-Type)** pero **no crea nada en Weaviate** (`Aggregate` sigue en 0). Igual para
+`POST /lost-objects`. Los tests unitarios NO lo cachan porque mockean CLIP/Weaviate — sólo aparece en el flujo real.
+
+**Dónde muere (rastreado):** en `FoundObjectService.uploadFoundObject` la ejecución llega y completa:
+subida a **S3 (OK, log "Object uploaded")** y **embedding de texto OpenAI (OK)** — y se corta **justo en el
+paso siguiente: la vectorización de imagen con CLIP** (`imageEmbeddingService.getImageVectorRepresentation`,
+~línea 206, y `imageClassificationService.classify`, 207). El log de éxito de CLIP (`Imagen vectorizada: dim=`)
+**nunca aparece**, el `add` al repositorio (`FoundObjectRepository.add` loguea `Uploading FoundObject with named
+vectors`) **nunca corre**, y **no salta ninguna excepción** en el log (ni de Spring ni de Tomcat).
+
+**Verificado (para ahorrar tiempo, ya descartado):**
+- El bytecode compilado que corre **sí** tiene el cableado CLIP (javap: offsets 359 `getImageVectorRepresentation`, 372 `classify`) — no es build viejo. La normalización EU-142 también está viva (el texto va normalizado al OpenAI).
+- **CLIP responde perfecto** llamado directo: `POST localhost:8000/embed/image` da vector 512-dim; `/classify` da categoría. Responde por IPv4 y IPv6.
+- `clipClient` tiene `baseUrl` seteado (`application.clip.url` = `http://localhost:8000`, default). No es URL mala.
+- Sólo hay UNA impl de cada servicio (`ClipImageEmbeddingService`, `ClipImageClassificationService`), sin stub por perfil.
+- **Thread dump:** ningún hilo `http-nio-8080-exec` queda colgado (todos idle) → la request **completa y vuelve al pool**, no se cuelga en CLIP. No hay hilos parados en código eurekapp/clip/weaviate.
+- No hay config de logback custom; con `DispatcherServlet` en TRACE tampoco aparece "Completed 200" ni excepción.
+
+**La contradicción central a resolver:** la request completa (hilo vuelve al pool) y responde **200 vacío**,
+la ejecución NO llega a CLIP en la red (el micro no registra el POST — ojo: los `docker logs eurekapp-clip`
+salen **corruptos con `\x00`** en este Windows; verificar de otra forma, p. ej. contador en el micro o tcpdump),
+y **no se loguea ninguna excepción**. Un 200-vacío-sin-Content-Type **no** lo produce el `return
+ResponseEntity.ok(dto)` del controller (ese DTO no es nulo, línea ~280) → algo corta entre el OpenAI (201) y
+el CLIP (206) devolviendo 200 vacío sin log. **Próximo paso sugerido:** instrumentar temporalmente
+`ClipImageEmbeddingService.getImageVectorRepresentation` (log al entrar / antes y después del `clipClient.post`)
+para ver si entra y dónde para; o envolver 206-207 en try/catch con log; o correr el backend con
+`logging.level.org.springframework.web.client=TRACE` para ver la request saliente del RestClient a CLIP.
+Sospecha viva: la serialización multipart del `ByteArrayResource` por el `RestClient` (converters) puede estar
+fallando de forma que no se ve. **Es un bug de producción del rework, no del seed.**
+
+</details>
+
+🛑 **Al arreglar y verificar este bug: PARAR y devolver el control a Facundo. NO arrancar el reseed (B) acá.**
+(Cumplido: el bug se arregló y se paró acá; el reseed B va en un chat nuevo.)
+
+### Aprendizaje operativo — NO limpiar Weaviate con batch-delete
+
+Borrar **todos** los objetos de una clase con `DELETE /v1/batch/objects` (filtro match-all) **crashea Weaviate
+1.24.1**: `panic: findNewLocalEntrypoint called on an empty hnsw graph` (al vaciar el grafo HNSW). **Limpiar
+dropeando y recreando la clase** (`DELETE /v1/schema/<Clase>` + re-`POST /v1/schema` con el JSON de
+`start-local.sh` §158-195). Esto va también al shellscript final del seed.
+
+### (B) Reseed — flujo redefinido por Facundo (hacer DESPUÉS de arreglar A)
+
+1. **Limpiar** FoundObject/LostObject (dropear+recrear clases, ver arriba). Mantener usuarios/orgs de MySQL.
+2. **Inventario ya APROBADO** (abajo). No re-preguntar salvo cambio.
+3. **Cargar por API real** (no NDJSON): así pasa por normalización + CLIP + clasificación + S3. Cuentas
+   (password `Eurekapp1!`): encontrados con `owner.utn@eurekapp.com` (org 1), `owner.term@eurekapp.com` (org 2),
+   `emp1.aero@eurekapp.com` (org 3); búsquedas con `julia@/pedro@/valeria@mail.com`.
+   Endpoints: login `POST /login` (JSON→`token`); encontrado `POST /found-objects/organizations/{org}` (multipart
+   `file,title,detailed_description,found_date,latitude,longitude` — **sin** `category`, la pone la IA);
+   búsqueda `POST /lost-objects` (multipart `file,description,lost_date,latitude,longitude,organization_id`).
+   Fotos fuente en `seed-data/photos/<uuid>.jpg` (la API sube a S3 con UUID nuevo propio; el uuid del archivo
+   es sólo para mapear foto↔objeto). **La categoría la decide la IA** (aunque le pifie, pifia igual en carga y
+   búsqueda: misma vara — decisión 8bis). **El script de carga era descartable y vivía en el scratchpad de la
+   sesión (ya no existe); reconstruirlo desde esta tabla + endpoints.**
+4. **Validar:** conteos (10 FO / 5 LO), categorías asignadas, y que cada búsqueda matchea su par.
+5. **Recién ahí** escribir el **shellscript definitivo** del seed (con la limpieza por drop+recreate).
+
+**Nota generador:** `generate_seed_vectors.py` replica el texto del backend pero **sin normalizar** (embebe crudo);
+en el flujo por API esto es irrelevante (el backend normaliza). Sólo alinear (portar `TextNormalizer`) si el
+shellscript final decide usar el generador en vez de la API.
+
+#### Inventario APROBADO (datos ficticios de demo; se persiste tal cual, sólo se normaliza lo que va al vector)
+
+Encontrados **con par** (el dato distintivo se repite en la búsqueda):
+
+| Foto uuid | Org | Título | Descripción |
+|---|---|---|---|
+| 7ea43eba-7343-4cd8-b5d0-b736e3d575a3 | 1 | Billetera negra de cuero | Billetera negra de cuero. Adentro tiene el DNI 40.682.351 a nombre de Martín Gómez, una tarjeta de débito Visa del Banco Nación y algo de efectivo |
+| 25e71dcb-9d0d-4b75-96f2-df60b7d99261 | 2 | Auriculares inalambricos blancos | Auriculares over-ear inalámbricos blancos, marca Sony modelo WH-1000XM4, sin cables |
+| 494ddbc4-b4d8-4935-a77c-1d3e7363b67d | 1 | Mochila azul con libros | Mochila azul mediana marca Jansport, con varios libros de ingeniería y un estuche adentro |
+| 4b43a1d8-1491-4077-9c1c-463e5906cdeb | 1 | Paraguas negro plegable | Paraguas negro plegable compacto, sin marca visible |
+| 85c55156-216f-4b6c-aa65-782e066567b6 | 2 | Notebook Dell gris | Notebook Dell Inspiron 15 gris, con stickers en la tapa |
+
+Encontrados **distractores** (sin par; datos propios distintos para que compitan sin matchear):
+
+| Foto uuid | Org | Título | Descripción |
+|---|---|---|---|
+| df2aa6a0-d15c-46e8-902a-e5394538a43e | 1 | Llave con llavero azul | Llave tipo Yale suelta con llavero de goma azul |
+| 18da5796-50dc-4383-8b1f-27e524b04b5d | 3 | Celular Samsung negro | Celular Samsung Galaxy S21 negro con pantalla rota y funda gris |
+| ebaa9336-e9fd-4556-a96e-9c1538d165cb | 2 | Billetera marron con DNI | Billetera marrón de cuero con DNI 33.145.892 a nombre de Laura Fernández y tarjetas bancarias |
+| 498d742e-49e6-4c88-bf8d-f0313581dfaa | 3 | Cargador USB-C blanco | Cargador USB-C blanco de 20W marca Samsung con cable incluido |
+| a1047f2f-0fcd-41b1-92ad-485dd04cb5d8 | 1 | Anteojos de sol negros | Anteojos de sol Ray-Ban con montura negra y lentes espejados |
+
+Búsquedas guardadas (comparten el dato distintivo, **formato distinto a propósito** para probar la normalización):
+
+| Foto uuid | Usuario | Org | Descripción | Matchea |
+|---|---|---|---|---|
+| ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6 | julia@mail.com | 1 | Perdí mi billetera negra de cuero cerca de la facultad. Adentro está mi DNI 40682351 a nombre de Martín Gómez y una tarjeta de débito Visa | Billetera negra |
+| 771c2c2b-4dd2-45e4-977b-3a2186e86b6e | pedro@mail.com | 2 | Se me cayeron unos auriculares inalámbricos blancos Sony WH-1000XM4 en la terminal | Auriculares |
+| 8ec5ebe1-5b65-412a-9cda-576f42401e35 | valeria@mail.com | 1 | Perdí una mochila azul Jansport con libros de ingeniería en la UTN | Mochila azul |
+| 26f82583-f553-40a1-a1b8-3775c384971f | julia@mail.com | 1 | Se me olvidó mi paraguas negro plegable en el aula magna de la UTN | Paraguas |
+| 56d511e3-899b-41cf-9f2c-a811437b0b28 | valeria@mail.com | 2 | Olvidé mi notebook Dell Inspiron 15 gris en la sala de espera de la terminal | Notebook |
+
+Coordenadas/fechas por objeto: reusar las del inventario en `Backend/seed-data/generate_seed_vectors.py`
+(`FOUND_OBJECTS`/`LOST_OBJECTS`, mismos uuid). **Pruebas plantadas:** DNI de la billetera #1 con puntos en el
+hallazgo (`40.682.351`) y sin puntos en la búsqueda (`40682351`) → prueba la normalización; billetera marrón
+(Laura Fernández) compite con la búsqueda de julia pero debe perder contra la negra (comparten nombre+DNI).
+El clasificador puso los anteojos en ROPA en corridas previas: es la salida real del modelo, se mide en EU-327.
