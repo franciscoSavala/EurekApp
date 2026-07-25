@@ -98,7 +98,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 2 | Clasificación por IA en categorías duras | EU-322 | 5 | **HECHO** | **Local, sin OpenAI**: CLIP zero-shot en el micro (`/classify`, nubes de prompts + fallback OTROS por MARGEN top1-top2, no umbral absoluto). Abstraído en Java: `ImageClassificationService` + `ClipImageClassificationService` + enum `ObjectCategory`. Smoke 9/9 sobre fixtures + tests unitarios (12 verdes). Falta cablearlo (EU-324) |
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
-| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **EN CURSO — DESBLOQUEADO** | Flujo redefinido por Facundo (cargar por **API real**, no inyectar NDJSON). **El bug que lo bloqueaba (carga por API muere en CLIP con 200 vacío) YA ESTÁ ARREGLADO** (2026-07-25, ver §9-ter parte A: causa raíz = el HttpClient del JDK forzaba upgrade h2c que uvicorn no soporta → se fuerza HTTP/1.1 en el `clipClient`). Verificado end-to-end: found/lost persisten, search-by-photo clasifica. **Listo para retomar el reseed (parte B) en un chat NUEVO.** |
+| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **DATOS CARGADOS — BLOQUEADA la validación por bug productivo** | Parte A (bug de carga CLIP) ARREGLADA. **Parte B: los 15 objetos YA ESTÁN CARGADOS por API real y validados** (10 FO / 5 LO, ambos named vectors image512/text1536, categorías por IA; 2026-07-25). Script funcional preservado en `Backend/seed-data/reseed_via_api.sh`. **PERO** la validación "cada búsqueda matchea su par" **destapó un bug productivo bloqueante** (EU-324): la query dual con named vectors devuelve **vacío** porque pedir el campo `certainty` rompe en Weaviate 1.24.1 → `searchByPhoto` y el inverso `notifyMatchingSavedSearches` no devuelven nada. **Detalle y fix propuesto en §9-quater.** Retomar: arreglar ese bug → re-validar matches → escribir shellscript definitivo. |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
@@ -541,3 +541,94 @@ Coordenadas/fechas por objeto: reusar las del inventario en `Backend/seed-data/g
 hallazgo (`40.682.351`) y sin puntos en la búsqueda (`40682351`) → prueba la normalización; billetera marrón
 (Laura Fernández) compite con la búsqueda de julia pero debe perder contra la negra (comparten nombre+DNI).
 El clasificador puso los anteojos en ROPA en corridas previas: es la salida real del modelo, se mide en EU-327.
+
+---
+
+## 9-quater. EU-325 parte B — HANDOFF (datos cargados; bug productivo bloquea la validación)
+
+> Escrito 2026-07-25 para que **otra instancia de Claude retome sin este chat**. Resumen: **el reseed de datos
+> ESTÁ HECHO y validado**; al validar "cada búsqueda matchea su par" se destapó un **bug productivo bloqueante**
+> en la query dual (EU-324). Orden para retomar: **(A) arreglar el bug → (B) re-validar matches → (C) escribir el
+> shellscript definitivo del seed**. El trabajo de carga NO se pierde: está el script y los datos están en Weaviate.
+
+### Lo que YA quedó hecho (no rehacer)
+
+1. **Fix de carga CLIP (parte A)** commiteado: `13841ca fix(EU-325): corregir la carga multipart al micro CLIP`
+   (fuerza HTTP/1.1 en `clipClient` + `MultipartBodyBuilder` con filename/boundary correctos). Va sobre el tronco.
+2. **15 objetos cargados por API real y validados** (2026-07-25, backend perfil local :8080):
+   - Conteos **10 FoundObject / 5 LostObject**.
+   - **Ambos named vectors presentes** en cada objeto: `image` (512) + `text` (1536).
+   - **Categorías por IA**: billetera negra + billetera marrón → `BILLETERA`; celular → `CELULAR`; llave → `LLAVES`;
+     anteojos → `ROPA` (el caso EU-327 conocido); resto → `OTROS`.
+   - DNI de la billetera negra plantado con puntos en el found (`40.682.351`) y sin puntos en la search (`40682351`).
+3. **Script de carga preservado y funcional:** `Backend/seed-data/reseed_via_api.sh` (login de las 6 cuentas +
+   POST multipart de los 15 objetos con el inventario aprobado §9-ter). Gotchas documentados en su cabecera
+   (git-bash manglea `;type=` en curl -F; descripciones sin tildes para evitar mojibake).
+
+**Cómo dejar Weaviate limpio antes de recargar** (NO usar batch-delete: crashea 1.24.1 — ver §9-ter). Dropear+
+recrear las clases con el JSON de named vectors de `start-local.sh` §158-195, p.ej.:
+
+```bash
+W=http://localhost:8081
+for C in FoundObject LostObject; do curl -s -X DELETE "$W/v1/schema/$C"; done
+# luego POST /v1/schema con el payload de cada clase (vectorConfig image+text, vectorizer none, cosine)
+```
+
+Después: backend arriba (memoria `project-run-backend-local`) + `bash Backend/seed-data/reseed_via_api.sh`.
+
+### (A) EL BUG A ARREGLAR — la query dual devuelve vacío (bloquea searchByPhoto y el inverso)
+
+**Síntoma:** `POST /found-objects/search-by-photo` devuelve `found_objects: []` **siempre**, incluso buscando con
+la **misma foto** de un objeto cargado (que debería dar distancia 0 = match perfecto). La categoría sí se clasifica
+bien (BILLETERA), pero la lista sale vacía.
+
+**Causa raíz (aislada con GraphQL directo contra Weaviate 1.24.1):** en una query `nearVector` sobre **named
+vectors** (`targetVectors:["image"|"text"]`), **pedir el campo `_additional { certainty }` ROMPE la query**:
+Weaviate responde `errors: [{ message: "vector config not found for target vector: " }]` (nombre vacío) y
+`data.Get.<Clase> = null`. Pedir **`distance`** en su lugar funciona perfecto. Verificado:
+- `_additional { certainty }` → error, null.
+- `_additional { distance }` → OK: misma foto → `distance 0`; billetera marrón → `0.226`; anteojos → `0.251`.
+- El **parámetro** `certainty: 0.0` dentro de `nearVector` es inocuo; lo que rompe es **el campo** `certainty`.
+
+**Por qué nunca se cazó antes:** los tests de EU-324/323 **mockean** Weaviate; ésta es la **primera** corrida de la
+query dual contra un índice named-vector real con datos. Los tests unitarios no cubren esta clase de bug (transporte).
+
+**Dónde está el código:** `Backend/src/main/java/com/eurekapp/backend/service/client/WeaviateService.java`,
+método `queryObjects(...)`:
+- línea ~143: arma `nearVector: { vector ..., targetVectors ..., certainty: 0.0 }` (el param es inocuo, se puede dejar o quitar).
+- línea ~161: `queryBuilder.append("_additional { id certainty } ");` ← **ESTO es lo que rompe.**
+- El parseo en `convertToWeaviateObject`/`convertToFoundObject` (~línea 292-312) lee `_additional.certainty` y lo
+  guarda en `score`. `queryDual` (`FoundObjectRepository`) copia ese `score` a `imageCertainty`/`textCertainty`, y
+  `SearchScoringService.combinedScore` los normaliza con `normalizeCosineScore(certainty) = (c-0.5)*2` (c∈[0.5,1]→[0,1]).
+
+**Fix propuesto (quirúrgico, preserva la semántica del scoring):**
+- En `queryObjects`, para named vectors pedir `_additional { id distance }` en vez de `certainty`.
+- Al parsear, convertir con la relación coseno de Weaviate: **`certainty = 1 − distance/2`** (distance∈[0,2]→certainty∈[0,1]),
+  y guardar ESE valor en `score`. Así `normalizeCosineScore`, `MIN_SCORE=0.75` y todo el scoring quedan igual que hoy
+  (no hay que recalibrar por este cambio; la calibración fina sigue siendo EU-327).
+- **OJO alcance:** `queryObjects` es compartido — lo usa también la **búsqueda textual legacy** (`getFoundObjectByTextDescription`,
+  `FoundObjectService.java:362`, que llama a `totalScore(fo.getScore(), ...)`). El cambio debe mantener `score`
+  con la MISMA semántica (certainty 0..1) para no romper ese camino. Con la conversión de arriba se mantiene.
+- **Tests:** agregar un test que verifique que `queryObjects`/`queryDual` mapea `distance`→`score` correctamente
+  (mockeando la respuesta Weaviate con `_additional.distance`), y —idealmente— un smoke opcional (se saltea sin
+  Weaviate) que corra una nearVector named-vector real y compruebe que devuelve candidatos. Regla del rework:
+  toda tarea de backend lleva tests unitarios antes de darse por hecha.
+
+### (B) Re-validar después del fix (con los datos ya cargados)
+
+Con el fix aplicado y los 15 objetos en Weaviate, `searchByPhoto` debería devolver el par correcto. Casos a chequear:
+- **Billetera negra** (search de julia, foto `ea9f4057`, org 1): debe surfacear la billetera negra found (`7ea43eba`).
+  Ojo: found y search son **fotos distintas** del par → sim de imagen moderada; en BILLETERA pesa el texto
+  (α=0.35/β=0.65, `application.yml`). Si aun así queda por debajo de `MIN_SCORE=0.75`, **eso ya es calibración (EU-327)**,
+  no el bug. Para separar bug de calibración: buscar con la **propia foto** del found (distance 0) — con el fix debe
+  matchear sí o sí.
+- Auriculares (pedro), mochila (valeria), paraguas (julia), notebook (valeria): cada uno contra su found.
+- Verificar que el **filtro duro por categoría** no cruza (una search BILLETERA no trae ROPA/OTROS).
+
+### (C) Shellscript definitivo del seed (paso final de EU-325)
+
+Recién con matches validados, escribir el seed definitivo. Decisión de Facundo: cargar **por API real** (pasa por
+normalización + CLIP + clasificación + S3), no inyectar NDJSON. `reseed_via_api.sh` ya es esencialmente eso; falta
+envolverlo con: (1) la limpieza por drop+recreate de clases, (2) chequeo de que backend/containers están arriba,
+(3) validación de conteos al final. El generador `generate_seed_vectors.py` queda como alternativa NDJSON (no usada
+en este flujo).
