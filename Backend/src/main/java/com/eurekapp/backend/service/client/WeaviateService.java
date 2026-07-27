@@ -157,15 +157,17 @@ public class WeaviateService {
         }
 
         // 5- Sin importar para qué clase estamos haciendo una query vectorial, siempre querremos saber el id y la
-        //  certeza de cad resultado.
-        queryBuilder.append("_additional { id certainty } ");
+        //  cercanía de cada resultado. OJO (EU-320): sobre NAMED VECTORS (image/text), pedir el campo
+        //  "certainty" ROMPE la query en Weaviate 1.24.1 ("vector config not found for target vector") y
+        //  devuelve la lista vacía. Pedimos "distance" (que sí funciona) y lo convertimos a certeza coseno
+        //  al parsear (certainty = 1 - distance/2), para que el resto del scoring quede idéntico.
+        queryBuilder.append("_additional { id distance } ");
         queryBuilder.append("}");
 
         // 5- Cerrar la query
         queryBuilder.append("}}");
 
-        //log.info(queryBuilder.toString());
-
+        log.debug("Weaviate GraphQL query: {}", queryBuilder);
 
         // Ejecutar la consulta GraphQL
         Result<GraphQLResponse> response = weaviateClient.graphQL().raw().withQuery(queryBuilder.toString()).run();
@@ -351,6 +353,8 @@ public class WeaviateService {
                 stringBuilder.append("valueBoolean: ").append(filter.getValueBoolean());
             } else if (filter.getValueDate() != null) {
                 stringBuilder.append("valueDate: \"").append(filter.getValueDate().toInstant()).append("\"");
+            } else if (filter.getValueGeoRange() != null) {
+                stringBuilder.append(geoRangeToGraphQL(filter.getValueGeoRange()));
             }
             return stringBuilder.toString();
         }
@@ -382,17 +386,7 @@ public class WeaviateService {
                 //stringBuilder.append("\\\"").append(operand.getValueDate().toInstant().toString()).append("\\\"");
                 stringBuilder.append("\"").append(operand.getValueDate().toInstant().toString()).append("\"");
             } else if (operand.getValueGeoRange() != null) {
-                stringBuilder.append("valueGeoRange: {");
-
-                stringBuilder.append(" geoCoordinates: {");
-                stringBuilder.append(" latitude: " + operand.getValueGeoRange().getGeoCoordinates().getLatitude().toString());
-                stringBuilder.append(" longitude: " + operand.getValueGeoRange().getGeoCoordinates().getLongitude().toString());
-                stringBuilder.append("} ");
-
-                stringBuilder.append( "distance: { max: " + operand.getValueGeoRange().getDistance().getMax().toString() + " }");
-
-                stringBuilder.append(" }");
-                // Esto está comentado porque hay un bug de Weaviate en las consultas con distancia.
+                stringBuilder.append(geoRangeToGraphQL(operand.getValueGeoRange()));
             }
             stringBuilder.append(" }, ");
         }
@@ -408,6 +402,29 @@ public class WeaviateService {
     }
 
     /***
+     *      Convierte la distancia coseno de Weaviate ({@code distance ∈ [0,2]}) a la certeza coseno
+     *      ({@code certainty ∈ [0,1]}) que espera el resto del scoring. Es la MISMA relación que usa
+     *      Weaviate internamente para coseno ({@code certainty = 1 - distance/2}); ninguna información
+     *      se pierde. Se usa porque el campo {@code certainty} rompe sobre named vectors en 1.24.1.
+     * ***/
+    static double cosineCertaintyFromDistance(double distance) {
+        return 1.0 - distance / 2.0;
+    }
+
+    /***
+     *      Serializa un filtro geográfico WithinGeoRange al formato GraphQL crudo. EU-320: el radio pasa a
+     *      aplicarse NATIVAMENTE en Weaviate (antes estaba deshabilitado y "aguas arriba"). "max" es la
+     *      distancia máxima en METROS. Verificado contra Weaviate 1.24.1 (nearVector named-vector + este
+     *      filtro compuesto): poda por radio correctamente.
+     * ***/
+    private static String geoRangeToGraphQL(WhereFilter.GeoRange geoRange) {
+        return "valueGeoRange: { geoCoordinates: {"
+                + " latitude: " + geoRange.getGeoCoordinates().getLatitude()
+                + " longitude: " + geoRange.getGeoCoordinates().getLongitude()
+                + " } distance: { max: " + geoRange.getDistance().getMax() + " } }";
+    }
+
+    /***
      *  Implementa la lógica para convertir un objeto "Map" en un objeto "WeaviateObject".
      ***/
     private WeaviateObject convertToWeaviateObject(Map<String, Object> objectData) {
@@ -416,7 +433,17 @@ public class WeaviateService {
         weaviateObject.setId((String) (  (Map<String,Object>)objectData.get("_additional")).remove("id")  );
 
         // Removemos la kay "_additional" para que las keys restantes sean solo "properties" (o sea, atributos del objeto)
-        weaviateObject.setAdditional( (Map<String,Object>)objectData.remove("_additional") );
+        Map<String,Object> additional = (Map<String,Object>)objectData.remove("_additional");
+        // EU-320: sobre named vectors pedimos "distance" (el campo "certainty" rompe la query en 1.24.1).
+        //  Reconstruimos la certeza coseno que el resto del código espera: certainty = 1 - distance/2
+        //  (distance∈[0,2] → certainty∈[0,1]). Es la MISMA definición que usa Weaviate para coseno, así que
+        //  el scoring aguas arriba (normalizeCosineScore, MIN_SCORE) queda idéntico. Sólo cuando vino distance
+        //  (camino nearVector); el camino hybrid trae "score" y no se toca.
+        if (additional != null && additional.get("distance") != null && additional.get("certainty") == null) {
+            double distance = ((Number) additional.get("distance")).doubleValue();
+            additional.put("certainty", cosineCertaintyFromDistance(distance));
+        }
+        weaviateObject.setAdditional( additional );
 
         // Llegado este punto, las únicas keys que contiene "objectData" corresponden a atributos del objeto.
         weaviateObject.setProperties(objectData);

@@ -28,6 +28,9 @@ import java.util.Map;
 @Component
 public class LostObjectRepository {
 
+    /** Radio máximo (metros) del filtro geográfico duro. Espeja el de FoundObjectRepository. */
+    private static final Double maxRadius = 50000.0;
+
     private final WeaviateService weaviateService;
     private final IOrganizationRepository organizationRepository;
 
@@ -106,7 +109,7 @@ public class LostObjectRepository {
                                    Integer limit,
                                    Integer offset){
 
-        WhereFilter filter = buildFilter(username, orgId, lostDateFrom, lostDateTo);
+        WhereFilter filter = buildFilter(username, orgId, null, lostDateFrom, lostDateTo);
 
         // EU-323: la búsqueda inversa (found→lost) es textual y va contra el vector nombrado "text".
         List<WeaviateObject> result = weaviateService.queryObjects("LostObject",
@@ -143,6 +146,7 @@ public class LostObjectRepository {
      */
     private WhereFilter buildFilter(String username,
                                     String orgId,
+                                    GeoCoordinates coordinates,
                                     LocalDateTime lostDateFrom,
                                     LocalDateTime lostDateTo) {
         List<WhereFilter> filters = new ArrayList<>();
@@ -183,7 +187,23 @@ public class LostObjectRepository {
                     .build());
         }
 
-        // TODO: agregar filtro geográfico para un cierto radio NO ELEGIBLE por el usuario. (será regla de negocio)
+        // EU-320: filtro geográfico DURO por radio (regla de negocio, NO elegible por el usuario), aplicado
+        // NATIVAMENTE en Weaviate. En la notificación inversa (found→lost) el centro es la ubicación del objeto
+        // encontrado: sólo se notifican búsquedas guardadas dentro del radio, aunque sea cross-org. "max" en metros.
+        if (coordinates != null) {
+            Float maxDistance = maxRadius.floatValue();
+            filters.add(WhereFilter.builder()
+                    .path("coordinates")
+                    .operator(Operator.WithinGeoRange)
+                    .valueGeoRange(WhereFilter.GeoRange.builder()
+                            .geoCoordinates(WhereFilter.GeoCoordinates.builder()
+                                            .latitude(coordinates.getLatitude().floatValue())
+                                            .longitude(coordinates.getLongitude().floatValue())
+                                            .build())
+                            .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
+                            .build())
+                    .build());
+        }
 
         if (filters.size() == 1) {
             return filters.get(0);
@@ -209,11 +229,12 @@ public class LostObjectRepository {
                                       List<Float> textVector,
                                       String username,
                                       String orgId,
+                                      GeoCoordinates coordinates,
                                       LocalDateTime lostDateFrom,
                                       LocalDateTime lostDateTo,
                                       Integer limit,
                                       Integer offset) {
-        WhereFilter filter = buildFilter(username, orgId, lostDateFrom, lostDateTo);
+        WhereFilter filter = buildFilter(username, orgId, coordinates, lostDateFrom, lostDateTo);
         List<String> fields = List.of("username",
                 "description",
                 "lost_date",

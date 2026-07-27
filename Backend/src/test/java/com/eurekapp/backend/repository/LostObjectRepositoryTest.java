@@ -109,7 +109,7 @@ class LostObjectRepositoryTest {
                 .thenReturn(List.of(candidate("lo-1", 0.7d), candidate("lo-3", 0.6d)));
 
         List<LostObject> found = repository().queryDual(
-                List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), null, null, null, null, null, null);
+                List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), null, null, null, null, null, null, null);
 
         assertThat(found).extracting(LostObject::getUuid).containsExactly("lo-1", "lo-2", "lo-3");
         assertThat(found).extracting(LostObject::getScore).containsOnlyNulls();
@@ -128,11 +128,42 @@ class LostObjectRepositoryTest {
                 .thenReturn(List.of(candidate("lo-1", 0.7d)));
 
         List<LostObject> found = repository().queryDual(
-                null, List.of(0.3f, 0.4f), null, null, null, null, null, null);
+                null, List.of(0.3f, 0.4f), null, null, null, null, null, null, null);
 
         assertThat(found).hasSize(1);
         assertThat(found.get(0).getImageCertainty()).isNull();
         assertThat(found.get(0).getTextCertainty()).isEqualTo(0.7f);
         verify(weaviateService, never()).queryObjects(eq("LostObject"), any(), eq("image"), any(), any(), any(), any());
+    }
+
+    /** Busca (recursivamente) un operando WithinGeoRange dentro de un WhereFilter, sea hoja o compuesto. */
+    private static boolean hasGeoRangeFilter(io.weaviate.client.v1.filters.WhereFilter filter) {
+        if (filter == null) return false;
+        if (filter.getValueGeoRange() != null) return true;
+        if (filter.getOperands() != null) {
+            for (io.weaviate.client.v1.filters.WhereFilter op : filter.getOperands()) {
+                if (hasGeoRangeFilter(op)) return true;
+            }
+        }
+        return false;
+    }
+
+    @Test
+    void queryDual_withCoordinates_appliesNativeGeoRadiusFilter() {
+        // EU-320: la notificación inversa (found→lost) acota por radio DURO nativo alrededor del objeto
+        // encontrado, aunque sea cross-org. Antes no había ningún filtro geográfico (sólo atenuaba el score).
+        when(weaviateService.queryObjects(eq("LostObject"), any(), anyString(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        GeoCoordinates coords = GeoCoordinates.builder().latitude(-31.4377).longitude(-64.1829).build();
+        repository().queryDual(List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), null, null, coords,
+                null, null, null, null);
+
+        ArgumentCaptor<io.weaviate.client.v1.filters.WhereFilter> filterCaptor =
+                ArgumentCaptor.forClass(io.weaviate.client.v1.filters.WhereFilter.class);
+        verify(weaviateService).queryObjects(eq("LostObject"), any(), eq("image"),
+                filterCaptor.capture(), any(), any(), any());
+        assertThat(hasGeoRangeFilter(filterCaptor.getValue()))
+                .as("la notificación inversa debe acotar por radio cuando hay coordenadas").isTrue();
     }
 }

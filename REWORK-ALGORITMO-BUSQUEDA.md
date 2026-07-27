@@ -98,7 +98,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 2 | Clasificación por IA en categorías duras | EU-322 | 5 | **HECHO** | **Local, sin OpenAI**: CLIP zero-shot en el micro (`/classify`, nubes de prompts + fallback OTROS por MARGEN top1-top2, no umbral absoluto). Abstraído en Java: `ImageClassificationService` + `ClipImageClassificationService` + enum `ObjectCategory`. Smoke 9/9 sobre fixtures + tests unitarios (12 verdes). Falta cablearlo (EU-324) |
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
-| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **DATOS CARGADOS — BLOQUEADA la validación por bug productivo** | Parte A (bug de carga CLIP) ARREGLADA. **Parte B: los 15 objetos YA ESTÁN CARGADOS por API real y validados** (10 FO / 5 LO, ambos named vectors image512/text1536, categorías por IA; 2026-07-25). Script funcional preservado en `Backend/seed-data/reseed_via_api.sh`. **PERO** la validación "cada búsqueda matchea su par" **destapó un bug productivo bloqueante** (EU-324): la query dual con named vectors devuelve **vacío** porque pedir el campo `certainty` rompe en Weaviate 1.24.1 → `searchByPhoto` y el inverso `notifyMatchingSavedSearches` no devuelven nada. **Detalle y fix propuesto en §9-quater.** Retomar: arreglar ese bug → re-validar matches → escribir shellscript definitivo. |
+| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **BUG A CERRADO Y VERIFICADO E2E (2026-07-25) · falta REPLANTEAR el seed (fotos + org/coordenadas) y escribir el shellscript** | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Pendiente antes del shellscript definitivo: (1) las 5 fotos de búsqueda son idénticas a las de su hallazgo → el seed NO valida la parte visual; (2) todos los hallazgos mandan las coordenadas de la sede, usando mal la señal org/coordenadas. Ver §9-quinquies.** |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
@@ -576,7 +576,57 @@ for C in FoundObject LostObject; do curl -s -X DELETE "$W/v1/schema/$C"; done
 
 Después: backend arriba (memoria `project-run-backend-local`) + `bash Backend/seed-data/reseed_via_api.sh`.
 
-### (A) EL BUG A ARREGLAR — la query dual devuelve vacío (bloquea searchByPhoto y el inverso)
+### (A) ✅ CERRADO Y VERIFICADO E2E (2026-07-25)
+
+**No había un segundo bug de código.** El fix de abajo (certainty→distance + geo nativo) **ya era correcto**.
+Lo que invalidó la corrida E2E anterior es que **el proceso Java que escuchaba en el 8080 era una instancia
+vieja** (levantada horas antes, sin ese código compilado): por eso respondía 200, clasificaba bien la categoría
+y devolvía la lista vacía — era literalmente la versión con el bug.
+
+**Descartado antes de reiniciar:** se ejecutó a mano contra Weaviate 1.24.1 la **query exacta que arma el Java**
+(filtro compuesto `WithinGeoRange` + `organization_id` + `was_returned` + `category`, más `nearVector` sobre el
+named vector `image` con `certainty: 0.0` y `_additional { id distance }`) → devuelve el resultado correcto.
+Ni el serializador del filtro ni el `WithinGeoRange` del string-builder estaban rotos.
+
+**RESULTADO E2E con el backend actual (bajando la instancia vieja y levantando la de ahora):**
+
+| Caso (julia, org 1) | Resultado | score | umbral |
+|---|---|---|---|
+| Foto propia del hallazgo | Billetera negra ✅ | 0.950 | 0.75 |
+| Búsqueda real de julia (DNI sin puntos) | Billetera negra ✅ | 0.849 | 0.75 |
+
+Categoría bien clasificada (BILLETERA), sin cruce de categorías, y **la normalización EU-142 queda probada de
+paso**: el hallazgo dice `40.682.351` y la búsqueda `40682351` → similitud de texto 0.884. No hizo falta bajar
+`MIN_SCORE`.
+
+> ⚠️ **Aprendizaje operativo:** antes de dar por fallida una verificación E2E, **confirmar que el proceso del 8080
+> es el que acabás de compilar** (`Get-NetTCPConnection -LocalPort 8080` + `StartTime` del proceso). Una instancia
+> zombi de una sesión anterior hace pasar un fix correcto por roto.
+
+**Instrumentación agregada (en disco, sin commitear):** `WeaviateService.queryObjects` loguea la query GraphQL
+generada y `FoundObjectService.searchByPhoto` loguea candidatos recuperados + `simImg`/`simTxt`/`score` de cada
+uno. Ambas en nivel **debug** (apagadas por defecto; encender con `-Dlogging.level.com.eurekapp.backend=DEBUG`).
+
+**Fix aplicado (cambios en disco, NO commiteados aún):**
+- **`WeaviateService.queryObjects`**: pide `_additional { id distance }` en vez de `certainty` (que rompe sobre
+  named vectors en 1.24.1). Al parsear (`convertToWeaviateObject`) reconstruye la certeza con el helper estático
+  `cosineCertaintyFromDistance(d) = 1 − d/2` y la guarda en `additional.certainty`, así el scoring aguas arriba
+  (`normalizeCosineScore`, `MIN_SCORE`) queda **idéntico**. El camino `hybrid` (que trae `score`) no se toca.
+- **Radio geográfico NATIVO reactivado** (el "bug de Weaviate" era en realidad el `certainty`, no el geo):
+  `FoundObjectRepository.buildFilter` descomenta el `WithinGeoRange`; se extrajo `geoRangeToGraphQL(...)` en
+  `WeaviateService` y se lo cablea también en la rama de **filtro hoja** (por si el geo queda solo).
+- **Flujo inverso** (`LostObjectRepository.queryDual`/`buildFilter` ahora reciben `GeoCoordinates`;
+  `LostObjectService.notifyMatchingSavedSearches` pasa las coordenadas del objeto encontrado): las notificaciones
+  de búsquedas guardadas se acotan por radio duro (cross-org pero circunscrito). Era el TODO histórico.
+
+**Verificado:** (1) raw GraphQL contra Weaviate real 1.24.1 con los 15 objetos → `distance`+`WithinGeoRange`
+devuelve resultados y poda por radio (10→5 dentro de 2 km); `certainty` rompe. (2) Tests unitarios verdes (39):
+`WeaviateServiceTest` (conversión 0→1/1→0.5/2→0), `FoundObjectRepositoryTest`/`LostObjectRepositoryTest`
+(el `WhereFilter` arma el `WithinGeoRange` con coordenadas y lo omite sin ellas, en ambos flujos),
+`FoundObjectServiceTest`/`LostObjectServiceTest` (firmas actualizadas). (3) **E2E contra el backend real**
+(ver tabla arriba). **Falta correr la suite completa y commitear.**
+
+<details><summary>Descripción original del bug A (histórico, ya resuelto)</summary>
 
 **Síntoma:** `POST /found-objects/search-by-photo` devuelve `found_objects: []` **siempre**, incluso buscando con
 la **misma foto** de un objeto cargado (que debería dar distancia 0 = match perfecto). La categoría sí se clasifica
@@ -614,6 +664,8 @@ método `queryObjects(...)`:
   Weaviate) que corra una nearVector named-vector real y compruebe que devuelve candidatos. Regla del rework:
   toda tarea de backend lleva tests unitarios antes de darse por hecha.
 
+</details>
+
 ### (B) Re-validar después del fix (con los datos ya cargados)
 
 Con el fix aplicado y los 15 objetos en Weaviate, `searchByPhoto` debería devolver el par correcto. Casos a chequear:
@@ -624,6 +676,71 @@ Con el fix aplicado y los 15 objetos en Weaviate, `searchByPhoto` debería devol
   matchear sí o sí.
 - Auriculares (pedro), mochila (valeria), paraguas (julia), notebook (valeria): cada uno contra su found.
 - Verificar que el **filtro duro por categoría** no cruza (una search BILLETERA no trae ROPA/OTROS).
+
+---
+
+## 9-quinquies. EU-325 — REPLANTEO del seed (aprobado por Facundo 2026-07-25/27)
+
+> Sale de validar el seed con el bug A ya cerrado. **Va ANTES del shellscript definitivo (paso C).** El texto,
+> la metadata y el inventario de §9-ter **no cambian**; cambian las **fotos** y el uso de **organización/coordenadas**.
+
+### Hallazgo 1 — las 5 fotos de búsqueda son IDÉNTICAS a las de su hallazgo
+
+Verificado por hash: los 5 pares comparten el archivo byte a byte
+(`7ea43eba`≡`ea9f4057`, `25e71dcb`≡`771c2c2b`, `494ddbc4`≡`8ec5ebe1`, `4b43a1d8`≡`26f82583`, `85c55156`≡`56d511e3`).
+
+**Consecuencia:** la similitud visual da **1.0 exacto siempre** → el seed **no puede validar la parte visual del
+algoritmo** (compara una foto contra sí misma) ni sirve para calibrar el coseno de CLIP en EU-327. No es un bug
+de código, es una limitación del material.
+
+**Qué hacer:** conseguir una **segunda toma** de cada objeto (otro ángulo/iluminación) para las 5 búsquedas.
+Es exactamente el escenario real: el que busca no tiene la foto del que encontró.
+
+### Hallazgo 2 — organización y coordenadas: qué significa cada una
+
+**Modelo correcto (aclarado por Facundo):**
+- **Organización:** SIEMPRE presente en un hallazgo. Es quién **recepta y custodia** el objeto.
+- **Coordenadas:** OPCIONALES, y **su presencia o ausencia es la señal** de dónde se encontró realmente:
+  - **con** coordenadas → se encontró en **otro punto del mapa** (vía pública),
+  - **sin** coordenadas → se encontró **dentro de la organización** que lo recepta (hereda las de la sede).
+
+Esto ya está implementado (`FoundObjectService.uploadFoundObject`: si vienen lat/lon usa esas, si no toma las de
+la org). Del lado de la **búsqueda guardada** la organización **sí puede ir vacía** (no se valida).
+
+**El seed actual usa mal esa señal:** le manda a TODOS los hallazgos las coordenadas exactas de la sede, o sea
+declara "se encontró en otro punto del mapa" y después da el punto de la sede.
+
+**Corrección aprobada:** los hallazgos dentro del establecimiento van **sin coordenadas**; sólo los de vía
+pública las llevan. Dos pares pasan a vía pública (mochila y auriculares):
+
+| Hallazgo | Org que recepta | Coordenadas del hallazgo |
+|---|---|---|
+| Billetera negra · Paraguas · Llave · Anteojos | UTN FRC | — (dentro de la sede) |
+| Notebook Dell · Billetera marrón | Terminal de Ómnibus | — |
+| Celular Samsung · Cargador USB-C | Aeropuerto | — |
+| **Mochila azul** | UTN FRC | **-31.43943, -64.18451** (vereda de Vélez Sarsfield, frente a UTN) |
+| **Auriculares** | Terminal de Ómnibus | **-31.42118, -64.18760** (plazoleta junto a la terminal) |
+
+Sus dos búsquedas van **sin organización**, sólo con las coordenadas del punto de pérdida:
+
+| Búsqueda | Coordenadas de pérdida | Separación del hallazgo |
+|---|---|---|
+| Mochila azul (valeria) | -31.43910, -64.18450 | 36 m |
+| Auriculares (pedro) | -31.42160, -64.18700 | 74 m |
+
+**Cómo se generaron:** desplazando el punto de pérdida una distancia aleatoria de **25–120 m** en una dirección
+aleatoria (fórmula de desplazamiento sobre esfera, semilla fija → reproducible). Simula el caso real: dos personas
+marcando el mismo lugar aproximado en el mapa sin clickear el mismo punto. **No usar los 50 km del radio duro**:
+eso es el filtro de recuperación, no la dispersión del dato.
+
+**Ojo con el texto:** las descripciones de esos dos pares mencionan la sede ("en la terminal", "en la UTN").
+Al replantear, ajustarlas para que sean coherentes con el hallazgo en vía pública.
+
+**Fuera de alcance (NO se hace acá):** permitir cargar un hallazgo **sin** organización. No hace falta —el modelo
+de arriba ya cubre el caso— y sería un cambio de alcance real (afecta inventario de la org, devoluciones y
+recompensas, que asumen que todo objeto pertenece a una). Si alguna vez se quiere, es story aparte.
+
+---
 
 ### (C) Shellscript definitivo del seed (paso final de EU-325)
 

@@ -144,10 +144,11 @@ public class LostObjectService {
         ObjectCategory category = ObjectCategory.fromLabel(foundObject.getCategory());
 
         // Traemos las búsquedas guardadas con lostDate ANTERIOR al foundDate (lostDateTo => lost_date < foundDate).
-        // Cross-org (orgId null): la cercanía la maneja el geoScore del puntaje. Sin poda por límite ni umbral
-        // en la recuperación (limit alto, ver "Poda del universo" en EU-324).
+        // Cross-org (orgId null) PERO acotado por radio geográfico duro (EU-320): centro = ubicación del objeto
+        // encontrado; sólo se consideran búsquedas dentro del radio. Sin poda por límite ni umbral en la
+        // recuperación (limit alto, ver "Poda del universo" en EU-324).
         List<LostObject> candidates = lostObjectRepository.queryDual(imageEmbedding, textEmbedding,
-                null, null, null, foundDate, SEARCH_CANDIDATE_LIMIT, null);
+                null, null, foundCoordinates, null, foundDate, SEARCH_CANDIDATE_LIMIT, null);
 
         // Puntuamos con el MISMO algoritmo que la búsqueda en vivo y nos quedamos con las que superan el umbral.
         // EU-292: las búsquedas CERRADAS no disparan avisos (el usuario ya recuperó / dejó de buscar).

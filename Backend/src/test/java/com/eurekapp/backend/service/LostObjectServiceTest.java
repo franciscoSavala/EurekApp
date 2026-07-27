@@ -95,7 +95,7 @@ class LostObjectServiceTest {
     void match_aboveThreshold_notifiesOwner() {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
 
@@ -111,7 +111,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         // Coseno bajo (0.6 => normalizado 0.2 => 0.19) y lejos => total muy por debajo de 0,75.
         LostObject search = savedSearch("u1@test.com", "algo", 0.6f, BUENOS_AIRES);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
 
         service.notifyMatchingSavedSearches(found);
 
@@ -124,7 +124,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject s1 = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
         LostObject s2 = savedSearch("u2@test.com", "cartera", 1.0f, CORDOBA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
         when(userRepository.findByUsername("u2@test.com"))
@@ -145,7 +145,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject s1 = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
         LostObject s2 = savedSearch("u1@test.com", "cartera negra", 1.0f, CORDOBA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
 
@@ -171,7 +171,7 @@ class LostObjectServiceTest {
     void nonUserRecipient_isSkipped() {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("owner@org.com", "mochila", 1.0f, CORDOBA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
         when(userRepository.findByUsername("owner@org.com"))
                 .thenReturn(Optional.of(user("owner@org.com", Role.ORGANIZATION_OWNER)));
 
@@ -184,7 +184,7 @@ class LostObjectServiceTest {
     @Test
     void noCandidates_doesNotNotify() {
         FoundObject found = foundObjectAt(CORDOBA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of());
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of());
 
         service.notifyMatchingSavedSearches(found);
 
@@ -197,7 +197,7 @@ class LostObjectServiceTest {
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
         search.setStatus(LostObjectStatus.CLOSED); // ya cerrada => no debe disparar aviso
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
 
         service.notifyMatchingSavedSearches(found);
 
@@ -211,7 +211,7 @@ class LostObjectServiceTest {
         // aunque su parecido sea perfecto (filtro DURO por categoría, decisión 5).
         FoundObject found = foundObjectAt(CORDOBA);
         LostObject search = savedSearch("u1@test.com", "billetera", 1.0f, CORDOBA, ObjectCategory.BILLETERA);
-        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any()))
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(List.of(search));
 
         service.notifyMatchingSavedSearches(found);

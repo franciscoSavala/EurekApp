@@ -4,6 +4,7 @@ import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.service.client.WeaviateService;
 import io.weaviate.client.v1.data.model.WeaviateObject;
+import io.weaviate.client.v1.filters.WhereFilter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -163,6 +164,50 @@ class FoundObjectRepositoryTest {
         assertThat(found.get(0).getTextCertainty()).isEqualTo(0.7f);
         // No debe consultarse el vector de imagen si no se recibió.
         verify(weaviateService, never()).queryObjects(eq("FoundObject"), any(), eq("image"), any(), any(), any(), any());
+    }
+
+    /** Busca (recursivamente) un operando WithinGeoRange dentro de un WhereFilter, sea hoja o compuesto. */
+    private static boolean hasGeoRangeFilter(WhereFilter filter) {
+        if (filter == null) return false;
+        if (filter.getValueGeoRange() != null) return true;
+        if (filter.getOperands() != null) {
+            for (WhereFilter op : filter.getOperands()) {
+                if (hasGeoRangeFilter(op)) return true;
+            }
+        }
+        return false;
+    }
+
+    @Test
+    void queryDual_withCoordinates_appliesNativeGeoRadiusFilter() {
+        // EU-320: el radio vuelve a ser filtro DURO nativo en Weaviate (antes estaba deshabilitado).
+        when(weaviateService.queryObjects(eq("FoundObject"), any(), anyString(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        GeoCoordinates coords = GeoCoordinates.builder().latitude(-31.4377).longitude(-64.1829).build();
+        repository().queryDual(List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), "1", coords,
+                null, null, false, "BILLETERA", null, null);
+
+        ArgumentCaptor<WhereFilter> filterCaptor = ArgumentCaptor.forClass(WhereFilter.class);
+        verify(weaviateService).queryObjects(eq("FoundObject"), any(), eq("image"),
+                filterCaptor.capture(), any(), any(), any());
+        assertThat(hasGeoRangeFilter(filterCaptor.getValue()))
+                .as("la query debe incluir el filtro WithinGeoRange cuando hay coordenadas").isTrue();
+    }
+
+    @Test
+    void queryDual_withoutCoordinates_omitsGeoRadiusFilter() {
+        when(weaviateService.queryObjects(eq("FoundObject"), any(), anyString(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        repository().queryDual(List.of(0.1f, 0.2f), List.of(0.3f, 0.4f), "1", null,
+                null, null, false, "BILLETERA", null, null);
+
+        ArgumentCaptor<WhereFilter> filterCaptor = ArgumentCaptor.forClass(WhereFilter.class);
+        verify(weaviateService).queryObjects(eq("FoundObject"), any(), eq("image"),
+                filterCaptor.capture(), any(), any(), any());
+        assertThat(hasGeoRangeFilter(filterCaptor.getValue()))
+                .as("sin coordenadas no debe haber filtro geográfico").isFalse();
     }
 
     @Test

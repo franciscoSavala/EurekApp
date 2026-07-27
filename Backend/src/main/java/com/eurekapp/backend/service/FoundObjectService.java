@@ -490,12 +490,17 @@ public class FoundObjectService implements IFoundObjectService {
                 orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
                 category.name(), SEARCH_CANDIDATE_LIMIT, null);
 
+        log.debug("searchByPhoto: categoria={} candidatos recuperados={}", category, foundObjects.size());
+
         final GeoCoordinates finalCoords = queryCoordinates;
         for (FoundObject fo : foundObjects) {
             // Puntaje combinado imagen+texto modulado por geografía (SearchScoringService.combinedScore).
             double score = searchScoringService.combinedScore(fo.getImageCertainty(), fo.getTextCertainty(),
                     category, fo.getCoordinates(), finalCoords);
             fo.setScore((float) score);
+            log.debug("searchByPhoto: candidato '{}' simImg={} simTxt={} score={} (umbral={})",
+                    fo.getTitle(), fo.getImageCertainty(), fo.getTextCertainty(), score,
+                    SearchScoringService.MIN_SCORE);
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
             fo.setDistance(distance.floatValue());
         }

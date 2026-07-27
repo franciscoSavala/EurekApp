@@ -136,11 +136,12 @@ public class FoundObjectRepository {
                                     String category) {
         List<WhereFilter> filters = new ArrayList<>();
 
-        // El filtro geográfico (WithinGeoRange) está deshabilitado por un bug de Weaviate; el radio
-        // se aplica aguas arriba. Dejamos el parámetro para no cambiar el contrato de la búsqueda.
+        // EU-320: filtro geográfico DURO por radio, aplicado NATIVAMENTE en Weaviate. El "bug de Weaviate"
+        // que lo tenía deshabilitado era en realidad el campo "certainty" sobre named vectors (ya corregido
+        // pidiendo "distance"): el WithinGeoRange funciona bien. "max" es la distancia máxima en metros.
         if (coordinates != null) {
             Float maxDistance = (maxRadius).floatValue();
-            /*filters.add(WhereFilter.builder()
+            filters.add(WhereFilter.builder()
                     .path("coordinates")
                     .operator(Operator.WithinGeoRange)
                     .valueGeoRange(WhereFilter.GeoRange.builder()
@@ -150,7 +151,7 @@ public class FoundObjectRepository {
                                             .build())
                             .distance(WhereFilter.GeoDistance.builder().max(maxDistance).build())
                             .build())
-                    .build());*/
+                    .build());
         }
 
         if (orgId != null) {
