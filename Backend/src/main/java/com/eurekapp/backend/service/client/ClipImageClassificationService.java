@@ -57,7 +57,10 @@ public class ClipImageClassificationService implements ImageClassificationServic
 
         // fromLabel es defensivo: una etiqueta desconocida cae en OTROS en vez de romper.
         ObjectCategory category = ObjectCategory.fromLabel(response.getCategory());
-        log.info("[method:POST] [api_call:clip] Imagen clasificada como {}", category);
+        // La confianza se loguea para poder medir en producción qué porcentaje de las clasificaciones
+        // reales es dudoso (EU-327). Es la probabilidad en la escala del modelo, no el coseno crudo.
+        log.info("[method:POST] [api_call:clip] Imagen clasificada como {} (confianza {})",
+                category, response.getConfidence());
         return category;
     }
 }

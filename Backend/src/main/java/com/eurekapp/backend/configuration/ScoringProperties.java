@@ -72,14 +72,14 @@ public class ScoringProperties {
 
     /**
      * Valores iniciales del rework (decisión 4): en billetera/credenciales el texto (DNI, nombre)
-     * distingue más que la foto (muchas se parecen); en ropa el texto ensucia (β bajo); celular y
-     * llaves quedan ~50/50. Son un punto de partida; se recalibran en EU-327.
+     * distingue más que la foto (muchas se parecen); en ropa el texto ensucia (β bajo); electrónica
+     * y llaves quedan ~50/50. Son un punto de partida; se recalibran en EU-327.
      */
     private static Map<ObjectCategory, Weight> defaultWeights() {
         Map<ObjectCategory, Weight> defaults = new EnumMap<>(ObjectCategory.class);
         defaults.put(ObjectCategory.BILLETERA, new Weight(0.35, 0.65));
         defaults.put(ObjectCategory.ROPA, new Weight(0.85, 0.15));
-        defaults.put(ObjectCategory.CELULAR, new Weight(0.50, 0.50));
+        defaults.put(ObjectCategory.ELECTRONICA, new Weight(0.50, 0.50));
         defaults.put(ObjectCategory.LLAVES, new Weight(0.50, 0.50));
         defaults.put(ObjectCategory.OTROS, new Weight(0.50, 0.50));
         return defaults;

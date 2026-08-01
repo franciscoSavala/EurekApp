@@ -25,8 +25,9 @@ Sirven para dos cosas: **carga** (usar la imagen como archivo multipart de `sear
 | `cargador_redmi.jpg` | Cargador Redmi | Otros | images/ | Objeto distinto (separación / carga) |
 | `control_philips.jpg` | Control remoto Philips | Otros | images/ | Objeto distinto (separación / carga) |
 
-**No hay fotos de Llaves ni Celular** (la PoC no las tenía). Si se testean esas categorías,
-conseguir imágenes aparte y sumarlas acá.
+**No hay fotos de Llaves** (la PoC no las tenía). Si se testea esa categoría, conseguir imágenes
+aparte y sumarlas acá. El cargador y el control remoto, antes listados como "Otros", pasan a
+**Electrónica** (la categoría CELULAR se reemplazó por ELECTRONICA el 2026-08-01).
 
 ## Relaciones de similitud esperadas (cualitativas)
 

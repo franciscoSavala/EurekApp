@@ -21,9 +21,20 @@ la similitud coseno. Se vectoriza la imagen **completa** (sin recorte); ver el d
 `app.py` para el por qué y la red de seguridad del center-crop (comentada).
 
 `/classify` (EU-322) hace **clasificación zero-shot**: compara la imagen contra nubes de prompts
-por categoría (ROPA, BILLETERA, LLAVES, CELULAR) y cae en **OTROS** cuando ninguna gana con
-claridad (el discriminante es el MARGEN top1-top2, no un umbral absoluto). Prompts y umbrales
+por categoría (ROPA, BILLETERA, LLAVES, ELECTRONICA, OTROS) y cae en **OTROS** cuando ninguna gana
+con claridad (el discriminante es el MARGEN top1-top2, no un umbral absoluto). Prompts y umbrales
 (`CLASSIFY_MIN_SIM`, `CLASSIFY_MIN_MARGIN`) son configurables por entorno y se calibran sobre fixtures.
+
+**OTROS tiene prompts propios** (paraguas, mochila, botella, anteojos…), no es sólo el fallback del
+empate: sin ellos, a un objeto fuera de las categorías concretas no se le ofrecía la opción "ninguna
+de las anteriores" y terminaba forzado en la más cercana (medido 2026-08-01: una notebook caía en
+CELULAR, unos anteojos en ROPA). Los márgenes pasaron de 0.003-0.042 a 0.034-0.086.
+
+**Las categorías son pocas y anchas a propósito.** Cada una compite contra sus VECINAS, no contra el
+objeto: un esquema fino de 12 categorías (teléfono/computadora/audio/cargadores separados) hizo que
+2 de los 5 pares del seed cayeran en categorías distintas de cada lado —el par se vuelve invisible,
+fallo silencioso e irrecuperable— y que hasta una foto limpia de celular dejara de reconocerse.
+Regla para agregar una categoría: sólo si es **inconfundible respecto de todas las existentes**.
 
 ## Correr
 
