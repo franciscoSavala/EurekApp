@@ -1144,8 +1144,13 @@ en este flujo).
    ANTES del `found_date` de su par. **Lección para futuras corridas: una lista vacía con categoría
    correcta es sospecha de filtro de fecha, no de matching.**
 4. **(C) Shellscript definitivo del seed** — abajo.
-5. **Decidir si el mean-centering entra ahora o en EU-327** (§10): es el único cambio medido que mejora el
-   RANKING (mochila de #4 a #1). Requiere media congelada + recalibrar umbrales.
+5. ✅ **DECIDIDO (Facundo, 2026-08-01): el mean-centering va a EU-327, NO ahora.**
+   Es el único cambio medido que mejora el RANKING (mochila de #4 a #1), pero al restar la media todos los
+   puntajes cambian de escala: el umbral de 0.75 deja de significar lo mismo y hay que recalibrarlo. Como
+   EU-327 **es** la tarea de calibración, meterlo antes obligaría a calibrar dos veces.
+   **Requisitos para cuando se implemente:** (a) la media tiene que quedar **congelada** —si se recalculara
+   con cada objeto nuevo, los puntajes de ayer y los de hoy dejarían de ser comparables—; (b) recalibrar los
+   umbrales con mediciones nuevas; (c) está medido que funciona con dos medias distintas (ver §10).
 
 ### Estado del entorno al cerrar
 
