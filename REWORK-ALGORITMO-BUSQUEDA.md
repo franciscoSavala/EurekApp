@@ -1087,6 +1087,11 @@ en este flujo).
 
 ## 11. HANDOFF — retomar acá (escrito 2026-08-01, para chat limpio)
 
+> **RETOMAR EN EL PUNTO 4** (shellscript definitivo del seed). Los puntos 1, 2, 3 y 5 quedaron cerrados el
+> 2026-08-01; están abajo con el detalle de lo verificado, pero no hay que rehacerlos. **No hay bloqueantes
+> abiertos.** El entorno puede estar apagado: si es así, levantar contenedores + backend y recargar el seed
+> con `reset_weaviate_classes.sh` + `reseed_via_api.sh` (ambos ya corregidos y probados).
+
 ### Lo próximo, en orden
 
 1. ✅ **RESUELTO (2026-08-01 tarde) — S3 era el nombre del bucket.** El compañero que administra AWS avisó
