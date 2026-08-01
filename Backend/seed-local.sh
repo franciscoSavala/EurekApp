@@ -524,7 +524,7 @@ success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING
 # ─── 20. Upload de imagenes a S3 ─────────────────────────────────────────────
 header "Imagenes S3"
 
-S3_BUCKET="eurekapp-temp-local"
+S3_BUCKET="eurekapp-temp"
 S3_REGION="sa-east-1"
 IMG_DIR="$(dirname "$0")/seed-data/images"
 # EU-325: las fotos REALES de cada objeto (found + búsquedas guardadas) viven versionadas acá,

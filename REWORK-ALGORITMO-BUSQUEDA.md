@@ -1089,7 +1089,21 @@ en este flujo).
 
 ### Lo próximo, en orden
 
-1. **🚧 BLOQUEANTE — S3: falta el BUCKET, ya no la credencial.** (Actualizado 2026-08-01 tarde.)
+1. ✅ **RESUELTO (2026-08-01 tarde) — S3 era el nombre del bucket.** El compañero que administra AWS avisó
+   que el bucket correcto es **`eurekapp-temp`** (el mismo de `application.yml`), no `eurekapp-temp-local`.
+   Cambiado en `application-local.yml:18` y `seed-local.sh:527`. Verificado de punta a punta: **los 15 POST
+   del reseed dan 200** (antes los 10 de FOUND daban 500) y la URL presignada que devuelve la búsqueda
+   **descarga la foto real (HTTP 200, 43 KB)**. La región sigue siendo `sa-east-1`, que es la hardcodeada
+   en `S3Service.java:54`, así que no hubo que tocar nada más.
+   - *Señal para diagnosticar a futuro:* `AllAccessDisabled` = la cuenta dueña del bucket está de baja;
+     `AccessDenied` = la cuenta vive y es permisos. `eurekapp-temp-local` daba lo primero y `eurekapp-temp`
+     lo segundo — ahí se vio cuál era el bucket sano antes de tocar la config.
+   - ⚠️ **Nota:** el perfil local ahora escribe en el **mismo bucket que el perfil por defecto**. Las fotos
+     del seed conviven con las demás. No molesta para esto, pero conviene saberlo.
+
+<details><summary>Historial del bloqueante (ya resuelto)</summary>
+
+**🚧 BLOQUEANTE — S3: falta el BUCKET, ya no la credencial.**
    - **Credencial nueva: YA PUESTA en `Backend/.env.local` y verificada.** Autentica bien contra AWS como
      `arn:aws:iam::324859422062:user/eurekapp-user`. (El archivo está gitignoreado — `Backend/.gitignore:37`—
      así que las claves NO están en el repo ni en este tracker; si hace falta, pedírselas a Facundo.)
@@ -1111,10 +1125,12 @@ en este flujo).
    - **Por qué bloquea:** sin S3 el reseed carga los vectores igual pero **las fotos no llegan al bucket**
      (la subida es asíncrona: el objeto se persiste, y el POST devuelve 500 al esperar el future). Los
      `imageUrl` presignados no resuelven → sirve para medir matching, no para demo.
-2. ~~**Recargar el seed**~~ **HECHO (2026-08-01 tarde).** Reset + reseed corridos; **15/15 objetos con las
-   categorías nuevas de §10** y los 5 pares del mismo lado. Los 10 POST de FOUND devuelven **500 por S3**
-   (esperado: la subida es asíncrona y el POST espera el future) pero **los vectores y la categoría se
-   persisten igual** → sirve para medir matching, no para demo.
+
+</details>
+2. ~~**Recargar el seed**~~ **HECHO (2026-08-01 tarde).** Reset + reseed corridos **dos veces**: la primera
+   con S3 roto (los 10 FOUND en 500, pero vectores y categoría persistidos igual) y la segunda ya con el
+   bucket arreglado, **15/15 en 200 y las fotos en S3**. **15/15 objetos con las categorías nuevas de §10**
+   y los 5 pares del mismo lado. El seed actual en Weaviate es el bueno, con fotos.
 3. ~~**Re-validar los 5 pares**~~ **HECHO — reproduce §10 exactamente**, ejercitando el endpoint real
    `POST /found-objects/search-by-photo`: billetera ✅ **0.8032** #1 · auriculares ✅ **0.7925** #1 ·
    notebook / mochila / paraguas por debajo de 0.75 (no se devuelven). Sin sorpresas: lo pendiente sigue
@@ -1137,8 +1153,7 @@ en este flujo).
   **rebuildeado con las categorías y el umbral de confianza nuevos**).
 - **Backend arriba** (:8080, perfil local). **Weaviate con los 15 objetos NUEVOS** (categorías de §10,
   fechas corregidas) → no hace falta recargar.
-- 🚧 **S3 sigue bloqueado**: reverificado el 2026-08-01 a la tarde, `eurekapp-temp-local` responde
-  `AllAccessDisabled` y `x-amz-bucket-region: sa-east-1` (el bucket existe, pero en la cuenta suspendida).
+- ✅ **S3 funcionando** con el bucket `eurekapp-temp`. Ya no hay bloqueantes abiertos.
 - Rama `EU-320-rework-algoritmo-busqueda`. Todo lo de §10 **commiteado**.
 
 ### Qué NO hace falta rehacer (ya está medido y documentado en §10)
