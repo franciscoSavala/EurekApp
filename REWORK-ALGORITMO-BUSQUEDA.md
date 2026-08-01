@@ -1089,11 +1089,28 @@ en este flujo).
 
 ### Lo próximo, en orden
 
-1. **🚧 BLOQUEANTE — credencial de AWS.** La `AWS_ACCESS_KEY_ID` de `Backend/.env.local` (`AKIAYXWS…KHQY`)
-   **ya no existe en la cuenta**: AWS responde `InvalidAccessKeyId` (403) incluso a un `ListBuckets` firmado,
-   que no toca ningún bucket ni sube nada. **Facundo tiene que generar una IAM key nueva** con permisos sobre
-   el bucket y ponerla en `.env.local`. Sin eso el reseed carga los vectores pero **las fotos no llegan a S3**
-   (la subida es asíncrona: el objeto se persiste igual y el POST devuelve 500 al esperar el future).
+1. **🚧 BLOQUEANTE — S3: falta el BUCKET, ya no la credencial.** (Actualizado 2026-08-01 tarde.)
+   - **Credencial nueva: YA PUESTA en `Backend/.env.local` y verificada.** Autentica bien contra AWS como
+     `arn:aws:iam::324859422062:user/eurekapp-user`. (El archivo está gitignoreado — `Backend/.gitignore:37`—
+     así que las claves NO están en el repo ni en este tracker; si hace falta, pedírselas a Facundo.)
+   - **Lo que falla ahora es el bucket:** `eurekapp-temp-local` (sa-east-1) responde **`AllAccessDisabled`**
+     a PUT/GET/DELETE. Ese error NO es de permisos (eso sería `AccessDenied`, que es lo que devuelve el
+     `ListAllMyBuckets` y es esperable por privilegio mínimo): AWS lo devuelve cuando **la cuenta dueña del
+     bucket está suspendida/dada de baja**. La lectura más probable: el bucket vive en la **cuenta vieja**
+     —la misma cuya access key había desaparecido— y la credencial nueva es de **otra cuenta**, que todavía
+     no tiene ese bucket.
+   - **Qué falta hacer (lo tiene que hacer Facundo en la consola de AWS):** (a) crear el bucket en la cuenta
+     nueva, preferentemente con el mismo nombre `eurekapp-temp-local` y **en `sa-east-1`**, porque la región
+     está HARDCODEADA en `S3Service.java:54` (`Region.SA_EAST_1`) —si va en otra región hay que tocar esa
+     línea—; (b) darle a `eurekapp-user` `s3:PutObject`/`s3:GetObject`/`s3:DeleteObject` sobre él; (c) si el
+     nombre cambia, actualizar `application-local.yml:17`.
+   - **Cómo verificar antes de correr el reseed** (evita otra corrida a medias): un PUT+GET+DELETE firmado
+     contra el bucket. Ojo con la región: `https://<bucket>.s3.<region>.amazonaws.com`; con la región
+     equivocada AWS devuelve `301 PermanentRedirect` (y `curl -I` sobre el bucket revela la región real en
+     el header `x-amz-bucket-region`).
+   - **Por qué bloquea:** sin S3 el reseed carga los vectores igual pero **las fotos no llegan al bucket**
+     (la subida es asíncrona: el objeto se persiste, y el POST devuelve 500 al esperar el future). Los
+     `imageUrl` presignados no resuelven → sirve para medir matching, no para demo.
 2. **Recargar el seed** (los 15 objetos en Weaviate tienen las categorías VIEJAS, previas a §10):
    `bash Backend/seed-data/reset_weaviate_classes.sh` (drop+recreate; **NO** batch-delete, crashea 1.24.1)
    → backend arriba (memoria `project-run-backend-local`) → `bash Backend/seed-data/reseed_via_api.sh`.

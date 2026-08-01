@@ -12,8 +12,10 @@ No lleva contenido propio — el estado vive en los trackers.
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.
 
-🚧 **Bloqueante abierto:** la credencial de AWS de `Backend/.env.local` está vencida (`InvalidAccessKeyId`).
-Sin una IAM key nueva no se puede terminar el seed de EU-325. Ver §11, punto 1.
+🚧 **Bloqueante abierto (S3):** la credencial nueva **ya está puesta y verificada**; lo que falta es el
+**bucket**. `eurekapp-temp-local` responde `AllAccessDisabled`, que es lo que devuelve AWS cuando la cuenta
+dueña del bucket está dada de baja → hay que crearlo en la cuenta nueva (`324859422062`), en `sa-east-1`.
+Sin eso no se puede terminar el seed de EU-325. Detalle y verificación en **§11, punto 1**.
 
 ## Otros trackers del repo
 
