@@ -98,7 +98,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 2 | Clasificación por IA en categorías duras | EU-322 | 5 | **HECHO** | **Local, sin OpenAI**: CLIP zero-shot en el micro (`/classify`, nubes de prompts + fallback OTROS por MARGEN top1-top2, no umbral absoluto). Abstraído en Java: `ImageClassificationService` + `ClipImageClassificationService` + enum `ObjectCategory`. Smoke 9/9 sobre fixtures + tests unitarios (12 verdes). Falta cablearlo (EU-324) |
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
-| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **BUG A CERRADO Y VERIFICADO E2E (2026-07-25) · falta REPLANTEAR el seed (fotos + org/coordenadas) y escribir el shellscript** | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Pendiente antes del shellscript definitivo: (1) las 5 fotos de búsqueda son idénticas a las de su hallazgo → el seed NO valida la parte visual; (2) todos los hallazgos mandan las coordenadas de la sede, usando mal la señal org/coordenadas. Ver §9-quinquies.** |
+| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **BUG A CERRADO Y VERIFICADO E2E (2026-07-25) · falta REPLANTEAR el seed (fotos + org/coordenadas) y escribir el shellscript** | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
@@ -506,6 +506,11 @@ shellscript final decide usar el generador en vez de la API.
 
 #### Inventario APROBADO (datos ficticios de demo; se persiste tal cual, sólo se normaliza lo que va al vector)
 
+> ⚠️ **Actualizado por §9-quinquies (2026-07-27):** el par de la billetera pasó de "negra" a **marrón** (se
+> reasignaron las fotos reales de la PoC), y las coordenadas/organización de las tablas de abajo ya no valen tal
+> cual (hallazgos dentro de sede van sin coordenadas; mochila y auriculares son de vía pública). La fuente de
+> verdad operativa es `Backend/seed-data/reseed_via_api.sh`.
+
 Encontrados **con par** (el dato distintivo se repite en la búsqueda):
 
 | Foto uuid | Org | Título | Descripción |
@@ -696,6 +701,56 @@ de código, es una limitación del material.
 **Qué hacer:** conseguir una **segunda toma** de cada objeto (otro ángulo/iluminación) para las 5 búsquedas.
 Es exactamente el escenario real: el que busca no tiene la foto del que encontró.
 
+**Estado (2026-07-27): RESUELTO para el par de la billetera; los otros 4 pares SIGUEN con foto idéntica.**
+
+Material revisado: `Desktop\imagenesEurekapp\lostObjects` duplica `foundObjects`; `poc-reverse-search\images2`
+duplica casi todo `images`. **El único objeto con más de una toma real es la billetera de la PoC**:
+`billetera_1` y `billetera_3` son **la misma** billetera marrón (costura zigzag + banda símil cocodrilo) en dos
+tomas (superficie clara / en la mano, otra luz y fondo), y `billetera_2` es **otra** billetera marrón (costura
+recta) → competidor parecido-pero-no-igual.
+
+**Reasignación aplicada** (fotos copiadas a `Backend/seed-data/photos/`, textos ajustados en `reseed_via_api.sh`):
+
+| Objeto | Foto nueva | Para qué |
+|---|---|---|
+| Hallazgo billetera del par (`7ea43eba`) | `images/billetera_1.jpg` | la toma "del que encontró" |
+| Búsqueda de julia (`ea9f4057`) | `images/billetera_3.jpg` | **otra toma del MISMO objeto** → primer test visual real del seed |
+| Distractor billetera (`ebaa9336`) | `images/billetera_2.jpg` | billetera **distinta** pero muy parecida → near-miss real |
+
+Ambas billeteras quedan ahora **marrones**: el color ya no separa, así que el desempate lo tienen que dar el DNI y
+el nombre (texto) y la similitud visual fina — es el escenario más exigente y el que interesa medir. El par pasa de
+"negra" a "de cuero marrón" en título y descripción (found y búsqueda); el distractor de Laura Fernández no cambia
+de texto.
+
+**Los otros 4 pares: RESUELTOS (2026-07-27)** con fotos que aportó Facundo (buzón `Backend/seed-data/photos-nuevas/`
++ su `LEEME.md`). **Verificado por hash: los 5 pares tienen ahora fotos distintas.** No son el mismo objeto (salvo
+la billetera): son objetos distintos del mismo tipo/color → la similitud visual va a dar valores **medios**, no
+altísimos. Si alguno queda bajo `MIN_SCORE`, es insumo de **EU-327**, no un bug.
+
+| Par | Hallazgo | Búsqueda | Qué ejercita |
+|---|---|---|---|
+| Billetera | `billetera_1` (PoC) | `billetera_3` (PoC) | **mismo objeto, 2 tomas** + near-miss (`billetera_2`) |
+| Auriculares | catálogo Motorola blanco | foto real en banco de plaza | mismo tipo/color, catálogo vs escena real |
+| Mochila | **Jansport real** (foto nueva) | catálogo azul (con marca de agua) | dos mochilas azules distintas |
+| Paraguas | catálogo fondo blanco | calle bajo la lluvia | robustez al fondo |
+| Notebook | catálogo abierta 3/4 | tapa cerrada, foto casera | mismo modelo/color, otra pose |
+
+**Textos ajustados para que no contradigan las fotos nuevas:** notebook sin "stickers en la tapa"; auriculares sin
+"inalámbricos/sin cables" (la foto nueva muestra cable).
+
+**Deuda menor (no bloquea):** la foto de búsqueda de la mochila tiene **marca de agua de Dreamstime** — reemplazar
+antes de una demo.
+
+**Caso límite plantado a propósito (decidido 2026-07-27):** el modelo de los auriculares va como `WH-1000XM4` en el
+hallazgo y `WH 1000XM4` en la búsqueda (separador distinto entre letra y número). **La normalización NO lo unifica
+a propósito**: sólo pega separadores *entre dígitos*, porque pegar letra+número también uniría `DNI 40682351` en un
+bloque y perderíamos el identificador como token suelto. Se espera que lo absorba el vector semántico (comparte los
+fragmentos `wh`/`1000`/`xm`/`4`); con búsqueda por palabras exactas —el híbrido descartado— se habría roto. **Medir
+la similitud de texto de ese par al validar** → insumo de EU-327. **Decisión: NO se agrega un "tip" en el front
+pidiéndole al usuario que copie el modelo tal cual la etiqueta** (el que perdió el objeto muchas veces no lo sabe;
+todo el rework parte de aceptar que cada lado describe distinto). Sí es válido un consejo genérico del tipo "contá
+marca, color y cualquier número o nombre".
+
 ### Hallazgo 2 — organización y coordenadas: qué significa cada una
 
 **Modelo correcto (aclarado por Facundo):**
@@ -735,6 +790,13 @@ eso es el filtro de recuperación, no la dispersión del dato.
 
 **Ojo con el texto:** las descripciones de esos dos pares mencionan la sede ("en la terminal", "en la UTN").
 Al replantear, ajustarlas para que sean coherentes con el hallazgo en vía pública.
+
+**Estado (2026-07-27): HECHO en `Backend/seed-data/reseed_via_api.sh`.** `post_found`/`post_lost` aceptan `-` en
+lat/lon (y en org, para las búsquedas) y omiten esos campos del multipart —ambos endpoints ya los tienen
+`required=false`—. Los 8 hallazgos dentro de sede van sin coordenadas; mochila y auriculares llevan las de vía
+pública; sus dos búsquedas van sin organización y con el punto de pérdida desplazado (36 m / 74 m). Los textos de
+esos dos pares se reescribieron para hablar de la vereda/plazoleta en vez de la sede. Falta correrlo (depende de
+las fotos del Hallazgo 1).
 
 **Fuera de alcance (NO se hace acá):** permitir cargar un hallazgo **sin** organización. No hace falta —el modelo
 de arriba ya cubre el caso— y sería un cambio de alcance real (afecta inventario de la org, devoluciones y

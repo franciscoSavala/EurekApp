@@ -32,48 +32,63 @@ for v in ORG1 ORG2 ORG3 JULIA PEDRO VALERIA; do
 done
 echo "logins OK"
 
-# post_found <token> <org> <uuid> <found_date> <lat> <lon> <title> <desc>
+# Modelo de organizacion/coordenadas (§9-quinquies del tracker):
+#  - HALLAZGO: la organizacion siempre esta (quien recepta y custodia). Las coordenadas son la SEÑAL de
+#    donde se encontro: SIN coordenadas = se encontro dentro de la sede (hereda las de la org);
+#    CON coordenadas = se encontro en via publica, en ese punto.
+#  - BUSQUEDA: puede ir sin organizacion; las coordenadas son el punto de perdida.
+# En ambas funciones, pasar "-" en lat/lon/org omite ese campo del multipart.
+
+# post_found <token> <org> <uuid> <found_date> <lat|-> <lon|-> <title> <desc>
 post_found() {
   local tok=$1 org=$2 uuid=$3 fd=$4 lat=$5 lon=$6 title=$7 desc=$8
+  local geo=()
+  [ "$lat" != "-" ] && geo=(-F "latitude=$lat" -F "longitude=$lon")
   local code=$(curl -s -o /tmp/rf.json -w '%{http_code}' -X POST "$API/found-objects/organizations/$org" \
     -H "Authorization: Bearer $tok" \
     -F "file=@$PHOTOS/$uuid.jpg" \
     -F "title=$title" -F "detailed_description=$desc" \
-    -F "found_date=$fd" -F "latitude=$lat" -F "longitude=$lon")
+    -F "found_date=$fd" ${geo[@]+"${geo[@]}"})
   local cat=$(grep -o '"category":"[^"]*"' /tmp/rf.json | head -1)
-  echo "FOUND $uuid org$org -> $code  $cat"
+  echo "FOUND $uuid org$org geo=${lat} -> $code  $cat"
 }
 
-# post_lost <token> <org> <uuid> <lost_date> <lat> <lon> <desc>
+# post_lost <token> <org|-> <uuid> <lost_date> <lat|-> <lon|-> <desc>
 post_lost() {
   local tok=$1 org=$2 uuid=$3 ld=$4 lat=$5 lon=$6 desc=$7
+  local extra=()
+  [ "$lat" != "-" ] && extra+=(-F "latitude=$lat" -F "longitude=$lon")
+  [ "$org" != "-" ] && extra+=(-F "organization_id=$org")
   local code=$(curl -s -o /tmp/rl.json -w '%{http_code}' -X POST "$API/lost-objects" \
     -H "Authorization: Bearer $tok" \
     -F "file=@$PHOTOS/$uuid.jpg" \
-    -F "description=$desc" -F "lost_date=$ld" \
-    -F "latitude=$lat" -F "longitude=$lon" -F "organization_id=$org")
+    -F "description=$desc" -F "lost_date=$ld" ${extra[@]+"${extra[@]}"})
   local cat=$(grep -o '"category":"[^"]*"' /tmp/rl.json | head -1)
   echo "LOST  $uuid org$org -> $code  $cat"
 }
 
 echo "=== FOUND (con par) ==="
-post_found "$TOK_ORG1" 1 7ea43eba-7343-4cd8-b5d0-b736e3d575a3 2026-04-28T10:00:00 -31.4377 -64.1829 "Billetera negra de cuero" "Billetera negra de cuero. Adentro tiene el DNI 40.682.351 a nombre de Martin Gomez, una tarjeta de debito Visa del Banco Nacion y algo de efectivo"
-post_found "$TOK_ORG2" 2 25e71dcb-9d0d-4b75-96f2-df60b7d99261 2026-05-05T10:00:00 -31.4201 -64.1888 "Auriculares inalambricos blancos" "Auriculares over-ear inalambricos blancos, marca Sony modelo WH-1000XM4, sin cables"
-post_found "$TOK_ORG1" 1 494ddbc4-b4d8-4935-a77c-1d3e7363b67d 2026-05-07T10:00:00 -31.4375 -64.1831 "Mochila azul con libros" "Mochila azul mediana marca Jansport, con varios libros de ingenieria y un estuche adentro"
-post_found "$TOK_ORG1" 1 4b43a1d8-1491-4077-9c1c-463e5906cdeb 2026-04-15T10:00:00 -31.4377 -64.1829 "Paraguas negro plegable" "Paraguas negro plegable compacto, sin marca visible"
-post_found "$TOK_ORG2" 2 85c55156-216f-4b6c-aa65-782e066567b6 2026-04-25T10:00:00 -31.4201 -64.1888 "Notebook Dell gris" "Notebook Dell Inspiron 15 gris, con stickers en la tapa"
+# Dentro de la sede -> sin coordenadas (las hereda de la org).
+post_found "$TOK_ORG1" 1 7ea43eba-7343-4cd8-b5d0-b736e3d575a3 2026-04-28T10:00:00 - - "Billetera de cuero marron" "Billetera de cuero marron con costuras en zigzag. Adentro tiene el DNI 40.682.351 a nombre de Martin Gomez, una tarjeta de debito Visa del Banco Nacion y algo de efectivo"
+# Via publica: plazoleta junto a la terminal (lo recepta la Terminal, org 2).
+post_found "$TOK_ORG2" 2 25e71dcb-9d0d-4b75-96f2-df60b7d99261 2026-05-05T10:00:00 -31.42118 -64.18760 "Auriculares inalambricos blancos" "Auriculares over-ear blancos, marca Sony modelo WH-1000XM4. Estaban tirados en un banco de la plazoleta"
+# Via publica: vereda de Velez Sarsfield frente a la UTN (lo recepta la UTN, org 1).
+post_found "$TOK_ORG1" 1 494ddbc4-b4d8-4935-a77c-1d3e7363b67d 2026-05-07T10:00:00 -31.43943 -64.18451 "Mochila azul con libros" "Mochila azul mediana marca Jansport, con varios libros de ingenieria y un estuche adentro. Estaba apoyada contra un arbol en la vereda"
+post_found "$TOK_ORG1" 1 4b43a1d8-1491-4077-9c1c-463e5906cdeb 2026-04-15T10:00:00 - - "Paraguas negro plegable" "Paraguas negro plegable compacto, sin marca visible"
+post_found "$TOK_ORG2" 2 85c55156-216f-4b6c-aa65-782e066567b6 2026-04-25T10:00:00 - - "Notebook Dell gris" "Notebook Dell Inspiron 15 gris, con la tapa de aluminio y el logo en el centro"
 
 echo "=== FOUND (distractores) ==="
-post_found "$TOK_ORG1" 1 df2aa6a0-d15c-46e8-902a-e5394538a43e 2026-05-02T10:00:00 -31.4377 -64.1829 "Llave con llavero azul" "Llave tipo Yale suelta con llavero de goma azul"
-post_found "$TOK_ORG3" 3 18da5796-50dc-4383-8b1f-27e524b04b5d 2026-05-09T10:00:00 -31.3233 -64.2081 "Celular Samsung negro" "Celular Samsung Galaxy S21 negro con pantalla rota y funda gris"
-post_found "$TOK_ORG2" 2 ebaa9336-e9fd-4556-a96e-9c1538d165cb 2026-05-12T10:00:00 -31.4201 -64.1888 "Billetera marron con DNI" "Billetera marron de cuero con DNI 33.145.892 a nombre de Laura Fernandez y tarjetas bancarias"
-post_found "$TOK_ORG3" 3 498d742e-49e6-4c88-bf8d-f0313581dfaa 2026-05-14T10:00:00 -31.3233 -64.2081 "Cargador USB-C blanco" "Cargador USB-C blanco de 20W marca Samsung con cable incluido"
-post_found "$TOK_ORG1" 1 a1047f2f-0fcd-41b1-92ad-485dd04cb5d8 2026-05-20T10:00:00 -31.4377 -64.1829 "Anteojos de sol negros" "Anteojos de sol Ray-Ban con montura negra y lentes espejados"
+post_found "$TOK_ORG1" 1 df2aa6a0-d15c-46e8-902a-e5394538a43e 2026-05-02T10:00:00 - - "Llave con llavero azul" "Llave tipo Yale suelta con llavero de goma azul"
+post_found "$TOK_ORG3" 3 18da5796-50dc-4383-8b1f-27e524b04b5d 2026-05-09T10:00:00 - - "Celular Samsung negro" "Celular Samsung Galaxy S21 negro con pantalla rota y funda gris"
+post_found "$TOK_ORG2" 2 ebaa9336-e9fd-4556-a96e-9c1538d165cb 2026-05-12T10:00:00 - - "Billetera marron con DNI" "Billetera marron de cuero con DNI 33.145.892 a nombre de Laura Fernandez y tarjetas bancarias"
+post_found "$TOK_ORG3" 3 498d742e-49e6-4c88-bf8d-f0313581dfaa 2026-05-14T10:00:00 - - "Cargador USB-C blanco" "Cargador USB-C blanco de 20W marca Samsung con cable incluido"
+post_found "$TOK_ORG1" 1 a1047f2f-0fcd-41b1-92ad-485dd04cb5d8 2026-05-20T10:00:00 - - "Anteojos de sol negros" "Anteojos de sol Ray-Ban con montura negra y lentes espejados"
 
 echo "=== LOST (busquedas) ==="
-post_lost "$TOK_JULIA"   1 ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6 2026-04-29T08:00:00 -31.4377 -64.1829 "Perdi mi billetera negra de cuero cerca de la facultad. Adentro esta mi DNI 40682351 a nombre de Martin Gomez y una tarjeta de debito Visa"
-post_lost "$TOK_PEDRO"   2 771c2c2b-4dd2-45e4-977b-3a2186e86b6e 2026-05-06T08:00:00 -31.4201 -64.1888 "Se me cayeron unos auriculares inalambricos blancos Sony WH-1000XM4 en la terminal"
-post_lost "$TOK_VALERIA" 1 8ec5ebe1-5b65-412a-9cda-576f42401e35 2026-05-08T08:00:00 -31.4375 -64.1831 "Perdi una mochila azul Jansport con libros de ingenieria en la UTN"
+post_lost "$TOK_JULIA"   1 ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6 2026-04-29T08:00:00 -31.4377 -64.1829 "Perdi mi billetera de cuero marron cerca de la facultad. Adentro esta mi DNI 40682351 a nombre de Martin Gomez y una tarjeta de debito Visa"
+# Perdidos en via publica -> sin organizacion, solo el punto de perdida (a ~74 m y ~36 m del hallazgo).
+post_lost "$TOK_PEDRO"   - 771c2c2b-4dd2-45e4-977b-3a2186e86b6e 2026-05-06T08:00:00 -31.42160 -64.18700 "Se me cayeron unos auriculares blancos Sony WH 1000XM4 caminando por la plaza, cerca de la terminal"
+post_lost "$TOK_VALERIA" - 8ec5ebe1-5b65-412a-9cda-576f42401e35 2026-05-08T08:00:00 -31.43910 -64.18450 "Perdi una mochila azul Jansport con libros de ingenieria en la vereda de Velez Sarsfield"
 post_lost "$TOK_JULIA"   1 26f82583-f553-40a1-a1b8-3775c384971f 2026-04-16T08:00:00 -31.4377 -64.1829 "Se me olvido mi paraguas negro plegable en el aula magna de la UTN"
 post_lost "$TOK_VALERIA" 2 56d511e3-899b-41cf-9f2c-a811437b0b28 2026-04-26T08:00:00 -31.4201 -64.1888 "Olvide mi notebook Dell Inspiron 15 gris en la sala de espera de la terminal"
 
