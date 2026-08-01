@@ -1111,11 +1111,22 @@ en este flujo).
    - **Por qué bloquea:** sin S3 el reseed carga los vectores igual pero **las fotos no llegan al bucket**
      (la subida es asíncrona: el objeto se persiste, y el POST devuelve 500 al esperar el future). Los
      `imageUrl` presignados no resuelven → sirve para medir matching, no para demo.
-2. **Recargar el seed** (los 15 objetos en Weaviate tienen las categorías VIEJAS, previas a §10):
-   `bash Backend/seed-data/reset_weaviate_classes.sh` (drop+recreate; **NO** batch-delete, crashea 1.24.1)
-   → backend arriba (memoria `project-run-backend-local`) → `bash Backend/seed-data/reseed_via_api.sh`.
-3. **Re-validar los 5 pares.** Esperado con lo de hoy: billetera ✅ 0.803 · auriculares ✅ 0.793 ·
-   notebook **0.724** (ya se compara, sale #1, falta umbral) · mochila 0.700 · paraguas 0.582.
+2. ~~**Recargar el seed**~~ **HECHO (2026-08-01 tarde).** Reset + reseed corridos; **15/15 objetos con las
+   categorías nuevas de §10** y los 5 pares del mismo lado. Los 10 POST de FOUND devuelven **500 por S3**
+   (esperado: la subida es asíncrona y el POST espera el future) pero **los vectores y la categoría se
+   persisten igual** → sirve para medir matching, no para demo.
+3. ~~**Re-validar los 5 pares**~~ **HECHO — reproduce §10 exactamente**, ejercitando el endpoint real
+   `POST /found-objects/search-by-photo`: billetera ✅ **0.8032** #1 · auriculares ✅ **0.7925** #1 ·
+   notebook / mochila / paraguas por debajo de 0.75 (no se devuelven). Sin sorpresas: lo pendiente sigue
+   siendo puro umbral (EU-327).
+
+   ⚠️ **Bug de DATOS del seed encontrado y corregido en el camino** (`reseed_via_api.sh`): las 5 fechas de
+   pérdida estaban **un día DESPUÉS** del hallazgo de su par (billetera perdida el 29, encontrada el 28).
+   El filtro de Weaviate es `found_date >= lostDate` (`FoundObjectRepository.java:169`) y es **correcto**
+   —si lo perdí el 29, un hallazgo del 28 no puede ser mío—, así que **las 5 búsquedas devolvían lista
+   vacía** aunque los vectores y las categorías estuvieran perfectos. Corregidas a un `lost_date` dos horas
+   ANTES del `found_date` de su par. **Lección para futuras corridas: una lista vacía con categoría
+   correcta es sospecha de filtro de fecha, no de matching.**
 4. **(C) Shellscript definitivo del seed** — abajo.
 5. **Decidir si el mean-centering entra ahora o en EU-327** (§10): es el único cambio medido que mejora el
    RANKING (mochila de #4 a #1). Requiere media congelada + recalibrar umbrales.
@@ -1124,8 +1135,10 @@ en este flujo).
 
 - Contenedores arriba: `eurekapp-mysql` (:3306), `eurekapp-weaviate` (:8081, 1.24.1), `eurekapp-clip` (:8000,
   **rebuildeado con las categorías y el umbral de confianza nuevos**).
-- **Backend apagado.** Weaviate con los 15 objetos VIEJOS (categorías previas al rework de §10) → hay que
-  recargar sí o sí.
+- **Backend arriba** (:8080, perfil local). **Weaviate con los 15 objetos NUEVOS** (categorías de §10,
+  fechas corregidas) → no hace falta recargar.
+- 🚧 **S3 sigue bloqueado**: reverificado el 2026-08-01 a la tarde, `eurekapp-temp-local` responde
+  `AllAccessDisabled` y `x-amz-bucket-region: sa-east-1` (el bucket existe, pero en la cuenta suspendida).
 - Rama `EU-320-rework-algoritmo-busqueda`. Todo lo de §10 **commiteado**.
 
 ### Qué NO hace falta rehacer (ya está medido y documentado en §10)

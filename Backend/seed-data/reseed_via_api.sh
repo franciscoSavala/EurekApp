@@ -85,11 +85,11 @@ post_found "$TOK_ORG3" 3 498d742e-49e6-4c88-bf8d-f0313581dfaa 2026-05-14T10:00:0
 post_found "$TOK_ORG1" 1 a1047f2f-0fcd-41b1-92ad-485dd04cb5d8 2026-05-20T10:00:00 - - "Anteojos de sol negros" "Anteojos de sol Ray-Ban con montura negra y lentes espejados"
 
 echo "=== LOST (busquedas) ==="
-post_lost "$TOK_JULIA"   1 ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6 2026-04-29T08:00:00 -31.4377 -64.1829 "Perdi mi billetera de cuero marron cerca de la facultad. Adentro esta mi DNI 40682351 a nombre de Martin Gomez y una tarjeta de debito Visa"
+post_lost "$TOK_JULIA"   1 ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6 2026-04-28T08:00:00 -31.4377 -64.1829 "Perdi mi billetera de cuero marron cerca de la facultad. Adentro esta mi DNI 40682351 a nombre de Martin Gomez y una tarjeta de debito Visa"
 # Perdidos en via publica -> sin organizacion, solo el punto de perdida (a ~74 m y ~36 m del hallazgo).
-post_lost "$TOK_PEDRO"   - 771c2c2b-4dd2-45e4-977b-3a2186e86b6e 2026-05-06T08:00:00 -31.42160 -64.18700 "Se me cayeron unos auriculares blancos Sony WH 1000XM4 caminando por la plaza, cerca de la terminal"
-post_lost "$TOK_VALERIA" - 8ec5ebe1-5b65-412a-9cda-576f42401e35 2026-05-08T08:00:00 -31.43910 -64.18450 "Perdi una mochila azul Jansport con libros de ingenieria en la vereda de Velez Sarsfield"
-post_lost "$TOK_JULIA"   1 26f82583-f553-40a1-a1b8-3775c384971f 2026-04-16T08:00:00 -31.4377 -64.1829 "Se me olvido mi paraguas negro plegable en el aula magna de la UTN"
-post_lost "$TOK_VALERIA" 2 56d511e3-899b-41cf-9f2c-a811437b0b28 2026-04-26T08:00:00 -31.4201 -64.1888 "Olvide mi notebook Dell Inspiron 15 gris en la sala de espera de la terminal"
+post_lost "$TOK_PEDRO"   - 771c2c2b-4dd2-45e4-977b-3a2186e86b6e 2026-05-05T08:00:00 -31.42160 -64.18700 "Se me cayeron unos auriculares blancos Sony WH 1000XM4 caminando por la plaza, cerca de la terminal"
+post_lost "$TOK_VALERIA" - 8ec5ebe1-5b65-412a-9cda-576f42401e35 2026-05-07T08:00:00 -31.43910 -64.18450 "Perdi una mochila azul Jansport con libros de ingenieria en la vereda de Velez Sarsfield"
+post_lost "$TOK_JULIA"   1 26f82583-f553-40a1-a1b8-3775c384971f 2026-04-15T08:00:00 -31.4377 -64.1829 "Se me olvido mi paraguas negro plegable en el aula magna de la UTN"
+post_lost "$TOK_VALERIA" 2 56d511e3-899b-41cf-9f2c-a811437b0b28 2026-04-25T08:00:00 -31.4201 -64.1888 "Olvide mi notebook Dell Inspiron 15 gris en la sala de espera de la terminal"
 
 echo "=== DONE ==="
