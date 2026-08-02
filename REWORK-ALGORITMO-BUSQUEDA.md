@@ -1077,11 +1077,17 @@ de la notebook.
 
 ### (C) Shellscript definitivo del seed (paso final de EU-325)
 
-Recién con matches validados, escribir el seed definitivo. Decisión de Facundo: cargar **por API real** (pasa por
-normalización + CLIP + clasificación + S3), no inyectar NDJSON. `reseed_via_api.sh` ya es esencialmente eso; falta
-envolverlo con: (1) la limpieza por drop+recreate de clases, (2) chequeo de que backend/containers están arriba,
-(3) validación de conteos al final. El generador `generate_seed_vectors.py` queda como alternativa NDJSON (no usada
-en este flujo).
+**HECHO (2026-08-02).** El seed definitivo **inyecta directo a Weaviate**, no por API. Ver §11 punto 4 para el
+detalle, el porqué y la receta de regeneración.
+
+<details><summary>Decisión anterior (revertida el 2026-08-02)</summary>
+
+Se había anotado "cargar **por API real**, no inyectar NDJSON". Facundo lo corrigió: la carga por API es
+sólo el **bootstrap**, porque **resubiría las 15 fotos a S3 en cada corrida de cada máquina** (el nombre del
+archivo en S3 es el UUID que Weaviate le asigna al objeto, y cambia en cada carga). El seed de todos los días
+inyecta el snapshot con los UUIDs congelados.
+
+</details>
 
 ---
 
@@ -1090,8 +1096,8 @@ en este flujo).
 > **EU-325 CERRADA.** Los cinco puntos de abajo quedaron cerrados el 2026-08-01; están con el detalle de lo
 > verificado, pero no hay que rehacerlos. **No hay bloqueantes abiertos.** Lo próximo del rework es
 > **EU-327 (calibración de umbrales + mean-centering)** — ver el punto 5.
-> El entorno puede estar apagado: si es así, levantar contenedores + backend y correr **un solo comando**:
-> `bash Backend/seed-data/seed.sh` (chequea el entorno, limpia, carga y valida).
+> El entorno puede estar apagado: si es así, levantar contenedores y correr **un solo comando**:
+> `bash Backend/seed-data/seed.sh` (inyecta el snapshot directo a Weaviate, sin backend y sin tocar S3).
 
 ### Lo próximo, en orden
 
@@ -1149,21 +1155,40 @@ en este flujo).
    vacía** aunque los vectores y las categorías estuvieran perfectos. Corregidas a un `lost_date` dos horas
    ANTES del `found_date` de su par. **Lección para futuras corridas: una lista vacía con categoría
    correcta es sospecha de filtro de fecha, no de matching.**
-4. ✅ **HECHO (2026-08-01) — `Backend/seed-data/seed.sh` es el seed definitivo.** Un solo comando
-   (`bash Backend/seed-data/seed.sh`) deja el entorno cargado y **avisa si algo salió mal en vez de dejar
-   una carga a medias**. Envuelve los dos scripts que ya existían y agrega las tres cosas que faltaban:
-   - **Preflight:** Weaviate (:8081), CLIP (:8000) y backend + usuarios de seed. El backend **no expone
-     actuator** (`/actuator/health` da 403), así que se chequea con el propio login del seed: de paso
-     confirma que MySQL tiene los usuarios y que el backend corre en perfil local.
-   - **Limpieza + carga:** `reset_weaviate_classes.sh` (drop+recreate) y `reseed_via_api.sh` (API real).
-   - **Validación final:** los 15 POST en 200, conteos 10/5 en Weaviate y **los 15 objetos con categoría**.
-   - *Hallazgo del camino:* la respuesta del POST **no trae `category`** (el DTO no la expone), así que el
-     `grep` que `reseed_via_api.sh` hacía sobre la respuesta nunca matcheaba — parecía "sin categoría"
-     cuando estaba bien clasificado. La validación de categorías se hace **contra Weaviate**, no contra la
-     respuesta de la API; el grep muerto se sacó de `reseed_via_api.sh`.
-   - **Corrido de punta a punta**: 15/15 en 200, 10/5, 15/15 con categoría. Spot-check del par de la
-     billetera contra `search-by-photo` (`query` + `organizationId` + `lostDate`, todos camelCase):
-     devuelve el par correcto #1 con **0.785**.
+4. ✅ **HECHO (2026-08-02) — `Backend/seed-data/seed.sh` es el seed definitivo, y carga DIRECTO A WEAVIATE.**
+   Un solo comando (`bash Backend/seed-data/seed.sh`), **sin backend, sin CLIP y sin tocar S3**: preflight de
+   Weaviate + snapshot, drop+recreate de clases, POST a `/v1/objects` con `id` + propiedades + los dos named
+   vectors, y validación final (conteos 10/5, 15/15 con categoría, vectores 512/1536).
+
+   **Por qué NO va por API** (corrección de Facundo, 2026-08-02): el nombre del archivo en S3 **es el UUID
+   que Weaviate le asigna al objeto** (`S3Service.putObject(bytes, foundObjectId)`, y la URL presignada usa
+   `foundObject.getUuid()` — `FoundObjectService.java:181,413`). Ese UUID **cambia en cada carga por API**, así
+   que un seed por API resubiría las 15 fotos y dejaría las anteriores huérfanas, en cada máquina y en cada
+   corrida. Con el snapshot los UUIDs quedan **congelados** y las fotos ya subidas siguen sirviendo.
+
+   **Los objetos encontrados/perdidos NO están en MySQL**: viven sólo en Weaviate (MySQL tiene usuarios,
+   organizaciones, devoluciones, fraude, etc., y eso lo siembra `start-local.sh`). Por eso el seed toca una
+   sola base.
+
+   **Piezas y roles:**
+   - `seed.sh` — **lo que se corre siempre.** Carga `snapshot/{FoundObject,LostObject}.ndjson`. Segundos, sin cuota.
+   - `dump_seed.sh` — **bootstrap, casi nunca.** Vuelca lo que hay en Weaviate (id + propiedades + vectores) al snapshot.
+   - `reseed_via_api.sh` — **bootstrap, casi nunca.** Carga por API real (reglas de negocio + CLIP + clasificación
+     + subida a S3). Es el único que sube fotos.
+   - **Receta para regenerar** (si cambian fotos, textos, objetos o esquema): backend arriba →
+     `reset_weaviate_classes.sh` → `reseed_via_api.sh` → validar matches → `dump_seed.sh` → commitear `snapshot/`.
+   - `generate_seed_vectors.py` queda como alternativa histórica, no se usa.
+
+   **Verificado de punta a punta con el snapshot cargado:** 10/5 objetos, 15/15 con categoría, vectores
+   512/1536, y `search-by-photo` devuelve el par de la billetera **#1 con 0.7852** — idéntico a la carga por
+   API — con la **URL presignada bajando la foto real (HTTP 200, 43 KB)**, que es la prueba de que los UUIDs
+   congelados siguen apuntando a S3.
+
+   - *Hallazgo del camino:* la respuesta del POST de alta **no trae `category`** (el DTO no la expone), así que
+     el `grep` que `reseed_via_api.sh` hacía sobre la respuesta nunca matcheaba — parecía "sin categoría"
+     cuando estaba bien clasificado. Las categorías se validan **contra Weaviate**; el grep muerto se sacó.
+   - *Firma de `search-by-photo` para probar a mano:* `file` + `query` (ambos obligatorios) +
+     `organizationId`/`lostDate`/`latitude`/`longitude` — **en camelCase**, no snake_case.
 5. ✅ **DECIDIDO (Facundo, 2026-08-01): el mean-centering va a EU-327, NO ahora.**
    Es el único cambio medido que mejora el RANKING (mochila de #4 a #1), pero al restar la media todos los
    puntajes cambian de escala: el umbral de 0.75 deja de significar lo mismo y hay que recalibrarlo. Como

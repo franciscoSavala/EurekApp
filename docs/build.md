@@ -12,8 +12,10 @@ No lleva contenido propio — el estado vive en los trackers.
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.
 
-Para dejar el entorno cargado desde cero: contenedores (`bash Backend/start-local.sh`) + backend en perfil
-local + **`bash Backend/seed-data/seed.sh`** (chequea, limpia, carga por API real y valida).
+Para dejar el entorno cargado desde cero: contenedores (`bash Backend/start-local.sh`) +
+**`bash Backend/seed-data/seed.sh`**. El seed inyecta **directo a Weaviate** desde un snapshot commiteado
+(no hace falta el backend, y no resube las fotos a S3). Si alguna vez cambian los datos del seed, la receta
+para regenerar el snapshot está en §11 punto 4 del tracker.
 
 ✅ **Sin bloqueantes abiertos.** El de S3 se resolvió el 2026-08-01: el bucket correcto es `eurekapp-temp`
 (no `eurekapp-temp-local`). Seed recargado y verificado de punta a punta. Detalle en **§11, punto 1**.
