@@ -1087,10 +1087,11 @@ en este flujo).
 
 ## 11. HANDOFF — retomar acá (escrito 2026-08-01, para chat limpio)
 
-> **RETOMAR EN EL PUNTO 4** (shellscript definitivo del seed). Los puntos 1, 2, 3 y 5 quedaron cerrados el
-> 2026-08-01; están abajo con el detalle de lo verificado, pero no hay que rehacerlos. **No hay bloqueantes
-> abiertos.** El entorno puede estar apagado: si es así, levantar contenedores + backend y recargar el seed
-> con `reset_weaviate_classes.sh` + `reseed_via_api.sh` (ambos ya corregidos y probados).
+> **EU-325 CERRADA.** Los cinco puntos de abajo quedaron cerrados el 2026-08-01; están con el detalle de lo
+> verificado, pero no hay que rehacerlos. **No hay bloqueantes abiertos.** Lo próximo del rework es
+> **EU-327 (calibración de umbrales + mean-centering)** — ver el punto 5.
+> El entorno puede estar apagado: si es así, levantar contenedores + backend y correr **un solo comando**:
+> `bash Backend/seed-data/seed.sh` (chequea el entorno, limpia, carga y valida).
 
 ### Lo próximo, en orden
 
@@ -1148,7 +1149,21 @@ en este flujo).
    vacía** aunque los vectores y las categorías estuvieran perfectos. Corregidas a un `lost_date` dos horas
    ANTES del `found_date` de su par. **Lección para futuras corridas: una lista vacía con categoría
    correcta es sospecha de filtro de fecha, no de matching.**
-4. **(C) Shellscript definitivo del seed** — abajo.
+4. ✅ **HECHO (2026-08-01) — `Backend/seed-data/seed.sh` es el seed definitivo.** Un solo comando
+   (`bash Backend/seed-data/seed.sh`) deja el entorno cargado y **avisa si algo salió mal en vez de dejar
+   una carga a medias**. Envuelve los dos scripts que ya existían y agrega las tres cosas que faltaban:
+   - **Preflight:** Weaviate (:8081), CLIP (:8000) y backend + usuarios de seed. El backend **no expone
+     actuator** (`/actuator/health` da 403), así que se chequea con el propio login del seed: de paso
+     confirma que MySQL tiene los usuarios y que el backend corre en perfil local.
+   - **Limpieza + carga:** `reset_weaviate_classes.sh` (drop+recreate) y `reseed_via_api.sh` (API real).
+   - **Validación final:** los 15 POST en 200, conteos 10/5 en Weaviate y **los 15 objetos con categoría**.
+   - *Hallazgo del camino:* la respuesta del POST **no trae `category`** (el DTO no la expone), así que el
+     `grep` que `reseed_via_api.sh` hacía sobre la respuesta nunca matcheaba — parecía "sin categoría"
+     cuando estaba bien clasificado. La validación de categorías se hace **contra Weaviate**, no contra la
+     respuesta de la API; el grep muerto se sacó de `reseed_via_api.sh`.
+   - **Corrido de punta a punta**: 15/15 en 200, 10/5, 15/15 con categoría. Spot-check del par de la
+     billetera contra `search-by-photo` (`query` + `organizationId` + `lostDate`, todos camelCase):
+     devuelve el par correcto #1 con **0.785**.
 5. ✅ **DECIDIDO (Facundo, 2026-08-01): el mean-centering va a EU-327, NO ahora.**
    Es el único cambio medido que mejora el RANKING (mochila de #4 a #1), pero al restar la media todos los
    puntajes cambian de escala: el umbral de 0.75 deja de significar lo mismo y hay que recalibrarlo. Como

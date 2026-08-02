@@ -49,8 +49,9 @@ post_found() {
     -F "file=@$PHOTOS/$uuid.jpg" \
     -F "title=$title" -F "detailed_description=$desc" \
     -F "found_date=$fd" ${geo[@]+"${geo[@]}"})
-  local cat=$(grep -o '"category":"[^"]*"' /tmp/rf.json | head -1)
-  echo "FOUND $uuid org$org geo=${lat} -> $code  $cat"
+  # La categoria NO viene en la respuesta del POST (el DTO no la expone): se valida contra
+  # Weaviate al final de seed.sh, no aca.
+  echo "FOUND $uuid org$org geo=${lat} -> $code"
 }
 
 # post_lost <token> <org|-> <uuid> <lost_date> <lat|-> <lon|-> <desc>
@@ -63,8 +64,7 @@ post_lost() {
     -H "Authorization: Bearer $tok" \
     -F "file=@$PHOTOS/$uuid.jpg" \
     -F "description=$desc" -F "lost_date=$ld" ${extra[@]+"${extra[@]}"})
-  local cat=$(grep -o '"category":"[^"]*"' /tmp/rl.json | head -1)
-  echo "LOST  $uuid org$org -> $code  $cat"
+  echo "LOST  $uuid org$org -> $code"
 }
 
 echo "=== FOUND (con par) ==="
