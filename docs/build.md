@@ -7,7 +7,7 @@ No lleva contenido propio — el estado vive en los trackers.
 
 | Rama | Tracker | Dónde retomar |
 |---|---|---|
-| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§11 HANDOFF** (al final del archivo) — EU-325 cerrada, sigue **EU-327** |
+| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§12** — EU-327: umbral y curva de presentación HECHOS; queda α/β por categoría y rango geo |
 
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.
