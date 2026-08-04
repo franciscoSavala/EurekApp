@@ -170,7 +170,9 @@ class FoundObjectServiceTest {
 
         // El puntaje combinado y el umbral los decide SearchScoringService (aquí mockeado).
         when(searchScoringService.combinedScore(any(), any(), any(), any(), any())).thenReturn(0.9);
-        when(searchScoringService.isMatch(anyDouble())).thenReturn(true);
+        when(searchScoringService.isCombinedMatch(anyDouble())).thenReturn(true);
+        // EU-327: el puntaje que llega al DTO es el remapeado para mostrar (curva monótona).
+        when(searchScoringService.displayScore(anyDouble())).thenReturn(0.95);
         when(s3Service.generatePresignedUrl(anyString(), any())).thenReturn("http://img/fo-1.jpg");
 
         FoundObjectsListDto result = service.searchByPhoto(photo, "billetera marrón", filters);
@@ -179,6 +181,8 @@ class FoundObjectServiceTest {
         assertThat(result.getCategory()).isEqualTo(ObjectCategory.BILLETERA.name());
         assertThat(result.getFoundObjects()).hasSize(1);
         assertThat(result.getFoundObjects().get(0).getId()).isEqualTo("fo-1");
+        // El puntaje que sale al front es el de PRESENTACIÓN, no el crudo del scoring.
+        assertThat(result.getFoundObjects().get(0).getScore()).isEqualTo(0.95f);
         // Recupera candidatos con AMBOS vectores (imagen + texto), no la query textual legacy.
         verify(foundObjectRepository)
                 .queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any());

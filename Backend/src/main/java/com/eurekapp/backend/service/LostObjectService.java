@@ -164,8 +164,10 @@ public class LostObjectService {
             double totalScore = searchScoringService.combinedScore(
                     candidate.getImageCertainty(), candidate.getTextCertainty(), category,
                     candidate.getCoordinates(), foundCoordinates);
-            if (searchScoringService.isMatch(totalScore)) {
-                candidate.setScore((float) totalScore);
+            // EU-327: el corte va contra el umbral CRUDO calibrado; lo que se guarda para mostrar/notificar
+            // es el puntaje ya remapeado a la escala del usuario (misma curva que la búsqueda por foto).
+            if (searchScoringService.isCombinedMatch(totalScore)) {
+                candidate.setScore((float) searchScoringService.displayScore(totalScore));
                 matches.add(candidate);
             }
         }

@@ -148,4 +148,59 @@ public class SearchScoringService {
                 + beta * normalizeCosineScore(textCertainty);
         return geoModulator(a, b) * similarity;
     }
+
+    // ── EU-327: umbral calibrado y curva de presentación ────────────────────────────────────────
+
+    /** Puntaje que se le MUESTRA al usuario cuando un match está justo en el umbral (75%). */
+    public static final double DISPLAY_THRESHOLD = 0.75;
+
+    /**
+     * {@code true} si el puntaje combinado CRUDO alcanza el umbral calibrado en EU-327.
+     *
+     * <p>Se compara contra {@link ScoringProperties#getMatchThreshold()} —la escala real de
+     * {@link #combinedScore}—, <b>no</b> contra el 0.75 que ve el usuario. Filtrar acá y no sobre el
+     * puntaje ya remapeado es equivalente (la curva es monótona), pero deja el corte expresado en la
+     * única escala en la que se lo puede volver a medir.</p>
+     */
+    public boolean isCombinedMatch(double combinedScore) {
+        return combinedScore >= properties.getMatchThreshold();
+    }
+
+    /** Umbral crudo vigente. Expuesto sólo para loguearlo: el corte se decide en {@link #isCombinedMatch}. */
+    public double matchThreshold() {
+        return properties.getMatchThreshold();
+    }
+
+    /**
+     * Remapea el puntaje combinado crudo al puntaje que se le muestra al usuario, vía
+     * {@code mostrado = crudo^k}.
+     *
+     * <p><b>Por qué existe:</b> el umbral calibrado (~0.53) es el corte correcto según los datos, pero
+     * mostrarle "53% de coincidencia" a alguien que está mirando SU objeto se lee como un fracaso. El
+     * criterio de producto es que una coincidencia verdadera se presente con al menos 75%. Esta curva
+     * hace esa traducción y nada más.</p>
+     *
+     * <p><b>Por qué no distorsiona el resultado:</b> es estrictamente creciente, así que <b>no altera
+     * el orden</b> de los candidatos ni qué candidatos pasan el filtro. Es presentación, no ranking.
+     * Además fija los extremos: 0 sigue siendo 0 y 1 sigue siendo 1.</p>
+     *
+     * <p>El exponente se <b>deriva</b> del umbral ({@code k = ln(0.75) / ln(umbral)}) en vez de ser una
+     * segunda constante suelta: si se recalibra el umbral, el piso mostrado sigue cayendo en 75% solo,
+     * sin que nadie tenga que acordarse de ajustar dos números a la vez.</p>
+     *
+     * @param combinedScore puntaje crudo de {@link #combinedScore}, en {@code [0, 1]}.
+     * @return puntaje a mostrar, en {@code [0, 1]}; vale exactamente 0.75 cuando el crudo está en el umbral.
+     */
+    public double displayScore(double combinedScore) {
+        if (combinedScore <= 0.0) {
+            return 0.0;
+        }
+        double threshold = properties.getMatchThreshold();
+        // Umbrales degenerados (<=0 o >=1) no definen una curva: se muestra el crudo sin remapear.
+        if (threshold <= 0.0 || threshold >= 1.0) {
+            return Math.min(combinedScore, 1.0);
+        }
+        double k = Math.log(DISPLAY_THRESHOLD) / Math.log(threshold);
+        return Math.min(Math.pow(combinedScore, k), 1.0);
+    }
 }

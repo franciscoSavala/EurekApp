@@ -500,14 +500,21 @@ public class FoundObjectService implements IFoundObjectService {
             fo.setScore((float) score);
             log.debug("searchByPhoto: candidato '{}' simImg={} simTxt={} score={} (umbral={})",
                     fo.getTitle(), fo.getImageCertainty(), fo.getTextCertainty(), score,
-                    SearchScoringService.MIN_SCORE);
+                    searchScoringService.matchThreshold());
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
             fo.setDistance(distance.floatValue());
         }
 
+        // EU-327: se FILTRA por el umbral crudo y recién después se remapea el puntaje a la escala que
+        // ve el usuario (displayScore). La curva es monótona, así que el orden es el mismo de una u otra
+        // forma; filtrar antes deja el corte expresado en la escala en la que fue calibrado.
         List<FoundObjectDto> result = foundObjects.stream()
+                .filter(fo -> fo.getScore() != null && searchScoringService.isCombinedMatch(fo.getScore()))
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && searchScoringService.isMatch(dto.getScore()))
+                .map(dto -> {
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore()));
+                    return dto;
+                })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
                 .toList();
 

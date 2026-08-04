@@ -50,7 +50,8 @@ import static org.mockito.Mockito.when;
 /**
  * Tests de la búsqueda INVERSA (EU-279): al subir un objeto encontrado, se avisa a los dueños de
  * las búsquedas guardadas que coinciden (≥ umbral), uno por usuario con la lista de sus búsquedas.
- * Se usa el {@link SearchScoringService} real para que el corte 0,75 sea el de producción.
+ * Se usa el {@link SearchScoringService} real para que el corte sea el de producción (EU-327: el
+ * umbral crudo calibrado, no el 0,75 que se le muestra al usuario).
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)

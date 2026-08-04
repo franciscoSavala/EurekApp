@@ -24,12 +24,30 @@ public class ScoringProperties {
     /** Ponderaciones α (imagen) / β (texto) por categoría. Conviene que {@code image + text = 1}. */
     private Map<ObjectCategory, Weight> weights = defaultWeights();
 
+    /**
+     * Umbral CRUDO de coincidencia del puntaje combinado (EU-327), sobre la escala real que devuelve
+     * {@code combinedScore}. Calibrado empíricamente sobre los 5 pares verdaderos del seed: el peor
+     * par (el paraguas, catálogo vs calle) puntúa 0.5820, y se le resta un margen de 0.05 de seguridad.
+     *
+     * <p><b>No es el número que ve el usuario.</b> La presentación se remapea con
+     * {@code SearchScoringService.displayScore}, que lleva este umbral a 0.75 exactamente.</p>
+     */
+    private double matchThreshold = 0.5320;
+
     public double getGeoFloor() {
         return geoFloor;
     }
 
     public void setGeoFloor(double geoFloor) {
         this.geoFloor = geoFloor;
+    }
+
+    public double getMatchThreshold() {
+        return matchThreshold;
+    }
+
+    public void setMatchThreshold(double matchThreshold) {
+        this.matchThreshold = matchThreshold;
     }
 
     public Map<ObjectCategory, Weight> getWeights() {

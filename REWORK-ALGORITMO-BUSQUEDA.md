@@ -106,7 +106,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
 | 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **RESEED CORRIDO Y VALIDADO (2026-08-01) · BLOQUEADO por credenciales AWS vencidas · falta el shellscript definitivo** — ver el bloque **(B-bis)** al final de §9-quinquies | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
-| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | TODO | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
+| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | **EN CURSO** — umbral + curva de presentación HECHOS (ver §12); mean-centering DESCARTADO con medición | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
 | 9 | **PoC: apilamiento de algoritmos de texto (híbrido) vs coseno solo** | EU-142 (PoC) | — | **HECHO** (concluida; ver §8-bis) | **Es lo próximo que ejecuta `/build`.** Objetivo: comprobar empíricamente **cuánto mejora apilar denso + BM25 + normalización** (sección 6) por sobre **usar solo distancia coseno densa** (lo actual), sobre los 4 casos eje (sinónimos, término raro tipo "prince", identificador con distinto formato, typo). **PoC que EVOLUCIONA a la implementación real** (no descartable): el código que rinda queda como base de la #8. **Trabajar en una rama colgada del rework**: `git switch -c EU-142-poc-hybrid-text` desde `EU-320-rework-algoritmo-busqueda`. Entregable: comparación híbrido vs coseno en los casos eje + `alpha`/estrategia de fusión (`relativeScoreFusion` vs `rankedFusion`)/normalización tentativos, para cerrar sobre esos valores en #8 y calibrar fino en #7. **Desglose ejecutable en subtareas 9.1–9.6: ver sección 8** |
 
@@ -1220,3 +1220,136 @@ inyecta el snapshot con los UUIDs congelados.
   dudosa (63.6%). Reemplazar antes de una demo.
 - El par del paraguas (catálogo vs calle) queda bajo por encuadre, no por defecto. **No reemplazarlo**: le
   pone un piso realista a la calibración de EU-327.
+
+---
+
+## 12. EU-327 — Calibración del umbral y curva de presentación (2026-08-03)
+
+### El criterio (decisión de Facundo)
+
+> El umbral debe ser **el más alto posible que aún devuelva los 5 pares verdaderos**, menos **0.05**
+> de margen. Y a partir de ahí, una **función no lineal sobre el puntaje final** que haga que ese
+> umbral se le muestre al usuario como **75%** — el profesor pidió que una coincidencia verdadera
+> aparezca con al menos 75%.
+
+Las dos mitades son independientes a propósito: **el umbral decide qué se muestra** (lo fijan los datos)
+y **la curva decide con qué número se muestra** (lo fija el criterio de producto). La curva es monótona,
+así que no toca el ranking ni cambia qué candidatos pasan el corte.
+
+### Mediciones (sobre el snapshot del seed, sin levantar backend)
+
+Puntajes **crudos** de `combinedScore` para los 5 pares verdaderos, con el filtro duro por categoría
+y el modulador geográfico ya aplicados:
+
+| par | puntaje crudo | mostrado (curva) |
+|---|---|---|
+| paraguas (catálogo vs calle) | **0.5820** ← el piso | 78% |
+| mochila | 0.7001 | 85% |
+| notebook | 0.7248 | 86% |
+| auriculares | 0.7925 | 90% |
+| billetera | 0.8032 | 90% |
+
+**Umbral crudo = 0.5820 − 0.05 = 0.5320.** Los 5 pares entran y los 5 se muestran por encima de 75%.
+
+### El mean-centering se DESCARTA (revierte lo previsto en §11 punto 5)
+
+§10 lo había medido como el único cambio que mejoraba el ranking (la mochila de #4 a #1). Con el criterio
+de umbral de arriba, **deja de convenir**, y el ranking ya no lo necesita:
+
+| variante | peor par | umbral (−0.05) | mejor falso | margen |
+|---|---|---|---|---|
+| **sin centrar (elegida)** | 0.5820 | **0.5320** | 0.6736 | **−0.0916** |
+| centrar imagen | 0.3640 | 0.3140 | 0.5932 | −0.2293 |
+| centrar imagen y texto | 0.2190 | 0.1690 | 0.4105 | −0.1915 |
+
+**Por qué empeora:** el centrado remueve la componente común a todos los embeddings de CLIP. Eso castiga
+más a las coincidencias *flojas* —que es de lo genérico ("un paraguas negro") de lo que dependen— que a
+los falsos *fuertes*, que comparten algo más específico que el promedio del corpus. El peor par pierde
+0.218 y el mejor falso sólo 0.080. Y como el umbral se fija en el par más débil, empeora justo donde duele.
+
+**El beneficio de ranking ya lo da gratis el filtro duro por categoría:** los 5 pares salen #1 en su
+categoría sin centrar nada. **No re-proponer** sin datos nuevos que contradigan esta tabla.
+
+### Dos correcciones de diagnóstico anotadas en el camino
+
+1. **`normalizeCosineScore` no es un reescalado arbitrario.** Weaviate devuelve `certainty = (coseno+1)/2`,
+   y `(certainty − 0.5) × 2` es exactamente su **inversa**: recupera el coseno crudo. No hay nada que
+   arreglar ahí, y explica por qué los números coinciden con los ya medidos en §11.
+2. **El falso positivo de las dos billeteras marrones NO es falta de datos identificatorios.** El seed ya
+   trae DNI y nombre en `human_description` de ambas (`40.682.351 / Martin Gomez` vs `33.145.892 /
+   Laura Fernandez`) — el campo se llama `human_description`, no `description`. El mecanismo se prueba y
+   funciona: en texto el par verdadero gana 0.7478 a 0.6080.
+
+### El único falso positivo que sobrevive
+
+Consulta de la billetera contra "Billetera marron con DNI" (otra billetera marrón, de otra persona):
+
+| | imagen | texto | combinado (α=0.35 / β=0.65) |
+|---|---|---|---|
+| par verdadero | 0.9060 | 0.7478 | **0.8032** ← #1 |
+| falso | 0.8906 | 0.6080 | 0.7069 ← #2 |
+
+**No es un error de ranking:** en su propia consulta el algoritmo acierta y el falso queda #2. Se cuela por
+encima del umbral sólo porque el corte lo fija el paraguas, que es una consulta distinta y mucho más débil.
+El margen en **imagen** es de apenas 0.0154 — ése sí es el techo de CLIP descrito en §10 (codifica *"una
+billetera marrón"*, no *"esta billetera"*); lo que salva el caso es el texto. **Salida de fondo: DINOv2**,
+story aparte. **Aceptado y documentado como limitación conocida.**
+
+### Qué se tocó
+
+- `ScoringProperties.java` — propiedad nueva `matchThreshold` (0.5320) + getters/setters.
+- `application.yml` — `search.scoring.match-threshold: 0.5320`, con el porqué del número.
+- `SearchScoringService.java` — `isCombinedMatch(crudo)`, `displayScore(crudo)` y `matchThreshold()`.
+  El exponente de la curva se **deriva** del umbral (`k = ln(0.75)/ln(umbral)`) en vez de ser una segunda
+  constante suelta: si se recalibra el umbral, el piso mostrado sigue cayendo en 75% solo.
+  El `MIN_SCORE = 0.75` legacy **queda intacto** — lo usa la búsqueda textual vieja (MOORA 95/5), que es
+  otra escala y no se calibró acá.
+- `FoundObjectService.java` — `searchByPhoto` filtra por el umbral **crudo** y recién después remapea a la
+  escala de presentación.
+- `LostObjectService.java` — la búsqueda inversa (notificaciones) usa el mismo corte y la misma curva.
+- Tests: 6 nuevos en `SearchScoringServiceTest` (21 verdes) — el corte en el umbral, que el umbral mapea a
+  exactamente 75%, que la curva es estrictamente creciente y respeta los extremos, que los 5 pares del seed
+  se muestran ≥75%, que el exponente sigue al umbral si se recalibra, y el borde degenerado.
+  `FoundObjectServiceTest` actualizado al contrato nuevo. **Suite: 170 tests, Failures: 0**; los 4 errores
+  restantes son los tests de contexto que necesitan MySQL (ambiental, ver memoria).
+
+### Verificación de punta a punta (endpoint real `POST /found-objects/search-by-photo`)
+
+Los 5 pares, contra el backend levantado con el código nuevo y el seed cargado:
+
+| consulta | resultado | mostrado |
+|---|---|---|
+| billetera | **#1** Billetera de cuero marron | **90.5%** |
+| auriculares | **#1** Auriculares inalambricos blancos | **89.9%** |
+| mochila | **#1** Mochila azul con libros | **85.0%** |
+| paraguas | **#1** Paraguas negro plegable | **78.1%** |
+| notebook | **#1** Notebook Dell gris | **86.4%** |
+
+**5/5 devueltos, 5/5 en primer lugar, 5/5 por encima del 75%.** Antes de EU-327 sólo volvían dos
+(billetera y auriculares); mochila, notebook y paraguas quedaban por debajo del corte. Los porcentajes
+coinciden exactamente con los predichos offline sobre el snapshot, lo que valida que la medición del
+snapshot y el camino productivo dan lo mismo.
+
+*Nota:* en la consulta de la billetera el falso positivo conocido **no aparece**, porque vive en la
+organización 2 y la búsqueda se hizo sobre la 1: el filtro por organización lo excluye antes del scoring.
+
+<details><summary>Trampas al probar a mano (costaron un rato)</summary>
+
+- La respuesta usa **`found_objects` en snake_case**, no `foundObjects`. Un parser que busque camelCase
+  ve "sin resultados" cuando en realidad el match volvió perfecto.
+- Los parámetros del form-data sí van en **camelCase** (`organizationId`, `lostDate`, `latitude`,
+  `longitude`) — al revés que el cuerpo de la respuesta.
+- `organizationId` es **opcional**: mandarlo restringe la búsqueda a esa organización.
+- Para ver los puntajes hay que levantar el backend con
+  `-Dspring-boot.run.jvmArguments=-Dlogging.level.com.eurekapp.backend=DEBUG`; el log imprime
+  `simImg`/`simTxt`/`score` y el umbral por candidato.
+- En ese log **`simImg` es la *certainty* de Weaviate**, no el coseno: `certainty = (coseno+1)/2`. Un
+  `simImg=0.9530` es un coseno de 0.9060.
+
+</details>
+
+### Pendiente de EU-327
+
+- **α/β por categoría y rango geo**: siguen con los valores puestos a criterio en EU-324, sin calibrar.
+  Con 5 pares no alcanza para calibrar por categoría de forma seria — hace falta más corpus.
+- **Tasa de error de categorización con datos reales**: 12/12 en el seed, pero el seed es chico.

@@ -54,6 +54,11 @@ search:
   scoring:
     # Piso del modulador geográfico dentro del radio: mismo lugar => 1, lejos => geo-floor (nunca 0).
     geo-floor: 0.75
+    # EU-327: umbral CRUDO de coincidencia, en la escala real del puntaje combinado.
+    # Calibrado sobre los 5 pares verdaderos del seed: el peor par (paraguas, catalogo vs calle)
+    # puntua 0.5820 => se toma ese piso menos 0.05 de margen. Con este corte entran los 5 pares.
+    # OJO: NO es el numero que ve el usuario; la presentacion lo remapea a 75% (displayScore).
+    match-threshold: 0.5320
     # Ponderaciones α (imagen) / β (texto) por categoría. Conviene que image + text sumen 1.
     # Billetera/credenciales: manda el texto (DNI, nombre). Ropa: manda la foto (el texto ensucia).
     # Electronica/llaves/otros: mitad y mitad (la electronica trae marca y modelo en el texto,

@@ -151,4 +151,73 @@ class SearchScoringServiceTest {
         assertThat(far).isCloseTo(properties.getGeoFloor(), within(1e-3));
         assertThat(far).isGreaterThanOrEqualTo(properties.getGeoFloor());
     }
+
+    // ── EU-327: umbral calibrado y curva de presentación ────────────────────────────────────────
+
+    @Test
+    void isCombinedMatch_cutsAtCalibratedThreshold() {
+        double threshold = properties.getMatchThreshold();
+        assertThat(scoring.isCombinedMatch(threshold)).isTrue();          // el borde entra
+        assertThat(scoring.isCombinedMatch(threshold + 0.01)).isTrue();
+        assertThat(scoring.isCombinedMatch(threshold - 0.01)).isFalse();
+    }
+
+    @Test
+    void displayScore_mapsThresholdToExactlySeventyFivePercent() {
+        // El criterio de producto: una coincidencia justo en el umbral se le muestra al usuario como 75%.
+        assertThat(scoring.displayScore(properties.getMatchThreshold()))
+                .isCloseTo(SearchScoringService.DISPLAY_THRESHOLD, within(1e-9));
+    }
+
+    @Test
+    void displayScore_keepsEndpointsAndIsStrictlyIncreasing() {
+        // Los extremos quedan fijos: nada de inventar puntaje donde no lo hay, ni superar el 100%.
+        assertThat(scoring.displayScore(0.0)).isEqualTo(0.0);
+        assertThat(scoring.displayScore(-0.3)).isEqualTo(0.0);
+        assertThat(scoring.displayScore(1.0)).isCloseTo(1.0, within(1e-9));
+
+        // Estrictamente creciente => NO altera el ranking; es presentación, no reordenamiento.
+        double previous = -1.0;
+        for (double raw = 0.05; raw <= 1.0; raw += 0.05) {
+            double shown = scoring.displayScore(raw);
+            assertThat(shown).isGreaterThan(previous);
+            assertThat(shown).isBetween(0.0, 1.0);
+            previous = shown;
+        }
+    }
+
+    @Test
+    void displayScore_showsEveryTrueSeedPairAboveSeventyFivePercent() {
+        // Puntajes CRUDOS medidos sobre los 5 pares verdaderos del seed (EU-327). El umbral se calibró
+        // como "el peor par (paraguas, 0.5820) menos 0.05", así que los cinco tienen que mostrarse >= 75%.
+        double[] trueSeedPairs = {0.5820, 0.7001, 0.7248, 0.7925, 0.8032};
+        for (double raw : trueSeedPairs) {
+            assertThat(scoring.isCombinedMatch(raw)).isTrue();
+            assertThat(scoring.displayScore(raw))
+                    .isGreaterThanOrEqualTo(SearchScoringService.DISPLAY_THRESHOLD);
+        }
+    }
+
+    @Test
+    void displayScore_followsThresholdWhenRecalibrated() {
+        // El exponente se DERIVA del umbral: si mañana se recalibra, el piso mostrado sigue dando 75%
+        // solo, sin tener que acordarse de ajustar un segundo número.
+        properties.setMatchThreshold(0.40);
+        assertThat(scoring.displayScore(0.40))
+                .isCloseTo(SearchScoringService.DISPLAY_THRESHOLD, within(1e-9));
+
+        properties.setMatchThreshold(0.65);
+        assertThat(scoring.displayScore(0.65))
+                .isCloseTo(SearchScoringService.DISPLAY_THRESHOLD, within(1e-9));
+    }
+
+    @Test
+    void displayScore_degenerateThreshold_fallsBackToRawScore() {
+        // Umbrales imposibles (0 o 1) no definen una curva: se muestra el crudo, sin romper.
+        properties.setMatchThreshold(0.0);
+        assertThat(scoring.displayScore(0.6)).isCloseTo(0.6, within(1e-9));
+
+        properties.setMatchThreshold(1.0);
+        assertThat(scoring.displayScore(0.6)).isCloseTo(0.6, within(1e-9));
+    }
 }
