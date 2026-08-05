@@ -1214,12 +1214,18 @@ inyecta el snapshot con los UUIDs congelados.
 - Que el mean-centering arregla el ranking de la mochila con dos medias distintas.
 - Que la resolución **no** explica el par flojo del paraguas (una foto a 32px se parece a sí misma en 0.75-0.81).
 
-### Deuda menor anotada
+### Fotos del seed que parecen defectuosas pero NO hay que reemplazar
 
-- La foto de búsqueda de la mochila tiene **marca de agua de Dreamstime** y es la única con clasificación
-  dudosa (63.6%). Reemplazar antes de una demo.
-- El par del paraguas (catálogo vs calle) queda bajo por encuadre, no por defecto. **No reemplazarlo**: le
-  pone un piso realista a la calibración de EU-327.
+Las dos "rarezas" del seed son en realidad los casos más realistas que tiene, y le ponen un piso honesto
+a la calibración. **No reemplazarlas.**
+
+- **El par del paraguas** (catálogo vs calle) queda bajo por encuadre, no por defecto. Es el peor par
+  verdadero y por eso mismo es el que fija el umbral en §12.
+- **La foto de búsqueda de la mochila tiene marca de agua de Dreamstime** y es la de clasificación más
+  dudosa (63.6%). Se había anotado como deuda "a reemplazar antes de una demo"; **reencuadrado el
+  2026-08-05 (Facundo): no es un defecto.** Un usuario no técnico que busca su mochila perfectamente
+  puede agarrar una foto de catálogo de Google, con marca de agua incluida — es exactamente el material
+  que va a llegar en producción. Sacarla del seed haría la medición más linda y menos representativa.
 
 ---
 
@@ -1377,6 +1383,14 @@ Con MySQL levantado (2026-08-05) se separó lo que hasta ahora se anotaba como u
   configuración real**: `application.yml` define `spring.datasource.hikari.connection-init-sql:
   "SET NAMES utf8mb4"`, sintaxis exclusiva de MySQL que H2 rechaza. **Ningún contenedor los arregla.**
   Pendiente aparte, ajeno al rework: overridear esa propiedad para el perfil `test`.
+
+**A ARREGLAR — `EndpointSecurityTest` (3 tests).** Es un bug de configuración real, chico y ajeno al
+rework, pero deja la suite en rojo permanente y eso entrena a ignorar el resultado. `application.yml`
+define `spring.datasource.hikari.connection-init-sql: "SET NAMES utf8mb4"` para forzar el charset en
+MySQL; el perfil `test` levanta **H2 en memoria**, que no entiende esa sentencia y aborta el contexto.
+Arreglo: overridear la propiedad a vacío para el perfil `test` (hoy no hay `application-test.yml` en
+`src/test/resources/`, hay que crearlo). Ojo al hacerlo: la propiedad tiene que quedar **vacía, no
+borrada del `application.yml`** — en MySQL sigue haciendo falta.
 
 Comando que deja la suite en 170 tests / 0 failures / 3 errores (sólo los de H2), desde `Backend/`:
 
