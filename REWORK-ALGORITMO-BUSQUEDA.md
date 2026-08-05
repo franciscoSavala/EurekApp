@@ -106,7 +106,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
 | 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **RESEED CORRIDO Y VALIDADO (2026-08-01) · BLOQUEADO por credenciales AWS vencidas · falta el shellscript definitivo** — ver el bloque **(B-bis)** al final de §9-quinquies | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
 | 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
-| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | **EN CURSO** — umbral + curva de presentación HECHOS (ver §12); mean-centering DESCARTADO con medición | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
+| 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | **HECHO** — umbral calibrado (0.5320) + curva de presentación que lo muestra como 75%; verificado E2E 5/5 pares en #1 y ≥75%. Mean-centering DESCARTADO con medición. α/β, rango geo y consistencia de categorización **diferidos** (son parámetros, no código). Todo en §12 | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
 | 9 | **PoC: apilamiento de algoritmos de texto (híbrido) vs coseno solo** | EU-142 (PoC) | — | **HECHO** (concluida; ver §8-bis) | **Es lo próximo que ejecuta `/build`.** Objetivo: comprobar empíricamente **cuánto mejora apilar denso + BM25 + normalización** (sección 6) por sobre **usar solo distancia coseno densa** (lo actual), sobre los 4 casos eje (sinónimos, término raro tipo "prince", identificador con distinto formato, typo). **PoC que EVOLUCIONA a la implementación real** (no descartable): el código que rinda queda como base de la #8. **Trabajar en una rama colgada del rework**: `git switch -c EU-142-poc-hybrid-text` desde `EU-320-rework-algoritmo-busqueda`. Entregable: comparación híbrido vs coseno en los casos eje + `alpha`/estrategia de fusión (`relativeScoreFusion` vs `rankedFusion`)/normalización tentativos, para cerrar sobre esos valores en #8 y calibrar fino en #7. **Desglose ejecutable en subtareas 9.1–9.6: ver sección 8** |
 
@@ -1348,8 +1348,41 @@ organización 2 y la búsqueda se hizo sobre la 1: el filtro por organización l
 
 </details>
 
-### Pendiente de EU-327
+### Lo que queda de EU-327 se DIFIERE (decisión de Facundo, 2026-08-05)
 
-- **α/β por categoría y rango geo**: siguen con los valores puestos a criterio en EU-324, sin calibrar.
-  Con 5 pares no alcanza para calibrar por categoría de forma seria — hace falta más corpus.
-- **Tasa de error de categorización con datos reales**: 12/12 en el seed, pero el seed es chico.
+Los tres puntos abiertos quedan para otro momento. **La lógica ya está implementada y los valores son
+parámetros de configuración**: retomar esto es cambiar números, no escribir código.
+
+- **α/β por categoría** — calibrarlo en serio exige un dataset bastante más grande que los 5 pares del
+  seed. Con lo que hay, cualquier número que saliera sería ruido con apariencia de medición. Siguen los
+  valores puestos a criterio en EU-324 (`application.yml`).
+- **Rango del modulador geo** — **no es calibrable por experimento: es una decisión de negocio.** Cuánto
+  debe penalizar la distancia lo define el producto, no los datos; un experimento sólo diría en qué punto
+  el modulador empieza a tirar matches por debajo del umbral, y eso se deduce de la fórmula.
+- **Tasa de error de categorización** — reformulada, y la reformulación importa: **lo que hay que medir no
+  es la exactitud absoluta sino la CONSISTENCIA entre las dos fotos del mismo objeto.** Que la IA le ponga
+  a un paraguas una categoría discutible es inofensivo si le pone la misma al objeto encontrado y a la
+  búsqueda perdida; lo grave —y lo que tiene que ser excepcionalmente raro— es que caigan de lados
+  distintos, porque el filtro duro los separa y el match se pierde **en silencio**. Medido hasta acá:
+  **los 5 pares del seed caen del mismo lado, 5/5.** Muestra chica, pero es la métrica correcta.
+
+### Hallazgo lateral: los "4 tests ambientales" son en realidad DOS problemas
+
+Con MySQL levantado (2026-08-05) se separó lo que hasta ahora se anotaba como un solo bloque ambiental:
+
+- **`BackendApplicationTests.contextLoads`** — era falta de variables de entorno, no de base. Corriendo
+  con MySQL arriba **y** exportando `DATABASE_URL` / `DATABASE_USER` / **`DATABASE_PASS`** (ojo: `PASS`,
+  no `PASSWORD`) más las de `Backend/.env.local`, **pasa**.
+- **`EndpointSecurityTest`** (3 tests) — **no usan MySQL**, usan H2 en memoria, y fallan por un **bug de
+  configuración real**: `application.yml` define `spring.datasource.hikari.connection-init-sql:
+  "SET NAMES utf8mb4"`, sintaxis exclusiva de MySQL que H2 rechaza. **Ningún contenedor los arregla.**
+  Pendiente aparte, ajeno al rework: overridear esa propiedad para el perfil `test`.
+
+Comando que deja la suite en 170 tests / 0 failures / 3 errores (sólo los de H2), desde `Backend/`:
+
+```bash
+export DATABASE_URL='jdbc:mysql://localhost:3306/eurekapp?useUnicode=true&characterEncoding=UTF-8'
+export DATABASE_USER=eurekapp DATABASE_PASS=eurekapp
+# + cargar Backend/.env.local (JWT_SIGN_KEY, OPENAI_SECRET_KEY, MAIL_*)
+./mvnw test
+```

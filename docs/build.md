@@ -7,7 +7,7 @@ No lleva contenido propio — el estado vive en los trackers.
 
 | Rama | Tracker | Dónde retomar |
 |---|---|---|
-| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§12** — EU-327: umbral y curva de presentación HECHOS; queda α/β por categoría y rango geo |
+| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§12** — EU-327 cerrada. **Lo próximo del rework es EU-326 (frontend)**, la única subtarea que queda |
 
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.
