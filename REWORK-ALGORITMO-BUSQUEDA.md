@@ -1384,6 +1384,33 @@ Con MySQL levantado (2026-08-05) se separó lo que hasta ahora se anotaba como u
   "SET NAMES utf8mb4"`, sintaxis exclusiva de MySQL que H2 rechaza. **Ningún contenedor los arregla.**
   Pendiente aparte, ajeno al rework: overridear esa propiedad para el perfil `test`.
 
+### ✅ ARREGLADO (2026-08-05) — `EndpointSecurityTest` en verde; eran CINCO problemas apilados
+
+El `SET NAMES utf8mb4` era sólo el primero. Al destaparlo aparecieron otros cuatro, todos por lo mismo:
+**el perfil `test` había quedado desfasado del código productivo** y nadie lo notaba porque la suite ya
+estaba en rojo permanente. En orden de aparición:
+
+1. **`connection-init-sql` de MySQL contra H2** — overrideado a vacío en `application-test.yml`.
+2. **No existía el bean `weaviateClient`** — `RestClientConfiguration` es `@Profile("!test")`, así que en
+   test no hay cliente de Weaviate y el contexto no arrancaba. Se mockea en el test, igual que los de CLIP.
+3. **Faltaban `MAIL_USER`/`MAIL_PASSWORD`** — el `EmailService` no resolvía los placeholders. Valores
+   dummy en `application-test.yml`.
+4. **El esquema de test estaba viejo** — `schema.sql` creaba `user_eurekapp` cuando la entidad ya mapea a
+   `users`, y con columnas de hace varias versiones. Reescrito en sintaxis H2 (sólo `users` y
+   `organizations`, las únicas que el test toca) y `data.sql` pasado a INSERT con columnas nombradas,
+   para que un cambio de modelo falle por nombre y no por orden posicional. Además:
+   `spring.jpa.properties.hibernate.dialect` del `application.yml` (MySQLDialect) **le gana** a
+   `database-platform` del perfil test → hay que overridearlo ahí también, o Hibernate genera DDL de
+   MySQL (`engine=InnoDB`, `TINYINT(1)`) contra H2. `ddl-auto` queda en `none`: generar el esquema desde
+   las entidades no sirve porque varias declaran `columnDefinition` en sintaxis MySQL.
+5. **El test llamaba al endpoint con el contrato viejo** — mandaba `description`/`organizationId` cuando
+   el alta pide `title` y `found_date`, así que devolvía 400 y ni llegaba a medir permisos.
+
+**Resultado: suite en 170 tests, 0 failures, 0 errors** (con MySQL arriba y las variables de entorno del
+comando de abajo). Es la primera corrida completamente verde.
+
+<details><summary>Diagnóstico original (2026-08-05, antes de arreglarlo)</summary>
+
 **A ARREGLAR — `EndpointSecurityTest` (3 tests).** Es un bug de configuración real, chico y ajeno al
 rework, pero deja la suite en rojo permanente y eso entrena a ignorar el resultado. `application.yml`
 define `spring.datasource.hikari.connection-init-sql: "SET NAMES utf8mb4"` para forzar el charset en
@@ -1392,11 +1419,13 @@ Arreglo: overridear la propiedad a vacío para el perfil `test` (hoy no hay `app
 `src/test/resources/`, hay que crearlo). Ojo al hacerlo: la propiedad tiene que quedar **vacía, no
 borrada del `application.yml`** — en MySQL sigue haciendo falta.
 
-Comando que deja la suite en 170 tests / 0 failures / 3 errores (sólo los de H2), desde `Backend/`:
+</details>
+
+Comando que deja la suite en **170 tests / 0 failures / 0 errores**, desde `Backend/` (con MySQL arriba):
 
 ```bash
+set -a && . ./.env.local; set +a   # JWT_SIGN_KEY, OPENAI_SECRET_KEY, MAIL_*
 export DATABASE_URL='jdbc:mysql://localhost:3306/eurekapp?useUnicode=true&characterEncoding=UTF-8'
-export DATABASE_USER=eurekapp DATABASE_PASS=eurekapp
-# + cargar Backend/.env.local (JWT_SIGN_KEY, OPENAI_SECRET_KEY, MAIL_*)
+export DATABASE_USER=eurekapp DATABASE_PASS=eurekapp   # ojo: PASS, no PASSWORD
 ./mvnw test
 ```
