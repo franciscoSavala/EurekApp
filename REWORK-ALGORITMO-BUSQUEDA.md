@@ -104,8 +104,9 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 2 | Clasificación por IA en categorías duras | EU-322 | 5 | **HECHO** | **Local, sin OpenAI**: CLIP zero-shot en el micro (`/classify`, nubes de prompts + fallback OTROS por MARGEN top1-top2, no umbral absoluto). Abstraído en Java: `ImageClassificationService` + `ClipImageClassificationService` + enum `ObjectCategory`. Smoke 9/9 sobre fixtures + tests unitarios (12 verdes). Cableado en EU-324. **Revisado el 2026-08-01 (§10): `CELULAR` → `ELECTRONICA` y OTROS pasa a tener nube de prompts propia** (antes era sólo el fallback del empate, y eso forzaba a los objetos ajenos a las 4 categorías dentro de la más cercana). 12/12 fotos del seed bien clasificadas y márgenes de 0.003-0.042 → 0.034-0.086. Se descartó, con medición, un esquema de categorías finas |
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
-| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **RESEED CORRIDO Y VALIDADO (2026-08-01) · BLOQUEADO por credenciales AWS vencidas · falta el shellscript definitivo** — ver el bloque **(B-bis)** al final de §9-quinquies | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
-| 6 | Frontend: foto obligatoria, quitar descripción IA | EU-326 | 5 | TODO | En paralelo una vez definido el contrato del back. Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)** al usuario: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—). Requiere que el back devuelva la categoría en la respuesta de la búsqueda (324-D) |
+| 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **HECHO (2026-08-02).** Sin bloqueantes: lo de S3 era el nombre del bucket (`eurekapp-temp`), resuelto el 2026-08-01, y el shellscript definitivo es `Backend/seed-data/seed.sh`, que inyecta el snapshot **directo a Weaviate**. Ver §11 puntos 1-4 | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
+| 6 | Frontend: **pantalla unificada** (texto obligatorio + foto opcional), quitar descripción IA | EU-326 | 5 | **EN CURSO** — replanteada el 2026-08-06, **ver §13**. Ya no son dos pantallas: se unifican búsqueda por texto y por foto en una sola, con la foto opcional y un mensaje de que aumenta las chances. El backend NO se toca. Además: la búsqueda por foto y el guardado de búsqueda están HOY ROTOS en la app (contrato viejo) | Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)**: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—) |
+| 10 | **Emparejar la búsqueda de texto con la de foto** (geo modulador + umbral calibrado + categoría desde texto) | EU-337 | 5 | TODO — creada el 2026-08-06, **ver §13**. Depende de EU-326 | Los tres puntos van juntos: cambiar la geografía cambia la escala y obliga a recalibrar el umbral igual |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | **HECHO** — umbral calibrado (0.5320) + curva de presentación que lo muestra como 75%; verificado E2E 5/5 pares en #1 y ≥75%. Mean-centering DESCARTADO con medición. α/β, rango geo y consistencia de categorización **diferidos** (son parámetros, no código). Todo en §12 | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
 | 9 | **PoC: apilamiento de algoritmos de texto (híbrido) vs coseno solo** | EU-142 (PoC) | — | **HECHO** (concluida; ver §8-bis) | **Es lo próximo que ejecuta `/build`.** Objetivo: comprobar empíricamente **cuánto mejora apilar denso + BM25 + normalización** (sección 6) por sobre **usar solo distancia coseno densa** (lo actual), sobre los 4 casos eje (sinónimos, término raro tipo "prince", identificador con distinto formato, typo). **PoC que EVOLUCIONA a la implementación real** (no descartable): el código que rinda queda como base de la #8. **Trabajar en una rama colgada del rework**: `git switch -c EU-142-poc-hybrid-text` desde `EU-320-rework-algoritmo-busqueda`. Entregable: comparación híbrido vs coseno en los casos eje + `alpha`/estrategia de fusión (`relativeScoreFusion` vs `rankedFusion`)/normalización tentativos, para cerrar sobre esos valores en #8 y calibrar fino en #7. **Desglose ejecutable en subtareas 9.1–9.6: ver sección 8** |
@@ -1229,6 +1230,75 @@ a la calibración. **No reemplazarlas.**
 
 ---
 
+## 13. EU-326 replanteada + EU-337 nueva (decisiones de Facundo, 2026-08-06)
+
+> **Escrito al final a propósito**: §12 y anteriores quedan como registro de lo ya cerrado. Esto es lo
+> que se ejecuta a continuación.
+
+### El estado real del frontend (hallazgo al abrir EU-326)
+
+**La búsqueda por foto está ROTA en la app, y también el guardado de la búsqueda.** No lo rompió nada de
+este chat: quedó así desde EU-324, cuando los endpoints cambiaron de contrato y el front no se actualizó.
+
+- `SearchByPhoto.js:105` manda sólo el archivo; `POST /found-objects/search-by-photo` exige **`file` +
+  `query`, los dos obligatorios** → hoy devuelve 400 siempre.
+- Lee `generated_description` de la respuesta y la usa como texto de la búsqueda
+  (`PhotoSearchResults.js:116,158`) — **esa descripción por IA ya no existe** (eliminada en EU-323).
+- No muestra `category`, que el backend ya devuelve en `FoundObjectsListDto` para mostrarla read-only.
+- `UploadLostObjectModal.js:29` guarda la búsqueda con un **JSON de sólo texto**; `POST /lost-objects`
+  ahora recibe **multipart con la foto obligatoria** → guardar una búsqueda también falla.
+
+### EU-326 cambia de forma: UNA sola pantalla, foto OPCIONAL
+
+Decisión de Facundo. En vez de mantener "Buscar objeto" y "Buscar por foto" como pantallas separadas, se
+unifican: **texto siempre obligatorio, foto opcional**, con un mensaje del tipo *"cargar una foto aumenta
+las chances de encontrarlo"*. Según haya foto o no, el front pega a un endpoint o al otro — **los dos ya
+existen, el backend no se toca**. Se unifican también las dos pantallas de resultados (la de foto muestra
+porcentaje de coincidencia, la de texto no).
+
+Es más trabajo que la EU-326 original, pero elimina la pantalla separada y es lo que cierra el rework.
+
+### EU-337 (nueva) — emparejar la búsqueda de texto con la de foto
+
+Creada como subtarea de EU-320. Tres puntos, y **los tres van juntos** porque cambiar la geografía cambia
+la escala del puntaje y obliga a recalibrar el umbral igual:
+
+1. **Geografía como modulador, no como sumando.** Hoy el camino de texto usa MOORA **95% texto + 5% geo**
+   (`SearchScoringService.java:38,41,75`): estar cerca *compensa* no parecerse. En el rework la geografía
+   **multiplica** (`geo · (α·img + β·txt)`), que es lo correcto. Aplicar el mismo criterio.
+2. **Umbral de texto calibrado + curva al 75%.** El `MIN_SCORE = 0.75` legacy está puesto a ojo sobre otra
+   escala. Con las dos búsquedas en la misma pantalla, **un mismo porcentaje tiene que significar lo mismo
+   con foto y sin foto**. La maquinaria de EU-327 sirve tal cual: se mide el umbral y el exponente de la
+   curva se deriva solo (`k = ln(0.75)/ln(umbral)`). Es medir, no programar.
+3. **Categoría deducida del texto.** Hoy sin foto no hay categoría y no se puede acotar.
+   ⚠️ **El filtro de categoría es DURO**: deducirla mal esconde el objeto correcto **sin ninguna señal**, y
+   clasificar *"mochila azul"* es bastante más frágil que clasificar una foto. Usarla sólo cuando la
+   clasificación sea confiada, o apoyarse en la categoría que el usuario ya elige a mano en los filtros.
+
+### Discusiones cerradas en el camino (para no reabrirlas)
+
+- **El falso positivo de la billetera NO es deuda.** Que un falso quede #2 es tolerable si el verdadero
+  está en el podio — y está #1. Ver §12, ya reescrito. **DINOv2 no es deuda del rework.**
+- **Buscar sólo por texto: SÍ, y ya existe** — es el camino de "Buscar objeto" (MOORA 95/5), calibrado
+  aparte. No hay que construir nada (sí emparejarlo: EU-337).
+- **Buscar sólo por foto: NO.** El umbral se calibró sobre la **combinación** de las dos señales; sacando
+  el texto la escala cambia y haría falta un tercer umbral. Además es el modo más débil y está medido:
+  sólo con imagen, el par verdadero da 0.9060 y una billetera ajena 0.8906 (**0.0154 de margen**); lo que
+  los separa es el texto, que pesa β=0.65 contra α=0.35 de la imagen. Pedir dos palabras (*"mochila azul"*)
+  es fricción baratísima a cambio de la señal que más aporta.
+- **Modo "mostrame los 20 más parecidos" sin umbral: DESCARTADO** (Facundo, 2026-08-06). Se evaluó como
+  salida para el usuario desesperado y se decidió no hacerlo. Si alguna vez se retoma, lo pensado fue:
+  sin corte y sin porcentajes (una lista ordenada no *afirma* nada, así que no hay número que calibrar),
+  **con** el filtro de categoría puesto (corrección de Facundo: sin él la lista es un cajón de sastre).
+  Su límite: rescata al objeto que quedó bajo el umbral, pero **no** al que el filtro de categoría
+  descartó — ahí falla igual que la búsqueda normal.
+- **Si a futuro la gente abandona por no querer escribir**, la salida NO es aflojar la exigencia de texto
+  sino **derivar el texto de la foto** y que el usuario lo confirme. Trampa a medir antes de darlo por
+  bueno: si el texto lo genera el mismo modelo que ya miró la foto, deja de ser señal independiente y el
+  combinado se parece más a foto-sola de lo que aparenta.
+
+---
+
 ## 12. EU-327 — Calibración del umbral y curva de presentación (2026-08-03)
 
 ### El criterio (decisión de Facundo)
@@ -1298,8 +1368,22 @@ Consulta de la billetera contra "Billetera marron con DNI" (otra billetera marr�
 **No es un error de ranking:** en su propia consulta el algoritmo acierta y el falso queda #2. Se cuela por
 encima del umbral sólo porque el corte lo fija el paraguas, que es una consulta distinta y mucho más débil.
 El margen en **imagen** es de apenas 0.0154 — ése sí es el techo de CLIP descrito en §10 (codifica *"una
-billetera marrón"*, no *"esta billetera"*); lo que salva el caso es el texto. **Salida de fondo: DINOv2**,
-story aparte. **Aceptado y documentado como limitación conocida.**
+billetera marrón"*, no *"esta billetera"*); lo que salva el caso es el texto.
+
+**ACEPTADO EXPLÍCITAMENTE (criterio de Facundo, 2026-08-06): esto no es un defecto a corregir.** Que un
+falso positivo aparezca segundo es tolerable mientras el verdadero esté en el podio — y acá está #1. La
+redacción anterior lo anotaba como "limitación conocida", que le daba más peso del que tiene. DINOv2 queda
+como story aparte y **no es deuda del rework**.
+
+**El riesgo real no está en el orden, está en el corte y en el filtro de categoría** — y los dos fallan en
+silencio, que es lo que los hace peligrosos:
+- **El umbral no arma un podio, filtra.** Si el par verdadero queda por debajo, no sale segundo: no sale.
+  Eso es exactamente lo que pasaba antes de EU-327 (sólo volvían 2 de 5 pares; mochila, notebook y paraguas
+  se perdían enteros). Hoy vuelven **5/5, todos #1**.
+- **El filtro por categoría es duro y corta para los dos lados.** Evita matches disparatados —por eso está—
+  pero si la IA clasifica distinto las dos fotos del mismo objeto, el par se separa **antes** del scoring:
+  sin puntaje bajo, sin segundo puesto, sin señal. Por eso la métrica que importa es la **consistencia**
+  entre las dos fotos, no la exactitud absoluta (ver el punto diferido más abajo).
 
 ### Qué se tocó
 
