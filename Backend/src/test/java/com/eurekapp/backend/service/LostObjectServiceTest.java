@@ -27,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
@@ -222,6 +223,26 @@ class LostObjectServiceTest {
     }
 
     @Test
+    void searchWithoutCategory_isStillConsidered() {
+        // EU-326: una búsqueda guardada sin foto no tiene categoría. "Desconocida" no es "distinta":
+        // si la descartáramos quedaría invisible para siempre y sin ninguna señal. Se la deja competir
+        // y decide el umbral, igual que a cualquier otra.
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "billetera", 1.0f, CORDOBA);
+        search.setCategory(null);
+        search.setImageCertainty(null); // sin foto no hay parecido visual: sólo aporta el texto
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(search));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(notificationService).sendNotification(eq("u1@test.com"), any(), any());
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"), any());
+    }
+
+    @Test
     void close_byOwner_closesWithRecoveredAnswer() {
         LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
         search.setStatus(LostObjectStatus.ACTIVE);
@@ -326,18 +347,51 @@ class LostObjectServiceTest {
     }
 
     @Test
-    void reportLostObject_withoutPhoto_throwsBadRequest() {
+    void reportLostObject_withoutPhoto_savesTextOnlySearch() {
+        // EU-326: la foto pasó a ser OPCIONAL. Sin foto la búsqueda se guarda igual, pero queda más
+        // débil: sólo con el vector textual, sin categoría dura y sin nada subido a S3.
         ReportLostObjectCommand command = ReportLostObjectCommand.builder()
                 .image(null)
-                .description("billetera")
+                .description("billetera de cuero marrón")
                 .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
                 .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
 
-        assertThatThrownBy(() -> service.reportLostObject(command))
-                .isInstanceOf(BadRequestException.class);
+        service.reportLostObject(command);
 
-        verify(lostObjectRepository, never()).add(any());
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        assertThat(saved.getTextEmbedding()).containsExactly(0.1f, 0.2f);
+        assertThat(saved.getImageEmbedding()).isNull();
+        assertThat(saved.getCategory()).isNull();
+        assertThat(saved.getHasImage()).isFalse();
+        verify(imageEmbeddingService, never()).getImageVectorRepresentation(any());
+        verify(imageClassificationService, never()).classify(any());
         verify(objectStorage, never()).putObject(any(), anyString());
+    }
+
+    @Test
+    void getMyLostObjects_exposesPhotoUrlOnlyWhenSavedWithPhoto() {
+        // EU-326: la foto vive en S3 con key = uuid. Una búsqueda guardada SIN foto no tiene nada que
+        // mostrar, y pedir la URL igual daría un enlace roto en el detalle.
+        LostObject conFoto = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA);
+        conFoto.setHasImage(true);
+        LostObject sinFoto = savedSearch("u1@test.com", "paraguas negro", 1.0f, CORDOBA);
+        sinFoto.setHasImage(false);
+        when(lostObjectRepository.query(any(), eq("u1@test.com"), any(), any(), any()))
+                .thenReturn(List.of(conFoto, sinFoto));
+        when(objectStorage.getObjectUrl(conFoto.getUuid())).thenReturn("https://s3/foto.jpg");
+
+        List<LostObjectResponseDto> result = service.getMyLostObjects("u1@test.com");
+
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg");
+        assertThat(result.get(1).getImageUrl()).isNull();
+        verify(objectStorage, never()).getObjectUrl(sinFoto.getUuid());
     }
 
     @Test

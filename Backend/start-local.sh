@@ -190,7 +190,8 @@ create_class_if_missing "LostObject" '{
     { "name": "status",          "dataType": ["text"] },
     { "name": "closed_date",     "dataType": ["date"] },
     { "name": "recovered",       "dataType": ["boolean"] },
-    { "name": "category",        "dataType": ["text"] }
+    { "name": "category",        "dataType": ["text"] },
+    { "name": "has_image",       "dataType": ["boolean"] }
   ]
 }'
 
@@ -203,7 +204,8 @@ if [[ "$(curl -s -o /dev/null -w "%{http_code}" "$WEAVIATE_URL/v1/schema/LostObj
   for PROP in '{"name":"status","dataType":["text"]}' \
               '{"name":"closed_date","dataType":["date"]}' \
               '{"name":"recovered","dataType":["boolean"]}' \
-              '{"name":"category","dataType":["text"]}'; do
+              '{"name":"category","dataType":["text"]}' \
+              '{"name":"has_image","dataType":["boolean"]}'; do
     curl -s -o /dev/null -X POST "$WEAVIATE_URL/v1/schema/LostObject/properties" \
       -H "Content-Type: application/json" -d "$PROP"
   done

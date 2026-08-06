@@ -81,6 +81,8 @@ public class LostObjectRepository {
         properties.put("status", status.name());
         // EU-323: categoría dura (definida por IA desde la imagen). Vacío si aún no se clasificó.
         properties.put("category", lostObject.getCategory() != null ? lostObject.getCategory() : "");
+        // EU-326: si la búsqueda se guardó con foto, hay un objeto en S3 con key = uuid para mostrar.
+        properties.put("has_image", Boolean.TRUE.equals(lostObject.getHasImage()));
 
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
@@ -124,7 +126,8 @@ public class LostObjectRepository {
                         "status",
                         "closed_date",
                         "recovered",
-                        "category"),
+                        "category",
+                        "has_image"),
                 limit,
                 offset
         );
@@ -243,7 +246,8 @@ public class LostObjectRepository {
                 "status",
                 "closed_date",
                 "recovered",
-                "category");
+                "category",
+                "has_image");
 
         // Preservamos el orden de aparición (primero los candidatos por imagen, luego los nuevos por texto).
         Map<String, LostObject> merged = new LinkedHashMap<>();
@@ -308,6 +312,7 @@ public class LostObjectRepository {
                 .status(status)
                 .closedDate(closedDate)
                 .recovered((Boolean) properties.get("recovered"))
+                .hasImage((Boolean) properties.get("has_image"))
                 .build();
 
         return lostObject;
@@ -345,6 +350,7 @@ public class LostObjectRepository {
                 .status(status)
                 .closedDate(closedDate)
                 .recovered((Boolean) properties.get("recovered"))
+                .hasImage((Boolean) properties.get("has_image"))
                 .build();
     }
 

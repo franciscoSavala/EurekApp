@@ -34,12 +34,13 @@ public class LostObjectController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('USER')")
     @Operation(summary = "Reportar objeto perdido",
-            description = "Guarda una búsqueda abierta de un objeto perdido. Recibe la foto (obligatoria) y la "
-                    + "descripción del usuario: la foto se vectoriza (CLIP) y se clasifica por IA, y se sube a S3 "
-                    + "sólo al guardar (para mostrarla en el detalle de la búsqueda).")
+            description = "Guarda una búsqueda abierta de un objeto perdido. La descripción es obligatoria y la "
+                    + "foto es OPCIONAL (EU-326): si viene, se vectoriza (CLIP), se clasifica por IA y se sube a "
+                    + "S3 al guardar; si no viene, la búsqueda queda sólo con el vector textual y sin categoría, "
+                    + "lo que la hace más débil para el aviso automático. Adjuntar una foto es lo recomendable.")
     public ResponseEntity<Void> reportLostObject(
             @AuthenticationPrincipal UserEurekapp user,
-            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "file", required = false) MultipartFile file,
             @RequestParam("description") String description,
             @RequestParam(value = "lost_date", required = false) LocalDateTime lostDate,
             @RequestParam(value = "latitude", required = false) Double latitude,

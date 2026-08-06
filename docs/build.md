@@ -7,7 +7,7 @@ No lleva contenido propio — el estado vive en los trackers.
 
 | Rama | Tracker | Dónde retomar |
 |---|---|---|
-| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§13** — arranca **EU-326**, replanteada el 2026-08-06: **una sola pantalla** de búsqueda (texto obligatorio + foto opcional), el backend no se toca. Ojo: la búsqueda por foto y el guardado de búsqueda **están rotos hoy en la app** (contrato viejo desde EU-324). Después va **EU-337** (emparejar la búsqueda de texto) |
+| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§13** — **EU-326 HECHA y VERIFICADA en la app** (2026-08-06). Sigue **EU-337**, y su punto 3 (categoría inferida del texto) quedó **desarrollado en §13**: es lo que reemplaza al selector manual que se eliminó. Ojo §12: tiene una corrección importante sobre el par de la billetera |
 
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.

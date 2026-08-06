@@ -105,7 +105,7 @@ Story **EU-320** (5 puntos, Sprint 14, asignada a Facundo). Subtareas:
 | 3 | Weaviate: dos vectores + categoría; quitar descripción IA | EU-323 | 4 | **HECHO** | **Named vectors** (`image`+`text`, vectorizer none, coseno) en FoundObject y LostObject (schema manual `start-local.sh`); `category` agregada a LostObject; `ai_description` eliminada del schema+modelo+repo. `WeaviateService` soporta create con vectores nombrados y `targetVectors` en la query; las búsquedas textuales actuales apuntan a `"text"`. El vector `image` se **cablea al flujo en EU-324** (por ahora queda null y no se persiste). Tests unitarios de repositorio (6 verdes) + suite existente verde. **OJO:** cambio de schema incompatible con el vector único previo → hay que recrear las clases (borrar volumen Weaviate) y regenerar el seed (EU-325) |
 | 4 | Algoritmo de scoring (α/β por categoría, geo modulador, umbral) | EU-324 | 8 | **HECHO** | Corazón. Partido en 4 subtareas (A núcleo scoring · B recuperación de dos similitudes · C cablear CLIP en la escritura · D cablear CLIP en la búsqueda + wiring). `combinedScore = geoModulator·(α·sim_img + β·sim_txt)` con α/β por categoría externalizados a `application.yml`. `searchByPhoto` = búsqueda en vivo foto+texto (ambos obligatorios) + ubicación obligatoria, vectoriza imagen en memoria (sin S3), clasifica categoría por IA y la devuelve read-only; `notifyMatchingSavedSearches` (inverso) idem con ambos vectores + filtro duro por categoría. `queryDual` con limit alto (5000, fusible no poda). `reportLostObject` sube la foto a S3 sólo al guardar; `searchByPhoto` no sube. Suite unitaria/mockeada verde (138; los 4 rojos son los tests de contexto que necesitan MySQL, ambiental) |
 | 5 | Regenerar el seed con dos vectores + categoría | EU-325 | 4 | **HECHO (2026-08-02).** Sin bloqueantes: lo de S3 era el nombre del bucket (`eurekapp-temp`), resuelto el 2026-08-01, y el shellscript definitivo es `Backend/seed-data/seed.sh`, que inyecta el snapshot **directo a Weaviate**. Ver §11 puntos 1-4 | Parte A **cerrada**: el `certainty`→`distance` + geo nativo ya eran correctos; el E2E que "seguía vacío" corría contra un **backend viejo en el 8080**. Con el backend actual, `search-by-photo` devuelve el par correcto (foto propia score 0.950; búsqueda de julia 0.849; umbral 0.75). **Parte B: los 15 objetos están cargados por API real** (10 FO / 5 LO, named vectors image512/text1536, categorías por IA). Script en `Backend/seed-data/reseed_via_api.sh`. **Replanteo §9-quinquies en curso (2026-07-27):** (2) org/coordenadas **corregido** en `reseed_via_api.sh`; (1) fotos: el par de la billetera ya usa **dos tomas reales distintas** (+ un near-miss), los otros 4 pares **siguen con foto idéntica** por falta de material. Falta correr el reseed, re-validar matches y escribir el shellscript definitivo. |
-| 6 | Frontend: **pantalla unificada** (texto obligatorio + foto opcional), quitar descripción IA | EU-326 | 5 | **EN CURSO** — replanteada el 2026-08-06, **ver §13**. Ya no son dos pantallas: se unifican búsqueda por texto y por foto en una sola, con la foto opcional y un mensaje de que aumenta las chances. El backend NO se toca. Además: la búsqueda por foto y el guardado de búsqueda están HOY ROTOS en la app (contrato viejo) | Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)**: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—) |
+| 6 | Frontend: **pantalla unificada** (texto obligatorio + foto opcional), quitar descripción IA | EU-326 | 5 | **HECHO y VERIFICADO EN LA APP (2026-08-06)** — ver §13, incluida la lista de bugs que aparecieron al verificar y la deuda que quedó abierta. Ya no son dos pantallas: se unifican búsqueda por texto y por foto en una sola, con la foto opcional y un mensaje de que aumenta las chances. El backend NO se toca. Además: la búsqueda por foto y el guardado de búsqueda están HOY ROTOS en la app (contrato viejo) | Al guardar, reenviar la foto; mostrar imageUrl en detalle de búsqueda guardada. **Mostrar la categoría clasificada por IA (read-only)**: si la ve mal elegida, el recurso es **reintentar con otra foto** (NO se habilita override manual —ver decisión abajo—) |
 | 10 | **Emparejar la búsqueda de texto con la de foto** (geo modulador + umbral calibrado + categoría desde texto) | EU-337 | 5 | TODO — creada el 2026-08-06, **ver §13**. Depende de EU-326 | Los tres puntos van juntos: cambiar la geografía cambia la escala y obliga a recalibrar el umbral igual |
 | 7 | Calibración (coseno CLIP, α/β, rango geo) | EU-327 | 4 | **HECHO** — umbral calibrado (0.5320) + curva de presentación que lo muestra como 75%; verificado E2E 5/5 pares en #1 y ≥75%. Mean-centering DESCARTADO con medición. α/β, rango geo y consistencia de categorización **diferidos** (son parámetros, no código). Todo en §12 | Empírica; aislada de la implementación. **Revisar la tasa de error de categorización con datos reales**: si la IA confunde categorías CONCRETAS (no el caso ambiguo→OTROS, que es el esperado) más de lo tolerable, reconsiderar habilitar override manual de categoría (hoy descartado, ver decisión abajo) |
 | 8 | Coincidencia de texto robusta al vocabulario/formato | EU-142 | — | **HECHO** | Se cableó `TextNormalizer.normalize(...)` en los **4 puntos productivos** donde se vectoriza texto: escritura (`uploadFoundObject` título+descripción, `reportLostObject` descripción) y lectura (`getFoundObjectByTextDescription`, `searchByPhoto`). **Misma limpieza en ambos lados** de toda comparación. Se normaliza **sólo el texto que alimenta el vector**; título/descripción se **persisten y muestran tal cual** los escribió el usuario (decisión Facundo 2026-07-22). **Híbrido BM25 y trigramas quedan fuera** (descartados en §8-bis); **keyword-exacta cajoneada**. Tests unitarios nuevos (3, verdes): escritura FoundObject + escritura LostObject + query `searchByPhoto`, cada uno verificando el texto normalizado que va al vector y (en LostObject) que lo persistido queda crudo. Suite `FoundObjectServiceTest`+`LostObjectServiceTest` verde (22). **Va ANTES del seed** (EU-325): el corpus se regenera con la normalización aplicada, se planta una sola vez |
@@ -1270,10 +1270,115 @@ la escala del puntaje y obliga a recalibrar el umbral igual:
    escala. Con las dos búsquedas en la misma pantalla, **un mismo porcentaje tiene que significar lo mismo
    con foto y sin foto**. La maquinaria de EU-327 sirve tal cual: se mide el umbral y el exponente de la
    curva se deriva solo (`k = ln(0.75)/ln(umbral)`). Es medir, no programar.
-3. **Categoría deducida del texto.** Hoy sin foto no hay categoría y no se puede acotar.
-   ⚠️ **El filtro de categoría es DURO**: deducirla mal esconde el objeto correcto **sin ninguna señal**, y
-   clasificar *"mochila azul"* es bastante más frágil que clasificar una foto. Usarla sólo cuando la
-   clasificación sea confiada, o apoyarse en la categoría que el usuario ya elige a mano en los filtros.
+3. **Categoría deducida del texto.** Hoy sin foto no hay categoría y no se puede acotar. Replanteado el
+   2026-08-06 (ver abajo): la clasificación por TEXTO es la más certera de las dos, y va **primero**.
+
+### EU-326 — HECHA (2026-08-06)
+
+**Una sola pantalla de búsqueda**, texto obligatorio y foto opcional. Con foto pega a
+`search-by-photo`; sin foto, al `GET /found-objects` de siempre. Las dos desembocan en la misma
+pantalla de resultados. Se eliminaron `SearchByPhoto.js` y `PhotoSearchResults.js` (y sus rutas).
+
+- **La foto pasó a ser OPCIONAL también para GUARDAR la búsqueda** (decisión de Facundo, con el
+  backend tocado a propósito): `POST /lost-objects` la aceptaba como obligatoria y eso dejaba al
+  usuario de sólo texto sin poder guardar nada. Ahora sin foto se persiste sólo el vector textual,
+  sin categoría y sin subir nada a S3. El front lo recomienda en los dos lugares (al buscar y al
+  guardar) con el argumento de que sirve una foto parecida sacada de internet.
+- **Consecuencia en el aviso automático:** una búsqueda guardada sin foto no tiene categoría, y el
+  filtro de categoría es DURO. "Desconocida" no es "distinta": si la descartáramos quedaría invisible
+  para siempre y en silencio. Se la deja competir y decide el umbral — sólo aporta texto, así que
+  llega al corte por mérito propio o no llega. **Es un parche, no la solución**: lo que cierra el hueco
+  es clasificar por texto (EU-337 punto 3, desarrollado más abajo), que nació de discutir justamente esto.
+- El puntaje **sólo se muestra cuando la búsqueda llevó foto**: el de texto está en otra escala hasta
+  que EU-337 lo empareje. La categoría deducida por la IA se muestra read-only en los resultados.
+- Tests: `LostObjectServiceTest` **18/18 en verde**.
+- ✅ **VERIFICADA EN LA APP** (2026-08-06, las 6 pruebas del flujo real, web sobre backend local + seed).
+
+#### Lo que apareció al verificarla (todo arreglado en la misma tanda)
+
+1. **La foto de la búsqueda guardada no se veía nunca.** Se guardaba bien (vectores + S3), pero
+   `GET /lost-objects/my` no devolvía ningún campo de imagen: nunca se había implementado. Ahora el DTO
+   trae `imageUrl`. Para saber **si** hay foto —ahora que es opcional, pedir la URL a ciegas daría un
+   enlace roto— se agregó la propiedad **`has_image`** al esquema de `LostObject`. No se deduce de la
+   presencia del vector de imagen porque **las consultas de listado no traen los vectores**.
+   ⚠️ Al tocar el esquema hay que actualizar los TRES lugares donde se crea/parchea: `start-local.sh`
+   (definición + bloque idempotente de propiedades) y `seed-data/reset_weaviate_classes.sh`. Además se
+   marcó `has_image: true` en el snapshot del seed (sus 5 búsquedas sí tienen foto en S3).
+2. **Los resultados no mostraban la descripción del hallazgo**, sólo el título. El título es genérico
+   (*"Billetera de cuero marron"*); la descripción es donde está el DNI y el nombre, o sea **lo único que
+   le permite al usuario reconocer si el objeto es suyo**. Se agregó (4 líneas máx.).
+3. **La lista de categorías del front estaba desactualizada y rompía en silencio.** Ofrecía `DOCUMENTOS` y
+   `ACCESORIOS`, que no existen en `ObjectCategory`, y no ofrecía `BILLETERA`. El filtro compara el valor
+   **tal cual** contra lo guardado, así que elegir "Documentos" no caía en otra categoría: **devolvía
+   vacío sin explicar por qué**. Sincronizada con el enum (`BILLETERA` se muestra como *"Billetera y
+   documentos"*, porque el clasificador mete ahí DNI, tarjetas y carnets).
+4. **El selector manual de categoría se ELIMINÓ de la búsqueda** (decisión de Facundo). Contradecía el
+   principio del rework —la categoría la define la IA, no el usuario— y con un filtro duro una elección
+   equivocada esconde el objeto sin ninguna señal; el propio Facundo se topó con eso al ver "Documentos".
+   Queda cubierto por la inferencia desde el texto (EU-337 punto 3). En filtros avanzados sobreviven
+   **Color** (se antepone al texto de la búsqueda) y **Fecha límite** (verificada: se traduce en
+   `found_date <` sobre Weaviate y filtra de verdad).
+5. **El modal de guardar búsqueda se rediseñó** para que adjuntar sea el camino fácil: mensaje grande,
+   botón principal **"Adjuntar foto y guardar"**, y *"Guardar sin foto"* como enlace gris chico en segundo
+   lugar. Antes guardar sin foto era el camino de un solo toque, que es exactamente lo que no se quiere.
+6. Menores: faltaba el estilo `itemText` en la pantalla de resultados (el texto salía con la tipografía
+   por defecto del navegador), padding de las tarjetas, encuadre de la foto en el detalle
+   (`contain` acotado: con `cover` a lo ancho una foto vertical quedaba irreconocible) y miniaturas en la
+   lista de "Mis búsquedas".
+
+#### 🚩 Deuda detectada, NO arreglada
+
+- **El backend se come los errores de Weaviate y devuelve lista vacía con 200.** Apareció con el índice
+  HNSW corrupto (`nil or zero-length vector at docID 0`, con los 15 objetos íntegros): la búsqueda
+  respondía 200 con `found_objects: []`. Para el usuario **un índice roto es indistinguible de "no hay
+  coincidencias"**. Se destrabó recargando el seed (drop+recreate de las clases), pero el fallo silencioso
+  sigue ahí. Vale una tarea aparte.
+
+### EU-337 punto 3, desarrollado — categoría por TEXTO con precedencia sobre la foto (2026-08-06)
+
+Salió de discutir el hueco que dejó EU-326 (una búsqueda guardada sin foto no tiene categoría). Acá
+queda el diseño acordado con Facundo, que **da vuelta** lo que decía el punto 3 original.
+
+**La clasificación por foto es la señal FRÁGIL, no la confiable.** Es la lección que ya está medida en
+§10 y conviene no volver a discutirla: la foto partía pares (notebook en CELULAR de un lado y OTROS del
+otro), mandaba anteojos a ROPA, la mochila del seed clasifica con 63.6% de confianza y los márgenes de
+la versión que quedó van de 0.034 a 0.086. Las cinco categorías anchas existen justamente para absorber
+lo que la foto no resuelve. El texto, en cambio, cuando nombra el objeto **no deja lugar a la duda**:
+en *"paraguas negro de pikachu"* el sustantivo ES la categoría, sin inferencia visual, sin ángulo raro,
+sin fondo dominante. (Ese mismo paraguas es el peor par del seed **por la foto**.)
+
+**Lo que las diferencia no es la precisión sino la COBERTURA.** El texto es casi infalible cuando nombra
+el objeto y no dice nada cuando no lo nombra (*"negra con detalles rojos, la perdí en el colectivo"*).
+La foto es más ruidosa pero nunca viene vacía. Son dos perfiles de error distintos.
+
+**Regla: precedencia, NO votación.**
+1. Clasificar el texto. Si supera **su** umbral de confianza, decide él, diga lo que diga la foto.
+2. Si no lo supera, decide la foto (comportamiento actual).
+3. Si ninguno llega, es duda genuina — decidir aparte qué hacer (ver la trampa de OTROS más abajo).
+
+**Por qué precedencia y no "gana el más confiado"** (que fue la idea inicial de Facundo, descartada con
+fundamento): las dos confianzas **no son comparables**. La de la foto es un softmax sobre cosenos
+imagen-texto, que viven en una franja angosta (~0.20-0.36) por el *modality gap* y por eso necesitan el
+`logit_scale` de 100 para leerse; los cosenos texto-texto viven en un rango mucho más alto. Comparar
+"0.93 de la foto" contra "0.97 del texto" es comparar dos termómetros en unidades distintas, y lo más
+probable es que el texto sature cerca de 1.0 y la votación se convierta **en silencio** en "gana siempre
+el texto". Con precedencia cada señal se mide contra su propio umbral, en su propia escala, calibrada
+por separado, y los dos números nunca se comparan entre sí.
+
+**Con qué modelo clasificar el texto: el embedding de OpenAI, en castellano.** NO reusar el encoder de
+texto de CLIP: `clip-vit-base-patch32` es un modelo **inglés** y los prompts de `clip-service/app.py`
+están en inglés a propósito, porque ahí rinde. El usuario escribe en castellano. El vector de texto de
+OpenAI ya se calcula en cada búsqueda y es fuerte en castellano: alcanza con embeber una descripción en
+castellano de cada categoría con **ese mismo modelo** y comparar. Sin modelo nuevo y sin apilar GPT.
+
+**⚠️ OTROS no es un comodín.** Es una categoría dura más: mandar la duda ahí no la deja pasar, la manda
+a competir contra paraguas y mochilas. Y sacar el filtro tampoco es gratis, porque la categoría además
+elige los pesos α/β con los que se puntúa, así que cambiarla mueve la escala que calibró EU-327.
+
+**Cómo se mide el umbral del texto** (el seed sirve tal cual, no hace falta material nuevo): las 15
+descripciones del seed ya tienen categoría conocida. Clasificarlas, ver cuántas coinciden y cómo se
+distribuye la confianza en las que aciertan contra las que fallan. De ahí sale el corte, igual que salió
+el de la foto.
 
 ### Discusiones cerradas en el camino (para no reabrirlas)
 
@@ -1357,6 +1462,26 @@ categoría sin centrar nada. **No re-proponer** sin datos nuevos que contradigan
    funciona: en texto el par verdadero gana 0.7478 a 0.6080.
 
 ### El único falso positivo que sobrevive
+
+> ⚠️ **CORRECCIÓN IMPORTANTE (2026-08-06, verificado con Facundo, que sacó las fotos del seed).**
+> *"Billetera marron con DNI"* y *"Billetera de cuero marron"* **son fotos del MISMO objeto físico** —la
+> misma billetera de dos caras distintas: una es el patchwork con costura zigzag y la otra el cuero de
+> cocodrilo parejo—. El "falso positivo" está construido cambiándole el título y la historia (otro DNI,
+> otro nombre), no el objeto.
+>
+> **Consecuencia para la lectura de todo este bloque:** este par **no mide discriminación visual**. Por el
+> canal de imagen los dos resultados son correctos y es imposible que se distingan, porque no hay nada que
+> distinguir; el margen de 0.0154 en imagen no es "el techo de CLIP" sino el ruido entre dos fotos del
+> mismo objeto. Lo único que puede separarlos es el **texto** y la **geografía**. Sirve como caso de
+> texto/geo, y como tal es bueno; como evidencia sobre CLIP, no dice nada.
+>
+> **Medición que sí sale de acá** (2026-08-06, endpoint real, misma foto y misma ubicación, sólo cambia el
+> texto): con *"billetera de cuero marron con mi DNI"* gana el ajeno (90% vs 87%), porque se llama
+> literalmente *"Billetera marron con DNI"*. Agregándole el dato identificatorio —*"...DNI 40682351 a
+> nombre de Martin Gomez"*— se da vuelta: **el verdadero pasa a #1 (91% vs 88%)**. Es la demostración
+> concreta de para qué está el β=0.65 de BILLETERA: el DNI y el nombre son lo que distingue una billetera
+> de otra, y el texto solo alcanza para dar vuelta el orden. **Lección para armar pruebas: buscar sin el
+> dato identificatorio no ejercita el algoritmo, lo sabotea.**
 
 Consulta de la billetera contra "Billetera marron con DNI" (otra billetera marrón, de otra persona):
 

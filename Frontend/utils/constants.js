@@ -6,12 +6,15 @@ export const ROLE_LABELS = {
     USER: 'Usuario',
 };
 
+// Categorías DURAS del rework (EU-322). Tienen que ser EXACTAMENTE las del enum ObjectCategory del
+// backend: el filtro compara el valor tal cual contra lo guardado, así que una categoría que el
+// backend no conoce no "cae en otra" — no matchea con nada y la búsqueda vuelve vacía sin explicar
+// por qué. Antes había DOCUMENTOS y ACCESORIOS (que ya no existen) y faltaba BILLETERA.
 export const CATEGORIES = [
     { value: 'ELECTRONICA', label: 'Electrónica' },
     { value: 'ROPA', label: 'Ropa' },
-    { value: 'DOCUMENTOS', label: 'Documentos' },
+    { value: 'BILLETERA', label: 'Billetera y documentos' },
     { value: 'LLAVES', label: 'Llaves' },
-    { value: 'ACCESORIOS', label: 'Accesorios' },
     { value: 'OTROS', label: 'Otros' },
 ];
 

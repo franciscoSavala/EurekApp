@@ -78,20 +78,22 @@ public class LostObjectService {
     // similar a la publicación.
     @SneakyThrows
     public void reportLostObject(ReportLostObjectCommand command) {
-        // La búsqueda del rework es foto + texto, ambos obligatorios (ver REWORK-ALGORITMO-BUSQUEDA).
+        // EU-326: la descripción es obligatoria; la FOTO es opcional. Guardar sin foto deja una búsqueda
+        // más débil (sin vector visual y sin categoría), pero es preferible a no poder guardarla: el front
+        // recomienda adjuntar una foto —aunque sea de internet— porque sube las chances de que matchee.
         MultipartFile image = command.getImage();
-        if (image == null || image.isEmpty()) {
-            throw new BadRequestException("image_required", "La foto es obligatoria para guardar la búsqueda.");
-        }
         if (command.getDescription() == null || command.getDescription().isBlank()) {
             throw new BadRequestException("description_required", "La descripción es obligatoria para guardar la búsqueda.");
         }
+        boolean hasImage = image != null && !image.isEmpty();
 
-        byte[] imageBytes = image.getBytes();
+        byte[] imageBytes = hasImage ? image.getBytes() : null;
         // EU-324: vector VISUAL (CLIP) + categoría dura por IA desde la imagen, y vector TEXTUAL (OpenAI)
         // de la descripción del usuario. Se persisten como los dos vectores nombrados "image"/"text".
-        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
-        ObjectCategory category = imageClassificationService.classify(imageBytes);
+        // Sin foto no hay ninguno de los dos: la búsqueda queda sólo con el vector textual.
+        List<Float> imageEmbedding = hasImage
+                ? imageEmbeddingService.getImageVectorRepresentation(imageBytes) : null;
+        ObjectCategory category = hasImage ? imageClassificationService.classify(imageBytes) : null;
         // EU-142: se normaliza SÓLO el texto que alimenta el vector; la descripción se persiste tal cual.
         List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(
                 TextNormalizer.normalize(command.getDescription()));
@@ -102,19 +104,23 @@ public class LostObjectService {
                 .username(command.getUsername())
                 .imageEmbedding(imageEmbedding)
                 .textEmbedding(textEmbedding)
-                // Categoría dura determinada por IA desde la imagen (no la elige el usuario).
-                .category(category.name())
+                // Categoría dura determinada por IA desde la imagen (no la elige el usuario). Sin foto
+                // queda DESCONOCIDA (null): ver notifyMatchingSavedSearches, no filtra por categoría.
+                .category(category != null ? category.name() : null)
                 .coordinates(command.getGeoCoordinates())
                 .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
                 .lostDate(command.getLostDate())
+                .hasImage(hasImage)
                 .build();
 
         lostObjectRepository.add(lostObject);
 
         // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
         // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
-        objectStorage.putObject(imageBytes, id);
+        if (hasImage) {
+            objectStorage.putObject(imageBytes, id);
+        }
     }
 
     /**
@@ -158,7 +164,12 @@ public class LostObjectService {
                 continue;
             }
             // Filtro DURO por categoría: nunca se notifica entre categorías distintas (decisión 5).
-            if (ObjectCategory.fromLabel(candidate.getCategory()) != category) {
+            // EU-326: una búsqueda guardada SIN foto no tiene categoría, y "desconocida" no es lo mismo
+            // que "distinta". Descartarla la volvería invisible para siempre y en silencio, que es
+            // justamente el fallo que el filtro duro busca evitar; por eso se la deja pasar y decide el
+            // umbral. Sólo puede aportar texto, así que llega al corte por su propio mérito o no llega.
+            if (hasKnownCategory(candidate.getCategory())
+                    && ObjectCategory.fromLabel(candidate.getCategory()) != category) {
                 continue;
             }
             double totalScore = searchScoringService.combinedScore(
@@ -221,6 +232,14 @@ public class LostObjectService {
         }
     }
 
+    /**
+     * EU-326: {@code true} si la búsqueda guardada tiene una categoría dura conocida. Las búsquedas
+     * guardadas sin foto no la tienen (se persiste vacía), y "desconocida" no habilita el filtro duro.
+     */
+    private static boolean hasKnownCategory(String category) {
+        return category != null && !category.isBlank();
+    }
+
     public List<LostObjectResponseDto> getMyLostObjects(String username) {
         // EU-292: devuelve TODAS las búsquedas del usuario (activas y cerradas); el front las
         // diferencia por "status". Una sola fuente: ya no hay reclamo-espejo.
@@ -234,6 +253,10 @@ public class LostObjectService {
                         .status(lo.getStatus() != null ? lo.getStatus().name() : LostObjectStatus.ACTIVE.name())
                         .closedDate(lo.getClosedDate())
                         .recovered(lo.getRecovered())
+                        // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
+                        // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
+                        .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
+                                ? objectStorage.getObjectUrl(lo.getUuid()) : null)
                         .build())
                 .collect(Collectors.toList());
     }

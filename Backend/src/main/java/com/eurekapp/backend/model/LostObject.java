@@ -33,4 +33,8 @@ public class LostObject {
     // Respuesta del dueño al cerrar ("¿Recuperaste tu objeto? Sí/No"). Es un dato de la búsqueda,
     // NO un SearchFeedback (que es otra feature: calificar una búsqueda de objeto encontrado).
     private Boolean recovered;
+    // EU-326: la foto es opcional al guardar la búsqueda. Se persiste como propiedad y no se deduce
+    // de la presencia del vector de imagen, porque las consultas de listado no traen los vectores.
+    // Es lo que decide si hay una foto en S3 (key = uuid) que se pueda mostrar.
+    private Boolean hasImage;
 }

@@ -13,6 +13,7 @@ import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import useAuthFetch from '../../utils/useAuthFetch';
+import AppImage from '../components/AppImage';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -54,10 +55,20 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                 <Text style={styles.backButtonText}>← Volver</Text>
             </TouchableOpacity>
 
-            <View style={styles.imagePlaceholder}>
-                <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
-                <Text style={styles.imagePlaceholderText}>Búsqueda guardada</Text>
-            </View>
+            {/* EU-326: la foto es opcional al guardar; sin ella el backend no manda imageUrl. */}
+            {lostObject.imageUrl ? (
+                <AppImage
+                    imageUrl={lostObject.imageUrl}
+                    style={styles.image}
+                    resizeMode="contain"
+                    accessibilityLabel="Foto de la búsqueda guardada"
+                />
+            ) : (
+                <View style={styles.imagePlaceholder}>
+                    <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
+                    <Text style={styles.imagePlaceholderText}>Búsqueda guardada sin foto</Text>
+                </View>
+            )}
 
             <View style={styles.section}>
                 <Text style={styles.title}>Búsqueda guardada</Text>
@@ -164,9 +175,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
-    imagePlaceholder: {
+    image: {
+        // La foto la saca el usuario y suele ser vertical: 'contain' dentro de un cuadrado acotado
+        // y centrado. Con 'cover' a lo ancho de la pantalla quedaba un recorte enorme e ilegible.
         width: '100%',
-        height: 160,
+        maxWidth: 360,
+        aspectRatio: 1,
+        alignSelf: 'center',
+        borderRadius: 16,
+        marginBottom: 8,
+        backgroundColor: '#f0f4f4',
+    },
+    imagePlaceholder: {
+        // Mismo formato que la foto, para que la pantalla no cambie de forma según haya o no imagen.
+        width: '100%',
+        maxWidth: 360,
+        aspectRatio: 1,
+        alignSelf: 'center',
+        borderRadius: 16,
+        marginBottom: 8,
         backgroundColor: '#f0f4f4',
         justifyContent: 'center',
         alignItems: 'center',

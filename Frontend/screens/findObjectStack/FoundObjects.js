@@ -14,7 +14,11 @@ import BaseModal from "../components/BaseModal";
 
 
 const FoundObjects = ({ route, navigation }) => {
-    const { objectsFound, query, lostDate, latitude, longitude, organizationId, filterCategory, filterColor, filterLostDateTo } = route.params;
+    // EU-326: única pantalla de resultados para las dos búsquedas. "searchMode" dice de cuál vino:
+    // con foto el puntaje está calibrado y se muestra; sin foto todavía no (queda para EU-337).
+    const { objectsFound, query, lostDate, latitude, longitude, organizationId,
+            filterColor, filterLostDateTo, searchMode, aiCategory, photo } = route.params;
+    const searchedWithPhoto = searchMode === 'photo';
     const coordinates = (latitude != null && longitude != null)
         ? { latitude, longitude }
         : null;
@@ -83,9 +87,18 @@ const FoundObjects = ({ route, navigation }) => {
                         {item.title}
                     </Text>
 
-                    <Text style={styles.itemText}>
-                        Puntaje: {(item.score * 100).toFixed(2)}%
-                    </Text>
+                    {searchedWithPhoto && (
+                        <Text style={styles.itemText}>
+                            Coincidencia: {(item.score * 100).toFixed(0)}%
+                        </Text>
+                    )}
+                    {/* La descripción del hallazgo es lo que permite reconocer el objeto propio (el DNI,
+                        el nombre, las marcas); el título solo es demasiado genérico. */}
+                    {item.humanDescription ? (
+                        <Text style={styles.itemDescription} numberOfLines={4}>
+                            {item.humanDescription}
+                        </Text>
+                    ) : null}
                     <Text></Text>
                     <Text style={styles.itemText}>
                         Encontrado el {formatDateTimeES(item.found_date)}, a {(item.distance / 1000).toFixed(2)} km
@@ -113,13 +126,18 @@ const FoundObjects = ({ route, navigation }) => {
                     <Text style={styles.backButtonText}>← Volver</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerText}>Coincidencias encontradas</Text>
-                {(filterCategory || filterColor || filterLostDateTo) && (
+                {searchedWithPhoto && aiCategory && (
+                    // Categoría deducida de la foto: se muestra read-only (el usuario no la elige).
                     <View style={styles.activeFiltersRow}>
-                        {filterCategory && (
-                            <View style={styles.filterChip}>
-                                <Text style={styles.filterChipText}>{CATEGORY_LABELS[filterCategory] || filterCategory}</Text>
-                            </View>
-                        )}
+                        <View style={styles.filterChip}>
+                            <Text style={styles.filterChipText}>
+                                Categoría detectada: {CATEGORY_LABELS[aiCategory] || aiCategory}
+                            </Text>
+                        </View>
+                    </View>
+                )}
+                {(filterColor || filterLostDateTo) && (
+                    <View style={styles.activeFiltersRow}>
                         {filterColor ? (
                             <View style={styles.filterChip}>
                                 <Text style={styles.filterChipText}>{filterColor}</Text>
@@ -159,7 +177,8 @@ const FoundObjects = ({ route, navigation }) => {
                                    query={query}
                                    lostDate={lostDate}
                                    organizationId={organizationId}
-                                   coordinates={coordinates}/>
+                                   coordinates={coordinates}
+                                   photo={photo}/>
             {/* Modal de feedback */}
             <BaseModal visible={feedbackModal} onClose={() => onFeedbackDone(true)}>
                         <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>
@@ -244,11 +263,14 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     item: {
-        height: 150,
+        // minHeight y no height: la descripción hace crecer la tarjeta en vez de desbordarla.
+        minHeight: 150,
+        paddingVertical: 20,
         backgroundColor: '#f0f4f4',
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 10,
+        paddingHorizontal: 20,
+        gap: 16,
         marginHorizontal: 10,
         marginVertical: 5,
         borderRadius: 16,
@@ -258,6 +280,19 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'flex-start',
         alignItems: 'flex-start',
+    },
+    itemText: {
+        color: '#111818',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    itemDescription: {
+        color: '#638888',
+        fontSize: 13,
+        lineHeight: 18,
+        marginTop: 6,
+        marginBottom: 2,
+        fontFamily: 'PlusJakartaSans-Regular',
     },
     separator: {
         width: 10,
