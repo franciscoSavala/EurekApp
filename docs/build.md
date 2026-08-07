@@ -5,20 +5,22 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-| Rama | Tracker | Dónde retomar |
-|---|---|---|
-| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§13** — **EU-337 HECHA Y VERIFICADA EN LA APP** (2026-08-07), los tres casos en pantalla. Con esto **el rework queda terminado**: sólo falta cerrar EU-326 y EU-337 en Jira (EU-326 está hecha pero sin transicionar) y con eso la story EU-320. Ojo §12: tiene una corrección importante sobre el par de la billetera |
+**Ninguno.** El rework de búsqueda (EU-320) se terminó el **2026-08-07**.
 
-**Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
-qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.
+## Terminados
 
-Para dejar el entorno cargado desde cero: contenedores (`bash Backend/start-local.sh`) +
-**`bash Backend/seed-data/seed.sh`**. El seed inyecta **directo a Weaviate** desde un snapshot commiteado
-(no hace falta el backend, y no resube las fotos a S3). Si alguna vez cambian los datos del seed, la receta
-para regenerar el snapshot está en §11 punto 4 del tracker.
+| Tracker | Estado |
+|---|---|
+| [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | ✅ **TERMINADO (2026-08-07).** EU-337 verificada en la app y cerrada; EU-320 y sus 8 subtareas en Done. Commit `afa476d` en la rama `EU-320-rework-algoritmo-busqueda` — **sin mergear a main todavía**. Queda como registro: §13 lo último, §12 la calibración, §11 el entorno. Anotado ahí: los 3 puntos diferidos de EU-327 (son números de config, no código) y **una deuda sin ticket**: el backend se come los errores de Weaviate y devuelve lista vacía con 200 |
 
-✅ **Sin bloqueantes abiertos.** El de S3 se resolvió el 2026-08-01: el bucket correcto es `eurekapp-temp`
-(no `eurekapp-temp-local`). Seed recargado y verificado de punta a punta. Detalle en **§11, punto 1**.
+### Levantar el entorno de búsqueda (si hay que retomarlo)
+
+Contenedores (`bash Backend/start-local.sh`) + **`bash Backend/seed-data/seed.sh`**. El seed inyecta
+**directo a Weaviate** desde un snapshot commiteado (no hace falta el backend, y no resube las fotos a
+S3). La receta para regenerar el snapshot está en §11 punto 4 del tracker.
+
+⚠️ **Weaviate ocupa el 8081, que es el puerto por defecto de Expo**: el front hay que levantarlo en
+otro (`npx expo start --web --port 8082`).
 
 ## Otros trackers del repo
 

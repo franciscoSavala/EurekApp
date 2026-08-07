@@ -1501,11 +1501,21 @@ No son de EU-337, salieron mirando la pantalla. Los tres en `MyLostObjectDetail.
 
 `LostObjectServiceTest` **20/20** (2 casos nuevos: resolución del nombre y organización inexistente).
 
-#### Lo que FALTA de EU-337
+#### ✅ EU-337 CERRADA — y con ella el REWORK COMPLETO (2026-08-07)
 
-1. Comentario de Jira + cierre. **Ojo: EU-326 figura "To Do" en Jira** aunque está hecha y verificada
-   desde el 2026-08-06 — quedó sin transicionar. Cerradas EU-326 y EU-337, las 8 subtareas de EU-320
-   están Done y **la story se puede cerrar**.
+Commit `afa476d`, pusheado a `EU-320-rework-algoritmo-busqueda`. En Jira quedaron en **Done**
+EU-337, **EU-326** (estaba hecha desde el 06/08 pero había quedado sin transicionar) y la story
+**EU-320**. Las 8 subtareas del rework están cerradas.
+
+**Lo que queda anotado, y por qué NO bloquea el cierre:**
+
+- **Los tres puntos diferidos de EU-327** (α/β por categoría, rango del modulador geo, tasa de error
+  de categorización). Son **cambiar números en `application.yml`, no escribir código** — la lógica ya
+  está implementada. Detalle y fundamento en §12.
+- **🚩 Deuda REAL, y no es del algoritmo:** el backend **se come los errores de Weaviate y devuelve
+  lista vacía con 200**. Para el usuario, *"el buscador está roto"* es indistinguible de *"no hay
+  coincidencias"*. Es manejo de errores, merece ticket propio fuera del rework. **Todavía sin abrir**
+  (a decidir por Facundo). Apareció al verificar EU-326; el detalle está más arriba, en §13.
 
 ### Discusiones cerradas en el camino (para no reabrirlas)
 
