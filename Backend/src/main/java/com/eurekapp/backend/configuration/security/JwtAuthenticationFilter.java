@@ -3,6 +3,7 @@ package com.eurekapp.backend.configuration.security;
 import com.eurekapp.backend.exception.ApiError;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -69,6 +70,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
+        } catch (ExpiredJwtException e) {
+            // El token venció: respondemos 401 para que el cliente lo renueve con su
+            // refresh token. Si devolviéramos 403 el cliente lo leería como falta de
+            // permisos y la sesión quedaría vencida en silencio.
+            writeErrorResponse(response, "token_expired",
+                    "Tu sesión expiró. Iniciá sesión nuevamente.");
+            return;
         } catch (JwtException e) {
             // Token malformado o inválido — continuamos sin autenticar
         }
