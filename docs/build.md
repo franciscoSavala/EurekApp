@@ -5,23 +5,27 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Sólo queda el MERGE de `EU-320-rework-algoritmo-busqueda` a `main`.** El rework en sí se terminó el
-**2026-08-07**: no queda nada por implementar.
+**Nada abierto.** El rework se terminó el **2026-08-07** y ese mismo día se **mergeó a `main`**
+(merge `c7e9add`, ya pusheado). No queda trabajo pendiente en este tracker.
 
-### Retomar acá — el merge
+### Cómo cerró
 
-Estado al cerrar la sesión del 2026-08-07:
-
-- Rama **sincronizada con el remoto**, working tree **limpio**, nada suelto sin commitear.
-- **Build limpio (`mvnw clean test`) + suite: 181 tests, 0 failures.** El único error es
-  `BackendApplicationTests.contextLoads` (`Driver ... claims to not accept jdbcUrl, ${DATABASE_URL}`),
-  **ambiental y conocido** — no expande la variable en ese test. No es regresión.
+- Merge sin conflictos. `main` había avanzado 6 commits con fixes ajenos al rework (EU-330, EU-315,
+  EU-332); ninguno tocaba archivos de búsqueda.
+- **Suite: 184 tests, 0 failures**, y compilación verde después del merge y antes del push.
+  El único error es `BackendApplicationTests.contextLoads`
+  (`Driver ... claims to not accept jdbcUrl, ${DATABASE_URL}`), **ambiental y conocido** — no expande
+  la variable en ese test. No es regresión.
 - Front bundleado sin errores (Metro, 1308 módulos) y ejercitado a mano en toda la verificación.
 
-⚠️ **La rama está 43 commits por delante de `main`**, así que el merge NO es trivial. Antes de
-ejecutarlo conviene mirar el panorama: cuántos archivos toca, si `main` avanzó por su cuenta y si hay
-conflictos. **Y compilar DESPUÉS de mergear y ANTES de pushear a main**: ya pasó en este repo que un
-merge "limpio" rompiera la compilación.
+### Salió en el mismo merge (no es del rework)
+
+**Sesión vencida que fallaba en silencio.** El filtro de JWT atrapaba la expiración del token junto
+con cualquier otro error y dejaba pasar la petición sin autenticar, así que Spring respondía **403**.
+El front sólo renueva el token ante un **401**, de modo que la sesión vencida no se renovaba ni se
+cerraba: cada pantalla fallaba sola y sin aviso (se detectó porque el desplegable de establecimientos
+aparecía vacío). Ahora la expiración responde 401 con el código `token_expired` y el mecanismo de
+renovación que ya existía en el front se activa solo. Commit `5f23760`, con tests del filtro.
 
 ## Tracker del rework
 
