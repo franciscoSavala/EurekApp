@@ -12,6 +12,7 @@ import com.eurekapp.backend.repository.*;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.TextClassificationService;
 import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
@@ -40,6 +41,8 @@ public class LostObjectService {
     private final EmbeddingService embeddingService;
     private final ImageEmbeddingService imageEmbeddingService;
     private final ImageClassificationService imageClassificationService;
+    /** EU-337: clasificador por TEXTO, con precedencia sobre el de la foto. */
+    private final TextClassificationService textClassificationService;
     private final EmailTemplateService emailTemplateService;
     private final NotificationService notificationService;
     private final IOrganizationRepository organizationRepository;
@@ -53,6 +56,7 @@ public class LostObjectService {
             EmbeddingService embeddingService,
             ImageEmbeddingService imageEmbeddingService,
             ImageClassificationService imageClassificationService,
+            TextClassificationService textClassificationService,
             EmailTemplateService emailTemplateService,
             NotificationService notificationService,
             IOrganizationRepository organizationRepository,
@@ -64,6 +68,7 @@ public class LostObjectService {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
+        this.textClassificationService = textClassificationService;
         this.emailTemplateService = emailTemplateService;
         this.notificationService = notificationService;
         this.organizationRepository = organizationRepository;
@@ -93,7 +98,14 @@ public class LostObjectService {
         // Sin foto no hay ninguno de los dos: la búsqueda queda sólo con el vector textual.
         List<Float> imageEmbedding = hasImage
                 ? imageEmbeddingService.getImageVectorRepresentation(imageBytes) : null;
-        ObjectCategory category = hasImage ? imageClassificationService.classify(imageBytes) : null;
+        /* EU-337: la categoría sale del TEXTO con precedencia sobre la foto, igual que en la búsqueda
+         * y en el alta de un objeto encontrado. Es lo que cierra el hueco que había dejado EU-326: una
+         * búsqueda guardada SIN foto no tenía categoría y quedaba compitiendo a ciegas. Si el texto no
+         * nombra el objeto, decide la foto; y si tampoco hay foto, queda DESCONOCIDA (null). */
+        ObjectCategory textCategory = textClassificationService.classify(command.getDescription());
+        ObjectCategory category = textCategory != null
+                ? textCategory
+                : (hasImage ? imageClassificationService.classify(imageBytes) : null);
         // EU-142: se normaliza SÓLO el texto que alimenta el vector; la descripción se persiste tal cual.
         List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(
                 TextNormalizer.normalize(command.getDescription()));
@@ -104,8 +116,9 @@ public class LostObjectService {
                 .username(command.getUsername())
                 .imageEmbedding(imageEmbedding)
                 .textEmbedding(textEmbedding)
-                // Categoría dura determinada por IA desde la imagen (no la elige el usuario). Sin foto
-                // queda DESCONOCIDA (null): ver notifyMatchingSavedSearches, no filtra por categoría.
+                // Categoría dura determinada por IA (texto con precedencia sobre la foto; no la elige
+                // el usuario). Si ninguna de las dos alcanza queda DESCONOCIDA (null): ver
+                // notifyMatchingSavedSearches, que en ese caso no filtra por categoría.
                 .category(category != null ? category.name() : null)
                 .coordinates(command.getGeoCoordinates())
                 .organizationId(command.getOrganizationId())
@@ -175,10 +188,16 @@ public class LostObjectService {
             double totalScore = searchScoringService.combinedScore(
                     candidate.getImageCertainty(), candidate.getTextCertainty(), category,
                     candidate.getCoordinates(), foundCoordinates);
-            // EU-327: el corte va contra el umbral CRUDO calibrado; lo que se guarda para mostrar/notificar
-            // es el puntaje ya remapeado a la escala del usuario (misma curva que la búsqueda por foto).
-            if (searchScoringService.isCombinedMatch(totalScore)) {
-                candidate.setScore((float) searchScoringService.displayScore(totalScore));
+            /* EU-327: el corte va contra el umbral CRUDO calibrado; lo que se guarda para mostrar o
+             * notificar es el puntaje ya remapeado a la escala del usuario.
+             * EU-337: el modo lo decide la búsqueda GUARDADA, no el objeto encontrado. Una búsqueda sin
+             * foto se puntúa con una sola señal y por lo tanto vive en la otra escala: usarle el umbral
+             * de la búsqueda con foto la mediría con una vara que no es la suya. */
+            SearchScoringService.SearchMode mode = candidate.getImageCertainty() != null
+                    ? SearchScoringService.SearchMode.WITH_PHOTO
+                    : SearchScoringService.SearchMode.TEXT_ONLY;
+            if (searchScoringService.isCombinedMatch(totalScore, mode)) {
+                candidate.setScore((float) searchScoringService.displayScore(totalScore, mode));
                 matches.add(candidate);
             }
         }
@@ -250,6 +269,8 @@ public class LostObjectService {
                         .description(lo.getDescription())
                         .lostDate(lo.getLostDate())
                         .organizationId(lo.getOrganizationId())
+                        .organizationName(resolveOrganizationName(lo.getOrganizationId()))
+                        .category(lo.getCategory())
                         .status(lo.getStatus() != null ? lo.getStatus().name() : LostObjectStatus.ACTIVE.name())
                         .closedDate(lo.getClosedDate())
                         .recovered(lo.getRecovered())
@@ -259,6 +280,24 @@ public class LostObjectService {
                                 ? objectStorage.getObjectUrl(lo.getUuid()) : null)
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Nombre de la organización de una búsqueda guardada, para mostrarlo en lugar del id.
+     *
+     * <p>Devuelve null cuando la búsqueda no tiene organización (se perdió en la vía pública) y
+     * también cuando el id no resuelve: es un dato de presentación, así que no vale hacer fallar
+     * el listado entero de búsquedas del usuario por una organización que ya no está.
+     */
+    private String resolveOrganizationName(String organizationId) {
+        if (organizationId == null || organizationId.isBlank()) return null;
+        try {
+            return organizationRepository.findById(Long.valueOf(organizationId))
+                    .map(Organization::getName)
+                    .orElse(null);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

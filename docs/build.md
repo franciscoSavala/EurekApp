@@ -7,7 +7,7 @@ No lleva contenido propio — el estado vive en los trackers.
 
 | Rama | Tracker | Dónde retomar |
 |---|---|---|
-| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§13** — **EU-326 HECHA y VERIFICADA en la app** (2026-08-06). Sigue **EU-337**, y su punto 3 (categoría inferida del texto) quedó **desarrollado en §13**: es lo que reemplaza al selector manual que se eliminó. Ojo §12: tiene una corrección importante sobre el par de la billetera |
+| `EU-320-rework-algoritmo-busqueda` | [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | **§13** — **EU-337 HECHA Y VERIFICADA EN LA APP** (2026-08-07), los tres casos en pantalla. Con esto **el rework queda terminado**: sólo falta cerrar EU-326 y EU-337 en Jira (EU-326 está hecha pero sin transicionar) y con eso la story EU-320. Ojo §12: tiene una corrección importante sobre el par de la billetera |
 
 **Leer siempre §11 primero**: tiene el orden de lo próximo, el estado del entorno (contenedores, backend,
 qué hay cargado en Weaviate) y la lista de lo que ya está medido para no volver a medirlo.

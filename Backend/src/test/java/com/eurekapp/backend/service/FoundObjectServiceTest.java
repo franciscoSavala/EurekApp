@@ -17,6 +17,7 @@ import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.TextClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
 import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -63,6 +64,7 @@ class FoundObjectServiceTest {
     @Mock EmbeddingService embeddingService;
     @Mock ImageEmbeddingService imageEmbeddingService;
     @Mock ImageClassificationService imageClassificationService;
+    @Mock TextClassificationService textClassificationService;
     @Mock IOrganizationRepository organizationRepository;
     @Mock OrganizationService organizationService;
     @Mock LostObjectService lostObjectService;
@@ -81,7 +83,7 @@ class FoundObjectServiceTest {
     void setUp() {
         service = new FoundObjectService(
                 s3Service, descriptionService, embeddingService, imageEmbeddingService,
-                imageClassificationService, organizationRepository,
+                imageClassificationService, textClassificationService, organizationRepository,
                 organizationService, lostObjectService, executorService, foundObjectRepository,
                 userRepository, rewardExclusionRepository, notificationService,
                 emailTemplateService, fraudBlockService, searchScoringService);
@@ -170,9 +172,9 @@ class FoundObjectServiceTest {
 
         // El puntaje combinado y el umbral los decide SearchScoringService (aquí mockeado).
         when(searchScoringService.combinedScore(any(), any(), any(), any(), any())).thenReturn(0.9);
-        when(searchScoringService.isCombinedMatch(anyDouble())).thenReturn(true);
+        when(searchScoringService.isCombinedMatch(anyDouble(), any())).thenReturn(true);
         // EU-327: el puntaje que llega al DTO es el remapeado para mostrar (curva monótona).
-        when(searchScoringService.displayScore(anyDouble())).thenReturn(0.95);
+        when(searchScoringService.displayScore(anyDouble(), any())).thenReturn(0.95);
         when(s3Service.generatePresignedUrl(anyString(), any())).thenReturn("http://img/fo-1.jpg");
 
         FoundObjectsListDto result = service.searchByPhoto(photo, "billetera marrón", filters);

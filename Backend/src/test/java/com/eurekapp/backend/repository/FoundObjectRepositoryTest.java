@@ -42,7 +42,7 @@ class FoundObjectRepositoryTest {
     @Captor ArgumentCaptor<WeaviateObject> objectCaptor;
 
     private FoundObjectRepository repository() {
-        return new FoundObjectRepository(weaviateService, userRepository);
+        return new FoundObjectRepository(weaviateService, userRepository, 50000.0);
     }
 
     private static FoundObject.FoundObjectBuilder baseObject() {

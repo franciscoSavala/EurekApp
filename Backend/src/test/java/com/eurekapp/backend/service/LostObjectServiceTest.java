@@ -17,6 +17,7 @@ import com.eurekapp.backend.repository.LostObjectRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.TextClassificationService;
 import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +67,7 @@ class LostObjectServiceTest {
     @Mock EmbeddingService embeddingService;
     @Mock ImageEmbeddingService imageEmbeddingService;
     @Mock ImageClassificationService imageClassificationService;
+    @Mock TextClassificationService textClassificationService;
     @Mock EmailTemplateService emailTemplateService;
     @Mock NotificationService notificationService;
     @Mock IOrganizationRepository organizationRepository;
@@ -80,9 +82,10 @@ class LostObjectServiceTest {
     void setUp() {
         service = new LostObjectService(
                 embeddingService, imageEmbeddingService, imageClassificationService,
+                textClassificationService,
                 emailTemplateService, notificationService, organizationRepository,
                 objectStorage, lostObjectRepository, userRepository, inAppNotificationService,
-                new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties()));
+                new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0));
 
         Organization organization = mock(Organization.class);
         when(organization.getName()).thenReturn("Org Test");
@@ -392,6 +395,43 @@ class LostObjectServiceTest {
         assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg");
         assertThat(result.get(1).getImageUrl()).isNull();
         verify(objectStorage, never()).getObjectUrl(sinFoto.getUuid());
+    }
+
+    @Test
+    void getMyLostObjects_resolvesOrganizationNameAndExposesCategory() {
+        // El id de la organización no le dice nada al usuario, y la categoría tiene que verse porque
+        // el filtro es DURO: si se infirió mal, el objeto no aparece nunca y sin ninguna señal.
+        LostObject conOrg = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA,
+                ObjectCategory.BILLETERA);
+        conOrg.setOrganizationId("1");
+        LostObject sinOrg = savedSearch("u1@test.com", "paraguas negro", 1.0f, CORDOBA);
+        sinOrg.setOrganizationId(null);
+        when(lostObjectRepository.query(any(), eq("u1@test.com"), any(), any(), any()))
+                .thenReturn(List.of(conOrg, sinOrg));
+
+        List<LostObjectResponseDto> result = service.getMyLostObjects("u1@test.com");
+
+        assertThat(result.get(0).getOrganizationName()).isEqualTo("Org Test");
+        assertThat(result.get(0).getCategory()).isEqualTo(ObjectCategory.BILLETERA.name());
+        // Sin organización (se perdió en la vía pública) no hay nombre que mostrar.
+        assertThat(result.get(1).getOrganizationName()).isNull();
+    }
+
+    @Test
+    void getMyLostObjects_unknownOrganization_doesNotBreakTheList() {
+        // Una organización que ya no está es un dato de presentación: no puede tirar abajo el
+        // listado entero de búsquedas del usuario.
+        LostObject lo = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA);
+        lo.setOrganizationId("999");
+        when(lostObjectRepository.query(any(), eq("u1@test.com"), any(), any(), any()))
+                .thenReturn(List.of(lo));
+        when(organizationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        List<LostObjectResponseDto> result = service.getMyLostObjects("u1@test.com");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getOrganizationName()).isNull();
+        assertThat(result.get(0).getOrganizationId()).isEqualTo("999");
     }
 
     @Test

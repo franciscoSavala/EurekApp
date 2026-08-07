@@ -157,9 +157,9 @@ public class FoundObjectController {
     @PostMapping(value = "/search-by-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Buscar objeto perdido por foto y texto",
             description = "Búsqueda en vivo del rework (EU-324): foto + texto, ambos obligatorios. La foto se "
-                    + "vectoriza con CLIP (sin subirla a S3) y se clasifica en una categoría dura por IA; el texto "
-                    + "se vectoriza con OpenAI. Requiere ubicación (organización o coordenadas). Devuelve la "
-                    + "categoría clasificada por IA para mostrarla read-only.")
+                    + "vectoriza con CLIP (sin subirla a S3) y el texto con OpenAI. La categoría dura se deduce "
+                    + "del TEXTO con precedencia sobre la foto (EU-337). Requiere ubicación (organización o "
+                    + "coordenadas). Devuelve la categoría deducida para mostrarla read-only.")
     public ResponseEntity<FoundObjectsListDto> searchByPhoto(
             @RequestParam("file") MultipartFile file,
             @RequestParam("query") String query,

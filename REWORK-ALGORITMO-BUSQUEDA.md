@@ -1380,6 +1380,133 @@ descripciones del seed ya tienen categoría conocida. Clasificarlas, ver cuánta
 distribuye la confianza en las que aciertan contra las que fallan. De ahí sale el corte, igual que salió
 el de la foto.
 
+### EU-337 — BACKEND HECHO (2026-08-07). Falta el front y la verificación en la app
+
+Los tres puntos, más el pedido de Facundo sobre la distancia. **Suite: 179 tests, Failures: 0** (el
+único error es el de contexto que necesita MySQL, ambiental).
+
+**Punto 3 — categoría por TEXTO, con precedencia sobre la foto.**
+`EmbeddingTextClassificationService`: nube de frases por categoría en castellano (espeja la de
+`clip-service`), embebidas con el MISMO `text-embedding-3-small` que ya usa la búsqueda, cacheadas en
+un solo pedido por proceso. Cableado en los CUATRO lugares donde se decide una categoría —búsqueda con
+foto, búsqueda sólo texto, alta de objeto encontrado y guardado de búsqueda—. **Tiene que ser en los
+cuatro**: el filtro es duro, así que si el alta clasificara por foto y la búsqueda por texto, un par
+podría caer en categorías distintas y no compararse nunca.
+
+> ⚠️ **El corte NO va sobre la confianza, va sobre el coseno CRUDO.** Es la diferencia grande con el
+> clasificador de imagen. Medido sobre 23 textos que nombran el objeto y 8 que no: la confianza es
+> RELATIVA entre categorías, así que *"negra con detalles rojos, la perdí en el colectivo"* gana
+> BILLETERA con **79% de confianza** sin nombrar ningún objeto. Lo que separa es el parecido absoluto:
+> los que nombran el objeto viven en **0.4856–0.7497** y los que no, en **0.2932–0.4709**. Piso en
+> **0.48** (`search.text-classification.min-similarity`). El margen es fino, pero el error barato es
+> el bueno: abstenerse sólo devuelve la decisión a la foto.
+>
+> **Probado y descartado:** enriquecer las nubes con frases con forma de oración (*"perdí una
+> billetera"*) EMPEORA — los textos vagos son relatos de pérdida y suben ellos también: el techo de los
+> vagos pasó de 0.4709 a 0.6102 y se comió el margen entero. Las frases van como sintagma pelado.
+
+Las 15 descripciones del seed clasifican **15/15** por texto.
+
+**Punto 1 — la geografía MULTIPLICA también en el camino de sólo texto.** Se retiró la fórmula legacy
+(MOORA 95/5) y sus tests: `getFoundObjectByTextDescription` usa el MISMO `combinedScore` con la certeza
+de imagen ausente. Ya no hay dos fórmulas.
+
+**La curva geográfica quedó anclada al RADIO, no a metros** (pedido de Facundo, 2026-08-07). Antes era
+`e^(-k·d)` con `k` en metros: no sabía nada del radio, y cambiar `max-radius` habría movido en silencio
+cuánto resta la distancia. Ahora entra `d/R` normalizada, vale **1 exacto en el centro y el piso exacto
+en el borde**, sea el radio el que sea. La constante de forma es adimensional
+(`ln(1/0.95)/0.01 ≈ 5.129` = "al 1% del radio ya cayó un 5%", que es la intención de la constante
+original expresada sin depender del radio).
+
+**El piso geográfico ya no es un número a ojo: sale de una regla de producto.** *Una coincidencia
+excelente no puede desaparecer del radar por estar lejos* → el mejor par del seed (similitud 0.8032),
+puesto en el borde del radio, todavía se muestra con **80%**. Eso fija **geo-floor = 0.7631** (antes
+0.75, casualmente cerca).
+
+🚩 **De paso: el radio de 50 km estaba DUPLICADO** —en `application.yml` y hardcodeado en los dos
+repositorios—, así que cambiar el yml no cambiaba el filtro real. Unificado: ahora los repositorios y
+`SearchScoringService` leen el mismo `search.max-radius`. Era condición para que lo de arriba funcione.
+
+**Punto 2 — un umbral por MODO, para que el porcentaje signifique lo mismo.** `SearchMode`
+(WITH_PHOTO / TEXT_ONLY): con foto se promedian dos señales y sin foto queda una, así que los crudos
+NO viven en la misma escala. Cada modo se filtra con su umbral y se remapea con su propia curva, y los
+dos caen en 75% en el corte. Recalibrado todo sobre la curva geográfica nueva (misma regla de EU-327,
+peor par menos 0.05):
+
+| par del seed | con foto | mostrado | sólo texto | mostrado |
+|---|---|---|---|---|
+| paraguas | 0.5820 | 78.1% | 0.5468 | 78.0% |
+| notebook | 0.7248 | 86.4% | 0.6803 | 85.3% |
+| billetera | 0.8032 | 90.5% | 0.7478 | 88.7% |
+| auriculares | 0.7926 | 89.9% | 0.7678 | 89.7% |
+| mochila | 0.7001 | 85.0% | 0.7277 | 87.7% |
+
+`match-threshold: 0.5320` (no se movió: la curva nueva reproduce EU-327 exacto, buena señal) y
+`text-match-threshold: 0.4968`. **El mismo par se muestra con casi el mismo porcentaje con y sin foto**
+— que era todo el punto.
+
+**Front — HECHO (2026-08-07).** Se cayeron las dos salvedades que EU-326 había dejado puestas
+justamente porque el texto estaba en otra escala: el **porcentaje se muestra siempre** (venga de
+donde venga la búsqueda) y la **categoría deducida se muestra read-only también sin foto**. La
+condición pasó de "vino con foto" a "el dato existe", que es lo correcto: la categoría puede no venir
+si ninguna de las dos señales alcanza, y ahí no hay nada que mostrar.
+
+#### ✅ EU-337 VERIFICADA EN LA APP (2026-08-07) — los tres casos, en pantalla
+
+Backend levantado con el código nuevo y seed recargado limpio (10/5). Los tres puntos que había que
+mirar dieron lo esperado:
+
+**(a) Búsqueda sólo texto: muestra porcentaje Y categoría.** Los 5 pares del seed por API, sin foto:
+**5/5 en primer lugar, 5/5 arriba del 75%**, y los porcentajes coinciden **dígito a dígito** con la
+tabla predicha offline (78.0 / 85.3 / 88.7 / 89.7 / 87.7). El camino con foto se corrió de nuevo y
+reproduce EU-327 exacto (78.1 / 86.4 / 90.5 / 89.9 / 85.0): **la curva geográfica nueva no movió nada.**
+En pantalla, una búsqueda sin foto de la billetera mostró *"Coincidencia: 82%"* + *"Categoría detectada:
+Billetera y documentos"*.
+
+> El 82% en pantalla contra el 88.7% de la tabla **no es desvío**: el texto tipeado a mano era más corto
+> que la descripción del seed. Medido: 76 caracteres → 82%, los 139 del seed → 89%. Mismo objeto, mismo
+> primer puesto. Conviene tenerlo presente al probar a mano, porque parece una regresión y no lo es.
+
+**(b) Texto vago: NO acota por categoría.** *"negra con detalles rojos, la perdí en el colectivo"* →
+se abstiene (`category: null`) y busca sobre todo el catálogo. Devuelve 0, pero **por el umbral, no por
+el filtro** — que es la distinción importante. Comprobado con textos que describen bien sin nombrar el
+objeto, todos sin categoría y todos con resultado: *"azul con libros de ingeniería adentro"* → mochila
+83%; *"blancos Sony WH-1000XM4"* → auriculares 85.9%; *"Dell Inspiron 15 gris con tapa de aluminio"* →
+notebook 92.6%. Y agregando la palabra, *"billetera negra con detalles rojos"* sí clasifica y acota:
+**el corte funciona en las dos direcciones.** En pantalla: mochila al 83% y **sin** cartel de categoría.
+
+**(c) Guardar sin foto asigna categoría.** *"Perdí mis llaves con un llavero azul en la facultad"*
+guardada sin foto → quedó persistida como **LLAVES**. La vaga quedó sin categoría, como corresponde.
+
+**Suite: 181 tests, Failures: 0.** El único error es `BackendApplicationTests.contextLoads`
+(`Driver ... claims to not accept jdbcUrl, ${DATABASE_URL}`), ambiental y ya documentado.
+
+*Trampa del entorno:* **Weaviate ocupa el 8081, que es el puerto por defecto de Expo.** El front hay que
+levantarlo en otro (`npx expo start --web --port 8082`). No hay proceso zombi que matar.
+
+#### Arreglos del detalle de "Mis búsquedas" (aparecidos al verificar, 2026-08-07)
+
+No son de EU-337, salieron mirando la pantalla. Los tres en `MyLostObjectDetail.js` + el DTO:
+
+1. **La organización mostraba el id crudo** (`Organización: 1`). `LostObjectResponseDto` sólo llevaba
+   `organizationId`; se agregó `organizationName`, que `LostObjectService` resuelve contra
+   `IOrganizationRepository`. Si el id no resuelve **devuelve null en vez de fallar**: es un dato de
+   presentación y no puede tirar abajo el listado entero de búsquedas del usuario.
+2. **Etiquetas que no decían qué era el dato:** ahora *"Organización en la que lo perdiste"* y
+   *"Fecha y hora en la que lo perdiste"* (antes *"Fecha de registro"*, que se confundía con el alta).
+3. **No se veía la categoría deducida** — y es justo el dato que el usuario necesita para darse cuenta
+   de que se infirió mal, porque **el filtro es duro: una categoría errada esconde el objeto para
+   siempre y sin ninguna señal**. Se agregó `category` al DTO y una fila que **se muestra siempre**,
+   incluso cuando no se pudo deducir (ahí dice *"Sin determinar"*, que es información, no un hueco).
+
+`LostObjectServiceTest` **20/20** (2 casos nuevos: resolución del nombre y organización inexistente).
+
+#### Lo que FALTA de EU-337
+
+1. Comentario de Jira + cierre. **Ojo: EU-326 figura "To Do" en Jira** aunque está hecha y verificada
+   desde el 2026-08-06 — quedó sin transicionar. Cerradas EU-326 y EU-337, las 8 subtareas de EU-320
+   están Done y **la story se puede cerrar**.
+
 ### Discusiones cerradas en el camino (para no reabrirlas)
 
 - **El falso positivo de la billetera NO es deuda.** Que un falso quede #2 es tolerable si el verdadero

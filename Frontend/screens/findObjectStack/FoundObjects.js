@@ -14,11 +14,13 @@ import BaseModal from "../components/BaseModal";
 
 
 const FoundObjects = ({ route, navigation }) => {
-    // EU-326: única pantalla de resultados para las dos búsquedas. "searchMode" dice de cuál vino:
-    // con foto el puntaje está calibrado y se muestra; sin foto todavía no (queda para EU-337).
+    // EU-326: única pantalla de resultados para las dos búsquedas.
+    // EU-337: el porcentaje y la categoría se muestran vengan de donde vengan. Antes eran exclusivos
+    // de la búsqueda con foto porque el puntaje de texto vivía en otra escala y la búsqueda sin foto
+    // no deducía ninguna categoría; ahora cada modo tiene su umbral calibrado, así que un mismo
+    // porcentaje significa lo mismo en las dos, y la categoría la deduce la IA también del texto.
     const { objectsFound, query, lostDate, latitude, longitude, organizationId,
             filterColor, filterLostDateTo, searchMode, aiCategory, photo } = route.params;
-    const searchedWithPhoto = searchMode === 'photo';
     const coordinates = (latitude != null && longitude != null)
         ? { latitude, longitude }
         : null;
@@ -87,7 +89,7 @@ const FoundObjects = ({ route, navigation }) => {
                         {item.title}
                     </Text>
 
-                    {searchedWithPhoto && (
+                    {item.score != null && (
                         <Text style={styles.itemText}>
                             Coincidencia: {(item.score * 100).toFixed(0)}%
                         </Text>
@@ -126,8 +128,10 @@ const FoundObjects = ({ route, navigation }) => {
                     <Text style={styles.backButtonText}>← Volver</Text>
                 </TouchableOpacity>
                 <Text style={styles.headerText}>Coincidencias encontradas</Text>
-                {searchedWithPhoto && aiCategory && (
-                    // Categoría deducida de la foto: se muestra read-only (el usuario no la elige).
+                {aiCategory && (
+                    /* Categoría deducida por la IA (del texto, o de la foto si el texto no alcanza):
+                       se muestra read-only, el usuario no la elige. Puede no venir: si ninguna de las
+                       dos señales alcanza, la búsqueda no se acota por categoría y no hay nada que mostrar. */
                     <View style={styles.activeFiltersRow}>
                         <View style={styles.filterChip}>
                             <Text style={styles.filterChipText}>

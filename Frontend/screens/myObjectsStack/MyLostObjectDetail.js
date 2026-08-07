@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
+import { CATEGORY_LABELS } from '../../utils/constants';
 import {
     ActivityIndicator,
     Modal,
@@ -89,7 +90,17 @@ const MyLostObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información</Text>
-                <InfoRow icon="calendar" label="Fecha de registro" value={formatDateTimeLocaleES(lostObject.lostDate)} />
+                <InfoRow icon="calendar" label="Fecha y hora en la que lo perdiste" value={formatDateTimeLocaleES(lostObject.lostDate)} />
+                {/* La categoría la deduce la IA y el filtro es DURO: si se infirió mal, el objeto no
+                    aparece nunca y sin señal alguna. Se muestra siempre —incluso cuando no se pudo
+                    deducir— para que el usuario pueda darse cuenta. */}
+                <InfoRow
+                    icon="tag"
+                    label="Categoría detectada"
+                    value={lostObject.category
+                        ? (CATEGORY_LABELS[lostObject.category] || lostObject.category)
+                        : 'Sin determinar'}
+                />
                 {isClosed && !!lostObject.closedDate && (
                     <InfoRow icon="circle-check" label="Cerrada el" value={formatDateTimeLocaleES(lostObject.closedDate)} />
                 )}
@@ -100,8 +111,9 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                         value={lostObject.recovered ? 'Sí, lo recuperé' : 'No lo recuperé'}
                     />
                 )}
-                {!!lostObject.organizationId && (
-                    <InfoRow icon="building" label="Organización" value={lostObject.organizationId} />
+                {/* El id de la organización no le dice nada al usuario: se muestra el nombre. */}
+                {!!lostObject.organizationName && (
+                    <InfoRow icon="building" label="Organización en la que lo perdiste" value={lostObject.organizationName} />
                 )}
             </View>
 

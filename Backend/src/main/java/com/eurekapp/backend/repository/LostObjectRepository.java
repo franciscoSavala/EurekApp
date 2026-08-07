@@ -14,6 +14,7 @@ import io.weaviate.client.v1.data.model.WeaviateObject;
 import io.weaviate.client.v1.filters.WhereFilter;
 import io.weaviate.client.v1.filters.Operator;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -28,17 +29,20 @@ import java.util.Map;
 @Component
 public class LostObjectRepository {
 
-    /** Radio máximo (metros) del filtro geográfico duro. Espeja el de FoundObjectRepository. */
-    private static final Double maxRadius = 50000.0;
+    /** Radio máximo (metros) del filtro geográfico duro. Viene de configuración, igual que en
+        FoundObjectRepository y en SearchScoringService: un solo lugar donde se define el radio. */
+    private final double maxRadius;
 
     private final WeaviateService weaviateService;
     private final IOrganizationRepository organizationRepository;
 
     public LostObjectRepository(
             WeaviateService weaviateService,
-            IOrganizationRepository organizationRepository){
+            IOrganizationRepository organizationRepository,
+            @Value("${search.max-radius}") double maxRadius){
         this.weaviateService = weaviateService;
         this.organizationRepository = organizationRepository;
+        this.maxRadius = maxRadius;
     }
 
 
@@ -194,7 +198,7 @@ public class LostObjectRepository {
         // NATIVAMENTE en Weaviate. En la notificación inversa (found→lost) el centro es la ubicación del objeto
         // encontrado: sólo se notifican búsquedas guardadas dentro del radio, aunque sea cross-org. "max" en metros.
         if (coordinates != null) {
-            Float maxDistance = maxRadius.floatValue();
+            Float maxDistance = (float) maxRadius;
             filters.add(WhereFilter.builder()
                     .path("coordinates")
                     .operator(Operator.WithinGeoRange)

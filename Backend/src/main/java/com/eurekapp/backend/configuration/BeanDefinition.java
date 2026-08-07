@@ -7,7 +7,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Configuration
-@EnableConfigurationProperties(ScoringProperties.class)
+@EnableConfigurationProperties({ScoringProperties.class, TextClassificationProperties.class})
 public class BeanDefinition {
 
     @Bean

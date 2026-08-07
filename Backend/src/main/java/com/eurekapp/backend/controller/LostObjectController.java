@@ -35,9 +35,10 @@ public class LostObjectController {
     @PreAuthorize("hasAuthority('USER')")
     @Operation(summary = "Reportar objeto perdido",
             description = "Guarda una búsqueda abierta de un objeto perdido. La descripción es obligatoria y la "
-                    + "foto es OPCIONAL (EU-326): si viene, se vectoriza (CLIP), se clasifica por IA y se sube a "
-                    + "S3 al guardar; si no viene, la búsqueda queda sólo con el vector textual y sin categoría, "
-                    + "lo que la hace más débil para el aviso automático. Adjuntar una foto es lo recomendable.")
+                    + "foto es OPCIONAL (EU-326): si viene, se vectoriza (CLIP) y se sube a S3 al guardar; si no "
+                    + "viene, la búsqueda queda sólo con el vector textual, lo que la hace más débil para el "
+                    + "aviso automático. Adjuntar una foto es lo recomendable. La categoría se deduce del TEXTO "
+                    + "con precedencia sobre la foto (EU-337); si ninguna señal alcanza, queda sin categoría.")
     public ResponseEntity<Void> reportLostObject(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(value = "file", required = false) MultipartFile file,

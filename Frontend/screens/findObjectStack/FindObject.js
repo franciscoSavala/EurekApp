@@ -183,7 +183,8 @@ const FindObject = ({ navigation, route }) => {
             const jsonData = withPhoto ? await searchWithPhoto(routeParams) : await searchWithText(routeParams);
             const foundObjects = jsonData.found_objects ?? [];
             routeParams.objectsFound = foundObjects;
-            // Categoría que la IA dedujo de la foto: los resultados la muestran read-only.
+            // Categoría deducida por la IA: del TEXTO con precedencia, y de la foto si el texto no
+            // alcanza (EU-337). Viene en las dos búsquedas; puede ser null si ninguna señal alcanza.
             routeParams.aiCategory = jsonData.category ?? null;
 
             if(foundObjects.length === 0) {

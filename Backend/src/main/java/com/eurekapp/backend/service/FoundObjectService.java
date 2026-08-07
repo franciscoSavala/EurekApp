@@ -18,6 +18,7 @@ import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.TextClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
 import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -57,6 +58,8 @@ public class FoundObjectService implements IFoundObjectService {
     private final EmbeddingService embeddingService;
     private final ImageEmbeddingService imageEmbeddingService;
     private final ImageClassificationService imageClassificationService;
+    /** EU-337: clasificador de categoría por TEXTO, que tiene PRECEDENCIA sobre el de la foto. */
+    private final TextClassificationService textClassificationService;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
@@ -75,6 +78,7 @@ public class FoundObjectService implements IFoundObjectService {
                               EmbeddingService embeddingService,
                               ImageEmbeddingService imageEmbeddingService,
                               ImageClassificationService imageClassificationService,
+                              TextClassificationService textClassificationService,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
@@ -91,6 +95,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
+        this.textClassificationService = textClassificationService;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
@@ -202,9 +207,15 @@ public class FoundObjectService implements IFoundObjectService {
 
         // EU-324: vector VISUAL de la imagen (CLIP, foto → vector directo) para el vector nombrado "image",
         // y clasificación por IA en categorías duras (define α/β y es filtro previo del matching). La
-        // categoría la determina la IA a partir de la imagen: sobrescribe cualquier valor que venga del usuario.
+        // categoría la determina la IA: sobrescribe cualquier valor que venga del usuario.
         List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
-        ObjectCategory category = imageClassificationService.classify(imageBytes);
+        /* EU-337: MISMA regla de precedencia que en la búsqueda (texto primero, foto si el texto se
+         * abstiene). Tiene que ser la misma de los dos lados: el filtro por categoría es DURO, así que
+         * si el alta clasificara por foto y la búsqueda por texto, un par podría caer en categorías
+         * distintas y no compararse nunca —sin que nadie se entere—. */
+        ObjectCategory textCategory = textClassificationService.classify(
+                command.getTitle() + " " + command.getDetailedDescription());
+        ObjectCategory category = textCategory != null ? textCategory : imageClassificationService.classify(imageBytes);
 
 
                     // 7- CREACIÓN DEL FOUNDOBJECT Y PERSISTENCIA DEL MISMO
@@ -286,7 +297,14 @@ public class FoundObjectService implements IFoundObjectService {
 
     /**
      *  Ese método es llamado cuando el usuario desea buscar su objeto perdido entre los objetos que están en custodia
-     *  de las organizaciones.
+     *  de las organizaciones. Es la búsqueda SÓLO TEXTO (sin foto) de la pantalla unificada (EU-326).
+     *
+     *  <p><b>EU-337</b> la emparejó con la búsqueda con foto en las tres cosas que las separaban:
+     *  la categoría se deduce del TEXTO (antes no había ninguna y no se podía acotar nada), la
+     *  geografía MULTIPLICA en vez de sumar, y el puntaje se filtra con el umbral calibrado de este
+     *  modo y se muestra remapeado, para que un mismo porcentaje signifique lo mismo con foto y sin
+     *  foto.</p>
+     *
      * @param command Objeto que tiene todos los parámetros para que el método haga algo...
      * @return Lista que contiene los objetos encontrados, ordenados por el grado de coincidencia con la búsqueda.
      */
@@ -343,13 +361,20 @@ public class FoundObjectService implements IFoundObjectService {
         *  posterior a la provista, y que no hayan sido devueltos.
         *  Dependiendo de si la búsqueda es por organización o por coordenadas, u "orgId" o "coordinates" valdrán null.
         * */
+        /* EU-337: la categoría la deduce la IA del TEXTO de la búsqueda, no la elige el usuario (el
+         * selector manual se eliminó en EU-326). Si el texto no nombra el objeto, el clasificador se
+         * ABSTIENE y devuelve null: entonces no se filtra por categoría —igual que antes— en vez de
+         * inventar una, porque el filtro es duro y una categoría errada esconde el objeto en silencio. */
+        ObjectCategory category = textClassificationService.classify(command.getQuery());
+        log.debug("getFoundObjectByTextDescription: categoria deducida del texto={}", category);
+
         List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
                                                                     command.getLostDateTo(),
                                                                     false,
-                                                                    command.getCategory());
+                                                                    category != null ? category.name() : null);
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -358,23 +383,33 @@ public class FoundObjectService implements IFoundObjectService {
         *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
         */
         for(FoundObject fo: foundObjects){
-            // El puntaje (texto + geografía) lo calcula el algoritmo compartido (SearchScoringService).
-            double totalScore = searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), queryCoordinates);
+            /* Mismo puntaje que la búsqueda con foto, con la certeza de imagen ausente: la geografía
+             * MULTIPLICA. Antes sumaba un 5%, así que estar cerca compensaba no parecerse. */
+            double totalScore = searchScoringService.combinedScore(null, fo.getScore(), category,
+                    fo.getCoordinates(), queryCoordinates);
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
             fo.setScore((float) totalScore);
             fo.setDistance(distance.floatValue());
         }
 
-
-        // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
+        // Se FILTRA por el umbral crudo del modo sólo-texto y recién después se remapea el puntaje a
+        // la escala que ve el usuario. La curva es monótona, así que el orden no cambia.
         List<FoundObjectDto> result = foundObjects.stream()
+                .filter(fo -> fo.getScore() != null
+                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.TEXT_ONLY))
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && searchScoringService.isMatch(dto.getScore()))
+                .map(dto -> {
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
+                            SearchScoringService.SearchMode.TEXT_ONLY));
+                    return dto;
+                })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
+                // La categoría deducida del texto se devuelve para mostrarla read-only, igual que con foto.
+                .category(category != null ? category.name() : null)
                 .build();
     }
 
@@ -467,10 +502,27 @@ public class FoundObjectService implements IFoundObjectService {
         }
 
         byte[] imageBytes = image.getBytes();
-        // Vector VISUAL (CLIP) en memoria + categoría dura por IA desde la imagen, y vector TEXTUAL (OpenAI).
+        // Vector VISUAL (CLIP) en memoria y vector TEXTUAL (OpenAI).
         List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
-        ObjectCategory category = imageClassificationService.classify(imageBytes);
         List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(query));
+
+        /* EU-337: la categoría se decide por PRECEDENCIA, no por votación. Si el texto nombra el
+         * objeto, decide el texto, diga lo que diga la foto; si no lo nombra, el clasificador de texto
+         * se abstiene y decide la foto (que nunca viene vacía).
+         *
+         * Por qué precedencia y no "gana el más confiado": las dos confianzas NO son comparables. La
+         * de la foto es un softmax sobre cosenos imagen-texto, que viven en una franja angosta por el
+         * modality gap; los cosenos texto-texto viven en otro rango. Compararlas es comparar dos
+         * termómetros en unidades distintas, y en silencio ganaría siempre uno. Con precedencia cada
+         * señal se mide contra su propio umbral, en su propia escala, y los dos números nunca se
+         * comparan entre sí.
+         *
+         * Y el orden es ese porque la foto es la señal FRÁGIL: está medido que parte pares (la
+         * notebook caía en dos categorías distintas) y que sus márgenes son de centésimas. El texto,
+         * cuando nombra el objeto, no deja lugar a la duda: el sustantivo ES la categoría. */
+        ObjectCategory textCategory = textClassificationService.classify(query);
+        ObjectCategory category = textCategory != null ? textCategory : imageClassificationService.classify(imageBytes);
+        log.debug("searchByPhoto: categoria={} (por {})", category, textCategory != null ? "TEXTO" : "FOTO");
 
         GeoCoordinates queryCoordinates = null;
         if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {
@@ -500,7 +552,7 @@ public class FoundObjectService implements IFoundObjectService {
             fo.setScore((float) score);
             log.debug("searchByPhoto: candidato '{}' simImg={} simTxt={} score={} (umbral={})",
                     fo.getTitle(), fo.getImageCertainty(), fo.getTextCertainty(), score,
-                    searchScoringService.matchThreshold());
+                    searchScoringService.matchThreshold(SearchScoringService.SearchMode.WITH_PHOTO));
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
             fo.setDistance(distance.floatValue());
         }
@@ -509,10 +561,12 @@ public class FoundObjectService implements IFoundObjectService {
         // ve el usuario (displayScore). La curva es monótona, así que el orden es el mismo de una u otra
         // forma; filtrar antes deja el corte expresado en la escala en la que fue calibrado.
         List<FoundObjectDto> result = foundObjects.stream()
-                .filter(fo -> fo.getScore() != null && searchScoringService.isCombinedMatch(fo.getScore()))
+                .filter(fo -> fo.getScore() != null
+                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.WITH_PHOTO))
                 .map(this::foundObjectToDto)
                 .map(dto -> {
-                    dto.setScore((float) searchScoringService.displayScore(dto.getScore()));
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
+                            SearchScoringService.SearchMode.WITH_PHOTO));
                     return dto;
                 })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())

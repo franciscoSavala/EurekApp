@@ -41,7 +41,7 @@ class LostObjectRepositoryTest {
     @Captor ArgumentCaptor<WeaviateObject> objectCaptor;
 
     private LostObjectRepository repository() {
-        return new LostObjectRepository(weaviateService, organizationRepository);
+        return new LostObjectRepository(weaviateService, organizationRepository, 50000.0);
     }
 
     @Test

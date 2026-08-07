@@ -13,6 +13,7 @@ import io.weaviate.client.v1.filters.Operator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.time.*;
@@ -22,16 +23,24 @@ import java.util.*;
 @Component
 public class FoundObjectRepository {
 
-    // Radio al que se circunscribirán las búsquedas, expresado en metros.
-    private static final Double maxRadius = 50000.0;
     private static final Logger log = LoggerFactory.getLogger(FoundObjectRepository.class);
     private final WeaviateService weaviateService;
     private final IUserRepository userRepository;
 
+    /**
+     * Radio al que se circunscriben las búsquedas, en metros. Viene de configuración
+     * ({@code search.max-radius}) y NO de una constante: el mismo valor lo usa
+     * {@code SearchScoringService} para graduar cuánto resta la distancia, así que si hubiera dos
+     * copias, cambiar una dejaría el filtro y el puntaje hablando de radios distintos.
+     */
+    private final double maxRadius;
+
     public FoundObjectRepository(
-            WeaviateService weaviateService, IUserRepository userRepository){
+            WeaviateService weaviateService, IUserRepository userRepository,
+            @Value("${search.max-radius}") double maxRadius){
         this.weaviateService = weaviateService;
         this.userRepository = userRepository;
+        this.maxRadius = maxRadius;
     }
 
     public void add(FoundObject foundObject){
@@ -140,7 +149,7 @@ public class FoundObjectRepository {
         // que lo tenía deshabilitado era en realidad el campo "certainty" sobre named vectors (ya corregido
         // pidiendo "distance"): el WithinGeoRange funciona bien. "max" es la distancia máxima en metros.
         if (coordinates != null) {
-            Float maxDistance = (maxRadius).floatValue();
+            Float maxDistance = (float) maxRadius;
             filters.add(WhereFilter.builder()
                     .path("coordinates")
                     .operator(Operator.WithinGeoRange)

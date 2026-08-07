@@ -48,17 +48,35 @@ application:
     url: '${WEAVIATE_URL:localhost:8081}'
     schema: 'http'
 search:
+  # Radio (metros) al que se circunscribe TODA busqueda. Es la UNICA definicion del radio: lo leen
+  # los repositorios (filtro duro) y SearchScoringService (cuanto resta la distancia dentro del radio).
   max-radius: 50000
+  # EU-337: clasificacion de la categoria a partir del TEXTO de la busqueda, con precedencia sobre
+  # la foto. El corte va sobre el coseno CRUDO contra la mejor frase de categoria, no sobre una
+  # confianza: la confianza es relativa entre categorias y no separa (medido 2026-08-07).
+  text-classification:
+    # Piso de parecido para que el texto DECIDA la categoria; por debajo se abstiene y decide la foto.
+    # Medido sobre 23 textos que nombran el objeto (0.4856..0.7497) y 8 que no (0.2932..0.4709).
+    min-similarity: 0.48
   # EU-324: parámetros calibrables del puntaje de coincidencias. Externalizados para poder
   # ajustarlos SIN recompilar (basta editar acá / una env var y reiniciar). Se calibran en EU-327.
   scoring:
     # Piso del modulador geográfico dentro del radio: mismo lugar => 1, lejos => geo-floor (nunca 0).
-    geo-floor: 0.75
+    # EU-337: sale de la regla "una coincidencia excelente no puede desaparecer del radar por estar
+    # lejos" => el mejor par del seed (similitud 0.8032) puesto JUSTO EN EL BORDE del radio todavia
+    # se muestra con 80%. La curva esta anclada a max-radius, asi que si el radio cambia esto sigue
+    # valiendo sin tocar nada.
+    geo-floor: 0.7631
     # EU-327: umbral CRUDO de coincidencia, en la escala real del puntaje combinado.
     # Calibrado sobre los 5 pares verdaderos del seed: el peor par (paraguas, catalogo vs calle)
     # puntua 0.5820 => se toma ese piso menos 0.05 de margen. Con este corte entran los 5 pares.
     # OJO: NO es el numero que ve el usuario; la presentacion lo remapea a 75% (displayScore).
     match-threshold: 0.5320
+    # EU-337: umbral CRUDO de la busqueda SOLO TEXTO. Es otro numero porque es otra escala (una sola
+    # señal en vez de dos). Peor par verdadero del seed 0.5468 menos 0.05 de margen. Con los dos
+    # umbrales calibrados, los 5 pares se muestran entre 78% y 90% con foto y entre 78% y 90% sin
+    # foto: un mismo porcentaje significa lo mismo en las dos busquedas.
+    text-match-threshold: 0.4968
     # Ponderaciones α (imagen) / β (texto) por categoría. Conviene que image + text sumen 1.
     # Billetera/credenciales: manda el texto (DNI, nombre). Ropa: manda la foto (el texto ensucia).
     # Electronica/llaves/otros: mitad y mitad (la electronica trae marca y modelo en el texto,

@@ -3,6 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.configuration.ScoringProperties;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.ObjectCategory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -13,13 +14,14 @@ import org.springframework.stereotype.Service;
  * entidades: opera sobre primitivos (certezas coseno + dos pares de coordenadas), por lo que sirve
  * igual para los dos sentidos de búsqueda gracias a que la certeza coseno es simétrica.</p>
  *
- * <p>Conviven dos fórmulas durante la migración del rework (EU-320):</p>
- * <ul>
- *   <li><b>Legacy</b> — {@link #totalScore} (MOORA 95/5 texto/geografía), una sola certeza coseno.</li>
- *   <li><b>EU-324</b> — {@link #combinedScore}: {@code geoModulator · (α·sim_img + β·sim_txt)} con
- *       α/β por categoría. Es la que usa la búsqueda por foto y el match inverso una vez cableado el
- *       vector de imagen (CLIP). El legacy se retira cuando todos los callers migren.</li>
- * </ul>
+ * <p><b>Hay UNA sola fórmula</b> (EU-324): {@link #combinedScore} =
+ * {@code geoModulator · (α·sim_img + β·sim_txt)}, con α/β por categoría. La buscar-sólo-texto es el
+ * mismo cálculo con la certeza de imagen ausente, no una fórmula aparte.</p>
+ *
+ * <p><b>EU-337 retiró la fórmula legacy</b> (MOORA: 95% texto + 5% geografía). Ahí la geografía
+ * SUMABA, de modo que estar cerca <i>compensaba</i> no parecerse: dos objetos distintos en la misma
+ * esquina sumaban puntaje por estar juntos. Ahora la geografía MULTIPLICA, que es lo que de verdad
+ * hace —atenúa una coincidencia según cuán lejos esté, y no puede inventar uno—.</p>
  *
  * <p><b>Blast radius</b> — si en el futuro se modifica la fórmula, los pesos o el umbral, alcanza
  * con tocar esta clase. Consumidores actuales del algoritmo:</p>
@@ -31,20 +33,20 @@ import org.springframework.stereotype.Service;
 @Service
 public class SearchScoringService {
 
-    /** Puntaje mínimo total para considerar que dos publicaciones coinciden. */
-    public static final double MIN_SCORE = 0.75;
-
-    /** Peso del parecido textual/visual (coseno) en el puntaje total (MOORA). */
-    private static final double TEXT_WEIGHT = 0.95;
-
-    /** Peso de la cercanía geográfica en el puntaje total (MOORA). */
-    private static final double GEO_WEIGHT = 0.05;
-
     /** Parámetros calibrables (α/β por categoría, piso geográfico), externalizados a configuración. */
     private final ScoringProperties properties;
 
-    public SearchScoringService(ScoringProperties properties) {
+    /**
+     * Radio máximo de búsqueda en metros ({@code search.max-radius}), el MISMO que aplican como filtro
+     * duro los repositorios. La curva geográfica se expresa en distancia relativa a este radio, así que
+     * cambiarlo en configuración reajusta la curva sola (EU-337).
+     */
+    private final double maxRadius;
+
+    public SearchScoringService(ScoringProperties properties,
+                                @Value("${search.max-radius}") double maxRadius) {
         this.properties = properties;
+        this.maxRadius = maxRadius;
     }
 
     /**
@@ -62,29 +64,6 @@ public class SearchScoringService {
         return (certainty <= 0.5) ? 0.0 : (certainty - 0.5) * 2;
     }
 
-    /**
-     * Puntaje total de una coincidencia: combina el parecido textual/visual (coseno normalizado)
-     * con la cercanía geográfica vía MOORA. Si no hay certeza coseno (búsqueda sin vector), el
-     * puntaje es puramente geográfico, igual que en la búsqueda regular.
-     *
-     * @param cosineCertainty certeza coseno cruda de la publicación candidata (puede ser null).
-     * @param a coordenadas de uno de los puntos (objeto candidato).
-     * @param b coordenadas del otro punto (objeto/consulta de referencia).
-     * @return puntaje total en [0, 1].
-     */
-    public double totalScore(Float cosineCertainty, GeoCoordinates a, GeoCoordinates b) {
-        double geoScore = CommonFunctions.calculateGeoScore(a, b);
-        if (cosineCertainty == null) {
-            return geoScore;
-        }
-        return TEXT_WEIGHT * normalizeCosineScore(cosineCertainty) + GEO_WEIGHT * geoScore;
-    }
-
-    /** {@code true} si el puntaje total alcanza el umbral de coincidencia. */
-    public boolean isMatch(double totalScore) {
-        return totalScore >= MIN_SCORE;
-    }
-
     // ── EU-324: puntaje combinado imagen + texto por categoría ──────────────────────────────────
 
     /**
@@ -95,9 +74,30 @@ public class SearchScoringService {
     private static final ScoringProperties.Weight DEFAULT_WEIGHT = new ScoringProperties.Weight(0.50, 0.50);
 
     /**
-     * Remapea el geoScore crudo ({@code e^{-k·d} ∈ (0, 1]}) al rango {@code [geoFloor, 1]} con el
-     * que MODULA (multiplica) la suma de similitudes: mismo lugar → 1; lejos (pero dentro del radio,
-     * que es un filtro duro aparte) → geoFloor. La geografía nunca anula un match, sólo lo atenúa.
+     * Constante de FORMA de la curva geográfica, adimensional: qué tan rápido cae el puntaje a medida
+     * que uno se aleja, medido en <b>fracción del radio</b> y no en metros.
+     *
+     * <p>Vale {@code ln(1/0.95)/0.01 ≈ 5.129}, que es "al 1% del radio la curva ya cayó un 5%".
+     * Es exactamente la intención de la constante original en metros (0.000102586589, elegida para
+     * que 500 m sobre un radio de 50 km dieran 0.95), pero expresada de una forma que <b>no depende
+     * del radio</b>: si mañana el radio pasa de 50 km a 15 km, la curva se reescala sola.</p>
+     */
+    private static final double GEO_SHAPE = Math.log(1 / 0.95) / 0.01;
+
+    /** Valor de la exponencial de forma justo en el borde del radio; se resta para que ahí dé 0 exacto. */
+    private static final double GEO_SHAPE_AT_EDGE = Math.exp(-GEO_SHAPE);
+
+    /**
+     * Factor por el que la geografía MODULA (multiplica) la suma de similitudes: mismo lugar → 1
+     * exacto; borde del radio → {@code geoFloor} exacto. La geografía nunca anula un match, sólo lo
+     * atenúa; el radio en sí es un filtro duro aparte, aplicado en el repositorio.
+     *
+     * <p><b>Por qué está anclada al radio en los dos extremos</b> (EU-337): el piso es lo que decide
+     * cuánto puede castigar la distancia, y esa decisión se toma sobre el borde del radio ("un match
+     * excelente en el punto más lejano admisible todavía se muestra con 80%"). Con la curva anterior,
+     * expresada en metros, el valor en el borde dependía del radio por accidente y cambiar el radio
+     * habría movido en silencio cuánto resta la distancia. Ahora {@code d/R} entra normalizado y el
+     * borde cae en el piso por construcción, sea el radio el que sea.</p>
      *
      * @return factor de modulación en {@code [geoFloor, 1]}. Si falta alguna coordenada devuelve 1.0,
      *         pero es sólo una red de seguridad: la ubicación es OBLIGATORIA en la búsqueda (sin ella
@@ -107,9 +107,16 @@ public class SearchScoringService {
         if (a == null || b == null) {
             return 1.0; // red de seguridad: no debería ocurrir (la ubicación es obligatoria)
         }
-        double geoScore = CommonFunctions.calculateGeoScore(a, b); // (0, 1]
         double geoFloor = properties.getGeoFloor();
-        return geoFloor + (1.0 - geoFloor) * geoScore;
+        if (maxRadius <= 0) {
+            return geoFloor; // radio degenerado: sin escala no hay curva, se aplica el castigo máximo
+        }
+        // Distancia relativa al radio, topeada en 1: fuera del radio ya no hay nada que graduar (y no
+        // debería llegar acá, porque el radio es un filtro duro aguas arriba).
+        double relativeDistance = Math.min(CommonFunctions.calculateGeoDistance(a, b) / maxRadius, 1.0);
+        double shape = (Math.exp(-GEO_SHAPE * relativeDistance) - GEO_SHAPE_AT_EDGE)
+                / (1.0 - GEO_SHAPE_AT_EDGE); // 1 en el centro, 0 en el borde
+        return geoFloor + (1.0 - geoFloor) * shape;
     }
 
     /**
@@ -155,20 +162,36 @@ public class SearchScoringService {
     public static final double DISPLAY_THRESHOLD = 0.75;
 
     /**
-     * {@code true} si el puntaje combinado CRUDO alcanza el umbral calibrado en EU-327.
-     *
-     * <p>Se compara contra {@link ScoringProperties#getMatchThreshold()} —la escala real de
-     * {@link #combinedScore}—, <b>no</b> contra el 0.75 que ve el usuario. Filtrar acá y no sobre el
-     * puntaje ya remapeado es equivalente (la curva es monótona), pero deja el corte expresado en la
-     * única escala en la que se lo puede volver a medir.</p>
+     * Modo de búsqueda. <b>Cada modo tiene su propio umbral crudo</b> (EU-337): con foto se promedian
+     * dos parecidos y sin foto uno solo, así que los puntajes NO viven en la misma escala y un mismo
+     * número crudo no significa lo mismo en los dos. Calibrando uno por modo —y remapeando cada uno
+     * con su propia curva—, el porcentaje que ve el usuario sí significa lo mismo en los dos casos,
+     * que es exactamente lo que hace falta ahora que las dos búsquedas comparten pantalla.
      */
-    public boolean isCombinedMatch(double combinedScore) {
-        return combinedScore >= properties.getMatchThreshold();
+    public enum SearchMode {
+        /** Búsqueda con foto: imagen + texto. */
+        WITH_PHOTO,
+        /** Búsqueda sólo con texto (y la notificación de una búsqueda guardada sin foto). */
+        TEXT_ONLY
     }
 
-    /** Umbral crudo vigente. Expuesto sólo para loguearlo: el corte se decide en {@link #isCombinedMatch}. */
-    public double matchThreshold() {
-        return properties.getMatchThreshold();
+    /**
+     * {@code true} si el puntaje combinado CRUDO alcanza el umbral calibrado del modo.
+     *
+     * <p>Se compara contra el umbral crudo —la escala real de {@link #combinedScore}—, <b>no</b>
+     * contra el 0.75 que ve el usuario. Filtrar acá y no sobre el puntaje ya remapeado es equivalente
+     * (la curva es monótona), pero deja el corte expresado en la única escala en la que se lo puede
+     * volver a medir.</p>
+     */
+    public boolean isCombinedMatch(double combinedScore, SearchMode mode) {
+        return combinedScore >= matchThreshold(mode);
+    }
+
+    /** Umbral crudo vigente para el modo. Expuesto además para loguearlo. */
+    public double matchThreshold(SearchMode mode) {
+        return mode == SearchMode.TEXT_ONLY
+                ? properties.getTextMatchThreshold()
+                : properties.getMatchThreshold();
     }
 
     /**
@@ -186,16 +209,18 @@ public class SearchScoringService {
      *
      * <p>El exponente se <b>deriva</b> del umbral ({@code k = ln(0.75) / ln(umbral)}) en vez de ser una
      * segunda constante suelta: si se recalibra el umbral, el piso mostrado sigue cayendo en 75% solo,
-     * sin que nadie tenga que acordarse de ajustar dos números a la vez.</p>
+     * sin que nadie tenga que acordarse de ajustar dos números a la vez. Por lo mismo, <b>cada modo
+     * usa SU umbral</b> (EU-337): así el 75% del piso significa lo mismo con foto y sin foto.</p>
      *
      * @param combinedScore puntaje crudo de {@link #combinedScore}, en {@code [0, 1]}.
+     * @param mode modo de búsqueda, que elige el umbral desde el que se deriva la curva.
      * @return puntaje a mostrar, en {@code [0, 1]}; vale exactamente 0.75 cuando el crudo está en el umbral.
      */
-    public double displayScore(double combinedScore) {
+    public double displayScore(double combinedScore, SearchMode mode) {
         if (combinedScore <= 0.0) {
             return 0.0;
         }
-        double threshold = properties.getMatchThreshold();
+        double threshold = matchThreshold(mode);
         // Umbrales degenerados (<=0 o >=1) no definen una curva: se muestra el crudo sin remapear.
         if (threshold <= 0.0 || threshold >= 1.0) {
             return Math.min(combinedScore, 1.0);

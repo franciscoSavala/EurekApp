@@ -18,8 +18,16 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "search.scoring")
 public class ScoringProperties {
 
-    /** Piso del modulador geográfico dentro del radio (decisión 6 / sección 3: rango 0.75–1). */
-    private double geoFloor = 0.75;
+    /**
+     * Piso del modulador geográfico: cuánto vale la geografía JUSTO EN EL BORDE del radio (en el
+     * centro vale 1). Es lo que decide cuánto puede llegar a restar la distancia.
+     *
+     * <p>No es un número puesto a ojo: sale de la regla de producto (EU-337) de que <b>una
+     * coincidencia excelente no puede desaparecer del radar por estar lejos</b> — concretamente, el
+     * mejor par del seed (similitud 0.8032), llevado al punto más lejano admisible, todavía se le
+     * muestra al usuario con <b>80%</b>. Eso fija el piso en 0.7631.</p>
+     */
+    private double geoFloor = 0.7631;
 
     /** Ponderaciones α (imagen) / β (texto) por categoría. Conviene que {@code image + text = 1}. */
     private Map<ObjectCategory, Weight> weights = defaultWeights();
@@ -33,6 +41,23 @@ public class ScoringProperties {
      * {@code SearchScoringService.displayScore}, que lleva este umbral a 0.75 exactamente.</p>
      */
     private double matchThreshold = 0.5320;
+
+    /**
+     * Umbral CRUDO de coincidencia de la búsqueda SÓLO TEXTO (EU-337). Es un número aparte del de la
+     * búsqueda con foto porque las dos escalas son distintas: con foto se promedian dos parecidos y
+     * sin foto queda uno solo. Cada uno se remapea con su propia curva, y así el porcentaje que ve el
+     * usuario significa lo mismo en los dos casos —que es lo que hace falta ahora que las dos
+     * búsquedas comparten pantalla—.
+     */
+    private double textMatchThreshold = 0.4968;
+
+    public double getTextMatchThreshold() {
+        return textMatchThreshold;
+    }
+
+    public void setTextMatchThreshold(double textMatchThreshold) {
+        this.textMatchThreshold = textMatchThreshold;
+    }
 
     public double getGeoFloor() {
         return geoFloor;
