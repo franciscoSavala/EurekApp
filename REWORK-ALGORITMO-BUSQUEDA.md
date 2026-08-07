@@ -1509,6 +1509,13 @@ EU-337, **EU-326** (estaba hecha desde el 06/08 pero había quedado sin transici
 
 **No queda NADA por implementar del rework.** Lo único abierto es el merge de la rama a `main`.
 
+> **Retomar acá (cierre de sesión, 2026-08-07):** rama sincronizada con el remoto y working tree
+> limpio. **`mvnw clean test` desde cero: 181 tests, 0 failures** (el único error es el ambiental
+> `contextLoads`). Lo próximo es **el merge**, y ⚠️ **la rama está 43 commits por delante de `main`**:
+> conviene mirar el panorama antes de ejecutarlo (archivos tocados, si `main` avanzó, conflictos) y
+> **compilar después de mergear y antes de pushear a main** — ya pasó que un merge "limpio" rompiera
+> la compilación.
+
 Lo que quedó anotado, y por qué ninguna de las dos cosas bloquea:
 
 - **Los "tres puntos diferidos de EU-327" están todos implementados** — ver el bloque corregido en §12.
