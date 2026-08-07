@@ -14,4 +14,8 @@ import java.util.List;
 @NoArgsConstructor
 public class EmbeddingResponse {
     private List<Float> embedding;
+
+    /* Posición del texto dentro del pedido. Sólo importa en los pedidos por lote (batch): permite
+       reordenar la respuesta y no depender de que la API respete el orden de entrada. */
+    private Integer index;
 }

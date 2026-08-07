@@ -45,12 +45,20 @@ public class WeaviateService {
      *      usado por el repositorio de cualquier clase.
      * ***/
     public void createObject(WeaviateObject object) {
-        Result<WeaviateObject> result = weaviateClient.data().creator()
+        io.weaviate.client.v1.data.api.ObjectCreator creator = weaviateClient.data().creator()
                 .withClassName(object.getClassName())
                 .withID(object.getId())
-                .withProperties(object.getProperties())
-                .withVector(object.getVector())
-                .run();
+                .withProperties(object.getProperties());
+
+        // EU-323: named vectors (image/text). Si el objeto trae el mapa de vectores nombrados usamos ese;
+        // en su defecto, caemos al vector único legacy (compatibilidad con clases de vector único).
+        if (object.getVectors() != null && !object.getVectors().isEmpty()) {
+            creator.withVectors(object.getVectors());
+        } else if (object.getVector() != null) {
+            creator.withVector(object.getVector());
+        }
+
+        Result<WeaviateObject> result = creator.run();
         if (result.hasErrors()) {
             log.error(result.getError().toString());
             throw new ApiException("database_error",
@@ -97,13 +105,15 @@ public class WeaviateService {
      * ***/
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
+                                                     String targetVector,
                                                      WhereFilter filter,
                                                      List<String> fieldNames) {
-        return queryObjects(className, vector, filter, fieldNames, null, null);
+        return queryObjects(className, vector, targetVector, filter, fieldNames, null, null);
     }
 
     public List<WeaviateObject> queryObjects(String className,
                                                      List<Float> vector,
+                                                     String targetVector,
                                                      WhereFilter filter,
                                                      List<String> fieldNames,
                                                      Integer limit,
@@ -123,10 +133,14 @@ public class WeaviateService {
                     .append(toGraphQLString(filter))
                     .append("} ");}
 
-        // 3- Agregar el vector, si se proporciona
+        // 3- Agregar el vector, si se proporciona. EU-323: con named vectors hay que indicar contra
+        //  cuál de los vectores nombrados (image/text) se busca, vía "targetVectors".
         if (vector != null && !vector.isEmpty()) {
-            queryBuilder.append("nearVector: { vector: ").append(vector.toString())
-                    .append(", certainty: 0.0} ");}
+            queryBuilder.append("nearVector: { vector: ").append(vector.toString());
+            if (targetVector != null && !targetVector.isEmpty()) {
+                queryBuilder.append(", targetVectors: [\"").append(targetVector).append("\"]");
+            }
+            queryBuilder.append(", certainty: 0.0} ");}
 
         // 4a- Paginación
         if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
@@ -143,15 +157,17 @@ public class WeaviateService {
         }
 
         // 5- Sin importar para qué clase estamos haciendo una query vectorial, siempre querremos saber el id y la
-        //  certeza de cad resultado.
-        queryBuilder.append("_additional { id certainty } ");
+        //  cercanía de cada resultado. OJO (EU-320): sobre NAMED VECTORS (image/text), pedir el campo
+        //  "certainty" ROMPE la query en Weaviate 1.24.1 ("vector config not found for target vector") y
+        //  devuelve la lista vacía. Pedimos "distance" (que sí funciona) y lo convertimos a certeza coseno
+        //  al parsear (certainty = 1 - distance/2), para que el resto del scoring quede idéntico.
+        queryBuilder.append("_additional { id distance } ");
         queryBuilder.append("}");
 
         // 5- Cerrar la query
         queryBuilder.append("}}");
 
-        //log.info(queryBuilder.toString());
-
+        log.debug("Weaviate GraphQL query: {}", queryBuilder);
 
         // Ejecutar la consulta GraphQL
         Result<GraphQLResponse> response = weaviateClient.graphQL().raw().withQuery(queryBuilder.toString()).run();
@@ -188,6 +204,111 @@ public class WeaviateService {
         return weaviateObjects;
     }
 
+
+    /***
+     *      EU-142: búsqueda HÍBRIDA de texto (denso + BM25) en una sola query. Mientras {@link #queryObjects}
+     *      compara sólo por vector (nearVector, 100% semántica), esta combina dos señales que viven en
+     *      escalas distintas y Weaviate fusiona en un único `score` 0–1:
+     *        - vector = embedding denso (lado semántico: "mochila roja" ≈ "bolsa bermeja"),
+     *        - query  = texto crudo del usuario (lado BM25: pondera términos raros como una marca "prince"
+     *                   y, con tokenización por n-gramas, tolera typos e identificadores con otro formato).
+     *
+     *      `alpha` ∈ [0,1] pesa las dos señales: 1 = puro denso, 0 = puro BM25 (a calibrar, EU-327).
+     *      `fusionType` = "relativeScoreFusion" (reescala por valor) o "rankedFusion" (sólo por posición).
+     *      El resultado pide `score` en lugar de `certainty` (el híbrido no expone certainty).
+     * ***/
+    public List<WeaviateObject> hybridQuery(String className,
+                                            String query,
+                                            List<Float> vector,
+                                            String targetVector,
+                                            List<String> bm25Properties,
+                                            Double alpha,
+                                            String fusionType,
+                                            WhereFilter filter,
+                                            List<String> fieldNames,
+                                            Integer limit) {
+        StringBuilder queryBuilder = new StringBuilder();
+        queryBuilder.append("{ Get { ").append(className).append(" ( ");
+
+        if (filter != null) {
+            queryBuilder.append("where: { ").append(toGraphQLString(filter)).append("} ");
+        }
+
+        // Bloque hybrid: query (BM25) + vector (denso) + alpha + fusión. targetVectors indica contra cuál
+        // de los vectores nombrados corre el lado denso; properties acota el BM25 a las propiedades de texto
+        // elegidas (si no, Weaviate lo corre sobre todas las indexables, ensuciando con metadata).
+        queryBuilder.append("hybrid: { query: \"").append(escapeGraphQL(query)).append("\"");
+        if (vector != null && !vector.isEmpty()) {
+            queryBuilder.append(", vector: ").append(vector.toString());
+        }
+        if (targetVector != null && !targetVector.isEmpty()) {
+            queryBuilder.append(", targetVectors: [\"").append(targetVector).append("\"]");
+        }
+        if (bm25Properties != null && !bm25Properties.isEmpty()) {
+            queryBuilder.append(", properties: [")
+                    .append(bm25Properties.stream()
+                            .map(p -> "\"" + p + "\"")
+                            .collect(Collectors.joining(", ")))
+                    .append("]");
+        }
+        if (alpha != null) {
+            queryBuilder.append(", alpha: ").append(alpha);
+        }
+        if (fusionType != null && !fusionType.isEmpty()) {
+            // fusionType es un enum de GraphQL: va SIN comillas.
+            queryBuilder.append(", fusionType: ").append(fusionType);
+        }
+        queryBuilder.append(" } ");
+
+        if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
+        queryBuilder.append(")");
+
+        queryBuilder.append("{ ");
+        for (String fieldName : fieldNames) {
+            queryBuilder.append(fieldName).append(" ");
+            if (fieldName.equals("coordinates")) {
+                queryBuilder.append("{ latitude longitude }");
+            }
+        }
+        // Con hybrid el puntaje combinado viene en `score` (no `certainty`).
+        queryBuilder.append("_additional { id score } ");
+        queryBuilder.append("}");
+        queryBuilder.append("}}");
+
+        Result<GraphQLResponse> response = weaviateClient.graphQL().raw().withQuery(queryBuilder.toString()).run();
+        if (response.hasErrors()) {
+            throw new RuntimeException("Error en la consulta híbrida GraphQL: " + response.getError());
+        }
+
+        List<WeaviateObject> weaviateObjects = new ArrayList<>();
+        GraphQLResponse graphQLResponse = response.getResult();
+        if (graphQLResponse.getData() instanceof Map<?, ?>) {
+            Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData();
+            Map<String, Object> objectsMap = (Map<String, Object>) dataMap.get("Get");
+            List<Map<String, Object>> objectsList = (List<Map<String, Object>>) objectsMap.get(className);
+            if (objectsList == null) {
+                return weaviateObjects;
+            }
+            for (Map<String, Object> objectData : objectsList) {
+                weaviateObjects.add(convertToWeaviateObject(objectData));
+            }
+        } else {
+            throw new RuntimeException("El formato de los datos en la respuesta no es válido.");
+        }
+
+        return weaviateObjects;
+    }
+
+    /***
+     *      Escapa comillas y barras invertidas de un texto que se inserta como literal en la query GraphQL
+     *      cruda (evita romper la consulta si el usuario escribió comillas en la búsqueda).
+     * ***/
+    private static String escapeGraphQL(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
 
     /***
      *      Dado el nombre de la clase y un UUID, devuelve el objeto correspondiente.
@@ -232,6 +353,8 @@ public class WeaviateService {
                 stringBuilder.append("valueBoolean: ").append(filter.getValueBoolean());
             } else if (filter.getValueDate() != null) {
                 stringBuilder.append("valueDate: \"").append(filter.getValueDate().toInstant()).append("\"");
+            } else if (filter.getValueGeoRange() != null) {
+                stringBuilder.append(geoRangeToGraphQL(filter.getValueGeoRange()));
             }
             return stringBuilder.toString();
         }
@@ -263,17 +386,7 @@ public class WeaviateService {
                 //stringBuilder.append("\\\"").append(operand.getValueDate().toInstant().toString()).append("\\\"");
                 stringBuilder.append("\"").append(operand.getValueDate().toInstant().toString()).append("\"");
             } else if (operand.getValueGeoRange() != null) {
-                stringBuilder.append("valueGeoRange: {");
-
-                stringBuilder.append(" geoCoordinates: {");
-                stringBuilder.append(" latitude: " + operand.getValueGeoRange().getGeoCoordinates().getLatitude().toString());
-                stringBuilder.append(" longitude: " + operand.getValueGeoRange().getGeoCoordinates().getLongitude().toString());
-                stringBuilder.append("} ");
-
-                stringBuilder.append( "distance: { max: " + operand.getValueGeoRange().getDistance().getMax().toString() + " }");
-
-                stringBuilder.append(" }");
-                // Esto está comentado porque hay un bug de Weaviate en las consultas con distancia.
+                stringBuilder.append(geoRangeToGraphQL(operand.getValueGeoRange()));
             }
             stringBuilder.append(" }, ");
         }
@@ -289,6 +402,29 @@ public class WeaviateService {
     }
 
     /***
+     *      Convierte la distancia coseno de Weaviate ({@code distance ∈ [0,2]}) a la certeza coseno
+     *      ({@code certainty ∈ [0,1]}) que espera el resto del scoring. Es la MISMA relación que usa
+     *      Weaviate internamente para coseno ({@code certainty = 1 - distance/2}); ninguna información
+     *      se pierde. Se usa porque el campo {@code certainty} rompe sobre named vectors en 1.24.1.
+     * ***/
+    static double cosineCertaintyFromDistance(double distance) {
+        return 1.0 - distance / 2.0;
+    }
+
+    /***
+     *      Serializa un filtro geográfico WithinGeoRange al formato GraphQL crudo. EU-320: el radio pasa a
+     *      aplicarse NATIVAMENTE en Weaviate (antes estaba deshabilitado y "aguas arriba"). "max" es la
+     *      distancia máxima en METROS. Verificado contra Weaviate 1.24.1 (nearVector named-vector + este
+     *      filtro compuesto): poda por radio correctamente.
+     * ***/
+    private static String geoRangeToGraphQL(WhereFilter.GeoRange geoRange) {
+        return "valueGeoRange: { geoCoordinates: {"
+                + " latitude: " + geoRange.getGeoCoordinates().getLatitude()
+                + " longitude: " + geoRange.getGeoCoordinates().getLongitude()
+                + " } distance: { max: " + geoRange.getDistance().getMax() + " } }";
+    }
+
+    /***
      *  Implementa la lógica para convertir un objeto "Map" en un objeto "WeaviateObject".
      ***/
     private WeaviateObject convertToWeaviateObject(Map<String, Object> objectData) {
@@ -297,7 +433,17 @@ public class WeaviateService {
         weaviateObject.setId((String) (  (Map<String,Object>)objectData.get("_additional")).remove("id")  );
 
         // Removemos la kay "_additional" para que las keys restantes sean solo "properties" (o sea, atributos del objeto)
-        weaviateObject.setAdditional( (Map<String,Object>)objectData.remove("_additional") );
+        Map<String,Object> additional = (Map<String,Object>)objectData.remove("_additional");
+        // EU-320: sobre named vectors pedimos "distance" (el campo "certainty" rompe la query en 1.24.1).
+        //  Reconstruimos la certeza coseno que el resto del código espera: certainty = 1 - distance/2
+        //  (distance∈[0,2] → certainty∈[0,1]). Es la MISMA definición que usa Weaviate para coseno, así que
+        //  el scoring aguas arriba (normalizeCosineScore, MIN_SCORE) queda idéntico. Sólo cuando vino distance
+        //  (camino nearVector); el camino hybrid trae "score" y no se toca.
+        if (additional != null && additional.get("distance") != null && additional.get("certainty") == null) {
+            double distance = ((Number) additional.get("distance")).doubleValue();
+            additional.put("certainty", cosineCertaintyFromDistance(distance));
+        }
+        weaviateObject.setAdditional( additional );
 
         // Llegado este punto, las únicas keys que contiene "objectData" corresponden a atributos del objeto.
         weaviateObject.setProperties(objectData);

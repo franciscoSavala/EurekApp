@@ -8,7 +8,7 @@ import submitFeedback from "../../services/FeedbackService";
 
 
 const NotFoundObjects = ({route, navigation}) => {
-    const { query, lostDate, latitude, longitude, organizationId } = route.params;
+    const { query, lostDate, latitude, longitude, organizationId, photo } = route.params;
     const coordinates = (latitude != null && longitude != null)
         ? { latitude, longitude }
         : null;
@@ -97,7 +97,8 @@ const NotFoundObjects = ({route, navigation}) => {
                                    query={query}
                                    lostDate={lostDate}
                                    organizationId={organizationId}
-                                   coordinates={coordinates}/>
+                                   coordinates={coordinates}
+                                   photo={photo}/>
         </View>
     );
 }

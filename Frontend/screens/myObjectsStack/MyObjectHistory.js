@@ -14,6 +14,7 @@ import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import EmptyState from '../components/EmptyState';
+import AppImage from '../components/AppImage';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -63,6 +64,21 @@ const MyObjectHistory = ({ navigation }) => {
                 style={styles.card}
                 onPress={() => navigation.navigate('MyLostObjectDetail', { lostObject: item })}
             >
+                {/* EU-326: miniatura de la foto con la que se guardó la búsqueda; la foto es opcional,
+                    así que sin ella va el mismo ícono que usa el detalle. */}
+                {item.imageUrl ? (
+                    <AppImage
+                        imageUrl={item.imageUrl}
+                        style={styles.thumb}
+                        resizeMode="cover"
+                        accessibilityLabel="Foto de la búsqueda guardada"
+                    />
+                ) : (
+                    <View style={[styles.thumb, styles.thumbEmpty]}>
+                        <Icon name="magnifying-glass" size={20} color="#c0d0d0" />
+                    </View>
+                )}
+                <View style={styles.cardBody}>
                 <View style={styles.cardHeader}>
                     <Text style={styles.cardTitle} numberOfLines={1}>
                         {item.description || 'Búsqueda guardada'}
@@ -91,6 +107,7 @@ const MyObjectHistory = ({ navigation }) => {
                         </Text>
                     </View>
                 )}
+                </View>
             </TouchableOpacity>
         );
     };
@@ -183,6 +200,22 @@ const styles = StyleSheet.create({
         padding: 16,
         borderWidth: 1,
         borderColor: '#e0ecec',
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 14,
+    },
+    cardBody: {
+        flex: 1,
+    },
+    thumb: {
+        width: 64,
+        height: 64,
+        borderRadius: 10,
+        backgroundColor: '#eef4f4',
+    },
+    thumbEmpty: {
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     cardHeader: {
         flexDirection: 'row',

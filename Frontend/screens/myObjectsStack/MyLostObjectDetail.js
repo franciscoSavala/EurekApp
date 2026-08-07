@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
+import { CATEGORY_LABELS } from '../../utils/constants';
 import {
     ActivityIndicator,
     Modal,
@@ -13,6 +14,7 @@ import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import useAuthFetch from '../../utils/useAuthFetch';
+import AppImage from '../components/AppImage';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -54,10 +56,20 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                 <Text style={styles.backButtonText}>← Volver</Text>
             </TouchableOpacity>
 
-            <View style={styles.imagePlaceholder}>
-                <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
-                <Text style={styles.imagePlaceholderText}>Búsqueda guardada</Text>
-            </View>
+            {/* EU-326: la foto es opcional al guardar; sin ella el backend no manda imageUrl. */}
+            {lostObject.imageUrl ? (
+                <AppImage
+                    imageUrl={lostObject.imageUrl}
+                    style={styles.image}
+                    resizeMode="contain"
+                    accessibilityLabel="Foto de la búsqueda guardada"
+                />
+            ) : (
+                <View style={styles.imagePlaceholder}>
+                    <Icon name="magnifying-glass" size={40} color="#c0d0d0" />
+                    <Text style={styles.imagePlaceholderText}>Búsqueda guardada sin foto</Text>
+                </View>
+            )}
 
             <View style={styles.section}>
                 <Text style={styles.title}>Búsqueda guardada</Text>
@@ -78,7 +90,17 @@ const MyLostObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Información</Text>
-                <InfoRow icon="calendar" label="Fecha de registro" value={formatDateTimeLocaleES(lostObject.lostDate)} />
+                <InfoRow icon="calendar" label="Fecha y hora en la que lo perdiste" value={formatDateTimeLocaleES(lostObject.lostDate)} />
+                {/* La categoría la deduce la IA y el filtro es DURO: si se infirió mal, el objeto no
+                    aparece nunca y sin señal alguna. Se muestra siempre —incluso cuando no se pudo
+                    deducir— para que el usuario pueda darse cuenta. */}
+                <InfoRow
+                    icon="tag"
+                    label="Categoría detectada"
+                    value={lostObject.category
+                        ? (CATEGORY_LABELS[lostObject.category] || lostObject.category)
+                        : 'Sin determinar'}
+                />
                 {isClosed && !!lostObject.closedDate && (
                     <InfoRow icon="circle-check" label="Cerrada el" value={formatDateTimeLocaleES(lostObject.closedDate)} />
                 )}
@@ -89,8 +111,9 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                         value={lostObject.recovered ? 'Sí, lo recuperé' : 'No lo recuperé'}
                     />
                 )}
-                {!!lostObject.organizationId && (
-                    <InfoRow icon="building" label="Organización" value={lostObject.organizationId} />
+                {/* El id de la organización no le dice nada al usuario: se muestra el nombre. */}
+                {!!lostObject.organizationName && (
+                    <InfoRow icon="building" label="Organización en la que lo perdiste" value={lostObject.organizationName} />
                 )}
             </View>
 
@@ -164,9 +187,25 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
     },
-    imagePlaceholder: {
+    image: {
+        // La foto la saca el usuario y suele ser vertical: 'contain' dentro de un cuadrado acotado
+        // y centrado. Con 'cover' a lo ancho de la pantalla quedaba un recorte enorme e ilegible.
         width: '100%',
-        height: 160,
+        maxWidth: 360,
+        aspectRatio: 1,
+        alignSelf: 'center',
+        borderRadius: 16,
+        marginBottom: 8,
+        backgroundColor: '#f0f4f4',
+    },
+    imagePlaceholder: {
+        // Mismo formato que la foto, para que la pantalla no cambie de forma según haya o no imagen.
+        width: '100%',
+        maxWidth: 360,
+        aspectRatio: 1,
+        alignSelf: 'center',
+        borderRadius: 16,
+        marginBottom: 8,
         backgroundColor: '#f0f4f4',
         justifyContent: 'center',
         alignItems: 'center',

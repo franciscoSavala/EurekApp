@@ -5,7 +5,10 @@ import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
+import io.weaviate.client.WeaviateClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +49,18 @@ public class EndpointSecurityTest {
     @MockBean
     ImageDescriptionService imageDescriptionService;
 
+    // El profile "test" desactiva RestClientConfiguration (no existe el bean clipClient), así que
+    // mockeamos las interfaces para que el contexto no intente construir las impls basadas en CLIP.
+    @MockBean
+    ImageEmbeddingService imageEmbeddingService;
+
+    @MockBean
+    ImageClassificationService imageClassificationService;
+
+    // Mismo motivo: el cliente de Weaviate tambien lo publica RestClientConfiguration, desactivada en "test".
+    @MockBean(name = "weaviateClient")
+    WeaviateClient weaviateClient;
+
     /*@MockBean
     VectorStorage<FoundObjectStructVector> vectorStorage;
 
@@ -68,8 +83,10 @@ public class EndpointSecurityTest {
         );
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("description", "");
-        params.add("organizationId", "");
+        // Parametros obligatorios del endpoint de alta: sin ellos el binding devuelve 400 y el test
+        // deja de medir lo que quiere medir (quien puede cargar en que organizacion).
+        params.add("title", "billetera");
+        params.add("found_date", "2026-08-05T10:00:00");
 
         mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 1L)
                         .file(file)
@@ -95,8 +112,10 @@ public class EndpointSecurityTest {
         );
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("description", "");
-        params.add("organizationId", "");
+        // Parametros obligatorios del endpoint de alta: sin ellos el binding devuelve 400 y el test
+        // deja de medir lo que quiere medir (quien puede cargar en que organizacion).
+        params.add("title", "billetera");
+        params.add("found_date", "2026-08-05T10:00:00");
 
         mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 1L)
                         .file(file)
@@ -122,8 +141,10 @@ public class EndpointSecurityTest {
         );
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("description", "");
-        params.add("organizationId", "");
+        // Parametros obligatorios del endpoint de alta: sin ellos el binding devuelve 400 y el test
+        // deja de medir lo que quiere medir (quien puede cargar en que organizacion).
+        params.add("title", "billetera");
+        params.add("found_date", "2026-08-05T10:00:00");
 
         mvc.perform(MockMvcRequestBuilders.multipart("/found-objects/organizations/{organizationId}", 1L)
                         .file(file)

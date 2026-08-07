@@ -15,8 +15,17 @@ public class LostObject {
     private LocalDateTime lostDate;
     private String organizationId;
     private GeoCoordinates coordinates;
-    private List<Float> embeddings;
+    // EU-323: dos vectores nombrados por objeto (ver FoundObject). Cualquiera puede ser null.
+    private List<Float> imageEmbedding;
+    private List<Float> textEmbedding;
+    // EU-323: categoría dura (definida por IA desde la imagen). Filtro previo del matching.
+    private String category;
     private Float score;
+    // EU-324: certezas coseno crudas por modalidad, expuestas por la búsqueda combinada (queryDual).
+    // Cada una puede ser null si el candidato no matcheó por esa modalidad (o no se consultó).
+    // Alimentan a SearchScoringService.combinedScore; NO se persisten.
+    private Float imageCertainty;
+    private Float textCertainty;
     // Estado de la búsqueda guardada (EU-292). El cierre es LÓGICO: la búsqueda nunca se borra
     // de Weaviate, sólo pasa a CLOSED y deja de mostrarse como activa / de disparar avisos.
     private LostObjectStatus status;
@@ -24,4 +33,8 @@ public class LostObject {
     // Respuesta del dueño al cerrar ("¿Recuperaste tu objeto? Sí/No"). Es un dato de la búsqueda,
     // NO un SearchFeedback (que es otra feature: calificar una búsqueda de objeto encontrado).
     private Boolean recovered;
+    // EU-326: la foto es opcional al guardar la búsqueda. Se persiste como propiedad y no se deduce
+    // de la presencia del vector de imagen, porque las consultas de listado no traen los vectores.
+    // Es lo que decide si hay una foto en S3 (key = uuid) que se pueda mostrar.
+    private Boolean hasImage;
 }

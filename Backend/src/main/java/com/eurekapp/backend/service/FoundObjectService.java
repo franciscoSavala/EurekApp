@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.util.TextNormalizer;
 import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
@@ -16,7 +17,10 @@ import com.eurekapp.backend.repository.IRewardExclusionRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
+import com.eurekapp.backend.service.client.ImageClassificationService;
+import com.eurekapp.backend.service.client.TextClassificationService;
 import com.eurekapp.backend.service.client.ImageDescriptionService;
+import com.eurekapp.backend.service.client.ImageEmbeddingService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
 import org.slf4j.Logger;
@@ -37,6 +41,13 @@ import java.util.concurrent.Future;
 public class FoundObjectService implements IFoundObjectService {
     private static final int GRACE_HOURS = 6;
 
+    /**
+     * EU-324: límite altísimo para la recuperación de candidatos ({@code queryDual}). NO es una poda
+     * (eso descartaría buenos candidatos antes de ponderar): es un fusible defensivo que a la escala
+     * real del producto nunca se alcanza (el universo ya viene acotado por categoría + org/zona).
+     */
+    private static final int SEARCH_CANDIDATE_LIMIT = 5000;
+
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
             Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER);
 
@@ -45,6 +56,10 @@ public class FoundObjectService implements IFoundObjectService {
     private final ObjectStorage s3Service;
     private final ImageDescriptionService descriptionService;
     private final EmbeddingService embeddingService;
+    private final ImageEmbeddingService imageEmbeddingService;
+    private final ImageClassificationService imageClassificationService;
+    /** EU-337: clasificador de categoría por TEXTO, que tiene PRECEDENCIA sobre el de la foto. */
+    private final TextClassificationService textClassificationService;
     private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
@@ -61,6 +76,9 @@ public class FoundObjectService implements IFoundObjectService {
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
                               EmbeddingService embeddingService,
+                              ImageEmbeddingService imageEmbeddingService,
+                              ImageClassificationService imageClassificationService,
+                              TextClassificationService textClassificationService,
                               IOrganizationRepository organizationRepository,
                               OrganizationService organizationService,
                               LostObjectService lostObjectService,
@@ -75,6 +93,9 @@ public class FoundObjectService implements IFoundObjectService {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
+        this.imageEmbeddingService = imageEmbeddingService;
+        this.imageClassificationService = imageClassificationService;
+        this.textClassificationService = textClassificationService;
         this.organizationRepository = organizationRepository;
         this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
@@ -177,7 +198,24 @@ public class FoundObjectService implements IFoundObjectService {
         *   descripción textual que nos dio "OpenAiChat Completion", y de la descripción y título provistos por el
         *   usuario.
         */
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
+        // EU-142: el texto se NORMALIZA antes de vectorizar (minúsculas, tildes, formato de identificadores)
+        // para que el mismo dato escrito distinto coincida. Se normaliza SÓLO lo que alimenta el vector;
+        // título/descripción se persisten y se muestran tal cual los escribió el usuario.
+        String textRepresentationNormalized = TextNormalizer.normalize(
+                textRepresentation +" "+ command.getDetailedDescription() +" "+ command.getTitle());
+        List<Float> embeddings = embeddingService.getTextVectorRepresentation(textRepresentationNormalized);
+
+        // EU-324: vector VISUAL de la imagen (CLIP, foto → vector directo) para el vector nombrado "image",
+        // y clasificación por IA en categorías duras (define α/β y es filtro previo del matching). La
+        // categoría la determina la IA: sobrescribe cualquier valor que venga del usuario.
+        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
+        /* EU-337: MISMA regla de precedencia que en la búsqueda (texto primero, foto si el texto se
+         * abstiene). Tiene que ser la misma de los dos lados: el filtro por categoría es DURO, así que
+         * si el alta clasificara por foto y la búsqueda por texto, un par podría caer en categorías
+         * distintas y no compararse nunca —sin que nadie se entere—. */
+        ObjectCategory textCategory = textClassificationService.classify(
+                command.getTitle() + " " + command.getDetailedDescription());
+        ObjectCategory category = textCategory != null ? textCategory : imageClassificationService.classify(imageBytes);
 
 
                     // 7- CREACIÓN DEL FOUNDOBJECT Y PERSISTENCIA DEL MISMO
@@ -186,13 +224,15 @@ public class FoundObjectService implements IFoundObjectService {
                 .title(command.getTitle())
                 .objectFinderUser(objectFinderUser)
                 .humanDescription(command.getDetailedDescription())
-                .aiDescription(textRepresentation)
-                .embeddings(embeddings)
+                // EU-324: dos vectores nombrados: "text" (OpenAI, título+descripción) e "image" (CLIP, foto).
+                .textEmbedding(embeddings)
+                .imageEmbedding(imageEmbedding)
                 .organizationId(String.valueOf(command.getOrganizationId()))
                 .foundDate(command.getFoundDate())
                 .coordinates(GeoCoordinates.builder().latitude(objectLatitude).longitude(objectLongitude).build())
                 .wasReturned(false)
-                .category(command.getCategory())
+                // Categoría dura determinada por IA desde la imagen (no la elige el usuario).
+                .category(category.name())
                 .build();
         Future<Void> addFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.add(foundObject));
 
@@ -257,7 +297,14 @@ public class FoundObjectService implements IFoundObjectService {
 
     /**
      *  Ese método es llamado cuando el usuario desea buscar su objeto perdido entre los objetos que están en custodia
-     *  de las organizaciones.
+     *  de las organizaciones. Es la búsqueda SÓLO TEXTO (sin foto) de la pantalla unificada (EU-326).
+     *
+     *  <p><b>EU-337</b> la emparejó con la búsqueda con foto en las tres cosas que las separaban:
+     *  la categoría se deduce del TEXTO (antes no había ninguna y no se podía acotar nada), la
+     *  geografía MULTIPLICA en vez de sumar, y el puntaje se filtra con el umbral calibrado de este
+     *  modo y se muestra remapeado, para que un mismo porcentaje signifique lo mismo con foto y sin
+     *  foto.</p>
+     *
      * @param command Objeto que tiene todos los parámetros para que el método haga algo...
      * @return Lista que contiene los objetos encontrados, ordenados por el grado de coincidencia con la búsqueda.
      */
@@ -268,7 +315,7 @@ public class FoundObjectService implements IFoundObjectService {
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
         * */
         List<Float> embeddings = (command.getQuery() != null && !command.getQuery().isBlank())
-                ? embeddingService.getTextVectorRepresentation(command.getQuery())
+                ? embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(command.getQuery()))
                 : null;
 
         /*
@@ -314,13 +361,20 @@ public class FoundObjectService implements IFoundObjectService {
         *  posterior a la provista, y que no hayan sido devueltos.
         *  Dependiendo de si la búsqueda es por organización o por coordenadas, u "orgId" o "coordinates" valdrán null.
         * */
+        /* EU-337: la categoría la deduce la IA del TEXTO de la búsqueda, no la elige el usuario (el
+         * selector manual se eliminó en EU-326). Si el texto no nombra el objeto, el clasificador se
+         * ABSTIENE y devuelve null: entonces no se filtra por categoría —igual que antes— en vez de
+         * inventar una, porque el filtro es duro y una categoría errada esconde el objeto en silencio. */
+        ObjectCategory category = textClassificationService.classify(command.getQuery());
+        log.debug("getFoundObjectByTextDescription: categoria deducida del texto={}", category);
+
         List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
                                                                     command.getLostDateTo(),
                                                                     false,
-                                                                    command.getCategory());
+                                                                    category != null ? category.name() : null);
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -329,23 +383,33 @@ public class FoundObjectService implements IFoundObjectService {
         *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
         */
         for(FoundObject fo: foundObjects){
-            // El puntaje (texto + geografía) lo calcula el algoritmo compartido (SearchScoringService).
-            double totalScore = searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), queryCoordinates);
+            /* Mismo puntaje que la búsqueda con foto, con la certeza de imagen ausente: la geografía
+             * MULTIPLICA. Antes sumaba un 5%, así que estar cerca compensaba no parecerse. */
+            double totalScore = searchScoringService.combinedScore(null, fo.getScore(), category,
+                    fo.getCoordinates(), queryCoordinates);
             Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
             fo.setScore((float) totalScore);
             fo.setDistance(distance.floatValue());
         }
 
-
-        // Convertimos los FoundObject a FoundObjectDto para poder devolverlos en la respuesta.
+        // Se FILTRA por el umbral crudo del modo sólo-texto y recién después se remapea el puntaje a
+        // la escala que ve el usuario. La curva es monótona, así que el orden no cambia.
         List<FoundObjectDto> result = foundObjects.stream()
+                .filter(fo -> fo.getScore() != null
+                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.TEXT_ONLY))
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && searchScoringService.isMatch(dto.getScore()))
+                .map(dto -> {
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
+                            SearchScoringService.SearchMode.TEXT_ONLY));
+                    return dto;
+                })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
+                // La categoría deducida del texto se devuelve para mostrarla read-only, igual que con foto.
+                .category(category != null ? category.name() : null)
                 .build();
     }
 
@@ -394,7 +458,6 @@ public class FoundObjectService implements IFoundObjectService {
                 .id(foundObject.getUuid())
                 .title(foundObject.getTitle())
                 .humanDescription(foundObject.getHumanDescription())
-                .aiDescription((foundObject.getAiDescription()))
                 .imageUrl(imageUrl)
                 .score(foundObject.getScore())
                 .distance(foundObject.getDistance())
@@ -413,54 +476,106 @@ public class FoundObjectService implements IFoundObjectService {
         return dto;
     }
 
+    /**
+     * Búsqueda en vivo del rework (EU-324): unifica FOTO + TEXTO, ambos obligatorios. La foto se
+     * vectoriza en memoria con CLIP (NO se sube a S3 —eso ocurre sólo al guardar la búsqueda,
+     * decisión 8) y se clasifica en una categoría dura por IA (filtro previo + define α/β); el texto
+     * se vectoriza con OpenAI. Se recuperan las dos similitudes por candidato ({@code queryDual}) y
+     * se puntúa con {@link SearchScoringService#combinedScore} (α·sim_img + β·sim_txt, modulado por
+     * geografía). La ubicación (organización o coordenadas) es OBLIGATORIA: sin ella no se puede
+     * circunscribir el radio.
+     */
     @SneakyThrows
-    public FoundObjectsListDto searchByPhoto(MultipartFile image, SimilarObjectsCommand filters) {
-        byte[] imageBytes = image.getBytes();
-        // Deshabilitado temporalmente: la descripción por IA (gpt-4o) es lo que más tokens de OpenAI consume.
-        // Se fuerza a string vacío para no romper la búsqueda por foto mientras se migra el algoritmo a CLIP.
-        // String description = descriptionService.getImageTextRepresentation(imageBytes);
-        String description = "";
-        List<Float> embeddings = embeddingService.getTextVectorRepresentation(description);
-
+    public FoundObjectsListDto searchByPhoto(MultipartFile image, String query, SimilarObjectsCommand filters) {
+        // Foto + texto, ambos obligatorios (ver REWORK-ALGORITMO-BUSQUEDA, decisiones 3 y 324-D).
+        if (image == null || image.isEmpty()) {
+            throw new BadRequestException("image_required", "La foto es obligatoria para buscar.");
+        }
+        if (query == null || query.isBlank()) {
+            throw new BadRequestException("description_required", "La descripción es obligatoria para buscar.");
+        }
+        // Ubicación obligatoria: organización o coordenadas (sin ella no hay radio geográfico).
         String orgIdStr = filters.getOrganizationId() != null ? filters.getOrganizationId().toString() : null;
+        if (orgIdStr == null && (filters.getLatitude() == null || filters.getLongitude() == null)) {
+            throw new BadRequestException("location_required",
+                    "Debés indicar una organización o unas coordenadas para buscar.");
+        }
+
+        byte[] imageBytes = image.getBytes();
+        // Vector VISUAL (CLIP) en memoria y vector TEXTUAL (OpenAI).
+        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
+        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(query));
+
+        /* EU-337: la categoría se decide por PRECEDENCIA, no por votación. Si el texto nombra el
+         * objeto, decide el texto, diga lo que diga la foto; si no lo nombra, el clasificador de texto
+         * se abstiene y decide la foto (que nunca viene vacía).
+         *
+         * Por qué precedencia y no "gana el más confiado": las dos confianzas NO son comparables. La
+         * de la foto es un softmax sobre cosenos imagen-texto, que viven en una franja angosta por el
+         * modality gap; los cosenos texto-texto viven en otro rango. Compararlas es comparar dos
+         * termómetros en unidades distintas, y en silencio ganaría siempre uno. Con precedencia cada
+         * señal se mide contra su propio umbral, en su propia escala, y los dos números nunca se
+         * comparan entre sí.
+         *
+         * Y el orden es ese porque la foto es la señal FRÁGIL: está medido que parte pares (la
+         * notebook caía en dos categorías distintas) y que sus márgenes son de centésimas. El texto,
+         * cuando nombra el objeto, no deja lugar a la duda: el sustantivo ES la categoría. */
+        ObjectCategory textCategory = textClassificationService.classify(query);
+        ObjectCategory category = textCategory != null ? textCategory : imageClassificationService.classify(imageBytes);
+        log.debug("searchByPhoto: categoria={} (por {})", category, textCategory != null ? "TEXTO" : "FOTO");
 
         GeoCoordinates queryCoordinates = null;
         if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {
             queryCoordinates = organizationRepository.findById(filters.getOrganizationId())
                     .get()
                     .getCoordinates();
-        } else if (filters.getLatitude() != null && filters.getLongitude() != null) {
+        } else {
             queryCoordinates = GeoCoordinates.builder()
                     .latitude(filters.getLatitude())
                     .longitude(filters.getLongitude())
                     .build();
         }
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings, orgIdStr, queryCoordinates,
-                filters.getLostDate(), filters.getLostDateTo(), false, filters.getCategory());
+        // Filtro DURO por categoría: la decide la IA desde la foto (no la elige el usuario). Sin poda
+        // por límite ni umbral en la recuperación (limit alto, ver "Poda del universo" en EU-324).
+        List<FoundObject> foundObjects = foundObjectRepository.queryDual(imageEmbedding, textEmbedding,
+                orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
+                category.name(), SEARCH_CANDIDATE_LIMIT, null);
+
+        log.debug("searchByPhoto: categoria={} candidatos recuperados={}", category, foundObjects.size());
 
         final GeoCoordinates finalCoords = queryCoordinates;
         for (FoundObject fo : foundObjects) {
-            // Búsqueda por foto: parecido visual combinado con cercanía geográfica (MOORA), vía SearchScoringService.
-            if (finalCoords != null) {
-                Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
-                fo.setDistance(distance.floatValue());
-                fo.setScore((float) searchScoringService.totalScore(fo.getScore(), fo.getCoordinates(), finalCoords));
-            } else {
-                fo.setScore((float) searchScoringService.normalizeCosineScore(fo.getScore()));
-            }
+            // Puntaje combinado imagen+texto modulado por geografía (SearchScoringService.combinedScore).
+            double score = searchScoringService.combinedScore(fo.getImageCertainty(), fo.getTextCertainty(),
+                    category, fo.getCoordinates(), finalCoords);
+            fo.setScore((float) score);
+            log.debug("searchByPhoto: candidato '{}' simImg={} simTxt={} score={} (umbral={})",
+                    fo.getTitle(), fo.getImageCertainty(), fo.getTextCertainty(), score,
+                    searchScoringService.matchThreshold(SearchScoringService.SearchMode.WITH_PHOTO));
+            Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
+            fo.setDistance(distance.floatValue());
         }
 
+        // EU-327: se FILTRA por el umbral crudo y recién después se remapea el puntaje a la escala que
+        // ve el usuario (displayScore). La curva es monótona, así que el orden es el mismo de una u otra
+        // forma; filtrar antes deja el corte expresado en la escala en la que fue calibrado.
         List<FoundObjectDto> result = foundObjects.stream()
+                .filter(fo -> fo.getScore() != null
+                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.WITH_PHOTO))
                 .map(this::foundObjectToDto)
-                .filter(dto -> dto.getScore() != null && dto.getScore() > 0)
+                .map(dto -> {
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
+                            SearchScoringService.SearchMode.WITH_PHOTO));
+                    return dto;
+                })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
-                .limit(5)
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
-                .generatedDescription(description)
+                // Categoría clasificada por IA: el front la muestra read-only (decisión 8bis).
+                .category(category.name())
                 .build();
     }
 

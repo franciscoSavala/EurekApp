@@ -1,0 +1,9 @@
+# Servicio de inferencia CLIP (EU-321). torch se instala desde el índice CPU en el Dockerfile
+# para no arrastrar CUDA; acá va sin pin de plataforma para poder correr local con venv si hace falta.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+transformers>=4.40
+torch>=2.2
+pillow>=10.2
+numpy>=1.26
+python-multipart>=0.0.9

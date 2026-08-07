@@ -1,42 +1,39 @@
-DROP TABLE IF EXISTS reward_exclusions;
-DROP TABLE IF EXISTS user_eurekapp;
+-- Esquema minimo para EndpointSecurityTest, en sintaxis H2. Solo las dos tablas que el test toca
+-- (el resto de los servicios estan mockeados). Tiene que seguir a las entidades Organization y
+-- UserEurekapp: si se les agrega una columna NOT NULL, hay que agregarla aca.
+DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS organizations;
 
-create table organizations
+CREATE TABLE organizations
 (
-    id           bigint
-        primary key,
-    name         varchar(255) not null,
-    contact_data varchar(255) not null
+    id                BIGINT PRIMARY KEY,
+    name              VARCHAR(255),
+    contact_data      VARCHAR(255),
+    street            VARCHAR(255),
+    street_number     VARCHAR(255),
+    city              VARCHAR(255),
+    province          VARCHAR(255),
+    country           VARCHAR(255),
+    organization_type VARCHAR(50),
+    latitude          DOUBLE,
+    longitude         DOUBLE,
+    active            BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- auto-generated definition
-create table user_eurekapp
+CREATE TABLE users
 (
-    id              bigint
-        primary key,
-    active          bit                                                                                    not null,
-    password        varchar(255)                                                                           not null,
-    role            enum ('USER', 'ORGANIZATION_OWNER', 'ORGANIZATION_EMPLOYEE', 'ENCARGADO', 'ADMIN')    null,
-    username        varchar(255)                                                                           not null,
-    organization_id bigint                                                                                 null,
-    constraint UK_9p4pgp1md8tx7nvj08ihqxjsv
-        unique (organization_id),
-    constraint UKrs5k9bfvq3m3hdc4lab4qsi9w
-        unique (username),
-    constraint FKga8ka6eykpjg35pxphn6xl07j
-        foreign key (organization_id) references organizations (id)
-);
-
-create table reward_exclusions
-(
-    id                bigint auto_increment primary key,
-    found_object_uuid varchar(255) not null,
-    user_id           bigint       not null,
-    user_role         varchar(50)  not null,
-    reason            varchar(100) not null,
-    excluded_at       datetime     not null,
-    organization_id   varchar(255) not null,
-    constraint FKreward_excl_user
-        foreign key (user_id) references user_eurekapp (id)
+    id                          BIGINT PRIMARY KEY,
+    username                    VARCHAR(100) NOT NULL UNIQUE,
+    password                    VARCHAR(255) NOT NULL,
+    active                      BOOLEAN,
+    first_name                  VARCHAR(50)  NOT NULL,
+    last_name                   VARCHAR(50)  NOT NULL,
+    role                        VARCHAR(50)  NOT NULL,
+    organization_id             BIGINT REFERENCES organizations (id),
+    xp                          BIGINT       NOT NULL DEFAULT 0,
+    returned_objects            BIGINT       NOT NULL DEFAULT 0,
+    provider_type               VARCHAR(20),
+    provider_id                 VARCHAR(255),
+    password_reset_token        VARCHAR(10),
+    password_reset_token_expiry TIMESTAMP
 );

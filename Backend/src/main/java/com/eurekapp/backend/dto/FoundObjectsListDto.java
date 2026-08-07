@@ -19,4 +19,8 @@ public class FoundObjectsListDto {
     private Boolean hasMore;
     @JsonProperty("generated_description")
     private String generatedDescription;
+    // EU-324: categoría dura que la IA clasificó a partir de la foto de la búsqueda. El front la
+    // muestra read-only (decisión 8bis); si el usuario la ve mal, reintenta con otra foto.
+    @JsonProperty("category")
+    private String category;
 }

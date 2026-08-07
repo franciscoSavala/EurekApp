@@ -2,7 +2,6 @@ package com.eurekapp.backend.service;
 
 
 import com.eurekapp.backend.model.GeoCoordinates;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -15,9 +14,6 @@ import java.util.Map;
  *
  * ***/
 public class CommonFunctions {
-
-    @Value("${search.max-radius}")
-    private double maxRadius;
 
     // Constant for date format
     public static final String DATE_FORMAT = "yyyy-MM-dd";

@@ -59,4 +59,35 @@ public class OpenAiEmbeddingModelService implements EmbeddingService {
         //  parámetro inicialmente.
         return embeddingResponse.getBody().getData().getFirst().getEmbedding();
     }
+
+    /* Versión por lote: un solo pedido con la lista de textos. La usa el clasificador por texto
+       (EU-337) para vectorizar las nubes de frases de las categorías de una sola vez. */
+    @Override
+    @SneakyThrows
+    public List<List<Float>> getTextVectorRepresentations(List<String> texts) {
+        if (texts == null || texts.isEmpty()) {
+            return List.of();
+        }
+
+        String requestBody = objectMapper.writeValueAsString(new EmbeddingRequest(texts));
+
+        ResponseEntity<ResponseEmbedding> embeddingResponse = embeddingClient.post()
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestBody)
+                .retrieve()
+                .toEntity(ResponseEmbedding.class);
+
+        if (!embeddingResponse.getStatusCode().is2xxSuccessful() || embeddingResponse.getBody() == null) {
+            log.error("[method:POST] [api_call:openAiEmbeddings] Falló el lote de {} textos", texts.size());
+            throw new RuntimeException("Falló la call a openAiEmbeddings");
+        }
+        log.info("[method:POST] [api_call:openAiEmbeddings] Lote de {} textos vectorizado", texts.size());
+
+        // Reordenamos por "index" para no depender de que la API devuelva el orden de entrada.
+        return embeddingResponse.getBody().getData().stream()
+                .sorted(java.util.Comparator.comparing(
+                        e -> e.getIndex() != null ? e.getIndex() : 0))
+                .map(com.eurekapp.backend.dto.response.EmbeddingResponse::getEmbedding)
+                .toList();
+    }
 }

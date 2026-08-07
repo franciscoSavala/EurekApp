@@ -11,12 +11,14 @@ import java.util.List;
 @Builder
 public class FoundObject {
     private String uuid;
-    private List<Float> embeddings;
+    // EU-323: dos vectores nombrados por objeto. "image" (CLIP, foto) y "text" (OpenAI, título+descripción).
+    // Cualquiera puede ser null (p. ej. una búsqueda sin foto); el repositorio persiste sólo los presentes.
+    private List<Float> imageEmbedding;
+    private List<Float> textEmbedding;
     private LocalDateTime foundDate;
     private String title;
     private UserEurekapp objectFinderUser;
     private String humanDescription;
-    private String aiDescription;
     private String organizationId;
     private GeoCoordinates coordinates;
     private Boolean wasReturned;
@@ -26,4 +28,10 @@ public class FoundObject {
     //Estos dos atributos son usados sólo cuando se hace una búsqueda.
     private Float score;
     private Float distance;
+
+    // EU-324: certezas coseno crudas por modalidad, expuestas por la búsqueda combinada (queryDual).
+    // Cada una puede ser null si el candidato no matcheó por esa modalidad (o no se consultó).
+    // Alimentan a SearchScoringService.combinedScore; NO se persisten.
+    private Float imageCertainty;
+    private Float textCertainty;
 }
