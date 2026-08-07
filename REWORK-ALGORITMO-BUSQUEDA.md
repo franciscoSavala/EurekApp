@@ -1507,15 +1507,21 @@ Commit `afa476d`, pusheado a `EU-320-rework-algoritmo-busqueda`. En Jira quedaro
 EU-337, **EU-326** (estaba hecha desde el 06/08 pero había quedado sin transicionar) y la story
 **EU-320**. Las 8 subtareas del rework están cerradas.
 
-**Lo que queda anotado, y por qué NO bloquea el cierre:**
+**No queda NADA por implementar del rework.** Lo único abierto es el merge de la rama a `main`.
 
-- **Los tres puntos diferidos de EU-327** (α/β por categoría, rango del modulador geo, tasa de error
-  de categorización). Son **cambiar números en `application.yml`, no escribir código** — la lógica ya
-  está implementada. Detalle y fundamento en §12.
-- **🚩 Deuda REAL, y no es del algoritmo:** el backend **se come los errores de Weaviate y devuelve
-  lista vacía con 200**. Para el usuario, *"el buscador está roto"* es indistinguible de *"no hay
-  coincidencias"*. Es manejo de errores, merece ticket propio fuera del rework. **Todavía sin abrir**
-  (a decidir por Facundo). Apareció al verificar EU-326; el detalle está más arriba, en §13.
+Lo que quedó anotado, y por qué ninguna de las dos cosas bloquea:
+
+- **Los "tres puntos diferidos de EU-327" están todos implementados** — ver el bloque corregido en §12.
+  De los tres, el del modulador geo **quedó cerrado por EU-337**, el de la tasa de error se **reemplazó
+  por una decisión de producto** (mostrar la categoría y dejar rehacer la búsqueda, ya hecho), y del de
+  α/β sólo falta *validar* los valores contra un dataset grande, que hoy no existe. Si nunca se
+  validan, el sistema funciona igual.
+- **🚩 Reportado como EU-338:** el backend se come los errores de Weaviate y **devuelve lista vacía con
+  200**, así que *"el buscador está caído"* y *"tu objeto no apareció"* se ven idénticos. No hace falta
+  un bug para gatillarlo: alcanza con la base reiniciándose, sin memoria, lenta o con el índice dañado
+  —esto último **ya pasó** al verificar EU-326—. Lo atenúa que el usuario puede guardar la búsqueda y
+  el aviso automático lo alcanza cuando la base se recupera. **No es del algoritmo: es manejo de
+  errores**, por eso salió del rework y quedó como bug aparte.
 
 ### Discusiones cerradas en el camino (para no reabrirlas)
 
@@ -1702,21 +1708,31 @@ organización 2 y la búsqueda se hizo sobre la 1: el filtro por organización l
 
 ### Lo que queda de EU-327 se DIFIERE (decisión de Facundo, 2026-08-05)
 
-Los tres puntos abiertos quedan para otro momento. **La lógica ya está implementada y los valores son
-parámetros de configuración**: retomar esto es cambiar números, no escribir código.
+> ⚠️ **RELEÍDO Y CORREGIDO EL 2026-08-07.** Esta lista se estaba leyendo como "hay tres cosas sin
+> implementar", y **no es así: las tres están implementadas y andando.** Lo diferido era *validar*
+> números, no construir nada. Además, el punto del modulador geo **ya se cerró** (ver abajo). El
+> estado real está reescrito en cada viñeta.
 
-- **α/β por categoría** — calibrarlo en serio exige un dataset bastante más grande que los 5 pares del
-  seed. Con lo que hay, cualquier número que saliera sería ruido con apariencia de medición. Siguen los
-  valores puestos a criterio en EU-324 (`application.yml`).
-- **Rango del modulador geo** — **no es calibrable por experimento: es una decisión de negocio.** Cuánto
-  debe penalizar la distancia lo define el producto, no los datos; un experimento sólo diría en qué punto
-  el modulador empieza a tirar matches por debajo del umbral, y eso se deduce de la fórmula.
-- **Tasa de error de categorización** — reformulada, y la reformulación importa: **lo que hay que medir no
-  es la exactitud absoluta sino la CONSISTENCIA entre las dos fotos del mismo objeto.** Que la IA le ponga
-  a un paraguas una categoría discutible es inofensivo si le pone la misma al objeto encontrado y a la
-  búsqueda perdida; lo grave —y lo que tiene que ser excepcionalmente raro— es que caigan de lados
-  distintos, porque el filtro duro los separa y el match se pierde **en silencio**. Medido hasta acá:
-  **los 5 pares del seed caen del mismo lado, 5/5.** Muestra chica, pero es la métrica correcta.
+- **α/β por categoría — IMPLEMENTADO.** Cada categoría tiene sus propios pesos y se leen del yml sin
+  recompilar: BILLETERA 0.35/0.65 (manda el texto: DNI, nombre), ROPA 0.85/0.15 (manda la foto, el
+  texto ensucia), ELECTRONICA/LLAVES/OTROS 0.50/0.50. **Lo diferido es VALIDAR esos valores**, que se
+  eligieron con criterio y no contra datos: hacerlo en serio exige un dataset bastante más grande que
+  los 5 pares del seed, y con lo que hay cualquier número sería ruido con apariencia de medición.
+- **Rango del modulador geo — ✅ CERRADO POR EU-337 (2026-08-07).** El punto decía que no era
+  calibrable por experimento sino una decisión de producto, y **la decisión se tomó**: *una
+  coincidencia excelente no puede desaparecer del radar por estar lejos* → el mejor par del seed
+  (0.8032) puesto en el borde del radio todavía se muestra con 80%, lo que fija `geo-floor` en
+  **0.7631** (antes 0.75, puesto a ojo). Además la curva quedó **anclada al radio**, así que vale 1 en
+  el centro y el piso en el borde sea cual sea el radio. Ya no queda nada abierto acá.
+- **Tasa de error de categorización — REEMPLAZADA por una decisión de producto (Facundo, 2026-08-07).**
+  No se va a perseguir el número. **Lo que resuelve el riesgo es que el usuario VEA la categoría
+  asignada y tenga salida si está mal**, y eso ya está: se muestra en los resultados de búsqueda y en
+  el detalle de la búsqueda guardada (con *"Sin determinar"* cuando no se pudo deducir), y si quedó mal
+  el usuario cierra la búsqueda y la carga de nuevo.
+  *Queda como registro de lo que se había pensado medir:* no la exactitud absoluta sino la
+  **consistencia** entre las dos fotos del mismo objeto — que a un paraguas le toque una categoría
+  discutible es inofensivo si le toca la misma al hallazgo y a la búsqueda; lo grave es que caigan de
+  lados distintos, porque el filtro duro los separa en silencio. Medido: **5/5 pares del mismo lado.**
 
 ### Hallazgo lateral: los "4 tests ambientales" son en realidad DOS problemas
 

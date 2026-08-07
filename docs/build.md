@@ -11,7 +11,7 @@ No lleva contenido propio — el estado vive en los trackers.
 
 | Tracker | Estado |
 |---|---|
-| [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | ✅ **TERMINADO (2026-08-07).** EU-337 verificada en la app y cerrada; EU-320 y sus 8 subtareas en Done. Commit `afa476d` en la rama `EU-320-rework-algoritmo-busqueda` — **sin mergear a main todavía**. Queda como registro: §13 lo último, §12 la calibración, §11 el entorno. Anotado ahí: los 3 puntos diferidos de EU-327 (son números de config, no código) y **una deuda sin ticket**: el backend se come los errores de Weaviate y devuelve lista vacía con 200 |
+| [REWORK-ALGORITMO-BUSQUEDA.md](../REWORK-ALGORITMO-BUSQUEDA.md) | ✅ **TERMINADO (2026-08-07).** EU-337 verificada en la app y cerrada; EU-320 y sus 8 subtareas en Done. **No queda nada por implementar: lo único abierto es el merge de `EU-320-rework-algoritmo-busqueda` a `main`.** Queda como registro: §13 lo último, §12 la calibración, §11 el entorno. Lo que salió del rework y NO es del rework: **EU-338** (la búsqueda dice "no hay coincidencias" cuando en realidad falló) |
 
 ### Levantar el entorno de búsqueda (si hay que retomarlo)
 
