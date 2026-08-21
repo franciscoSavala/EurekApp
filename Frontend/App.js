@@ -52,7 +52,7 @@ import OrganizationManagement from "./screens/adminStack/OrganizationManagement"
 import GlobalStatisticsDashboard from "./screens/adminStack/GlobalStatisticsDashboard";
 import FraudDetectionConfig from "./screens/adminStack/FraudDetectionConfig";
 import { SUPPORT_EMAIL } from './utils/contact';
-import Toast from 'react-native-toast-message';
+import Toast, { BaseToast } from 'react-native-toast-message';
 import axiosInstance, { setupAxiosInterceptors } from './utils/axiosInstance';
 import Constants from 'expo-constants';
 
@@ -77,6 +77,28 @@ async function clearSession() {
         'user.first_name', 'org.id', 'org.name', 'organization',
     ]);
 }
+
+// Los toasts que trae la librería recortan el texto a una sola línea
+// (text1NumberOfLines = 1 + ellipsizeMode 'tail') y tienen alto fijo de 60px, así que
+// los mensajes largos —como los de validación de Configuración de fraude— se ven
+// cortados. Acá dejamos que el texto ocupe las líneas que necesite y que la caja
+// crezca con él. Los colores del borde son los que usa cada toast por defecto.
+const expandableToastStyle = { height: 'auto', minHeight: 60, paddingVertical: 10 };
+
+const renderExpandableToast = (borderLeftColor) => (props) => (
+    <BaseToast
+        {...props}
+        style={[expandableToastStyle, { borderLeftColor }]}
+        text1NumberOfLines={0}
+        text2NumberOfLines={0}
+    />
+);
+
+const toastConfig = {
+    success: renderExpandableToast('#69C779'),
+    error: renderExpandableToast('#FE6301'),
+    info: renderExpandableToast('#87CEFA'),
+};
 
 const AuthStack = createStackNavigator();
 
@@ -711,7 +733,7 @@ const App = () => {
                     {user ? <EurekappTab /> : <AuthStackScreen />}
                 </LoginContext.Provider>
             </NavigationContainer>
-            <Toast />
+            <Toast config={toastConfig} />
         </>
     );
 }
