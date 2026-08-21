@@ -126,6 +126,7 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
                 data={filtered}
                 keyExtractor={item => item.id.toString()}
                 renderItem={renderItem}
+                style={styles.listContainer}
                 contentContainerStyle={styles.list}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />
@@ -145,7 +146,7 @@ const styles = StyleSheet.create({
         fontSize: 22, fontFamily: "PlusJakartaSans-Bold",
         color: "#1A3434", paddingHorizontal: 16, marginBottom: 8,
     },
-    filterRow: { marginBottom: 8, flexGrow: 0 },
+    filterRow: { marginBottom: 8, flexGrow: 0, flexShrink: 0 },
     filterRowContent: {
         flexDirection: "row", alignItems: "center", paddingHorizontal: 12,
     },
@@ -157,6 +158,7 @@ const styles = StyleSheet.create({
     filterChipActive: { borderColor: "#4A9999", backgroundColor: "#4A9999" },
     filterText: { fontSize: 13, fontFamily: "PlusJakartaSans-Bold", color: "#638888" },
     filterTextActive: { color: "#fff" },
+    listContainer: { flex: 1 },
     list: { paddingHorizontal: 16, paddingBottom: 20 },
     card: {
         backgroundColor: "#fff", borderRadius: 12, padding: 16,
