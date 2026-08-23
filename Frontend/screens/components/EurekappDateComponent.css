@@ -1,0 +1,19 @@
+/*
+ * react-datepicker ancla el calendario al div .react-datepicker-wrapper
+ * (ver react-datepicker/dist/index.js: ref={popperProps.refs.setReference}).
+ * Por defecto ese wrapper queda debajo del boton y con altura cero, asi que la
+ * separacion del popup se mide desde un punto pegado a la fila y el calendario
+ * termina tapando el boton de fecha y el de hora.
+ *
+ * Lo estiramos sobre el boton -el View contenedor ya es position: relative en
+ * react-native-web- para que el rectangulo de referencia sea el del boton.
+ * pointer-events: none deja que los clics lleguen al Pressable que esta debajo.
+ */
+.eurekapp-picker-anchor {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
