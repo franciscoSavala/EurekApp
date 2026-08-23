@@ -9,7 +9,6 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import java.util.Optional;
 import com.eurekapp.backend.repository.*;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
@@ -293,11 +292,21 @@ public class LostObjectService {
                         .recovered(lo.getRecovered())
                         // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
                         // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
-                        // EU-343: el bucket es privado, así que la URL pública plana que devuelve
-                        // getObjectUrl() da 403 y la imagen se ve como un recuadro vacío. Hay que
-                        // firmarla, igual que FoundObjectService al listar objetos encontrados.
+                        //
+                        // EU-343: el enlace plano alcanza. El bucket permite GetObject anónimo, así
+                        // que esta URL se abre sin firmar. NO firmarla acá: las URLs presignadas
+                        // vencen (1 h en FoundObjectService) y romperían la imagen de una pantalla
+                        // que quedó abierta, sin ganar nada mientras el bucket siga siendo público.
+                        //
+                        // Si alguna vez se cierra el acceso anónimo al bucket —debería, ver el
+                        // ticket de seguridad— hay que pasar ESTA línea y la de FoundObjectService a
+                        // generatePresignedUrl, y recién ahí la firma protege algo.
+                        //
+                        // Ojo al diagnosticar: con ListBucket denegado, S3 responde 403 AccessDenied
+                        // (no 404) cuando el objeto NO existe. Un 403 acá suele significar "la foto
+                        // nunca se subió", no "el bucket es privado".
                         .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
-                                ? objectStorage.generatePresignedUrl(lo.getUuid(), Duration.ofHours(1)) : null)
+                                ? objectStorage.getObjectUrl(lo.getUuid()) : null)
                         .build())
                 .collect(Collectors.toList());
     }

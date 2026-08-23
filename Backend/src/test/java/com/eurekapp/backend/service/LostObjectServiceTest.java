@@ -383,25 +383,22 @@ class LostObjectServiceTest {
     void getMyLostObjects_exposesPhotoUrlOnlyWhenSavedWithPhoto() {
         // EU-326: la foto vive en S3 con key = uuid. Una búsqueda guardada SIN foto no tiene nada que
         // mostrar, y pedir la URL igual daría un enlace roto en el detalle.
-        // EU-343: la URL tiene que ir FIRMADA. El bucket es privado, así que el enlace público plano
-        // de getObjectUrl() da 403 y la imagen se ve como un recuadro vacío.
+        // EU-343: el enlace va SIN firmar. El bucket permite GetObject anónimo, y una URL presignada
+        // vencería dejando la imagen rota en una pantalla abierta, sin ganar seguridad.
         LostObject conFoto = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA);
         conFoto.setHasImage(true);
         LostObject sinFoto = savedSearch("u1@test.com", "paraguas negro", 1.0f, CORDOBA);
         sinFoto.setHasImage(false);
         when(lostObjectRepository.query(any(), eq("u1@test.com"), any(), any(), any()))
                 .thenReturn(List.of(conFoto, sinFoto));
-        when(objectStorage.generatePresignedUrl(eq(conFoto.getUuid()), any()))
-                .thenReturn("https://s3/foto.jpg?X-Amz-Signature=abc");
+        when(objectStorage.getObjectUrl(conFoto.getUuid())).thenReturn("https://s3/foto.jpg");
 
         List<LostObjectResponseDto> result = service.getMyLostObjects("u1@test.com");
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg?X-Amz-Signature=abc");
+        assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg");
         assertThat(result.get(1).getImageUrl()).isNull();
-        verify(objectStorage, never()).generatePresignedUrl(eq(sinFoto.getUuid()), any());
-        // Ninguna de las dos debe resolverse con el enlace público sin firmar.
-        verify(objectStorage, never()).getObjectUrl(anyString());
+        verify(objectStorage, never()).getObjectUrl(sinFoto.getUuid());
     }
 
     @Test
