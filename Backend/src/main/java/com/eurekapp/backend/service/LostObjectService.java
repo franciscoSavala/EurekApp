@@ -9,6 +9,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import java.util.Optional;
 import com.eurekapp.backend.repository.*;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
@@ -276,8 +277,11 @@ public class LostObjectService {
                         .recovered(lo.getRecovered())
                         // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
                         // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
+                        // EU-343: el bucket es privado, así que la URL pública plana que devuelve
+                        // getObjectUrl() da 403 y la imagen se ve como un recuadro vacío. Hay que
+                        // firmarla, igual que FoundObjectService al listar objetos encontrados.
                         .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
-                                ? objectStorage.getObjectUrl(lo.getUuid()) : null)
+                                ? objectStorage.generatePresignedUrl(lo.getUuid(), Duration.ofHours(1)) : null)
                         .build())
                 .collect(Collectors.toList());
     }

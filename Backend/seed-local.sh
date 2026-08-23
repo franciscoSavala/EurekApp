@@ -199,7 +199,8 @@ curl -sf -X POST "$WEAVIATE_URL/v1/schema" \
       {"name": "status",          "dataType": ["text"]},
       {"name": "closed_date",     "dataType": ["date"]},
       {"name": "recovered",       "dataType": ["boolean"]},
-      {"name": "category",        "dataType": ["text"]}
+      {"name": "category",        "dataType": ["text"]},
+      {"name": "has_image",       "dataType": ["boolean"]}
     ]
   }' >/dev/null && success "  Schema LostObject recreado" || warn "  No se pudo recrear LostObject"
 
