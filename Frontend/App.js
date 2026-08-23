@@ -692,6 +692,22 @@ const AxiosSetup = () => {
     return null;
 };
 
+// Sin esta configuración el NavigationContainer no sincroniza la URL con la navegación:
+// en web la barra de direcciones queda siempre en "/", así que al refrescar la app vuelve a
+// montarse en el initialRouteName del Drawer (para ADMIN, el Dashboard) y se pierde la pantalla
+// en la que estaba el usuario.
+//
+// No lleva `config`: cuando no se especifica uno, React Navigation usa el nombre de la ruta como
+// segmento de la URL en ambas direcciones (getPathFromState y getStateFromPath), que es
+// justo lo que necesitamos para que el refresh conserve la pantalla.
+//
+// `prefixes` sólo se usa en apps nativas para reconocer los deep links; en web useLinking lee
+// location.pathname directamente y lo ignora. Se declara el scheme de app.json para que el día
+// que se abran deep links en el celular ya esté puesto.
+const linking = {
+    prefixes: ['eurekapp://'],
+};
+
 const App = () => {
     const [user, setUser] = useState('');
     const [userRole, setUserRole] = useState('');
@@ -727,7 +743,7 @@ const App = () => {
 
     return (
         <>
-            <NavigationContainer>
+            <NavigationContainer linking={linking}>
                 <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
                     <AxiosSetup />
                     {user ? <EurekappTab /> : <AuthStackScreen />}
