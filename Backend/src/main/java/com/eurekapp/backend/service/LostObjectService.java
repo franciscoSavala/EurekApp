@@ -112,6 +112,28 @@ public class LostObjectService {
                 TextNormalizer.normalize(command.getDescription()));
         String id = UUID.randomUUID().toString();
 
+        // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
+        // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
+        //
+        // EU-343: se sube ANTES de persistir, y hasImage refleja si la subida funcionó de verdad.
+        // Antes se persistía hasImage=true y se subía después: si S3 fallaba, el registro quedaba
+        // afirmando que tenía foto y "Mis búsquedas" mostraba para siempre un recuadro roto,
+        // porque pedía la URL de un objeto inexistente.
+        //
+        // Un fallo de S3 no cancela el guardado: desde EU-326 la foto es opcional, así que es
+        // preferible conservar la búsqueda (con su vector visual, que igual se calculó) y mostrar
+        // el placeholder "sin foto", antes que hacerle perder la búsqueda al usuario.
+        boolean imageStored = false;
+        if (hasImage) {
+            try {
+                objectStorage.putObject(imageBytes, id);
+                imageStored = true;
+            } catch (RuntimeException e) {
+                log.error("LostObjectService: no se pudo subir la foto de la búsqueda '{}'. "
+                        + "Se guarda igual, sin foto.", id, e);
+            }
+        }
+
         LostObject lostObject = LostObject.builder()
                 .uuid(id)
                 .username(command.getUsername())
@@ -125,16 +147,10 @@ public class LostObjectService {
                 .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
                 .lostDate(command.getLostDate())
-                .hasImage(hasImage)
+                .hasImage(imageStored)
                 .build();
 
         lostObjectRepository.add(lostObject);
-
-        // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
-        // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
-        if (hasImage) {
-            objectStorage.putObject(imageBytes, id);
-        }
     }
 
     /**
