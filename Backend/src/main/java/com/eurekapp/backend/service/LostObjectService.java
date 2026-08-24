@@ -116,6 +116,16 @@ public class LostObjectService {
                 TextNormalizer.normalize(command.getDescription()));
         String id = UUID.randomUUID().toString();
 
+        /* EU-347: la búsqueda en vivo no guardaba nada. El usuario reconocía una coincidencia como
+         * suya, veía dónde retirarla y al cerrar ese mensaje no le quedaba registro de nada. Cuando
+         * viene el objeto reclamado, la búsqueda se guarda YA en "Por retirar" y apuntando a él, en
+         * vez de nacer "Buscando" y corregirse después: es un solo hecho y así no hay ningún momento
+         * en que la búsqueda diga que sigue buscando algo que el usuario ya encontró.
+         * No se valida que el UUID resuelva a un objeto, igual que en markPendingPickup: es un dato
+         * de presentación y resolveCustodian ya tolera que no exista. */
+        boolean claimedDuringSearch = command.getMatchedObjectUuid() != null
+                && !command.getMatchedObjectUuid().isBlank();
+
         LostObject lostObject = LostObject.builder()
                 .uuid(id)
                 .username(command.getUsername())
@@ -130,6 +140,10 @@ public class LostObjectService {
                 .description(command.getDescription())
                 .lostDate(command.getLostDate())
                 .hasImage(hasImage)
+                // Sin objeto reclamado no se toca el estado: add() la da de alta ACTIVE, que es como
+                // sigue naciendo la búsqueda guardada a mano.
+                .status(claimedDuringSearch ? LostObjectStatus.PENDING_PICKUP : null)
+                .matchedObjectUuid(claimedDuringSearch ? command.getMatchedObjectUuid() : null)
                 .build();
 
         lostObjectRepository.add(lostObject);

@@ -13,6 +13,8 @@ import AppImage from "../components/AppImage";
 import BaseModal from "../components/BaseModal";
 import Constants from "expo-constants";
 import useAuthFetch from "../../utils/useAuthFetch";
+import { saveLostObject } from "../../services/LostObjectService";
+import { CommonActions } from '@react-navigation/native';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -41,6 +43,9 @@ const FoundObjects = ({ route, navigation }) => {
     const [pendingWasFound, setPendingWasFound] = useState(null);
     const [starRating, setStarRating] = useState(0);
     const [comment, setComment] = useState('');
+    // EU-347: si le guardamos la búsqueda sola. Decide si el modal se lo avisa y si al cerrarlo lo
+    // llevamos a verla; si el guardado falló no tiene sentido mandarlo a una pantalla donde no está.
+    const [searchSaved, setSearchSaved] = useState(false);
     const foundObjectsMap = new Map(objectsFound.map(obj => [obj.id, obj]))
 
     const openFeedback = (wasFound) => {
@@ -74,7 +79,10 @@ const FoundObjects = ({ route, navigation }) => {
         }
         setFeedbackModal(false);
         if (pendingWasFound) {
-            await markPendingPickup();
+            // Desde el aviso la búsqueda guardada ya existe y sólo cambia de estado. Desde la búsqueda
+            // en vivo no existe ninguna, así que hay que crearla (EU-347).
+            if (fromNotification) await markPendingPickup();
+            else await autoSaveSearch();
             setOrganizationInformationModal(true);
         }
         // EU-345: viniendo del aviso no se ofrece guardar una búsqueda. El usuario ya tiene una
@@ -105,6 +113,41 @@ const FoundObjects = ({ route, navigation }) => {
                 type: 'error',
                 text1: 'No se pudo actualizar tu búsqueda',
                 text2: 'Igual podés retirar el objeto con los datos que te mostramos.',
+            });
+        }
+    };
+
+    /**
+     * EU-347: la búsqueda en vivo no se guarda en ningún momento —el usuario escribe, busca y ve
+     * resultados—, así que al reconocer una coincidencia como suya no le quedaba absolutamente nada:
+     * cerraba el mensaje con los datos de la organización y "Mis búsquedas" seguía diciendo "Sin
+     * búsquedas guardadas". Perdía el acceso a dónde ir a retirar su objeto.
+     *
+     * Se la guardamos nosotros, ya en "Por retirar" y apuntando al objeto que reclamó, que es de
+     * donde sale después la organización que lo custodia. Es el espejo de markPendingPickup: allá la
+     * búsqueda existe y sólo cambia de estado; acá hay que crearla.
+     */
+    const autoSaveSearch = async () => {
+        try {
+            await saveLostObject({
+                description: query,
+                lostDate,
+                coordinates,
+                organizationId,
+                // La foto de la búsqueda viaja en los route params justamente para esto: así la
+                // búsqueda guardada conserva la imagen y su vector visual.
+                photo,
+                matchedObjectUuid: objectSelectedId,
+            });
+            setSearchSaved(true);
+        } catch (e) {
+            // Mismo criterio que markPendingPickup: no se corta el flujo. Lo importante es que vea a
+            // quién reclamarle el objeto, y eso ya lo tiene.
+            console.warn('No se pudo guardar la búsqueda automáticamente:', e);
+            Toast.show({
+                type: 'error',
+                text1: 'No pudimos guardar tu búsqueda',
+                text2: 'Anotá los datos de contacto: no van a quedar en "Mis búsquedas".',
             });
         }
     };
@@ -166,8 +209,23 @@ const FoundObjects = ({ route, navigation }) => {
         setOrganizationInformationModal(false);
         // EU-345: 'FindObject' no existe en el stack de notificaciones, así que desde el aviso se
         // vuelve atrás y el usuario queda en su lista de notificaciones.
-        if (fromNotification) navigation.goBack();
-        else navigation.navigate('FindObject');
+        if (fromNotification) {
+            navigation.goBack();
+            return;
+        }
+        // EU-347: si le guardamos la búsqueda, lo llevamos a verla. Es donde va a tener que volver
+        // para recuperar los datos de la organización, y verla listada es lo que le confirma que
+        // quedó guardada. Se navega ANTES del reset: el reset desmonta esta pantalla.
+        if (searchSaved) {
+            navigation.navigate('MyObjectsStackScreen', { screen: 'MyObjectHistory' });
+        }
+        // El stack de búsqueda vuelve al formulario limpio. Sin esto, al volver a la pestaña
+        // "Buscar" el usuario aterriza en los resultados viejos. Es lo mismo que hace el modal de
+        // guardar la búsqueda al cerrarse.
+        navigation.dispatch(CommonActions.reset({
+            index: 0,
+            routes: [{ name: 'FindObject', params: { reset: true } }],
+        }));
     };
 
     return (
@@ -283,6 +341,14 @@ const FoundObjects = ({ route, navigation }) => {
                             {"\n"}{"\n"}
                             Ten en cuenta que, por motivos de seguridad, antes de devolverte el objeto, personal del lugar te solicitará algunos datos personales y de contacto, y te tomarán una foto.
                         </Text>
+                        {/* EU-347: guardársela en silencio y que se entere de casualidad sería peor.
+                            Acá se le dice dónde va a poder volver a leer estos mismos datos. */}
+                        {searchSaved && (
+                            <Text style={styles.savedNotice}>
+                                Guardamos esta búsqueda en “Mis búsquedas”, en estado “Por retirar”: ahí vas a
+                                poder volver a consultar estos datos cuando los necesites.
+                            </Text>
+                        )}
                         <EurekappButton text='Cerrar'
                                         onPress={handleClaimConfirmed}/>
             </BaseModal>
@@ -409,6 +475,14 @@ const styles = StyleSheet.create({
     modalText: {
         marginBottom: 15,
         textAlign: 'left',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    savedNotice: {
+        marginBottom: 15,
+        textAlign: 'left',
+        color: '#638888',
+        fontSize: 13,
+        lineHeight: 18,
         fontFamily: 'PlusJakartaSans-Regular',
     },
     modalButton: {

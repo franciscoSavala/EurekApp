@@ -497,6 +497,82 @@ class LostObjectServiceTest {
         verify(objectStorage, never()).putObject(any(), anyString());
     }
 
+    // ---- EU-347: la búsqueda en vivo se guarda sola al reconocer una coincidencia como propia ----
+
+    @Test
+    void reportLostObject_withMatchedObject_savesSearchAsPendingPickup() {
+        // EU-347: viniendo de la búsqueda en vivo no hay ninguna búsqueda guardada a la que cambiarle
+        // el estado, así que nace ya "Por retirar" y apuntando al objeto que el usuario reclamó.
+        // Guardarla y marcarla son el mismo hecho: naciendo ACTIVE habría un momento en que la
+        // búsqueda dice que sigue buscando algo que el usuario ya encontró.
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(null)
+                .description("billetera de cuero marrón")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .matchedObjectUuid("found-uuid-1")
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        assertThat(saved.getStatus()).isEqualTo(LostObjectStatus.PENDING_PICKUP);
+        // El objeto reclamado es lo que después resuelve en qué organización ir a retirarlo.
+        assertThat(saved.getMatchedObjectUuid()).isEqualTo("found-uuid-1");
+    }
+
+    @Test
+    void reportLostObject_withoutMatchedObject_savesSearchAsActive() {
+        // El camino de siempre —guardar la búsqueda a mano desde el modal— no cambió: sin objeto
+        // reclamado no se toca el estado, y el repositorio la da de alta ACTIVE.
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(null)
+                .description("billetera de cuero marrón")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        assertThat(saved.getStatus()).isNull();
+        assertThat(saved.getMatchedObjectUuid()).isNull();
+    }
+
+    @Test
+    void reportLostObject_withBlankMatchedObject_savesSearchAsActive() {
+        // Un uuid en blanco no debe dejar una búsqueda "Por retirar" que no apunta a ningún objeto:
+        // sin objeto no hay organización que mostrar y el estado no querría decir nada.
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(null)
+                .description("billetera de cuero marrón")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .matchedObjectUuid("   ")
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        assertThat(saved.getStatus()).isNull();
+        assertThat(saved.getMatchedObjectUuid()).isNull();
+    }
+
     @Test
     void getMyLostObjects_exposesPhotoUrlOnlyWhenSavedWithPhoto() {
         // EU-326: la foto vive en S3 con key = uuid. Una búsqueda guardada SIN foto no tiene nada que
