@@ -18,6 +18,14 @@ import AppImage from '../components/AppImage';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
+// Con tres estados el booleano isClosed ya no alcanza, y encadenar ternarios en cada lugar donde
+// se muestra el estado se vuelve ilegible. Cada estado declara acá cómo se ve.
+const STATUS_META = {
+    ACTIVE:         { label: 'Buscando',    icon: 'clock',        bg: '#ccf2f2', color: '#0d6e6e' },
+    PENDING_PICKUP: { label: 'Por retirar', icon: 'box-open',     bg: '#fdeccd', color: '#b45309' },
+    CLOSED:         { label: 'Cerrada',     icon: 'circle-check', bg: '#e6ecec', color: '#638888' },
+};
+
 const InfoRow = ({ icon, label, value }) => (
     <View style={styles.infoRow}>
         <Icon name={icon} size={14} color="#638888" style={{ marginTop: 2 }} />
@@ -31,8 +39,12 @@ const InfoRow = ({ icon, label, value }) => (
 const MyLostObjectDetail = ({ route, navigation }) => {
     const { lostObject } = route.params;
     const { authFetch } = useAuthFetch();
-    const isClosed = lostObject.status === 'CLOSED';
+    const status = lostObject.status || 'ACTIVE';
+    const isClosed = status === 'CLOSED';
+    const isPendingPickup = status === 'PENDING_PICKUP';
+    const statusMeta = STATUS_META[status] || STATUS_META.ACTIVE;
     const [promptVisible, setPromptVisible] = useState(false);
+    const [reopenPromptVisible, setReopenPromptVisible] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
     const closeSearch = async (recovered) => {
@@ -44,6 +56,27 @@ const MyLostObjectDetail = ({ route, navigation }) => {
             navigation.goBack();
         } catch (e) {
             const msg = e?.response?.data?.message || 'No se pudo cerrar la búsqueda. Intentá de nuevo.';
+            Toast.show({ type: 'error', text1: 'Error', text2: msg });
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // Fue hasta la organización, vio el objeto y no era el suyo: la búsqueda NO se cierra, vuelve a
+    // "Buscando" y sigue recibiendo avisos.
+    const reopenSearch = async () => {
+        setSubmitting(true);
+        try {
+            await authFetch('post', `${BACK_URL}/lost-objects/${lostObject.uuid}/reopen`);
+            Toast.show({
+                type: 'success',
+                text1: 'Seguimos buscando',
+                text2: 'Te avisamos si aparece otro objeto parecido.',
+            });
+            setReopenPromptVisible(false);
+            navigation.goBack();
+        } catch (e) {
+            const msg = e?.response?.data?.message || 'No se pudo actualizar la búsqueda. Intentá de nuevo.';
             Toast.show({ type: 'error', text1: 'Error', text2: msg });
         } finally {
             setSubmitting(false);
@@ -73,10 +106,10 @@ const MyLostObjectDetail = ({ route, navigation }) => {
 
             <View style={styles.section}>
                 <Text style={styles.title}>Búsqueda guardada</Text>
-                <View style={[styles.badge, isClosed && styles.badgeClosed]}>
-                    <Icon name={isClosed ? 'circle-check' : 'clock'} size={14} color={isClosed ? '#638888' : '#0d6e6e'} />
-                    <Text style={[styles.badgeText, isClosed && styles.badgeTextClosed]}>
-                        {isClosed ? 'Cerrada' : 'Buscando'}
+                <View style={[styles.badge, { backgroundColor: statusMeta.bg }]}>
+                    <Icon name={statusMeta.icon} size={14} color={statusMeta.color} />
+                    <Text style={[styles.badgeText, { color: statusMeta.color }]}>
+                        {statusMeta.label}
                     </Text>
                 </View>
             </View>
@@ -117,7 +150,54 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                 )}
             </View>
 
-            {!isClosed ? (
+            {isClosed && (
+                <View style={styles.infoBox}>
+                    <Icon name="circle-info" size={16} color="#638888" />
+                    <Text style={styles.infoBoxText}>
+                        Esta búsqueda está cerrada. Si seguís buscando, registrá una nueva.
+                    </Text>
+                </View>
+            )}
+
+            {isPendingPickup && (
+                <>
+                    <View style={[styles.infoBox, styles.pickupBox]}>
+                        <Icon name="box-open" size={16} color="#b45309" />
+                        <View style={{ flex: 1, gap: 4 }}>
+                            <Text style={[styles.infoBoxText, styles.pickupText, styles.pickupTitle]}>
+                                Reconociste un objeto como tuyo
+                            </Text>
+                            {/* El nombre y el contacto se resuelven a partir del objeto reclamado. Si
+                                el objeto ya no está, vienen vacíos y no se muestra la línea, en vez
+                                de un renglón a medias. */}
+                            {!!lostObject.matchedOrganizationName && (
+                                <Text style={[styles.infoBoxText, styles.pickupText]}>
+                                    Retiralo en {lostObject.matchedOrganizationName}.
+                                </Text>
+                            )}
+                            {!!lostObject.matchedOrganizationContactData && (
+                                <Text style={[styles.infoBoxText, styles.pickupText]}>
+                                    Contacto: {lostObject.matchedOrganizationContactData}
+                                </Text>
+                            )}
+                            <Text style={[styles.infoBoxText, styles.pickupText]}>
+                                Por seguridad te van a pedir algunos datos y una foto antes de entregártelo.
+                            </Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.closeButton} onPress={() => setPromptVisible(true)}>
+                        <Text style={styles.closeButtonText}>Cerrar búsqueda</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.secondaryButton}
+                                      onPress={() => setReopenPromptVisible(true)}>
+                        <Text style={styles.secondaryButtonText}>No era mi objeto</Text>
+                    </TouchableOpacity>
+                </>
+            )}
+
+            {!isClosed && !isPendingPickup && (
                 <>
                     <View style={styles.infoBox}>
                         <Icon name="bell" size={16} color="#0d6e6e" />
@@ -130,14 +210,36 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                         <Text style={styles.closeButtonText}>Cerrar búsqueda</Text>
                     </TouchableOpacity>
                 </>
-            ) : (
-                <View style={styles.infoBox}>
-                    <Icon name="circle-info" size={16} color="#638888" />
-                    <Text style={styles.infoBoxText}>
-                        Esta búsqueda está cerrada. Si seguís buscando, registrá una nueva.
-                    </Text>
-                </View>
             )}
+
+            <Modal visible={reopenPromptVisible} transparent animationType="fade"
+                   onRequestClose={() => setReopenPromptVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>¿El objeto no era tuyo?</Text>
+                        {/* Se aclara que la búsqueda NO se cierra: es lo que la diferencia del otro
+                            modal, que sí es definitivo. */}
+                        <Text style={styles.modalSubtitle}>
+                            Tu búsqueda vuelve a "Buscando" y te seguimos avisando si aparece otro
+                            objeto parecido. No se cierra.
+                        </Text>
+                        {submitting ? (
+                            <ActivityIndicator size="large" color="#0d9e9e" style={{ marginVertical: 12 }} />
+                        ) : (
+                            <View style={styles.modalButtons}>
+                                <TouchableOpacity style={[styles.modalBtn, styles.modalBtnYes]} onPress={reopenSearch}>
+                                    <Text style={styles.modalBtnText}>Seguir buscando</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        {!submitting && (
+                            <TouchableOpacity onPress={() => setReopenPromptVisible(false)}>
+                                <Text style={styles.modalCancel}>Cancelar</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                </View>
+            </Modal>
 
             <Modal visible={promptVisible} transparent animationType="fade" onRequestClose={() => setPromptVisible(false)}>
                 <View style={styles.modalOverlay}>
@@ -248,16 +350,10 @@ const styles = StyleSheet.create({
         gap: 6,
         backgroundColor: '#ccf2f2',
     },
-    badgeClosed: {
-        backgroundColor: '#e6ecec',
-    },
     badgeText: {
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 13,
         color: '#0d6e6e',
-    },
-    badgeTextClosed: {
-        color: '#638888',
     },
     infoRow: {
         flexDirection: 'row',
@@ -292,6 +388,29 @@ const styles = StyleSheet.create({
         color: '#0d6e6e',
         flex: 1,
         lineHeight: 18,
+    },
+    pickupBox: {
+        backgroundColor: '#fdeccd',
+    },
+    pickupText: {
+        color: '#8a4008',
+    },
+    pickupTitle: {
+        fontFamily: 'PlusJakartaSans-Bold',
+    },
+    secondaryButton: {
+        marginHorizontal: 16,
+        marginTop: 10,
+        borderRadius: 24,
+        paddingVertical: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#c9d4d4',
+    },
+    secondaryButtonText: {
+        color: '#638888',
+        fontFamily: 'PlusJakartaSans-Bold',
+        fontSize: 15,
     },
     closeButton: {
         backgroundColor: '#0d9e9e',

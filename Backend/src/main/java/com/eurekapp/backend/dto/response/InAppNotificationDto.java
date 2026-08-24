@@ -34,4 +34,7 @@ public class InAppNotificationDto {
 
     @JsonProperty("match_score")
     private Double matchScore;
+
+    @JsonProperty("related_lost_object_uuid")
+    private String relatedLostObjectUuid;
 }

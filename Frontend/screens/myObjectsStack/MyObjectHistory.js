@@ -20,6 +20,9 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const STATUS_CONFIG = {
     ACTIVE: { label: 'Buscando', color: '#0d6e6e', bg: '#ccf2f2' },
+    // Hay un objeto reconocido esperando al usuario en una organización. Ámbar para que se despegue
+    // del verde de "Buscando": es el estado que pide una acción suya.
+    PENDING_PICKUP: { label: 'Por retirar', color: '#b45309', bg: '#fdeccd' },
     CLOSED: { label: 'Cerrada',  color: '#638888', bg: '#e6ecec' },
 };
 
@@ -132,7 +135,9 @@ const MyObjectHistory = ({ navigation }) => {
         );
     }
 
-    const active = lostObjects.filter((lo) => (lo.status || 'ACTIVE') === 'ACTIVE');
+    // Activa es TODO lo que no está cerrado, no sólo ACTIVE: con === 'ACTIVE' una búsqueda
+    // "Por retirar" no caía en ninguno de los dos grupos y desaparecía de la pantalla sin aviso.
+    const active = lostObjects.filter((lo) => (lo.status || 'ACTIVE') !== 'CLOSED');
     const closed = lostObjects.filter((lo) => lo.status === 'CLOSED');
 
     return (

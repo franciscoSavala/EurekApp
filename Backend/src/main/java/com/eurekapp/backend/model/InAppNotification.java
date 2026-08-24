@@ -59,4 +59,12 @@ public class InAppNotification {
      */
     @Column(name = "match_score")
     private Double matchScore;
+
+    /**
+     * UUID de la búsqueda guardada que mejor coincidió con el objeto. Es lo que permite, cuando el
+     * usuario dice "Este es mi objeto", saber CUÁL de sus búsquedas pasa a "Por retirar": la
+     * pantalla de coincidencias por sí sola no lo sabe.
+     */
+    @Column(name = "related_lost_object_uuid", length = 36)
+    private String relatedLostObjectUuid;
 }

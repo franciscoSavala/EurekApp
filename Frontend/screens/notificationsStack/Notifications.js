@@ -171,6 +171,10 @@ const Notifications = ({ navigation, route }) => {
                 objectsFound: [{ ...res.data, score: item.match_score }],
                 aiCategory: res.data?.category,
                 fromNotification: true,
+                // Cuál de las búsquedas guardadas del usuario pasa a "Por retirar" si reconoce el
+                // objeto como suyo. La pantalla de coincidencias por sí sola no lo sabe: el aviso
+                // guarda la búsqueda que mejor coincidió.
+                lostObjectUuid: item.related_lost_object_uuid,
             });
         } catch (e) {
             console.log("Error abriendo la coincidencia", e);

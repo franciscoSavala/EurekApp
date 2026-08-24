@@ -11,6 +11,10 @@ import { CATEGORY_LABELS } from "../../utils/constants";
 import { formatDateTimeES } from "../../utils/dateFormatter";
 import AppImage from "../components/AppImage";
 import BaseModal from "../components/BaseModal";
+import Constants from "expo-constants";
+import useAuthFetch from "../../utils/useAuthFetch";
+
+const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 
 const FoundObjects = ({ route, navigation }) => {
@@ -25,10 +29,11 @@ const FoundObjects = ({ route, navigation }) => {
     // Por defecto es false, así el camino de la búsqueda en vivo queda igual que antes.
     const { objectsFound, query, lostDate, latitude, longitude, organizationId,
             filterColor, filterLostDateTo, searchMode, aiCategory, photo,
-            fromNotification = false } = route.params;
+            fromNotification = false, lostObjectUuid } = route.params;
     const coordinates = (latitude != null && longitude != null)
         ? { latitude, longitude }
         : null;
+    const { authFetch } = useAuthFetch();
     const [objectSelectedId, setObjectSelectedId] = useState("");
     const [organizationInformationModal, setOrganizationInformationModal] = useState(false);
     const [uploadLostObjectModal, setUploadLostObjectModal] = useState(false);
@@ -68,11 +73,40 @@ const FoundObjects = ({ route, navigation }) => {
             }
         }
         setFeedbackModal(false);
-        if (pendingWasFound) setOrganizationInformationModal(true);
+        if (pendingWasFound) {
+            await markPendingPickup();
+            setOrganizationInformationModal(true);
+        }
         // EU-345: viniendo del aviso no se ofrece guardar una búsqueda. El usuario ya tiene una
         // guardada —es justamente la que disparó el aviso—; proponerle otra igual no tiene sentido.
         else if (fromNotification) navigation.goBack();
         else setUploadLostObjectModal(true);
+    };
+
+    /**
+     * La búsqueda guardada pasa a "Por retirar": el usuario reconoció el objeto como suyo y va a ir
+     * a buscarlo, así que su búsqueda deja de decir "Buscando" y pasa a registrar que hay algo
+     * esperándolo, y dónde. Si al verlo en persona resulta que no era el suyo, lo devuelve y desde
+     * el detalle de la búsqueda vuelve a "Buscando".
+     *
+     * Sólo aplica llegando desde el aviso de coincidencia: es el único camino donde se sabe qué
+     * búsqueda guardada está en juego.
+     */
+    const markPendingPickup = async () => {
+        if (!lostObjectUuid) return;
+        try {
+            await authFetch('post', `${BACK_URL}/lost-objects/${lostObjectUuid}/pending-pickup`,
+                { foundObjectUuid: objectSelectedId });
+        } catch (e) {
+            // No se corta el flujo: lo importante es que vea a quién reclamarle. El estado lo puede
+            // corregir después desde su búsqueda.
+            console.warn('No se pudo marcar la búsqueda como "Por retirar":', e);
+            Toast.show({
+                type: 'error',
+                text1: 'No se pudo actualizar tu búsqueda',
+                text2: 'Igual podés retirar el objeto con los datos que te mostramos.',
+            });
+        }
     };
 
     const renderItem = ({ item }) => {

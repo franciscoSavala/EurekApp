@@ -9,5 +9,14 @@ package com.eurekapp.backend.model;
  */
 public enum LostObjectStatus {
     ACTIVE,
+    /**
+     * El usuario reconoció un objeto encontrado como suyo y lo va a retirar de la organización que
+     * lo tiene ("Por retirar"). A diferencia de {@link #CLOSED} NO es terminal: si al verlo en
+     * persona resulta que no era el suyo, vuelve a {@link #ACTIVE} y la búsqueda sigue viva.
+     *
+     * <p>Una búsqueda en este estado sigue recibiendo avisos de coincidencia: el objeto que la puso
+     * acá puede no ser el correcto, que es justamente el caso que contempla la vuelta atrás.</p>
+     */
+    PENDING_PICKUP,
     CLOSED
 }
