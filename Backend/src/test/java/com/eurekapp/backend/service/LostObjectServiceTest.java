@@ -108,7 +108,8 @@ class LostObjectServiceTest {
 
         verify(notificationService).sendNotification(eq("u1@test.com"), anyString(), anyString());
         verify(inAppNotificationService)
-                .createNotification(any(UserEurekapp.class), anyString(), anyString(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(UserEurekapp.class), anyString(), anyString(), eq("MATCH_FOUND"),
+                        isNull(), eq("fo-1"), any(Double.class));
     }
 
     @Test
@@ -121,7 +122,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -141,7 +142,7 @@ class LostObjectServiceTest {
         verify(notificationService).sendNotification(eq("u2@test.com"), anyString(), anyString());
         verify(notificationService, times(2)).sendNotification(any(), any(), any());
         verify(inAppNotificationService, times(2))
-                .createNotification(any(), any(), any(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(), any(), any(), eq("MATCH_FOUND"), isNull(), eq("fo-1"), any(Double.class));
     }
 
     @Test
@@ -168,8 +169,36 @@ class LostObjectServiceTest {
         // La notificación in-app también las lista a ambas.
         ArgumentCaptor<String> descCaptor = ArgumentCaptor.forClass(String.class);
         verify(inAppNotificationService)
-                .createNotification(any(), anyString(), descCaptor.capture(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(), anyString(), descCaptor.capture(), eq("MATCH_FOUND"),
+                        isNull(), eq("fo-1"), any(Double.class));
         assertThat(descCaptor.getValue()).contains("mochila azul").contains("cartera negra");
+    }
+
+    @Test
+    void notification_carriesFoundObjectUuidAndBestScore() {
+        // EU-345: sin estos dos datos el aviso no puede llevar a la coincidencia. El usuario tiene
+        // DOS búsquedas que coinciden con el mismo objeto, cada una con su puntaje: se guarda el mayor.
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject fuerte = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        LostObject floja = savedSearch("u1@test.com", "mochila", 0.95f, CORDOBA);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(floja, fuerte));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        ArgumentCaptor<String> uuidCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Double> scoreCaptor = ArgumentCaptor.forClass(Double.class);
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"),
+                isNull(), uuidCaptor.capture(), scoreCaptor.capture());
+
+        assertThat(uuidCaptor.getValue()).isEqualTo("fo-1");
+        // Se compara contra el puntaje que el propio servicio dejó seteado en cada búsqueda, para no
+        // atar el test a la escala concreta de displayScore.
+        double esperado = Math.max(fuerte.getScore(), floja.getScore());
+        assertThat(scoreCaptor.getValue()).isEqualTo(esperado);
+        assertThat(fuerte.getScore()).isGreaterThan(floja.getScore());
     }
 
     @Test
@@ -183,7 +212,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -194,7 +223,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -207,7 +236,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -222,7 +251,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -242,7 +271,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService).sendNotification(eq("u1@test.com"), any(), any());
-        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"), any());
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"), any(), eq("fo-1"), any());
     }
 
     @Test

@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -242,12 +243,25 @@ public class LostObjectService {
             // Notificación in-app.
             String inAppDescription = "Este objeto coincide con estas búsquedas abiertas: "
                     + String.join("; ", matchingSearchDescriptions);
+            // EU-345: el aviso se guarda con el UUID del objeto que coincidió y con el puntaje que
+            // lo disparó. Antes no guardaba ninguna referencia, así que la notificación no podía
+            // llevar a ningún lado: avisaba que había aparecido algo parecido y ahí terminaba.
+            // El usuario puede tener varias búsquedas coincidiendo con el mismo objeto, cada una con
+            // su puntaje; se guarda el mayor, que es el que mejor representa el hallazgo.
+            Double bestScore = entry.getValue().stream()
+                    .map(LostObject::getScore)
+                    .filter(Objects::nonNull)
+                    .max(Float::compare)
+                    .map(Float::doubleValue)
+                    .orElse(null);
             inAppNotificationService.createNotification(
                     recipient,
                     "Alguien podría haber encontrado tu objeto",
                     inAppDescription,
                     "MATCH_FOUND",
-                    null);
+                    null,
+                    foundObject.getUuid(),
+                    bestScore);
         }
     }
 

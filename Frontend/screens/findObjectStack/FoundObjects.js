@@ -19,8 +19,13 @@ const FoundObjects = ({ route, navigation }) => {
     // de la búsqueda con foto porque el puntaje de texto vivía en otra escala y la búsqueda sin foto
     // no deducía ninguna categoría; ahora cada modo tiene su umbral calibrado, así que un mismo
     // porcentaje significa lo mismo en las dos, y la categoría la deduce la IA también del texto.
+    // EU-345: `fromNotification` marca que no se llegó acá por una búsqueda en vivo sino desde el
+    // aviso de "coincidencia encontrada". Es una sola coincidencia, ya la trae el aviso, y el
+    // usuario YA tiene su búsqueda guardada: por eso cambian el pie de pantalla y la vuelta atrás.
+    // Por defecto es false, así el camino de la búsqueda en vivo queda igual que antes.
     const { objectsFound, query, lostDate, latitude, longitude, organizationId,
-            filterColor, filterLostDateTo, searchMode, aiCategory, photo } = route.params;
+            filterColor, filterLostDateTo, searchMode, aiCategory, photo,
+            fromNotification = false } = route.params;
     const coordinates = (latitude != null && longitude != null)
         ? { latitude, longitude }
         : null;
@@ -64,6 +69,9 @@ const FoundObjects = ({ route, navigation }) => {
         }
         setFeedbackModal(false);
         if (pendingWasFound) setOrganizationInformationModal(true);
+        // EU-345: viniendo del aviso no se ofrece guardar una búsqueda. El usuario ya tiene una
+        // guardada —es justamente la que disparó el aviso—; proponerle otra igual no tiene sentido.
+        else if (fromNotification) navigation.goBack();
         else setUploadLostObjectModal(true);
     };
 
@@ -102,8 +110,12 @@ const FoundObjects = ({ route, navigation }) => {
                         </Text>
                     ) : null}
                     <Text></Text>
+                    {/* La distancia se mide contra el punto desde el que se buscó. Viniendo del aviso
+                        no hay tal punto y `distance` llega vacía, que sin este resguardo imprimía
+                        "a NaN km". */}
                     <Text style={styles.itemText}>
-                        Encontrado el {formatDateTimeES(item.found_date)}, a {(item.distance / 1000).toFixed(2)} km
+                        Encontrado el {formatDateTimeES(item.found_date)}
+                        {item.distance != null ? `, a ${(item.distance / 1000).toFixed(2)} km` : ''}
                     </Text>
                 </View>
                 <AppImage
@@ -118,7 +130,10 @@ const FoundObjects = ({ route, navigation }) => {
 
     const handleClaimConfirmed = () => {
         setOrganizationInformationModal(false);
-        navigation.navigate('FindObject');
+        // EU-345: 'FindObject' no existe en el stack de notificaciones, así que desde el aviso se
+        // vuelve atrás y el usuario queda en su lista de notificaciones.
+        if (fromNotification) navigation.goBack();
+        else navigation.navigate('FindObject');
     };
 
     return (
@@ -174,15 +189,17 @@ const FoundObjects = ({ route, navigation }) => {
                 <EurekappButton onPress={() => openFeedback(false)}
                                 backgroundColor={'#fff'}
                                 textColor={'#111818'}
-                                text="No encontré mi objeto" />
+                                text={fromNotification ? "No es mi objeto" : "No encontré mi objeto"} />
             </View>
-            <UploadLostObjectModal modalVisible={uploadLostObjectModal}
-                                   setModalVisible={setUploadLostObjectModal}
-                                   query={query}
-                                   lostDate={lostDate}
-                                   organizationId={organizationId}
-                                   coordinates={coordinates}
-                                   photo={photo}/>
+            {!fromNotification && (
+                <UploadLostObjectModal modalVisible={uploadLostObjectModal}
+                                       setModalVisible={setUploadLostObjectModal}
+                                       query={query}
+                                       lostDate={lostDate}
+                                       organizationId={organizationId}
+                                       coordinates={coordinates}
+                                       photo={photo}/>
+            )}
             {/* Modal de feedback */}
             <BaseModal visible={feedbackModal} onClose={() => onFeedbackDone(true)}>
                         <Text style={[styles.modalText, { fontFamily: 'PlusJakartaSans-Bold', fontSize: 16, marginBottom: 6 }]}>

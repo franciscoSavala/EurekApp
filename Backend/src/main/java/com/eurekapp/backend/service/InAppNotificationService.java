@@ -19,6 +19,16 @@ public class InAppNotificationService {
     private final IInAppNotificationRepository repository;
 
     public void createNotification(UserEurekapp user, String title, String description, String type, Long relatedRequestId) {
+        createNotification(user, title, description, type, relatedRequestId, null, null);
+    }
+
+    /**
+     * EU-345: variante que además deja asentado a qué objeto encontrado se refiere el aviso y con
+     * qué puntaje coincidió. Sólo la usa la búsqueda inversa (MATCH_FOUND); el resto de los avisos
+     * sigue llamando a la firma de arriba, que delega acá con los dos datos en null.
+     */
+    public void createNotification(UserEurekapp user, String title, String description, String type,
+                                   Long relatedRequestId, String relatedObjectUuid, Double matchScore) {
         InAppNotification notification = InAppNotification.builder()
                 .user(user)
                 .title(title)
@@ -27,6 +37,8 @@ public class InAppNotificationService {
                 .read(false)
                 .createdAt(LocalDateTime.now())
                 .relatedRequestId(relatedRequestId)
+                .relatedObjectUuid(relatedObjectUuid)
+                .matchScore(matchScore)
                 .build();
         repository.save(notification);
     }
@@ -66,6 +78,8 @@ public class InAppNotificationService {
                 .read(n.isRead())
                 .createdAt(n.getCreatedAt())
                 .relatedRequestId(n.getRelatedRequestId())
+                .relatedObjectUuid(n.getRelatedObjectUuid())
+                .matchScore(n.getMatchScore())
                 .build();
     }
 }
