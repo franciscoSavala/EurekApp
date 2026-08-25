@@ -10,10 +10,12 @@ import {
     Text, TouchableOpacity,
     View
 } from "react-native";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useState} from "react";
 import EurekappButton from "../components/Button";
 import Constants from "expo-constants";
 import useAuthFetch from "../../utils/useAuthFetch";
+import Toast from 'react-native-toast-message';
+import {useFocusEffect} from "@react-navigation/native";
 import { colors } from "../../styles/globalStyles";
 import { formatDateES } from "../../utils/dateFormatter";
 import EmptyState from "../components/EmptyState";
@@ -31,9 +33,16 @@ const ReturnedObjects = ({ navigation }) => {
     const fetchReturnedObjects = async () => {
         try {
             const jsonData = await authFetch('get', `${BACK_URL}/found-objects/getReturnedObjects`);
-            setFoundObjects(jsonData.found_objects);
+            setFoundObjects(jsonData.found_objects ?? []);
         } catch (error) {
-            console.error(error);
+            if (__DEV__) console.error(error);
+            // EU-348: si la carga falla, la pantalla mostraba "no devolviste ningún objeto aún" — el
+            // mismo cartel que cuando de verdad no hay ninguno. Un error tiene que verse como un error.
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudieron cargar los objetos devueltos. Verificá tu conexión.',
+            });
         } finally {
             setLoading(false);
         }
@@ -45,9 +54,16 @@ const ReturnedObjects = ({ navigation }) => {
         setRefreshing(false);
     }
 
-    useEffect( () => {
-        fetchReturnedObjects();
-    }, []);
+    /* EU-348: antes era useEffect con dependencias vacías, o sea que la lista se cargaba UNA sola vez,
+     * al montarse la pantalla. Al registrar una devolución y volver acá, la pantalla seguía montada y
+     * mostraba la foto vieja: el objeto recién devuelto no aparecía. Parecía que la devolución no se
+     * había registrado, cuando en realidad sí. "Ver inventario" nunca tuvo el problema porque ya usaba
+     * useFocusEffect, y esa asimetría es la que hacía ver los dos listados desincronizados. */
+    useFocusEffect(
+        useCallback(() => {
+            fetchReturnedObjects();
+        }, [])
+    );
 
     const renderItem = ({item}) => {
         const isSelected = item.id === objectSelectedId;
