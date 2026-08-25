@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {
     View,
     Text,
@@ -24,7 +24,7 @@ import EurekappDateComponent from "../components/EurekappDateComponent";
 import Constants from "expo-constants";
 import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
 import MapViewComponent from "../components/MapViewComponent";
-import {CommonActions, useNavigation} from "@react-navigation/native";
+import {CommonActions, useFocusEffect, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
 import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 import { isWeb, isIOS } from "../../utils/platform";
@@ -60,6 +60,13 @@ const webImageButtonTextStyle = {
     fontFamily: 'PlusJakartaSans-Regular',
 };
 
+/** Fecha que trae el formulario al abrirse: la hora en punto, tres horas atrás. */
+const defaultFoundDate = () => {
+    let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
+    curDate.setMinutes(0, 0, 0);
+    return curDate;
+};
+
 const UploadObject = () => {
     //object data
     const { control,
@@ -67,6 +74,7 @@ const UploadObject = () => {
         formState: {errors},
         setValue,
         getValues ,
+        reset: resetFormFields,
         setError} = useForm();
     const [objectTitle, setObjectTitle] = useState('');
     const [detailedDescription, setDetailedDescription] = useState('');
@@ -74,11 +82,7 @@ const UploadObject = () => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [selectedInstitute, setSelectedInstitute] = useState(null);
     const [imageUploaded, setImageUploaded ] = useState(false);
-    const [foundDate, setFoundDate] = useState(() => {
-        let curDate = new Date(Date.now() - (3 * 60 * 60 * 1000));
-        curDate.setMinutes(0,0,0);
-        return curDate;
-    });
+    const [foundDate, setFoundDate] = useState(defaultFoundDate);
     const [useCoordinates, setUseCoordinates] = useState(false);
     const toggleSwitch = () => setUseCoordinates(previousState => !previousState);
     const [category, setCategory] = useState(null);
@@ -122,6 +126,48 @@ useEffect(() => {
     }
     getContextInstitute();
 }, []);
+
+/* EU-349: el formulario conservaba TODO después de un receptado fallido —la foto, el título, el
+ * email y el mensaje de error— y al salir y volver a la pantalla seguía igual, porque el drawer la
+ * mantiene montada y nada reiniciaba su estado. El camino del éxito sí limpiaba (ver
+ * handleUsabilityModalClose); el del error no. Esto los deja simétricos.
+ *
+ * Se limpia SÓLO si el intento anterior ya terminó. Si el usuario dejó el formulario a medio
+ * completar y salió un momento —a mirar el inventario, por ejemplo— al volver encuentra su trabajo
+ * intacto: este formulario es largo (foto, título, fecha, categoría, descripción) y borrárselo por
+ * navegar sería peor que el bug que arregla.
+ *
+ * La marca va en un ref y no en el estado a propósito: como dependencia del useFocusEffect, pasar a
+ * "intento terminado" dispararía la limpieza en el acto —con la pantalla enfocada— y le borraría al
+ * usuario el error que necesita leer. El ref se consulta al enfocar y no reejecuta nada. */
+const attemptFinishedRef = useRef(false);
+
+const resetForm = () => {
+    setObjectTitle('');
+    setDetailedDescription('');
+    setImage({});
+    setImageByte(new Buffer("something"));
+    setImageUploaded(false);
+    setCategory(null);
+    setFoundDate(defaultFoundDate());
+    setUseCoordinates(false);
+    setObjectMarker({ latitude: -31.4124, longitude: -64.1867 });
+    setButtonWasPressed(false);
+    setResponseOk(false);
+    setLoading(false);
+    setShowSubmitButton(true);
+    setSuccessModal(false);
+    // Limpia el email del finder y, sobre todo, el error manual que quedaba colgado debajo del campo.
+    resetFormFields();
+    attemptFinishedRef.current = false;
+};
+
+useFocusEffect(
+    useCallback(() => {
+        if (!attemptFinishedRef.current) return;
+        resetForm();
+    }, [])
+);
 
 const imagePickerConfig = {
     mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -334,6 +380,9 @@ const submitData = async () => {
         setShowSubmitButton(true);
     } finally {
         setLoading(false);
+        /* El intento terminó —con éxito o con error—, así que la próxima vez que se entre a la
+         * pantalla el formulario arranca limpio. */
+        attemptFinishedRef.current = true;
     }
 };
 
