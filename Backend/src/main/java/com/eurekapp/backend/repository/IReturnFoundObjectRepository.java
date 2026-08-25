@@ -19,6 +19,13 @@ public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundO
             List<String> uuids, LocalDateTime from, LocalDateTime to);
 
     /**
+     * EU-348: devoluciones de un lote de objetos, para resolver sus fechas en UN solo viaje a la
+     * base. La variante de arriba exige un rango de fechas, que en el listado del historial no
+     * corresponde inventar: se quieren todas.
+     */
+    List<ReturnFoundObject> findByFoundObjectUUIDIn(List<String> uuids);
+
+    /**
      * Devoluciones de un DNI dentro de la ventana deslizante (detección de fraude, EU-284). La
      * consulta queda acotada al DNI (indexable): la detección NO escanea todas las devoluciones,
      * solo las que comparten identidad con la que disparó el chequeo. Es cross-organización a

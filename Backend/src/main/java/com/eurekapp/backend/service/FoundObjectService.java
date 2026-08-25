@@ -14,6 +14,7 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IRewardExclusionRepository;
+import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
@@ -35,6 +36,7 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -68,6 +70,8 @@ public class FoundObjectService implements IFoundObjectService {
     private final FoundObjectRepository foundObjectRepository;
     private final IUserRepository userRepository;
     private final IRewardExclusionRepository rewardExclusionRepository;
+    /** EU-348: la fecha de devolución vive acá, no en Weaviate junto al resto del objeto. */
+    private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
     private final FraudBlockService fraudBlockService;
@@ -86,6 +90,7 @@ public class FoundObjectService implements IFoundObjectService {
                               FoundObjectRepository foundObjectRepository,
                               IUserRepository userRepository,
                               IRewardExclusionRepository rewardExclusionRepository,
+                              IReturnFoundObjectRepository returnFoundObjectRepository,
                               NotificationService notificationService,
                               EmailTemplateService emailTemplateService,
                               FraudBlockService fraudBlockService,
@@ -103,6 +108,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.foundObjectRepository = foundObjectRepository;
         this.userRepository = userRepository;
         this.rewardExclusionRepository = rewardExclusionRepository;
+        this.returnFoundObjectRepository = returnFoundObjectRepository;
         this.notificationService = notificationService;
         this.emailTemplateService = emailTemplateService;
         this.fraudBlockService = fraudBlockService;
@@ -426,15 +432,45 @@ public class FoundObjectService implements IFoundObjectService {
         // Obtenemos todos los objetos devueltos de la organización.
         List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, null, true, null);
 
-        // Creamos los DTOs y los metemos en una lista
+        /* EU-348: la fecha de devolución no está en Weaviate —el objeto sólo sabe que fue devuelto—
+         * sino en MySQL. Se resuelve el lote entero en UNA consulta, y no una por objeto. */
+        Map<String, LocalDateTime> returnDates = returnDatesByObject(foundObjects);
+
+        /* El historial se ordena por CUÁNDO SE DEVOLVIÓ, no por cuándo se encontró, que es como
+         * estaba: lo que ordena un historial es el hecho que registra. Ordenando por hallazgo, un
+         * objeto encontrado hace meses y devuelto recién queda sepultado al fondo.
+         * Los que no tienen fecha van al final, pero NO se descartan: un objeto marcado como devuelto
+         * sin su registro en MySQL no debería existir, y esconderlo sería volver al bug que reportó
+         * este mismo ticket —algo que se fue del inventario y no aparece en ninguna parte—. */
         List<FoundObjectDto> dtos = foundObjects.stream()
-                .map(this::foundObjectToDto)
-                .sorted(Comparator.comparing(FoundObjectDto::getFoundDate).reversed())
+                .map(foundObject -> {
+                    FoundObjectDto dto = foundObjectToDto(foundObject);
+                    dto.setReturnDate(returnDates.get(foundObject.getUuid()));
+                    return dto;
+                })
+                .sorted(Comparator.comparing(FoundObjectDto::getReturnDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(dtos)
                 .build();
+    }
+
+    /**
+     * EU-348: fecha de devolución de cada objeto, indexada por UUID.
+     *
+     * <p>Una sola consulta para todo el lote. Si un objeto aparece dos veces —no debería:
+     * {@code found_object_uuid} es único en la tabla— gana el primero, que es indistinto.</p>
+     */
+    private Map<String, LocalDateTime> returnDatesByObject(List<FoundObject> foundObjects) {
+        if (foundObjects.isEmpty()) return Map.of();
+        List<String> uuids = foundObjects.stream().map(FoundObject::getUuid).toList();
+        return returnFoundObjectRepository.findByFoundObjectUUIDIn(uuids).stream()
+                .filter(rfo -> rfo.getFoundObjectUUID() != null && rfo.getDatetimeOfReturn() != null)
+                .collect(Collectors.toMap(ReturnFoundObject::getFoundObjectUUID,
+                        ReturnFoundObject::getDatetimeOfReturn,
+                        (first, second) -> first));
     }
 
     public FoundObjectDto getFoundObjectDetail(FoundObjectDetailCommand command){
@@ -454,6 +490,8 @@ public class FoundObjectService implements IFoundObjectService {
                 organizationService.organizationToDto(organization) :
                 null;
 
+        GeoCoordinates coordinates = foundObject.getCoordinates();
+
         FoundObjectDto dto = FoundObjectDto.builder()
                 .id(foundObject.getUuid())
                 .title(foundObject.getTitle())
@@ -463,8 +501,15 @@ public class FoundObjectService implements IFoundObjectService {
                 .distance(foundObject.getDistance())
                 .organization(organizationDto)
                 .foundDate(foundObject.getFoundDate())
-                .latitude(foundObject.getCoordinates().getLatitude().floatValue())
-                .longitude(foundObject.getCoordinates().getLongitude().floatValue())
+                /* EU-348: las coordenadas pueden faltar —convertToFoundObject las deja en null si el
+                 * objeto no las tiene guardadas— y desreferenciarlas de una tiraba un NPE que se
+                 * llevaba puesto el LISTADO ENTERO, no sólo ese objeto. Es el mismo síntoma que
+                 * reporta este ticket: objetos que dejan de aparecer. Un dato de ubicación ausente
+                 * viaja como null y ya. */
+                .latitude(coordinates != null && coordinates.getLatitude() != null
+                        ? coordinates.getLatitude().floatValue() : null)
+                .longitude(coordinates != null && coordinates.getLongitude() != null
+                        ? coordinates.getLongitude().floatValue() : null)
                 .category(foundObject.getCategory())
                 .build();
         UserEurekapp finder = foundObject.getObjectFinderUser();

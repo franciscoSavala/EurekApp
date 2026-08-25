@@ -6,6 +6,7 @@ import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.ObjectCategory;
 import com.eurekapp.backend.model.Organization;
+import com.eurekapp.backend.model.ReturnFoundObject;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.SimilarObjectsCommand;
 import com.eurekapp.backend.model.UploadFoundObjectCommand;
@@ -13,6 +14,7 @@ import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IRewardExclusionRepository;
+import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.ObjectStorage;
 import com.eurekapp.backend.service.client.EmbeddingService;
@@ -72,6 +74,7 @@ class FoundObjectServiceTest {
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock IUserRepository userRepository;
     @Mock IRewardExclusionRepository rewardExclusionRepository;
+    @Mock IReturnFoundObjectRepository returnFoundObjectRepository;
     @Mock NotificationService notificationService;
     @Mock EmailTemplateService emailTemplateService;
     @Mock FraudBlockService fraudBlockService;
@@ -85,7 +88,8 @@ class FoundObjectServiceTest {
                 s3Service, descriptionService, embeddingService, imageEmbeddingService,
                 imageClassificationService, textClassificationService, organizationRepository,
                 organizationService, lostObjectService, executorService, foundObjectRepository,
-                userRepository, rewardExclusionRepository, notificationService,
+                userRepository, rewardExclusionRepository, returnFoundObjectRepository,
+                notificationService,
                 emailTemplateService, fraudBlockService, searchScoringService);
     }
 
@@ -241,4 +245,99 @@ class FoundObjectServiceTest {
         verify(embeddingService).getTextVectorRepresentation(textToEmbed.capture());
         assertThat(textToEmbed.getValue()).isEqualTo("dni 40682351 billetera roja");
     }
+
+    // ---- EU-348: el historial se ordena por CUÁNDO SE DEVOLVIÓ, no por cuándo se encontró ----
+
+    /** Objeto devuelto de la organización 1, con la fecha de hallazgo dada. */
+    private FoundObject returnedObject(String uuid, String title, LocalDateTime foundDate) {
+        return FoundObject.builder()
+                .uuid(uuid)
+                .title(title)
+                .humanDescription("desc " + title)
+                .organizationId("1")
+                .foundDate(foundDate)
+                .wasReturned(true)
+                .build();
+    }
+
+    private ReturnFoundObject returnRecord(String uuid, LocalDateTime returnedAt) {
+        ReturnFoundObject rfo = new ReturnFoundObject();
+        rfo.setFoundObjectUUID(uuid);
+        rfo.setDatetimeOfReturn(returnedAt);
+        return rfo;
+    }
+
+    private UserEurekapp orgUser() {
+        Organization org = Organization.builder().id(1L).name("UTN FRC").build();
+        return UserEurekapp.builder()
+                .id(1L).username("owner@test.com").role(Role.ORGANIZATION_OWNER)
+                .organization(org).build();
+    }
+
+    @Test
+    void returnedObjects_areSortedByReturnDateNotFoundDate() {
+        /* El caso que reportó la prueba: el objeto encontrado MÁS RECIENTE es el que se devolvió
+         * PRIMERO. Ordenando por fecha de hallazgo queda arriba, aunque su devolución sea la más
+         * vieja. El historial tiene que arrancar por la última devolución. */
+        FoundObject encontradoTarde = returnedObject("uuid-tarde", "Mochila roja",
+                LocalDateTime.of(2026, 8, 24, 16, 0));
+        FoundObject encontradoTemprano = returnedObject("uuid-temprano", "Auriculares Sony",
+                LocalDateTime.of(2026, 8, 24, 10, 0));
+        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
+                .thenReturn(List.of(encontradoTarde, encontradoTemprano));
+        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any())).thenReturn(List.of(
+                returnRecord("uuid-tarde", LocalDateTime.of(2026, 8, 24, 20, 0)),
+                returnRecord("uuid-temprano", LocalDateTime.of(2026, 8, 24, 23, 26))));
+        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+
+        FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
+
+        assertThat(result.getFoundObjects()).extracting("id")
+                .containsExactly("uuid-temprano", "uuid-tarde");
+    }
+
+    @Test
+    void returnedObjects_exposeReturnDate() {
+        // La fecha de devolución viaja en el DTO: es el dato que la pantalla no tenía cómo mostrar.
+        FoundObject devuelto = returnedObject("uuid-1", "Paraguas negro",
+                LocalDateTime.of(2026, 4, 15, 10, 0));
+        LocalDateTime devueltoEl = LocalDateTime.of(2026, 8, 24, 23, 28);
+        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
+                .thenReturn(List.of(devuelto));
+        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any()))
+                .thenReturn(List.of(returnRecord("uuid-1", devueltoEl)));
+        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+
+        FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
+
+        assertThat(result.getFoundObjects()).hasSize(1);
+        assertThat(result.getFoundObjects().get(0).getReturnDate()).isEqualTo(devueltoEl);
+        // Los fixtures no tienen coordenadas a propósito: antes eso tiraba un NPE que se llevaba
+        // puesto el listado entero. Ahora el dato ausente viaja como null.
+        assertThat(result.getFoundObjects().get(0).getLatitude()).isNull();
+    }
+
+    @Test
+    void returnedObjects_withoutReturnRecord_goLastAndDoNotBreakTheList() {
+        /* Un objeto marcado como devuelto en Weaviate sin su fila en MySQL no debería existir, pero
+         * el alta escribe en las dos bases sin una transacción que las abarque. Si aparece, va al
+         * final — NO se descarta: esconderlo sería volver al bug de este ticket, algo que se fue del
+         * inventario y no está en ninguna parte. */
+        FoundObject huerfano = returnedObject("uuid-sin-registro", "Llave suelta",
+                LocalDateTime.of(2026, 8, 24, 18, 0));
+        FoundObject normal = returnedObject("uuid-ok", "Billetera rosa",
+                LocalDateTime.of(2026, 5, 1, 10, 0));
+        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
+                .thenReturn(List.of(huerfano, normal));
+        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any()))
+                .thenReturn(List.of(returnRecord("uuid-ok", LocalDateTime.of(2026, 8, 24, 23, 0))));
+        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+
+        FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
+
+        assertThat(result.getFoundObjects()).extracting("id")
+                .containsExactly("uuid-ok", "uuid-sin-registro");
+        assertThat(result.getFoundObjects().get(1).getReturnDate()).isNull();
+    }
+
 }

@@ -21,6 +21,11 @@ public class FoundObjectDto {
     private OrganizationDto organization;
     @JsonProperty("found_date")
     private LocalDateTime foundDate;
+    /* EU-348: fecha en que el objeto se devolvió a su dueño. Null salvo en el listado de objetos
+     * devueltos: no vive en Weaviate junto al resto del objeto, sino en MySQL (return_found_objects),
+     * así que sólo se completa donde se cruzan las dos. */
+    @JsonProperty("return_date")
+    private LocalDateTime returnDate;
     private Float latitude;
     private Float longitude;
     private Float distance;
