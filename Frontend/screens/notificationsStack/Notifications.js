@@ -40,6 +40,9 @@ const Notifications = ({ navigation, route }) => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    // EU-345: id del aviso cuya coincidencia se está abriendo, para no disparar dos pedidos si el
+    // usuario toca el botón de nuevo mientras carga.
+    const [openingMatchId, setOpeningMatchId] = useState(null);
 
     const fetchNotifications = async () => {
         try {
@@ -143,6 +146,48 @@ const Notifications = ({ navigation, route }) => {
         }
     };
 
+    /**
+     * EU-345: abre el objeto encontrado que disparó el aviso.
+     *
+     * El aviso guarda el UUID del objeto y el puntaje con el que coincidió; el resto de los datos
+     * —foto, descripción, organización, fecha del hallazgo— los trae el detalle, que ya existía.
+     * Con eso se arma un resultado de una sola coincidencia y se reusa la misma pantalla que muestra
+     * los resultados de una búsqueda en vivo, que es donde el usuario espera verlo.
+     */
+    const openMatch = async (item) => {
+        if (openingMatchId) return;
+        setOpeningMatchId(item.id);
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            const res = await axiosInstance.post(
+                BACK_URL + "/found-objects/getDetail",
+                { foundObjectUUID: item.related_object_uuid },
+                { headers: { Authorization: "Bearer " + jwt } }
+            );
+            markAsRead(item.id);
+            navigation.navigate("FoundObjects", {
+                // El puntaje viaja en el aviso: es el que se calculó cuando se receptó el objeto, o
+                // sea el número por el que se le avisó al usuario.
+                objectsFound: [{ ...res.data, score: item.match_score }],
+                aiCategory: res.data?.category,
+                fromNotification: true,
+                // Cuál de las búsquedas guardadas del usuario pasa a "Por retirar" si reconoce el
+                // objeto como suyo. La pantalla de coincidencias por sí sola no lo sabe: el aviso
+                // guarda la búsqueda que mejor coincidió.
+                lostObjectUuid: item.related_lost_object_uuid,
+            });
+        } catch (e) {
+            console.log("Error abriendo la coincidencia", e);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudo abrir la coincidencia. Intentá de nuevo.',
+            });
+        } finally {
+            setOpeningMatchId(null);
+        }
+    };
+
     const handleRefreshSession = async (notifId) => {
         try {
             const jwt = await AsyncStorage.getItem("jwt");
@@ -239,6 +284,23 @@ const Notifications = ({ navigation, route }) => {
                             }}
                         >
                             <Text style={styles.actionButtonText}>Ver solicitud</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+                {/* EU-345: los avisos anteriores a este cambio no tienen el UUID del objeto —el dato
+                    no se guardaba— y por eso no muestran el botón: no hay coincidencia que abrir. */}
+                {item.type === "MATCH_FOUND" && item.related_object_uuid != null && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => openMatch(item)}
+                            disabled={openingMatchId === item.id}
+                        >
+                            {openingMatchId === item.id ? (
+                                <ActivityIndicator size="small" color="#FFFFFF" />
+                            ) : (
+                                <Text style={styles.actionButtonText}>Ver coincidencia</Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 )}

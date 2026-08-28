@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +49,8 @@ public class LostObjectService {
     private final IOrganizationRepository organizationRepository;
     private final ObjectStorage objectStorage;
     private final LostObjectRepository lostObjectRepository;
+    /** Para resolver, en una búsqueda "Por retirar", dónde está el objeto que el usuario reclamó. */
+    private final FoundObjectRepository foundObjectRepository;
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
     private final SearchScoringService searchScoringService;
@@ -62,6 +65,7 @@ public class LostObjectService {
             IOrganizationRepository organizationRepository,
             ObjectStorage objectStorage,
             LostObjectRepository lostObjectRepository,
+            FoundObjectRepository foundObjectRepository,
             IUserRepository userRepository,
             InAppNotificationService inAppNotificationService,
             SearchScoringService searchScoringService) {
@@ -74,6 +78,7 @@ public class LostObjectService {
         this.organizationRepository = organizationRepository;
         this.objectStorage = objectStorage;
         this.lostObjectRepository = lostObjectRepository;
+        this.foundObjectRepository = foundObjectRepository;
         this.userRepository = userRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.searchScoringService = searchScoringService;
@@ -258,12 +263,27 @@ public class LostObjectService {
             // Notificación in-app.
             String inAppDescription = "Este objeto coincide con estas búsquedas abiertas: "
                     + String.join("; ", matchingSearchDescriptions);
+            // EU-345: el aviso se guarda con el objeto que coincidió, para poder llevar al usuario
+            // hasta él. Antes no guardaba ninguna referencia: avisaba que había aparecido algo
+            // parecido y ahí terminaba.
+            // El usuario puede tener varias búsquedas coincidiendo con el mismo objeto, pero el
+            // objeto sólo puede ser de una: se guarda la de mayor puntaje, que además es la que
+            // pasará a "Por retirar" si la reconoce como suya.
+            LostObject bestMatch = entry.getValue().stream()
+                    .filter(lo -> lo.getScore() != null)
+                    .max(Comparator.comparing(LostObject::getScore))
+                    .orElse(null);
+            MatchNotificationDetails match = new MatchNotificationDetails(
+                    foundObject.getUuid(),
+                    bestMatch != null ? bestMatch.getUuid() : null,
+                    bestMatch != null ? bestMatch.getScore().doubleValue() : null);
             inAppNotificationService.createNotification(
                     recipient,
                     "Alguien podría haber encontrado tu objeto",
                     inAppDescription,
                     "MATCH_FOUND",
-                    null);
+                    null,
+                    match);
         }
     }
 
@@ -280,35 +300,69 @@ public class LostObjectService {
         // diferencia por "status". Una sola fuente: ya no hay reclamo-espejo.
         List<LostObject> results = lostObjectRepository.query(null, username, null, null, null);
         return results.stream()
-                .map(lo -> LostObjectResponseDto.builder()
-                        .uuid(lo.getUuid())
-                        .description(lo.getDescription())
-                        .lostDate(lo.getLostDate())
-                        .organizationId(lo.getOrganizationId())
-                        .organizationName(resolveOrganizationName(lo.getOrganizationId()))
-                        .category(lo.getCategory())
-                        .status(lo.getStatus() != null ? lo.getStatus().name() : LostObjectStatus.ACTIVE.name())
-                        .closedDate(lo.getClosedDate())
-                        .recovered(lo.getRecovered())
-                        // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
-                        // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
-                        //
-                        // EU-343: el enlace plano alcanza. El bucket permite GetObject anónimo, así
-                        // que esta URL se abre sin firmar. NO firmarla acá: las URLs presignadas
-                        // vencen (1 h en FoundObjectService) y romperían la imagen de una pantalla
-                        // que quedó abierta, sin ganar nada mientras el bucket siga siendo público.
-                        //
-                        // Si alguna vez se cierra el acceso anónimo al bucket —debería, ver el
-                        // ticket de seguridad— hay que pasar ESTA línea y la de FoundObjectService a
-                        // generatePresignedUrl, y recién ahí la firma protege algo.
-                        //
-                        // Ojo al diagnosticar: con ListBucket denegado, S3 responde 403 AccessDenied
-                        // (no 404) cuando el objeto NO existe. Un 403 acá suele significar "la foto
-                        // nunca se subió", no "el bucket es privado".
-                        .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
-                                ? objectStorage.getObjectUrl(lo.getUuid()) : null)
-                        .build())
+                .map(lo -> {
+                    // "Por retirar": dónde está el objeto que el usuario reclamó. Se resuelve una
+                    // sola vez y no una por campo: son dos saltos (objeto y organización) y no vale
+                    // pagarlos dos veces para sacar el nombre y el contacto de la misma entidad.
+                    Organization custodian = resolveCustodian(lo);
+                    return LostObjectResponseDto.builder()
+                            .uuid(lo.getUuid())
+                            .description(lo.getDescription())
+                            .lostDate(lo.getLostDate())
+                            .organizationId(lo.getOrganizationId())
+                            .organizationName(resolveOrganizationName(lo.getOrganizationId()))
+                            .category(lo.getCategory())
+                            .status(lo.getStatus() != null ? lo.getStatus().name() : LostObjectStatus.ACTIVE.name())
+                            .closedDate(lo.getClosedDate())
+                            .recovered(lo.getRecovered())
+                            // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
+                            // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
+                            //
+                            // EU-343: el enlace plano alcanza. El bucket permite GetObject anónimo, así
+                            // que esta URL se abre sin firmar. NO firmarla acá: las URLs presignadas
+                            // vencen (1 h en FoundObjectService) y romperían la imagen de una pantalla
+                            // que quedó abierta, sin ganar nada mientras el bucket siga siendo público.
+                            //
+                            // Si alguna vez se cierra el acceso anónimo al bucket —debería, ver el
+                            // ticket de seguridad— hay que pasar ESTA línea y la de FoundObjectService a
+                            // generatePresignedUrl, y recién ahí la firma protege algo.
+                            //
+                            // Ojo al diagnosticar: con ListBucket denegado, S3 responde 403 AccessDenied
+                            // (no 404) cuando el objeto NO existe. Un 403 acá suele significar "la foto
+                            // nunca se subió", no "el bucket es privado".
+                            .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
+                                    ? objectStorage.getObjectUrl(lo.getUuid()) : null)
+                            .matchedObjectUuid(lo.getMatchedObjectUuid())
+                            .matchedOrganizationName(custodian != null ? custodian.getName() : null)
+                            .matchedOrganizationContactData(
+                                    custodian != null ? custodian.getContactData() : null)
+                            .build();
+                })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Organización que custodia el objeto reclamado en una búsqueda "Por retirar".
+     *
+     * <p>Se resuelve en dos saltos —búsqueda → objeto encontrado → organización— porque lo que se
+     * guarda en la búsqueda es el objeto, no la organización: el objeto es el dato real, y de ahí
+     * sale dónde está.</p>
+     *
+     * <p>Devuelve null si la búsqueda no está en ese estado, o si el objeto o la organización ya no
+     * existen. Igual que {@link #resolveOrganizationName}, es un dato de presentación: no vale hacer
+     * fallar el listado entero de búsquedas por un objeto que se borró.</p>
+     */
+    private Organization resolveCustodian(LostObject lostObject) {
+        String matchedUuid = lostObject.getMatchedObjectUuid();
+        if (matchedUuid == null || matchedUuid.isBlank()) return null;
+        try {
+            FoundObject foundObject = foundObjectRepository.getByUuid(matchedUuid);
+            if (foundObject == null || foundObject.getOrganizationId() == null) return null;
+            return organizationRepository.findById(Long.valueOf(foundObject.getOrganizationId()))
+                    .orElse(null);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**
@@ -338,16 +392,58 @@ public class LostObjectService {
      * ({@link LostObject#getRecovered()}); NO es un {@link SearchFeedback} (que es otra feature).</p>
      */
     public void closeLostObject(String username, String uuid, boolean recovered) {
-        LostObject lostObject = lostObjectRepository.getByUuid(uuid);
-        // Si no existe o no es del usuario, lo tratamos como "no encontrado" (no se filtra ajeno).
-        if (lostObject == null || !username.equals(lostObject.getUsername())) {
-            throw new NotFoundException("lost_object_not_found", "No se encontró la búsqueda guardada.");
-        }
+        LostObject lostObject = ownedSearch(username, uuid);
         if (lostObject.getStatus() == LostObjectStatus.CLOSED) {
             throw new BadRequestException("lost_object_already_closed",
                     "Esta búsqueda ya está cerrada. Si seguís buscando, creá una nueva.");
         }
 
         lostObjectRepository.close(uuid, LocalDateTime.now(), recovered);
+    }
+
+    /**
+     * La búsqueda pasa a "Por retirar": el usuario reconoció un objeto encontrado como suyo y va a
+     * ir a buscarlo. Guarda cuál es, que es lo que después le muestra dónde retirarlo.
+     *
+     * <p>Sólo desde ACTIVE. Una búsqueda cerrada es terminal, y una que ya está "Por retirar" no
+     * tiene por qué apuntar a otro objeto sin antes pasar por {@link #reopenLostObject}.</p>
+     */
+    public void markPendingPickup(String username, String uuid, String foundObjectUuid) {
+        LostObject lostObject = ownedSearch(username, uuid);
+        if (lostObject.getStatus() == LostObjectStatus.CLOSED) {
+            throw new BadRequestException("lost_object_already_closed",
+                    "Esta búsqueda ya está cerrada. Si seguís buscando, creá una nueva.");
+        }
+        if (lostObject.getStatus() == LostObjectStatus.PENDING_PICKUP) {
+            throw new BadRequestException("lost_object_already_pending_pickup",
+                    "Esta búsqueda ya tiene un objeto para retirar.");
+        }
+        lostObjectRepository.markPendingPickup(uuid, foundObjectUuid);
+    }
+
+    /**
+     * Vuelta atrás de "Por retirar": el usuario fue a la organización, vio el objeto y no era el
+     * suyo. La búsqueda vuelve a ACTIVE y sigue recibiendo avisos; no se cierra, porque sigue
+     * buscando.
+     */
+    public void reopenLostObject(String username, String uuid) {
+        LostObject lostObject = ownedSearch(username, uuid);
+        if (lostObject.getStatus() != LostObjectStatus.PENDING_PICKUP) {
+            throw new BadRequestException("lost_object_not_pending_pickup",
+                    "Esta búsqueda no tiene ningún objeto para retirar.");
+        }
+        lostObjectRepository.reopen(uuid);
+    }
+
+    /**
+     * Búsqueda guardada del usuario, o {@link NotFoundException}. Si no existe o es de otro, la
+     * respuesta es la misma a propósito: no se filtra la existencia de búsquedas ajenas.
+     */
+    private LostObject ownedSearch(String username, String uuid) {
+        LostObject lostObject = lostObjectRepository.getByUuid(uuid);
+        if (lostObject == null || !username.equals(lostObject.getUsername())) {
+            throw new NotFoundException("lost_object_not_found", "No se encontró la búsqueda guardada.");
+        }
+        return lostObject;
     }
 }

@@ -3,6 +3,7 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.response.InAppNotificationDto;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.InAppNotification;
+import com.eurekapp.backend.model.MatchNotificationDetails;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IInAppNotificationRepository;
 import lombok.AllArgsConstructor;
@@ -19,6 +20,16 @@ public class InAppNotificationService {
     private final IInAppNotificationRepository repository;
 
     public void createNotification(UserEurekapp user, String title, String description, String type, Long relatedRequestId) {
+        createNotification(user, title, description, type, relatedRequestId, null);
+    }
+
+    /**
+     * EU-345: variante que además deja asentado a qué coincidencia se refiere el aviso. Sólo la usa
+     * la búsqueda inversa (MATCH_FOUND); el resto de los avisos sigue llamando a la firma de arriba,
+     * que delega acá con {@code match} en null.
+     */
+    public void createNotification(UserEurekapp user, String title, String description, String type,
+                                   Long relatedRequestId, MatchNotificationDetails match) {
         InAppNotification notification = InAppNotification.builder()
                 .user(user)
                 .title(title)
@@ -27,6 +38,9 @@ public class InAppNotificationService {
                 .read(false)
                 .createdAt(LocalDateTime.now())
                 .relatedRequestId(relatedRequestId)
+                .relatedObjectUuid(match != null ? match.foundObjectUuid() : null)
+                .relatedLostObjectUuid(match != null ? match.lostObjectUuid() : null)
+                .matchScore(match != null ? match.score() : null)
                 .build();
         repository.save(notification);
     }
@@ -66,6 +80,9 @@ public class InAppNotificationService {
                 .read(n.isRead())
                 .createdAt(n.getCreatedAt())
                 .relatedRequestId(n.getRelatedRequestId())
+                .relatedObjectUuid(n.getRelatedObjectUuid())
+                .relatedLostObjectUuid(n.getRelatedLostObjectUuid())
+                .matchScore(n.getMatchScore())
                 .build();
     }
 }

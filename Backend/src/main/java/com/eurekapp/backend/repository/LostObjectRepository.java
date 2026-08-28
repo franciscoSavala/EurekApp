@@ -87,6 +87,9 @@ public class LostObjectRepository {
         properties.put("category", lostObject.getCategory() != null ? lostObject.getCategory() : "");
         // EU-326: si la búsqueda se guardó con foto, hay un objeto en S3 con key = uuid para mostrar.
         properties.put("has_image", Boolean.TRUE.equals(lostObject.getHasImage()));
+        // Toda búsqueda nace sin objeto reclamado; se completa recién al pasar a PENDING_PICKUP.
+        properties.put("matched_object_uuid",
+                lostObject.getMatchedObjectUuid() != null ? lostObject.getMatchedObjectUuid() : "");
 
         WeaviateObject object = WeaviateObject.builder()
                 .id(lostObject.getUuid())
@@ -131,7 +134,8 @@ public class LostObjectRepository {
                         "closed_date",
                         "recovered",
                         "category",
-                        "has_image"),
+                        "has_image",
+                        "matched_object_uuid"),
                 limit,
                 offset
         );
@@ -251,7 +255,8 @@ public class LostObjectRepository {
                 "closed_date",
                 "recovered",
                 "category",
-                "has_image");
+                "has_image",
+                "matched_object_uuid");
 
         // Preservamos el orden de aparición (primero los candidatos por imagen, luego los nuevos por texto).
         Map<String, LostObject> merged = new LinkedHashMap<>();
@@ -317,6 +322,7 @@ public class LostObjectRepository {
                 .closedDate(closedDate)
                 .recovered((Boolean) properties.get("recovered"))
                 .hasImage((Boolean) properties.get("has_image"))
+                .matchedObjectUuid(blankToNull((String) properties.get("matched_object_uuid")))
                 .build();
 
         return lostObject;
@@ -355,6 +361,7 @@ public class LostObjectRepository {
                 .closedDate(closedDate)
                 .recovered((Boolean) properties.get("recovered"))
                 .hasImage((Boolean) properties.get("has_image"))
+                .matchedObjectUuid(blankToNull((String) properties.get("matched_object_uuid")))
                 .build();
     }
 
@@ -368,6 +375,35 @@ public class LostObjectRepository {
         properties.put("closed_date", closedDate.toInstant(ZoneOffset.UTC).toString());
         properties.put("recovered", recovered);
         weaviateService.update("LostObject", uuid, null, properties);
+    }
+
+    /**
+     * La búsqueda pasa a "Por retirar": el usuario reconoció un objeto encontrado como suyo. Se
+     * guarda cuál, que es lo que después le dice DÓNDE ir a buscarlo. Merge parcial, igual que
+     * {@link #close}: no toca el resto del objeto ni sus vectores.
+     */
+    public void markPendingPickup(String uuid, String foundObjectUuid) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("status", LostObjectStatus.PENDING_PICKUP.name());
+        properties.put("matched_object_uuid", foundObjectUuid);
+        weaviateService.update("LostObject", uuid, null, properties);
+    }
+
+    /**
+     * Vuelta atrás de "Por retirar": el objeto no era el suyo, así que la búsqueda sigue viva. Se
+     * limpia la referencia al objeto — con cadena vacía y no null, que es como se persiste "sin
+     * valor" en el resto de esta clase (ver "category" en add()).
+     */
+    public void reopen(String uuid) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("status", LostObjectStatus.ACTIVE.name());
+        properties.put("matched_object_uuid", "");
+        weaviateService.update("LostObject", uuid, null, properties);
+    }
+
+    /** Weaviate devuelve "" para las properties de texto sin valor; el modelo prefiere null. */
+    private static String blankToNull(String value) {
+        return value != null && !value.isBlank() ? value : null;
     }
 
 }

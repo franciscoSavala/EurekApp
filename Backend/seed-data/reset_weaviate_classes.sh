@@ -55,7 +55,8 @@ post_class LostObject '{
     { "name": "closed_date",     "dataType": ["date"] },
     { "name": "recovered",       "dataType": ["boolean"] },
     { "name": "category",        "dataType": ["text"] },
-    { "name": "has_image",       "dataType": ["boolean"] }
+    { "name": "has_image",       "dataType": ["boolean"] },
+    { "name": "matched_object_uuid", "dataType": ["text"] }
   ]
 }'
 

@@ -37,4 +37,8 @@ public class LostObject {
     // de la presencia del vector de imagen, porque las consultas de listado no traen los vectores.
     // Es lo que decide si hay una foto en S3 (key = uuid) que se pueda mostrar.
     private Boolean hasImage;
+    // UUID del objeto encontrado que el usuario reconoció como suyo al pasar la búsqueda a
+    // PENDING_PICKUP. Es lo que permite mostrarle DÓNDE ir a retirarlo (la organización sale del
+    // objeto). Vacío mientras la búsqueda esté ACTIVE, y se limpia si resulta no ser el suyo.
+    private String matchedObjectUuid;
 }

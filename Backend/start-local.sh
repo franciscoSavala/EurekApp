@@ -191,7 +191,8 @@ create_class_if_missing "LostObject" '{
     { "name": "closed_date",     "dataType": ["date"] },
     { "name": "recovered",       "dataType": ["boolean"] },
     { "name": "category",        "dataType": ["text"] },
-    { "name": "has_image",       "dataType": ["boolean"] }
+    { "name": "has_image",       "dataType": ["boolean"] },
+    { "name": "matched_object_uuid", "dataType": ["text"] }
   ]
 }'
 
@@ -205,11 +206,12 @@ if [[ "$(curl -s -o /dev/null -w "%{http_code}" "$WEAVIATE_URL/v1/schema/LostObj
               '{"name":"closed_date","dataType":["date"]}' \
               '{"name":"recovered","dataType":["boolean"]}' \
               '{"name":"category","dataType":["text"]}' \
-              '{"name":"has_image","dataType":["boolean"]}'; do
+              '{"name":"has_image","dataType":["boolean"]}' \
+              '{"name":"matched_object_uuid","dataType":["text"]}'; do
     curl -s -o /dev/null -X POST "$WEAVIATE_URL/v1/schema/LostObject/properties" \
       -H "Content-Type: application/json" -d "$PROP"
   done
-  info "LostObject: propiedades de cierre (status/closed_date/recovered) y categoría aseguradas."
+  info "LostObject: properties de cierre, categoría, has_image y matched_object_uuid aseguradas."
 fi
 
 # ─── 8. Levantar backend Spring Boot ─────────────────────────────────────────

@@ -2,6 +2,7 @@ package com.eurekapp.backend.controller;
 
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.dto.request.CloseLostObjectRequestDto;
+import com.eurekapp.backend.dto.request.PendingPickupRequestDto;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -80,6 +81,34 @@ public class LostObjectController {
             @PathVariable String uuid,
             @Valid @RequestBody CloseLostObjectRequestDto request) {
         lostObjectService.closeLostObject(user.getUsername(), uuid, request.getRecovered());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{uuid}/pending-pickup")
+    @PreAuthorize("hasAuthority('USER')")
+    @Operation(summary = "Marcar una búsqueda como 'Por retirar'",
+            description = "El usuario reconoció un objeto encontrado como suyo y va a ir a retirarlo. "
+                    + "La búsqueda pasa a PENDING_PICKUP y guarda cuál es el objeto, para poder "
+                    + "mostrarle en qué organización está. No es terminal: si al verlo resulta que no "
+                    + "era el suyo, vuelve a ACTIVE. Sigue recibiendo avisos de coincidencia.")
+    public ResponseEntity<Void> markPendingPickup(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable String uuid,
+            @Valid @RequestBody PendingPickupRequestDto request) {
+        lostObjectService.markPendingPickup(user.getUsername(), uuid, request.getFoundObjectUuid());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{uuid}/reopen")
+    @PreAuthorize("hasAuthority('USER')")
+    @Operation(summary = "Volver a 'Buscando' una búsqueda 'Por retirar'",
+            description = "El usuario fue a la organización, vio el objeto y no era el suyo. La "
+                    + "búsqueda vuelve a ACTIVE y se limpia la referencia al objeto. No se cierra: "
+                    + "sigue buscando.")
+    public ResponseEntity<Void> reopenLostObject(
+            @AuthenticationPrincipal UserEurekapp user,
+            @PathVariable String uuid) {
+        lostObjectService.reopenLostObject(user.getUsername(), uuid);
         return ResponseEntity.ok().build();
     }
 }

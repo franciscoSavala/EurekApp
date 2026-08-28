@@ -27,4 +27,14 @@ public class InAppNotificationDto {
 
     @JsonProperty("related_request_id")
     private Long relatedRequestId;
+
+    // EU-345: presentes sólo en los avisos MATCH_FOUND; son los que permiten abrir la coincidencia.
+    @JsonProperty("related_object_uuid")
+    private String relatedObjectUuid;
+
+    @JsonProperty("match_score")
+    private Double matchScore;
+
+    @JsonProperty("related_lost_object_uuid")
+    private String relatedLostObjectUuid;
 }

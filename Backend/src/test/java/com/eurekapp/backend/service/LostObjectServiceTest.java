@@ -8,9 +8,11 @@ import com.eurekapp.backend.model.ObjectCategory;
 import com.eurekapp.backend.model.GeoCoordinates;
 import com.eurekapp.backend.model.LostObject;
 import com.eurekapp.backend.model.LostObjectStatus;
+import com.eurekapp.backend.model.MatchNotificationDetails;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.repository.LostObjectRepository;
@@ -75,6 +77,7 @@ class LostObjectServiceTest {
     @Mock IOrganizationRepository organizationRepository;
     @Mock ObjectStorage objectStorage;
     @Mock LostObjectRepository lostObjectRepository;
+    @Mock FoundObjectRepository foundObjectRepository;
     @Mock IUserRepository userRepository;
     @Mock InAppNotificationService inAppNotificationService;
 
@@ -86,7 +89,8 @@ class LostObjectServiceTest {
                 embeddingService, imageEmbeddingService, imageClassificationService,
                 textClassificationService,
                 emailTemplateService, notificationService, organizationRepository,
-                objectStorage, lostObjectRepository, userRepository, inAppNotificationService,
+                objectStorage, lostObjectRepository, foundObjectRepository, userRepository,
+                inAppNotificationService,
                 new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0));
 
         Organization organization = mock(Organization.class);
@@ -110,7 +114,8 @@ class LostObjectServiceTest {
 
         verify(notificationService).sendNotification(eq("u1@test.com"), anyString(), anyString());
         verify(inAppNotificationService)
-                .createNotification(any(UserEurekapp.class), anyString(), anyString(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(UserEurekapp.class), anyString(), anyString(), eq("MATCH_FOUND"),
+                        isNull(), any(MatchNotificationDetails.class));
     }
 
     @Test
@@ -123,7 +128,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -143,7 +148,8 @@ class LostObjectServiceTest {
         verify(notificationService).sendNotification(eq("u2@test.com"), anyString(), anyString());
         verify(notificationService, times(2)).sendNotification(any(), any(), any());
         verify(inAppNotificationService, times(2))
-                .createNotification(any(), any(), any(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(), any(), any(), eq("MATCH_FOUND"), isNull(),
+                        any(MatchNotificationDetails.class));
     }
 
     @Test
@@ -170,8 +176,39 @@ class LostObjectServiceTest {
         // La notificación in-app también las lista a ambas.
         ArgumentCaptor<String> descCaptor = ArgumentCaptor.forClass(String.class);
         verify(inAppNotificationService)
-                .createNotification(any(), anyString(), descCaptor.capture(), eq("MATCH_FOUND"), isNull());
+                .createNotification(any(), anyString(), descCaptor.capture(), eq("MATCH_FOUND"),
+                        isNull(), any(MatchNotificationDetails.class));
         assertThat(descCaptor.getValue()).contains("mochila azul").contains("cartera negra");
+    }
+
+    @Test
+    void notification_carriesFoundObjectUuidAndBestScore() {
+        // EU-345: sin estos dos datos el aviso no puede llevar a la coincidencia. El usuario tiene
+        // DOS búsquedas que coinciden con el mismo objeto, cada una con su puntaje: se guarda el mayor.
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject fuerte = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        LostObject floja = savedSearch("u1@test.com", "mochila", 0.95f, CORDOBA);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(floja, fuerte));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        ArgumentCaptor<MatchNotificationDetails> matchCaptor =
+                ArgumentCaptor.forClass(MatchNotificationDetails.class);
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"),
+                isNull(), matchCaptor.capture());
+        MatchNotificationDetails match = matchCaptor.getValue();
+
+        assertThat(match.foundObjectUuid()).isEqualTo("fo-1");
+        // La búsqueda que viaja es la mejor puntuada: es la que pasará a "Por retirar" si el usuario
+        // reconoce el objeto como suyo, y el objeto no puede ser de las dos.
+        assertThat(fuerte.getScore()).isGreaterThan(floja.getScore());
+        assertThat(match.lostObjectUuid()).isEqualTo(fuerte.getUuid());
+        // Se compara contra el puntaje que el propio servicio dejó seteado en la búsqueda, para no
+        // atar el test a la escala concreta de displayScore.
+        assertThat(match.score()).isEqualTo(fuerte.getScore().doubleValue());
     }
 
     @Test
@@ -185,7 +222,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -196,7 +233,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -209,7 +246,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -224,7 +261,7 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService, never()).sendNotification(any(), any(), any());
-        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -244,7 +281,8 @@ class LostObjectServiceTest {
         service.notifyMatchingSavedSearches(found);
 
         verify(notificationService).sendNotification(eq("u1@test.com"), any(), any());
-        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"), any());
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"), any(),
+                any(MatchNotificationDetails.class));
     }
 
     @Test
@@ -257,6 +295,88 @@ class LostObjectServiceTest {
 
         // El "¿lo recuperaste?" se guarda en la propia búsqueda; no se crea ningún SearchFeedback.
         verify(lostObjectRepository).close(eq(search.getUuid()), any(LocalDateTime.class), eq(true));
+    }
+
+    // ─── "Por retirar": el usuario reconoció un objeto como suyo y va a ir a buscarlo ───────────
+
+    @Test
+    void pendingPickup_fromActive_savesClaimedObject() {
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1");
+
+        verify(lostObjectRepository).markPendingPickup(search.getUuid(), "fo-1");
+    }
+
+    @Test
+    void pendingPickup_onClosedSearch_throwsBadRequest() {
+        LostObject search = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.CLOSED);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1"))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).markPendingPickup(any(), any());
+    }
+
+    @Test
+    void pendingPickup_byNonOwner_throwsNotFound() {
+        // Misma respuesta que si no existiera: no se filtra la existencia de búsquedas ajenas.
+        LostObject search = savedSearch("owner@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.markPendingPickup("intruso@test.com", search.getUuid(), "fo-1"))
+                .isInstanceOf(NotFoundException.class);
+
+        verify(lostObjectRepository, never()).markPendingPickup(any(), any());
+    }
+
+    @Test
+    void reopen_fromPendingPickup_goesBackToActive() {
+        // Fue a la organización, vio el objeto y no era el suyo: la búsqueda sigue viva.
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.PENDING_PICKUP);
+        search.setMatchedObjectUuid("fo-1");
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        service.reopenLostObject("u1@test.com", search.getUuid());
+
+        verify(lostObjectRepository).reopen(search.getUuid());
+        verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void reopen_onActiveSearch_throwsBadRequest() {
+        LostObject search = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.reopenLostObject("u1@test.com", search.getUuid()))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).reopen(any());
+    }
+
+    @Test
+    void pendingPickupSearch_stillReceivesMatchNotifications() {
+        // El objeto que la puso en "Por retirar" puede no ser el correcto: la búsqueda tiene que
+        // seguir compitiendo. Sólo las CERRADAS dejan de recibir avisos.
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.PENDING_PICKUP);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(search));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(inAppNotificationService).createNotification(any(), any(), any(), eq("MATCH_FOUND"),
+                isNull(), any(MatchNotificationDetails.class));
     }
 
     @Test

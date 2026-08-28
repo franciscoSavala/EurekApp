@@ -299,6 +299,16 @@ const NotificationsStackScreen = () => {
                 component={Notifications}
                 options={{ headerShown: false, title: 'EurekApp - Notificaciones' }}
             />
+            {/* EU-345: la pantalla de coincidencias se monta TAMBIÉN acá para que el aviso de
+                "coincidencia encontrada" abra el objeto sin salirse del stack de notificaciones.
+                Si se navegara al stack de búsqueda, "← Volver" caería en FindObject —su ruta
+                inicial— y dejaría al usuario en la pantalla de buscar, no en sus notificaciones.
+                Es el mismo componente, montado en los dos lugares. */}
+            <NotificationsStack.Screen
+                name="FoundObjects"
+                component={FoundObjects}
+                options={{ headerShown: false, title: 'EurekApp - Coincidencia encontrada' }}
+            />
         </NotificationsStack.Navigator>
     );
 }
