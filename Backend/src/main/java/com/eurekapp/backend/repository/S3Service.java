@@ -1,8 +1,10 @@
 package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.dto.BucketItem;
+import com.eurekapp.backend.exception.ApiException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
@@ -43,6 +45,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
+@Slf4j
 @Component
 public class S3Service implements ObjectStorage {
 
@@ -116,20 +119,25 @@ public class S3Service implements ObjectStorage {
             // Put the object into the bucket.
             CompletableFuture<PutObjectResponse> future = s3AsyncClient.putObject(objectRequest,
                     AsyncRequestBody.fromBytes(data));
-            future.whenComplete((resp, err) -> {
-                if (resp != null) {
-                    System.out.println("Object uploaded. Details: " + resp);
-                } else {
-                    // Handle error
-                    err.printStackTrace();
-                }
-            });
             future.join();
+            log.info("[service:S3] Objeto '{}' subido al bucket '{}' ({} bytes).",
+                    objectKey, bucketName, data != null ? data.length : 0);
 
+        // EU-343: future.join() envuelve el error real en CompletionException, que antes no se
+        // capturaba y se escapaba sin tratar. Es el mismo patrón que ya usa getObjectBytes.
+        } catch (java.util.concurrent.CompletionException e) {
+            throw uploadFailed(objectKey, e.getCause() != null ? e.getCause() : e);
         } catch (S3Exception e) {
-            System.err.println(e.getMessage());
-            System.exit(1);
+            // Antes esto hacía System.exit(1): una foto que no sube tumbaba la aplicación entera.
+            throw uploadFailed(objectKey, e);
         }
+    }
+
+    private ApiException uploadFailed(String objectKey, Throwable cause) {
+        log.error("[service:S3] No se pudo subir el objeto '{}' al bucket '{}': {}",
+                objectKey, bucketName, cause.getMessage(), cause);
+        return new ApiException("s3_upload_failed",
+                "No se pudo guardar la imagen en el almacenamiento.", cause);
     }
 
     @Override
