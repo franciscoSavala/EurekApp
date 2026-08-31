@@ -28,4 +28,9 @@ public class ReportLostObjectCommand {
     private GeoCoordinates geoCoordinates;
     @JsonProperty("organization_id")
     private String organizationId;
+    // EU-347: UUID del objeto encontrado que el usuario reconoció como suyo durante la búsqueda en
+    // vivo. Si viene, la búsqueda nace ya en PENDING_PICKUP en lugar de ACTIVE: guardarla y marcarla
+    // como reclamada son el mismo hecho, y separarlos dejaría una ventana diciendo "Buscando".
+    @JsonProperty("matched_object_uuid")
+    private String matchedObjectUuid;
 }

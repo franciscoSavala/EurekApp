@@ -39,7 +39,11 @@ public class LostObjectController {
                     + "foto es OPCIONAL (EU-326): si viene, se vectoriza (CLIP) y se sube a S3 al guardar; si no "
                     + "viene, la búsqueda queda sólo con el vector textual, lo que la hace más débil para el "
                     + "aviso automático. Adjuntar una foto es lo recomendable. La categoría se deduce del TEXTO "
-                    + "con precedencia sobre la foto (EU-337); si ninguna señal alcanza, queda sin categoría.")
+                    + "con precedencia sobre la foto (EU-337); si ninguna señal alcanza, queda sin categoría. "
+                    + "EU-347: si viene 'matched_object_uuid', la búsqueda nace en PENDING_PICKUP ('Por "
+                    + "retirar') apuntando a ese objeto, en lugar de ACTIVE. Es el caso de la búsqueda en "
+                    + "vivo: el usuario reconoció una coincidencia como suya sin haber guardado la búsqueda "
+                    + "antes, así que se le guarda sola y ya con el objeto reclamado.")
     public ResponseEntity<Void> reportLostObject(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(value = "file", required = false) MultipartFile file,
@@ -47,7 +51,8 @@ public class LostObjectController {
             @RequestParam(value = "lost_date", required = false) LocalDateTime lostDate,
             @RequestParam(value = "latitude", required = false) Double latitude,
             @RequestParam(value = "longitude", required = false) Double longitude,
-            @RequestParam(value = "organization_id", required = false) String organizationId) {
+            @RequestParam(value = "organization_id", required = false) String organizationId,
+            @RequestParam(value = "matched_object_uuid", required = false) String matchedObjectUuid) {
         GeoCoordinates coordinates = (latitude != null && longitude != null)
                 ? GeoCoordinates.builder().latitude(latitude).longitude(longitude).build()
                 : null;
@@ -58,6 +63,7 @@ public class LostObjectController {
                 .lostDate(lostDate)
                 .geoCoordinates(coordinates)
                 .organizationId(organizationId)
+                .matchedObjectUuid(matchedObjectUuid)
                 .build();
         lostObjectService.reportLostObject(command);
         return ResponseEntity.ok().build();

@@ -2,30 +2,19 @@ import {ActivityIndicator, Image, Modal, Pressable, Text, View, StyleSheet} from
 import Icon from "react-native-vector-icons/FontAwesome6";
 import EurekappButton from "../components/Button";
 import React, {useState} from "react";
-import Constants from "expo-constants";
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { Buffer } from 'buffer';
-import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
-import { isWeb } from "../../utils/platform";
+import { saveLostObject } from "../../services/LostObjectService";
 import {CommonActions, useNavigation} from '@react-navigation/native';
 
 
-const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 const MAX_SIZE_MB = 5;
 
-const FormData = global.FormData;
-
-const toLocalISO = (date) => {
-    const d = date instanceof Date ? date : new Date(date);
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
-
 /**
- * EU-326: guarda la búsqueda contra `POST /lost-objects`, que es multipart. La foto es OPCIONAL, pero
- * es lo que más ayuda a que después matchee, así que si la búsqueda no traía una se la ofrece acá.
+ * EU-326: guarda la búsqueda contra `POST /lost-objects`. La foto es OPCIONAL, pero es lo que más
+ * ayuda a que después matchee, así que si la búsqueda no traía una se la ofrece acá.
  */
 const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate, coordinates, organizationId, photo }) => {
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
@@ -63,32 +52,14 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
         }
         setLoading(true);
         try {
-            const params = new URLSearchParams({ description: query });
-            if (lostDate) params.append('lost_date', toLocalISO(lostDate));
-            if (coordinates?.latitude != null && coordinates?.longitude != null) {
-                params.append('latitude', coordinates.latitude);
-                params.append('longitude', coordinates.longitude);
-            }
-            if (organizationId != null) params.append('organization_id', String(organizationId));
-            const url = `${BACK_URL}/lost-objects?${params.toString()}`;
-
-            if (isWeb) {
-                const formData = new FormData();
-                if (effectivePhoto) {
-                    formData.append('file', new Blob([Buffer.from(effectivePhoto.base64, 'base64')]), 'lost_photo.jpg');
-                }
-                const response = await fetchWithAuth(url, { method: 'POST', body: formData });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            } else {
-                const parts = effectivePhoto
-                    ? [{ name: 'file', filename: 'lost_photo.jpg', type: effectivePhoto.mimeType || 'image/jpeg',
-                         data: 'RNFetchBlob-base64://' + String(effectivePhoto.base64) }]
-                    : [];
-                const response = await blobFetchWithAuth('POST', url,
-                    { 'Content-Type': 'multipart/form-data' }, parts);
-                const status = response.info().status;
-                if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
-            }
+            // Sin matchedObjectUuid: guardada a mano, la búsqueda nace "Buscando".
+            await saveLostObject({
+                description: query,
+                lostDate,
+                coordinates,
+                organizationId,
+                photo: effectivePhoto,
+            });
             setResponseOk(true);
             setTimeout(() => {
                 setModalVisible(false);
