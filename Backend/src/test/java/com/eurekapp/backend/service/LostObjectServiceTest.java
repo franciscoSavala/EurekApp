@@ -32,6 +32,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -45,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -577,6 +579,8 @@ class LostObjectServiceTest {
     void getMyLostObjects_exposesPhotoUrlOnlyWhenSavedWithPhoto() {
         // EU-326: la foto vive en S3 con key = uuid. Una búsqueda guardada SIN foto no tiene nada que
         // mostrar, y pedir la URL igual daría un enlace roto en el detalle.
+        // EU-343: el enlace va SIN firmar. El bucket permite GetObject anónimo, y una URL presignada
+        // vencería dejando la imagen rota en una pantalla abierta, sin ganar seguridad.
         LostObject conFoto = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA);
         conFoto.setHasImage(true);
         LostObject sinFoto = savedSearch("u1@test.com", "paraguas negro", 1.0f, CORDOBA);
@@ -591,6 +595,36 @@ class LostObjectServiceTest {
         assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg");
         assertThat(result.get(1).getImageUrl()).isNull();
         verify(objectStorage, never()).getObjectUrl(sinFoto.getUuid());
+    }
+
+    @Test
+    void reportLostObject_savesSearchWithoutPhotoWhenUploadFails() {
+        // EU-343: si S3 rechaza la subida, la búsqueda se guarda igual pero con hasImage=false.
+        // Antes se persistía hasImage=true antes de subir, así que un fallo de S3 dejaba el registro
+        // afirmando que tenía foto: "Mis búsquedas" pedía la URL de un objeto inexistente y mostraba
+        // un recuadro roto de forma permanente.
+        MultipartFile foto = new MockMultipartFile("image", "foto.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .image(foto)
+                .description("mochila verde")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        doThrow(new RuntimeException("SignatureDoesNotMatch"))
+                .when(objectStorage).putObject(any(), anyString());
+
+        service.reportLostObject(command);
+
+        ArgumentCaptor<LostObject> captor = ArgumentCaptor.forClass(LostObject.class);
+        verify(lostObjectRepository).add(captor.capture());
+        LostObject saved = captor.getValue();
+        // La búsqueda NO se pierde: la foto es opcional desde EU-326.
+        assertThat(saved.getDescription()).isEqualTo("mochila verde");
+        // Pero queda marcada como sin foto, así que el front muestra el placeholder.
+        assertThat(saved.getHasImage()).isFalse();
     }
 
     @Test

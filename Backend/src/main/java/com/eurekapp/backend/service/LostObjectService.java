@@ -116,6 +116,28 @@ public class LostObjectService {
                 TextNormalizer.normalize(command.getDescription()));
         String id = UUID.randomUUID().toString();
 
+        // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
+        // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
+        //
+        // EU-343: se sube ANTES de persistir, y hasImage refleja si la subida funcionó de verdad.
+        // Antes se persistía hasImage=true y se subía después: si S3 fallaba, el registro quedaba
+        // afirmando que tenía foto y "Mis búsquedas" mostraba para siempre un recuadro roto,
+        // porque pedía la URL de un objeto inexistente.
+        //
+        // Un fallo de S3 no cancela el guardado: desde EU-326 la foto es opcional, así que es
+        // preferible conservar la búsqueda (con su vector visual, que igual se calculó) y mostrar
+        // el placeholder "sin foto", antes que hacerle perder la búsqueda al usuario.
+        boolean imageStored = false;
+        if (hasImage) {
+            try {
+                objectStorage.putObject(imageBytes, id);
+                imageStored = true;
+            } catch (RuntimeException e) {
+                log.error("LostObjectService: no se pudo subir la foto de la búsqueda '{}'. "
+                        + "Se guarda igual, sin foto.", id, e);
+            }
+        }
+
         /* EU-347: la búsqueda en vivo no guardaba nada. El usuario reconocía una coincidencia como
          * suya, veía dónde retirarla y al cerrar ese mensaje no le quedaba registro de nada. Cuando
          * viene el objeto reclamado, la búsqueda se guarda YA en "Por retirar" y apuntando a él, en
@@ -139,7 +161,7 @@ public class LostObjectService {
                 .organizationId(command.getOrganizationId())
                 .description(command.getDescription())
                 .lostDate(command.getLostDate())
-                .hasImage(hasImage)
+                .hasImage(imageStored)
                 // Sin objeto reclamado no se toca el estado: add() la da de alta ACTIVE, que es como
                 // sigue naciendo la búsqueda guardada a mano.
                 .status(claimedDuringSearch ? LostObjectStatus.PENDING_PICKUP : null)
@@ -147,12 +169,6 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
-
-        // EU-324 / decisión 8: la foto de la búsqueda se sube a S3 SÓLO al guardar (key = uuid del
-        // LostObject), para poder mostrarla al ver la búsqueda guardada. La búsqueda en vivo no sube nada.
-        if (hasImage) {
-            objectStorage.putObject(imageBytes, id);
-        }
     }
 
     /**
@@ -315,6 +331,19 @@ public class LostObjectService {
                             .recovered(lo.getRecovered())
                             // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
                             // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
+                            //
+                            // EU-343: el enlace plano alcanza. El bucket permite GetObject anónimo, así
+                            // que esta URL se abre sin firmar. NO firmarla acá: las URLs presignadas
+                            // vencen (1 h en FoundObjectService) y romperían la imagen de una pantalla
+                            // que quedó abierta, sin ganar nada mientras el bucket siga siendo público.
+                            //
+                            // Si alguna vez se cierra el acceso anónimo al bucket —debería, ver el
+                            // ticket de seguridad— hay que pasar ESTA línea y la de FoundObjectService a
+                            // generatePresignedUrl, y recién ahí la firma protege algo.
+                            //
+                            // Ojo al diagnosticar: con ListBucket denegado, S3 responde 403 AccessDenied
+                            // (no 404) cuando el objeto NO existe. Un 403 acá suele significar "la foto
+                            // nunca se subió", no "el bucket es privado".
                             .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
                                     ? objectStorage.getObjectUrl(lo.getUuid()) : null)
                             .matchedObjectUuid(lo.getMatchedObjectUuid())
