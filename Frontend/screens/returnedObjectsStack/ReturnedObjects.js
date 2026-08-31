@@ -10,12 +10,14 @@ import {
     Text, TouchableOpacity,
     View
 } from "react-native";
-import React, {useEffect, useState} from "react";
+import React, {useCallback, useState} from "react";
 import EurekappButton from "../components/Button";
 import Constants from "expo-constants";
 import useAuthFetch from "../../utils/useAuthFetch";
+import Toast from 'react-native-toast-message';
+import {useFocusEffect} from "@react-navigation/native";
 import { colors } from "../../styles/globalStyles";
-import { formatDateES } from "../../utils/dateFormatter";
+import { formatDateES, formatDateTimeLocaleES } from "../../utils/dateFormatter";
 import EmptyState from "../components/EmptyState";
 import AppImage from "../components/AppImage";
 
@@ -31,9 +33,16 @@ const ReturnedObjects = ({ navigation }) => {
     const fetchReturnedObjects = async () => {
         try {
             const jsonData = await authFetch('get', `${BACK_URL}/found-objects/getReturnedObjects`);
-            setFoundObjects(jsonData.found_objects);
+            setFoundObjects(jsonData.found_objects ?? []);
         } catch (error) {
-            console.error(error);
+            if (__DEV__) console.error(error);
+            // EU-348: si la carga falla, la pantalla mostraba "no devolviste ningún objeto aún" — el
+            // mismo cartel que cuando de verdad no hay ninguno. Un error tiene que verse como un error.
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'No se pudieron cargar los objetos devueltos. Verificá tu conexión.',
+            });
         } finally {
             setLoading(false);
         }
@@ -45,9 +54,16 @@ const ReturnedObjects = ({ navigation }) => {
         setRefreshing(false);
     }
 
-    useEffect( () => {
-        fetchReturnedObjects();
-    }, []);
+    /* EU-348: antes era useEffect con dependencias vacías, o sea que la lista se cargaba UNA sola vez,
+     * al montarse la pantalla. Al registrar una devolución y volver acá, la pantalla seguía montada y
+     * mostraba la foto vieja: el objeto recién devuelto no aparecía. Parecía que la devolución no se
+     * había registrado, cuando en realidad sí. "Ver inventario" nunca tuvo el problema porque ya usaba
+     * useFocusEffect, y esa asimetría es la que hacía ver los dos listados desincronizados. */
+    useFocusEffect(
+        useCallback(() => {
+            fetchReturnedObjects();
+        }, [])
+    );
 
     const renderItem = ({item}) => {
         const isSelected = item.id === objectSelectedId;
@@ -58,10 +74,19 @@ const ReturnedObjects = ({ navigation }) => {
                     <Text style={styles.itemTitle}>
                         {item.title}
                     </Text>
+                    {item.humanDescription ? (
+                        <Text style={styles.itemText}>
+                            Descripción: {item.humanDescription}
+                        </Text>
+                    ) : null}
+                    {/* EU-348: la fecha de la DEVOLUCIÓN es el dato que define este listado y no se
+                        mostraba en ningún lado. Con hora, porque varias devoluciones el mismo día es
+                        lo habitual. Si falta, formatDateTimeLocaleES imprime un guión: se ve que a
+                        ese registro le falta algo, en vez de inventar una fecha. */}
                     <Text style={styles.itemText}>
-                        Descripción: {item.humanDescription}
+                        Devuelto el {formatDateTimeLocaleES(item.return_date)}
                     </Text>
-                    <Text style={styles.itemText}>
+                    <Text style={styles.itemSubText}>
                         Encontrado el {formatDateES(item.found_date)}
                     </Text>
                     <View style={styles.buttonsContainer}>
@@ -140,7 +165,10 @@ const styles = StyleSheet.create({
         width:'100%',
     },
     item: {
-        height: 175,
+        // minHeight y no height: con la fecha de devolución la tarjeta creció, y una altura fija
+        // dejaba los botones cortados por abajo.
+        minHeight: 175,
+        paddingVertical: 12,
         backgroundColor: colors.surface,
         flexDirection: 'row',
         alignItems: 'center',
@@ -180,7 +208,15 @@ const styles = StyleSheet.create({
         color: colors.text,
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
-        marginVertical: 5
+        marginVertical: 3
+    },
+    // La fecha de hallazgo pasa a segundo plano: sigue siendo útil como contexto, pero acá lo que
+    // importa es la devolución.
+    itemSubText: {
+        color: colors.textSecondary ?? '#638888',
+        fontSize: 12,
+        fontFamily: 'PlusJakartaSans-Regular',
+        marginBottom: 3
     },
     organizationHeader: {
         color: colors.text,
