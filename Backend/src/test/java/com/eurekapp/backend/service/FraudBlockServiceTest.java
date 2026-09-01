@@ -160,7 +160,7 @@ class FraudBlockServiceTest {
         assertThat(msg).contains("Retiros repetidos del mismo DNI"); // motivo en llano, nunca "Caso 1"
         assertThat(msg).doesNotContain("CASE_1");
         assertThat(msg).contains("27/06/2026");                      // hasta cuándo
-        assertThat(msg).contains("soporte@eurekapp.com");            // a dónde escribir
+        assertThat(msg).contains("soporte.eurekapp@gmail.com");      // a dónde escribir
     }
 
     @Test

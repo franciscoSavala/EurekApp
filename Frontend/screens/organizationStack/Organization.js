@@ -247,7 +247,7 @@ const Organization = ({ route, navigation }) => {
                         textAlign: 'left',
                         color: '#939393',
                         marginBottom: 10,
-                    }]}>{"\n"}Para modificar los datos de tu organización, incluyendo su ubicación, envía un correo a soporte@eurekapp.com
+                    }]}>{"\n"}Para modificar los datos de tu organización, incluyendo su ubicación, envía un correo a soporte.eurekapp@gmail.com
                     </Text>
                 </View>
 

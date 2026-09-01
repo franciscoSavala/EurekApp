@@ -27,7 +27,7 @@ public class FraudBlockService {
 
     private final IFraudBlockRepository blockRepository;
 
-    private static final String SUPPORT_EMAIL = "soporte@eurekapp.com";
+    private static final String SUPPORT_EMAIL = "soporte.eurekapp@gmail.com";
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
