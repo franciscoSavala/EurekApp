@@ -456,6 +456,7 @@ return (
                     style={styles.textArea}
                     placeholder="Escribe un título"
                     multiline
+                    value={objectTitle}
                     onChangeText={(text) => setObjectTitle(text.trimStart())}
                 />
             </View>
@@ -576,6 +577,7 @@ return (
                     style={[styles.textArea, {minHeight: 200}]}
                     placeholder="Agrega una descripción"
                     multiline
+                    value={detailedDescription}
                     onChangeText={(text) => setDetailedDescription(text)}
                 />
             </View>
