@@ -332,6 +332,27 @@ success "  $LO_INSERTED LostObjects insertados"
 # ─── 12. Insertar Retornos ───────────────────────────────────────────────────
 header "Insertando Retornos"
 
+# EU-362: 'first_name' y 'last_name' son columnas NUEVAS, así que Hibernate las crea solo al
+# levantar el backend con el código del ticket. Si el seed corre ANTES de ese arranque, el INSERT de
+# más abajo falla por columna inexistente y —como el error va a /dev/null— el script igual diría
+# "5 retornos insertados". Se agregan acá si faltan, para que el orden de los pasos no importe.
+for COL in first_name last_name; do
+  COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = '$COL';
+SQL
+)
+  if echo "$COL_EXISTS" | grep -q "^1$"; then
+    success "'$COL' ya existe en return_found_objects — OK"
+  else
+    warn "Falta '$COL' en return_found_objects. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN $COL VARCHAR(100) NULL;
+SQL
+    success "'$COL' agregada"
+  fi
+done
+
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (found_objectuuid, user_id, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
