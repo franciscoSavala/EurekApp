@@ -74,6 +74,8 @@ class ReturnFoundObjectServiceTest {
                 .build();
 
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .lastName("Quiroga")
                 .DNI("12345678")
                 .phoneNumber("3511234567")
                 .foundObjectUUID("uuid-123")
@@ -143,6 +145,8 @@ class ReturnFoundObjectServiceTest {
                 .build();
 
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .lastName("Quiroga")
                 .DNI("12345678")
                 .phoneNumber("3511234567")
                 .foundObjectUUID("uuid-123")
@@ -207,6 +211,8 @@ class ReturnFoundObjectServiceTest {
                 .build();
 
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .lastName("Quiroga")
                 .DNI("12345678")
                 .phoneNumber("3511234567")
                 .foundObjectUUID("uuid-123")
@@ -259,6 +265,8 @@ class ReturnFoundObjectServiceTest {
                 .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
 
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .lastName("Quiroga")
                 .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
@@ -296,6 +304,8 @@ class ReturnFoundObjectServiceTest {
                 .wasReturned(false).objectFinderUser(finder).build();
 
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .lastName("Quiroga")
                 .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
@@ -337,5 +347,139 @@ class ReturnFoundObjectServiceTest {
         verify(inAppNotificationService, never()).createNotification(
                 any(), anyString(), anyString(), eq("REWARD_EARNED"), any());
         verify(userRepository, never()).save(finder);   // no se suma XP
+    }
+
+    // ─── EU-362: nombre y apellido de quien retira ───────────────────────────────────────────
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void nombreYApellido_sePersistenYVuelvenEnElDto() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
+
+        // Con espacios de sobra a propósito: el servicio los recorta antes de guardar.
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("  Marina  ")
+                .lastName(" Quiroga ")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = service.returnFoundObject(command, caller);
+
+        ArgumentCaptor<ReturnFoundObject> savedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
+        verify(returnFoundObjectRepository, atLeastOnce()).save(savedCaptor.capture());
+        ReturnFoundObject persisted = savedCaptor.getAllValues().get(0);
+        assertThat(persisted.getFirstName()).isEqualTo("Marina");
+        assertThat(persisted.getLastName()).isEqualTo("Quiroga");
+
+        assertThat(dto.getFirstName()).isEqualTo("Marina");
+        assertThat(dto.getLastName()).isEqualTo("Quiroga");
+    }
+
+    @Test
+    void returnFails_whenFirstNameIsBlank() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("   ")
+                .lastName("Quiroga")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        assertThatThrownBy(() -> service.returnFoundObject(command, caller))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("nombre");
+
+        // Se corta antes de tocar S3, la base y el control de fraude.
+        verify(returnFoundObjectRepository, never()).save(any());
+        verify(fraudDetectionService, never()).detectFraudForReturn(any());
+    }
+
+    @Test
+    void returnFails_whenLastNameIsMissing() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        assertThatThrownBy(() -> service.returnFoundObject(command, caller))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("apellido");
+
+        verify(returnFoundObjectRepository, never()).save(any());
+    }
+
+    @Test
+    void getReturnFoundObject_devuelveNombreYApellido() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp consultant = UserEurekapp.builder()
+                .id(10L).username("employee@test.com")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        ReturnFoundObject rfo = new ReturnFoundObject();
+        rfo.setId(5L);
+        rfo.setFoundObjectUUID("uuid-123");
+        rfo.setFirstName("Marina");
+        rfo.setLastName("Quiroga");
+        rfo.setDNI("12345678");
+        rfo.setPhoneNumber("3511234567");
+        rfo.setPersonPhotoUUID("person-photo-001");
+        rfo.setDatetimeOfReturn(java.time.LocalDateTime.now());
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(true).objectFinderUser(null).build();
+
+        when(returnFoundObjectRepository.findByFoundObjectUUID("uuid-123")).thenReturn(rfo);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.findByFoundObjectUUID("uuid-123")).thenReturn(Optional.empty());
+
+        var dto = service.getReturnFoundObject(consultant, "uuid-123");
+
+        assertThat(dto.getFirstName()).isEqualTo("Marina");
+        assertThat(dto.getLastName()).isEqualTo("Quiroga");
+        assertThat(dto.getDNI()).isEqualTo("12345678");
     }
 }

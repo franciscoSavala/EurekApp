@@ -81,6 +81,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
         if(!validatePhotoUploaded()) return;
         setButtonWasPressed(true);
         const ownerUsername = getValues('ObjectOwnerUsername');
+        const firstName = getValues('FirstName');
+        const lastName = getValues('LastName');
         const dni = getValues('Dni');
         const phone = getValues('Phone');
         setLoading(true);
@@ -104,6 +106,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
                 }, config );*/
             const formData = new FormData();
             formData.append('username', ownerUsername);
+            formData.append('firstName', firstName);
+            formData.append('lastName', lastName);
             formData.append('dni', dni);
             formData.append('phoneNumber', phone);
             formData.append('found_object_uuid', objectId);
@@ -387,8 +391,44 @@ const ReturnObjectForm = ({ route, navigation}) => {
                         textAlign: 'left',
                         color: '#939393',
                         marginBottom: 10,
-                        }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad.
+                        }]}>{"\n"}Pídele a la persona que te deje ver su cédula de identidad, y registrá su nombre y apellido tal como figuran ahí.
                     </Text>
+                    <Text style={styles.label}>Nombre</Text>
+                    <Controller
+                        control={control}
+                        render={({ field: { onChange, value } }) => (
+                            <InputForm
+                                text='Ingresa el nombre'
+                                valueName='FirstName'
+                                value={value}
+                                onChange={onChange} />
+                        )}
+                        name='FirstName'
+                        rules={{
+                            required: { value: true, message: 'Dato obligatorio.' },
+                            validate: v => v.trim().length > 0 || 'Dato obligatorio.'
+                        }}
+                        defaultValue='' />
+                    <Text style={styles.textError}>{errors.FirstName ? errors.FirstName.message : " "}</Text>
+
+                    <Text style={styles.label}>Apellido</Text>
+                    <Controller
+                        control={control}
+                        render={({ field: { onChange, value } }) => (
+                            <InputForm
+                                text='Ingresa el apellido'
+                                valueName='LastName'
+                                value={value}
+                                onChange={onChange} />
+                        )}
+                        name='LastName'
+                        rules={{
+                            required: { value: true, message: 'Dato obligatorio.' },
+                            validate: v => v.trim().length > 0 || 'Dato obligatorio.'
+                        }}
+                        defaultValue='' />
+                    <Text style={styles.textError}>{errors.LastName ? errors.LastName.message : " "}</Text>
+
                     <Text style={styles.label}>DNI</Text>
                     <Controller
                         control={control}

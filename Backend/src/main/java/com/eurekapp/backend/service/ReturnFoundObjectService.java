@@ -82,9 +82,13 @@ public class ReturnFoundObjectService {
     @SneakyThrows
     public ReturnFoundObjectDto returnFoundObject(ReturnFoundObjectCommand command, UserEurekapp caller)
     {
-        if(command.getDNI() == null || command.getPhoneNumber() == null || command.getPhoneNumber().isEmpty()){
-            throw new BadRequestException("incomplete_data", "");
-        }
+        // EU-362: nombre y apellido entran acá junto al resto de los datos de quien retira. El mensaje
+        // dice cuál falta: antes viajaba vacío y el front sólo podía mostrar un error genérico.
+        String firstName = requireText(command.getFirstName(), "el nombre");
+        String lastName = requireText(command.getLastName(), "el apellido");
+        String dni = requireText(command.getDNI(), "el DNI");
+        String phoneNumber = requireText(command.getPhoneNumber(), "el teléfono");
+
                         // 1- ORGANIZACIÓN
         // Verificamos si la organización existe
         if (command.getOrganizationId() == null || !organizationRepository.existsById(command.getOrganizationId())) {
@@ -133,7 +137,7 @@ public class ReturnFoundObjectService {
         // están bloqueados por sospecha de fraude. El finder bloqueado NO frena la devolución (se
         // maneja más abajo en la sección 7: la devolución se permite, pero sin otorgarle puntos).
         Optional<String> dniBlockMessage =
-                fraudBlockService.describeActiveDniBlock(command.getDNI(), "El DNI ingresado");
+                fraudBlockService.describeActiveDniBlock(dni, "El DNI ingresado");
         if (dniBlockMessage.isPresent()) {
             throw new BadRequestException("dni_blocked", dniBlockMessage.get());
         }
@@ -166,8 +170,10 @@ public class ReturnFoundObjectService {
         rfo.setFoundObjectUUID(command.getFoundObjectUUID());
         rfo.setDatetimeOfReturn(LocalDateTime.now());
         rfo.setUserEurekapp(user);
-        rfo.setDNI(command.getDNI());
-        rfo.setPhoneNumber(command.getPhoneNumber());
+        rfo.setFirstName(firstName);
+        rfo.setLastName(lastName);
+        rfo.setDNI(dni);
+        rfo.setPhoneNumber(phoneNumber);
         rfo.setPersonPhotoUUID(personPhotoUUID);
         rfo.setReturnedByEmployee(caller);
         // Guardar el objeto devuelto
@@ -273,13 +279,27 @@ public class ReturnFoundObjectService {
         return ReturnFoundObjectDto.builder()
                 .id(String.valueOf(rfo.getId()))
                 .username(command.getUsername())
-                .DNI(command.getDNI())
+                .firstName(firstName)
+                .lastName(lastName)
+                .DNI(dni)
                 .foundObjectId(foundObject.getUuid())
                 .returnDateTime(rfo.getDatetimeOfReturn())
-                .phoneNumber(command.getPhoneNumber())
+                .phoneNumber(phoneNumber)
                 .build();
     }
 
+    /**
+     * Dato obligatorio del formulario de devolución: lo devuelve sin espacios sobrantes, o falla
+     * diciendo cuál falta. Trimear no es cosmético: un DNI con un espacio al final no coincidiría
+     * con los bloqueos por fraude, que comparan el texto tal cual.
+     */
+    private String requireText(String value, String fieldLabel) {
+        if (value == null || value.isBlank()) {
+            throw new BadRequestException("incomplete_data",
+                    "Falta " + fieldLabel + " de la persona que retira el objeto.");
+        }
+        return value.trim();
+    }
 
     /**
      * Devuelve todos los casos en que no se otorgó recompensa por incompatibilidad de funciones,
@@ -380,6 +400,8 @@ public class ReturnFoundObjectService {
         return ReturnFoundObjectDto.builder()
                 .id(String.valueOf(rfo.getId()))
                 .username(rfoUsername)
+                .firstName(rfo.getFirstName())
+                .lastName(rfo.getLastName())
                 .DNI(rfo.getDNI())
                 .foundObjectId(foundObjectUUID)
                 .returnDateTime(rfo.getDatetimeOfReturn())
