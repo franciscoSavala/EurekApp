@@ -41,28 +41,37 @@ class EmailTemplateServiceTest {
     void objectClaimed_renderizaLosDatosDelRetiro() {
         String html = service.buildObjectClaimedEmail(
                 "Ana", "Mochila azul", "Tiene un llavero de tela",
-                "UTN FRC", "consultas@utn.edu.ar / 351 555-0000",
-                "http://img/found.jpg");
+                "UTN FRC", "consultas@utn.edu.ar / 351 555-0000");
 
         assertThat(html)
                 .contains("Ana")
                 .contains("Mochila azul")
                 .contains("Tiene un llavero de tela")
                 .contains("UTN FRC")
-                .contains("consultas@utn.edu.ar")
-                .contains("http://img/found.jpg");
+                .contains("consultas@utn.edu.ar");
         // Lo que hasta ahora sólo vivía en el modal y se perdía al cerrarlo.
         assertThat(html).contains("documento");
     }
 
     @Test
-    void objectClaimed_sinFoto_noDejaUnaImagenRota() {
-        // El objeto puede no tener foto en S3; un <img> apuntando a null es peor que ninguno.
+    void objectClaimed_noLlevaImagen() {
+        // El correo va sin foto a propósito: el objeto ya lo vio en la aplicación al reconocerlo, y
+        // los clientes de correo suelen bloquear las imágenes remotas y mostrar el texto alternativo
+        // en su lugar, que es exactamente lo que se veía.
         String html = service.buildObjectClaimedEmail(
                 "Ana", "Mochila azul", "Tiene un llavero de tela",
-                "UTN FRC", "consultas@utn.edu.ar", null);
+                "UTN FRC", "consultas@utn.edu.ar");
 
         assertThat(html).doesNotContain("<img");
+    }
+
+    @Test
+    void objectClaimed_sinDescripcion_noDejaUnParrafoVacio() {
+        // humanDescription puede venir vacía: en ese caso el bloque muestra sólo el título.
+        String html = service.buildObjectClaimedEmail(
+                "Ana", "Mochila azul", null, "UTN FRC", "consultas@utn.edu.ar");
+
+        assertThat(html).contains("Mochila azul").doesNotContain("null");
     }
 
     @Test

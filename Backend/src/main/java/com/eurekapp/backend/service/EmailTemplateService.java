@@ -128,14 +128,13 @@ public class EmailTemplateService {
      * el objeto es suyo.</p>
      */
     public String buildObjectClaimedEmail(String firstName, String objectTitle, String description,
-                                           String orgName, String contactData, String imageUrl) {
+                                           String orgName, String contactData) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
         ctx.setVariable("objectTitle", objectTitle);
         ctx.setVariable("description", description);
         ctx.setVariable("orgName", orgName);
         ctx.setVariable("contactData", contactData);
-        ctx.setVariable("imageUrl", imageUrl);
         return templateEngine.process("email/object-claimed", ctx);
     }
 

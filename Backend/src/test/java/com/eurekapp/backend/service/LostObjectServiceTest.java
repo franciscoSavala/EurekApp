@@ -690,7 +690,7 @@ class LostObjectServiceTest {
         when(foundObjectRepository.getByUuid("fo-1")).thenReturn(foundObjectAt(CORDOBA));
         when(userRepository.findByUsername("u1@test.com"))
                 .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
-        when(emailTemplateService.buildObjectClaimedEmail(any(), any(), any(), any(), any(), any()))
+        when(emailTemplateService.buildObjectClaimedEmail(any(), any(), any(), any(), any()))
                 .thenReturn("<html>retiro</html>");
 
         service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1");
@@ -701,7 +701,7 @@ class LostObjectServiceTest {
         // hasta EU-353 sólo existían en un modal que al cerrarse no volvía.
         verify(emailTemplateService).buildObjectClaimedEmail(
                 eq("Nombre"), eq("Objeto encontrado"), any(),
-                eq("Org Test"), eq("contacto@org.com"), eq("http://img/found.jpg"));
+                eq("Org Test"), eq("contacto@org.com"));
     }
 
     @Test

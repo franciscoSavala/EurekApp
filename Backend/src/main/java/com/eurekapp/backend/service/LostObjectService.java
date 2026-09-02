@@ -213,11 +213,10 @@ public class LostObjectService {
                     .map(UserEurekapp::getFirstName).orElse("");
             String message = emailTemplateService.buildObjectClaimedEmail(
                     firstName, foundObject.getTitle(), foundObject.getHumanDescription(),
-                    organization.getName(), organization.getContactData(),
-                    objectStorage.getObjectUrl(foundObject.getUuid()));
+                    organization.getName(), organization.getContactData());
 
             notificationService.sendNotification(username,
-                    "Reservaste un objeto: así lo retirás — EurekApp", message);
+                    "Reconociste un objeto: así lo retirás — EurekApp", message);
         } catch (Exception e) {
             log.warn("LostObjectService: no se pudo enviar el correo de retiro a {}: {}",
                     username, e.getMessage());
