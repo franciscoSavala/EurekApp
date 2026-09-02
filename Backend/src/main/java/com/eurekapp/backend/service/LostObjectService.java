@@ -169,6 +169,59 @@ public class LostObjectService {
                 .build();
 
         lostObjectRepository.add(lostObject);
+
+        // EU-353: si nació reclamada, el usuario acaba de reconocer el objeto como suyo y le
+        // corresponde el correo con los datos del retiro, igual que si lo hubiera reclamado desde el
+        // aviso de coincidencia. Va después del add: primero se guarda, después se avisa.
+        if (claimedDuringSearch) {
+            notifyClaimConfirmed(command.getUsername(), command.getMatchedObjectUuid());
+        }
+    }
+
+    /**
+     * EU-353: el usuario reconoció un objeto encontrado como suyo y le llega por correo dónde y cómo
+     * retirarlo. Hasta ahora esos datos vivían sólo en un modal que al cerrarse no volvía: quien no
+     * los anotaba en el momento los perdía.
+     *
+     * <p>Pasan por acá los DOS caminos por los que se reclama un objeto: desde el aviso de
+     * coincidencia ({@link #markPendingPickup}) y desde la búsqueda en vivo, donde la búsqueda nace
+     * ya reclamada ({@link #reportLostObject}).</p>
+     *
+     * <p>Nada de esto puede hacer fallar el reclamo. El estado ya quedó guardado —que es el dato que
+     * importa— y quedarse sin el correo no justifica devolverle un error al usuario: perdería
+     * también la pantalla que le dice a quién reclamarle.</p>
+     */
+    private void notifyClaimConfirmed(String username, String foundObjectUuid) {
+        try {
+            // getByUuid devuelve null si el objeto no existe o si Weaviate falló: en los dos casos no
+            // hay datos de retiro que mandar, y un correo a medias sería peor que ninguno.
+            FoundObject foundObject = foundObjectRepository.getByUuid(foundObjectUuid);
+            if (foundObject == null || foundObject.getOrganizationId() == null) {
+                log.warn("LostObjectService: no se pudo resolver el objeto reclamado '{}'. "
+                        + "No se envía el correo de retiro.", foundObjectUuid);
+                return;
+            }
+            Organization organization = organizationRepository
+                    .findById(Long.valueOf(foundObject.getOrganizationId())).orElse(null);
+            if (organization == null) {
+                log.warn("LostObjectService: el objeto reclamado '{}' no resuelve a ninguna "
+                        + "organización. No se envía el correo de retiro.", foundObjectUuid);
+                return;
+            }
+
+            String firstName = userRepository.findByUsername(username)
+                    .map(UserEurekapp::getFirstName).orElse("");
+            String message = emailTemplateService.buildObjectClaimedEmail(
+                    firstName, foundObject.getTitle(), foundObject.getHumanDescription(),
+                    organization.getName(), organization.getContactData(),
+                    objectStorage.getObjectUrl(foundObject.getUuid()));
+
+            notificationService.sendNotification(username,
+                    "Reservaste un objeto: así lo retirás — EurekApp", message);
+        } catch (Exception e) {
+            log.warn("LostObjectService: no se pudo enviar el correo de retiro a {}: {}",
+                    username, e.getMessage());
+        }
     }
 
     /**
@@ -433,6 +486,9 @@ public class LostObjectService {
                     "Esta búsqueda ya tiene un objeto para retirar.");
         }
         lostObjectRepository.markPendingPickup(uuid, foundObjectUuid);
+
+        // EU-353: recién acá, con el estado ya guardado, se le manda por correo dónde retirarlo.
+        notifyClaimConfirmed(username, foundObjectUuid);
     }
 
     /**

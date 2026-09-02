@@ -13,12 +13,16 @@ import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -32,6 +36,8 @@ import java.util.stream.Collectors;
 @Service
 public class FraudDetectionService {
 
+    private static final Logger log = LoggerFactory.getLogger(FraudDetectionService.class);
+
     private final IFraudAlertRepository alertRepository;
     private final IUserRepository userRepository;
     private final FoundObjectRepository foundObjectRepository;
@@ -39,6 +45,11 @@ public class FraudDetectionService {
     private final FraudDetectionConfigService fraudDetectionConfigService;
     private final FraudBlockService fraudBlockService;
     private final InAppNotificationService inAppNotificationService;
+    private final NotificationService notificationService;
+    private final EmailTemplateService emailTemplateService;
+
+    private static final DateTimeFormatter DISPLAY_FORMATTER =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     /**
      * Detección de fraude sobre devoluciones (EU-284). Se dispara al registrar una devolución.
@@ -148,6 +159,43 @@ public class FraudDetectionService {
         // Si hay un empleado involucrado (Caso 3), se avisa al dueño de su organización (EU-288). La
         // gestión del fraude sigue siendo del dueño de Eurekapp; el responsable de la org solo se entera.
         notifyOrganizationOwnerIfEmployeeInvolved(employeeForAlert);
+
+        // EU-353: y se le avisa por correo al dueño de Eurekapp, que es quien gestiona el fraude.
+        // Hasta ahora la alerta se creaba, bloqueaba y quedaba esperando a que alguien entrara al
+        // panel: fuera de la aplicación no se enteraba nadie.
+        notifyAdminsNewFraudAlert(alert);
+    }
+
+    /**
+     * EU-353: correo al dueño de Eurekapp por cada alerta nueva.
+     *
+     * <p>Va después del dedup, así que una alerta deduplicada no genera correo: si no se creó nada,
+     * no hay nada que avisar.</p>
+     *
+     * <p>El destinatario se resuelve por ROL y no con la dirección escrita en el código. Es el mismo
+     * criterio de {@code OrganizationService.notifyAdminsNewRequest}, y el motivo es EU-357: una
+     * dirección fija en el código termina desincronizada de la configuración real y nadie se entera
+     * hasta que hace falta.</p>
+     */
+    private void notifyAdminsNewFraudAlert(FraudAlert alert) {
+        // El motivo crudo es "CASE_1,CASE_3": jerga interna que nunca se le muestra a una persona.
+        String body = emailTemplateService.buildFraudAlertEmail(
+                FraudCaseType.humanizeReason(alert.getReason()),
+                alert.getDetails(),
+                alert.getDni(),
+                alert.getCreatedAt().format(DISPLAY_FORMATTER));
+
+        for (UserEurekapp admin : userRepository.findAllByRole(Role.ADMIN)) {
+            try {
+                notificationService.sendNotification(admin.getUsername(),
+                        "EurekApp — Nueva alerta de fraude", body);
+            } catch (Exception e) {
+                // La alerta y los bloqueos ya están guardados: que no salga el correo no puede
+                // deshacerlos ni hacer fallar la devolución que disparó la detección.
+                log.warn("No se pudo enviar el correo de alerta de fraude a {}: {}",
+                        admin.getUsername(), e.getMessage());
+            }
+        }
     }
 
     private void notifyOrganizationOwnerIfEmployeeInvolved(UserEurekapp employee) {
