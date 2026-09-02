@@ -98,7 +98,7 @@ public class AuthService {
         } catch (DisabledException | LockedException e) {
             log.warn("[action:login] Cuenta desactivada para el usuario {}", user.getUsername());
             throw new ForbiddenException("user_deactivated",
-                    "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte@eurekapp.com");
+                    "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte.eurekapp@gmail.com");
         } catch (AuthenticationException e) {
             log.error("[action:login] Fallo en la autenticación para el usuario {}", user.getUsername());
             throw new BadRequestException(ValidationError.INVALID_CREDENTIALS);
@@ -187,7 +187,7 @@ public class AuthService {
             user = existingUser.get();
             if (!user.isActive()) {
                 throw new ForbiddenException("user_deactivated",
-                        "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte@eurekapp.com");
+                        "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte.eurekapp@gmail.com");
             }
             if (user.getOrganization() != null && !user.getOrganization().isActive()) {
                 throw new ForbiddenException("org_deactivated",

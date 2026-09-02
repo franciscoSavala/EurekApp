@@ -17,6 +17,8 @@ import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeMultipart;
 import jakarta.mail.util.ByteArrayDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +26,8 @@ import java.util.Properties;
 
 @Service
 public class EmailService implements NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailService.class);
 
     private final Properties properties;
     private final String user;
@@ -55,7 +59,9 @@ public class EmailService implements NotificationService {
         });
         Message message = new MimeMessage(session);
         try {
-            message.setFrom(new InternetAddress("eurekapp.cba@gmail.com"));
+            // EU-357: el remitente sale de la misma cuenta con la que nos autenticamos ante el SMTP,
+            // para que las dos no puedan quedar desincronizadas.
+            message.setFrom(new InternetAddress(user));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipient));
             message.setSubject(subject);
             MimeBodyPart mimeBodyPart = new MimeBodyPart();
@@ -65,7 +71,11 @@ public class EmailService implements NotificationService {
             message.setContent(multipart);
             Transport.send(message);
         } catch (MessagingException e) {
-            throw new ApiException("invalid_email", "Not valid email", HttpStatus.INTERNAL_SERVER_ERROR);
+            // Sin este log el motivo del rechazo se pierde: quienes invocan el envio lo envuelven en
+            // un catch que solo escribe un warn con el mensaje de esta excepcion.
+            log.error("Fallo el envio de correo a {}", recipient, e);
+            throw new ApiException("invalid_email", "No se pudo enviar el correo: " + e.getMessage(),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }
