@@ -119,11 +119,16 @@ public class FoundObjectController {
 
     @PostMapping(value = "/return/{organizationId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Registrar devolución de objeto",
-            description = "Asienta la devolución de un objeto encontrado a su dueño, registrando DNI, teléfono y foto de la persona que lo retira.")
+            description = "Asienta la devolución de un objeto encontrado a su dueño, registrando nombre, apellido, "
+                    + "DNI, teléfono y foto de la persona que lo retira.")
     @PreAuthorize("hasAuthority('ENCARGADO') or hasAuthority('ORGANIZATION_OWNER') or hasAuthority('ORGANIZATION_EMPLOYEE')")
     public ResponseEntity<ReturnFoundObjectDto> returnLostObject(
             @AuthenticationPrincipal UserEurekapp caller,
             @RequestParam(value = "username", required = false) String eurekappUser,
+            // EU-362: nombre y apellido son obligatorios, pero se reciben como opcionales para que el
+            // faltante lo reporte el servicio con un mensaje entendible, y no Spring con un 400 pelado.
+            @RequestParam(value = "firstName", required = false) String firstName,
+            @RequestParam(value = "lastName", required = false) String lastName,
             @RequestParam(value = "dni") String dni,
             @RequestParam(value = "phoneNumber") String phoneNumber,
             @RequestParam(value = "found_object_uuid") String uuid,
@@ -132,6 +137,8 @@ public class FoundObjectController {
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
                 .organizationId(organizationId)
                 .foundObjectUUID(uuid)
+                .firstName(firstName)
+                .lastName(lastName)
                 .DNI(dni)
                 .phoneNumber(phoneNumber)
                 .username(eurekappUser)

@@ -15,6 +15,10 @@ import java.time.LocalDateTime;
 public class ReturnFoundObjectCommand {
     @JsonProperty("username")
     private String username;
+    @JsonProperty("first_name")
+    private String firstName;
+    @JsonProperty("last_name")
+    private String lastName;
     @JsonProperty("dni")
     private String DNI;
     @JsonProperty("phone_number")

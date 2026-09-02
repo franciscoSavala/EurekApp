@@ -332,15 +332,36 @@ success "  $LO_INSERTED LostObjects insertados"
 # ─── 12. Insertar Retornos ───────────────────────────────────────────────────
 header "Insertando Retornos"
 
+# EU-362: 'first_name' y 'last_name' son columnas NUEVAS, así que Hibernate las crea solo al
+# levantar el backend con el código del ticket. Si el seed corre ANTES de ese arranque, el INSERT de
+# más abajo falla por columna inexistente y —como el error va a /dev/null— el script igual diría
+# "5 retornos insertados". Se agregan acá si faltan, para que el orden de los pasos no importe.
+for COL in first_name last_name; do
+  COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = '$COL';
+SQL
+)
+  if echo "$COL_EXISTS" | grep -q "^1$"; then
+    success "'$COL' ya existe en return_found_objects — OK"
+  else
+    warn "Falta '$COL' en return_found_objects. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN $COL VARCHAR(100) NULL;
+SQL
+    success "'$COL' agregada"
+  fi
+done
+
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
-  (found_objectuuid, user_id, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
+  (found_objectuuid, user_id, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-('$FO_UUID_6',  7,    '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
-('$FO_UUID_11', NULL, '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
-('$FO_UUID_2',  NULL, '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
-('$FO_UUID_8',  8,    '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
-('$FO_UUID_9',  7,    '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
+('$FO_UUID_6',  7,    'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
+('$FO_UUID_11', NULL, 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
+('$FO_UUID_2',  NULL, NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
+('$FO_UUID_8',  8,    'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
+('$FO_UUID_9',  7,    'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
 SQL
 success "5 retornos insertados (3 UTN, 2 Terminal)"
 
