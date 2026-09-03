@@ -410,15 +410,19 @@ success "10 registros de search_feedback insertados"
 # ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
 header "Insertando UsabilityFeedback"
 
+# EU-367: la opinion sobre la aplicacion se le pide al USUARIO FINAL y la lee el administrador de
+# EurekApp, consolidada. Las respuestas viejas eran de empleados opinando al cargar objetos
+# ('upload_object'), un momento que ya no existe; se descartan y se siembran respuestas de usuarios
+# finales (7 Julia, 8 Pedro, 9 Valeria), que antes quedaban invisibles por no tener organizacion.
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 INSERT INTO usability_feedback (star_rating, aspects, comment, context, created_at, user_id) VALUES
-(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                     'search',        '2026-04-20 10:00:00', 5),
-(4, 'CLARIDAD',                  NULL,                                    'profile',       '2026-04-25 11:00:00', 6),
-(2, 'NAVEGACION',               'Me confundi con los menus',              'upload_object', '2026-05-01 09:00:00', 5),
-(5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',                  'search',        '2026-05-05 14:00:00', 2),
-(3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',     'profile',       '2026-05-10 16:00:00', 6),
-(4, 'CLARIDAD',                  NULL,                                    'upload_object', '2026-05-14 08:00:00', 5),
-(1, 'NAVEGACION',               'No entendi como reportar un objeto',     'upload_object', '2026-05-18 10:00:00', 6);
+(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                  'close_search', '2026-04-20 10:00:00', 7),
+(4, 'CLARIDAD',                  NULL,                                'profile',      '2026-04-25 11:00:00', 8),
+(2, 'NAVEGACION',               'Me confundi con los menus',          'close_search', '2026-05-01 09:00:00', 9),
+(5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',              'close_search', '2026-05-05 14:00:00', 7),
+(3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',  'profile',      '2026-05-10 16:00:00', 8),
+(4, 'CLARIDAD',                  NULL,                                'close_search', '2026-05-14 08:00:00', 9),
+(1, 'NAVEGACION',               'No entendi como cerrar mi busqueda', 'close_search', '2026-05-18 10:00:00', 8);
 SQL
 success "7 registros de usability_feedback insertados"
 
