@@ -406,6 +406,56 @@ class ReturnFoundObjectServiceTest {
         assertThat(dto.getLastName()).isEqualTo("Quiroga");
     }
 
+    /* EU-371: la devolucion asienta en que organizacion ocurrio. De ahi sale la organizacion a la
+     * que se le atribuye la calificacion que la persona puede dejar despues de retirar; antes habia
+     * que ir a buscarla a la base vectorial. */
+    @Test
+    void devolucion_registraLaOrganizacionDondeOcurrio() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina").lastName("Quiroga")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        service.returnFoundObject(command, caller);
+
+        ArgumentCaptor<ReturnFoundObject> savedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
+        verify(returnFoundObjectRepository, atLeastOnce()).save(savedCaptor.capture());
+        assertThat(savedCaptor.getAllValues().get(0).getOrganizationId()).isEqualTo(1L);
+    }
+
     @Test
     void returnFails_whenFirstNameIsBlank() {
         Organization org = Organization.builder().id(1L).name("TestOrg").build();

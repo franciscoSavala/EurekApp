@@ -176,6 +176,9 @@ public class ReturnFoundObjectService {
         rfo.setPhoneNumber(phoneNumber);
         rfo.setPersonPhotoUUID(personPhotoUUID);
         rfo.setReturnedByEmployee(caller);
+        // EU-371: la organización queda asentada en la devolución, que es de donde cuelga la
+        // calificación que la persona puede dejar después de retirar.
+        rfo.setOrganizationId(command.getOrganizationId());
         // Guardar el objeto devuelto
         //returnFoundObjectRepository.save(rfo);
         Future<ReturnFoundObject> saveReturnFoundObjectFuture = (Future<ReturnFoundObject>) executorService.submit(() -> returnFoundObjectRepository.save(rfo));
