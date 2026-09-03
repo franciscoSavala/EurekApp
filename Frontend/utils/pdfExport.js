@@ -93,6 +93,16 @@ function formatHoursHtml(h) {
     return `${h.toFixed(1)} hs`;
 }
 
+/* EU-375: los cinco aspectos de la atencion, en el orden en que se imprimen. Las claves son las
+   que manda el backend. */
+const ASPECT_LABELS = [
+    { key: 'staff_treatment',      label: 'Trato del personal' },
+    { key: 'waiting_time',         label: 'Tiempo de espera' },
+    { key: 'instructions_clarity', label: 'Claridad de indicaciones' },
+    { key: 'object_condition',     label: 'Estado del objeto' },
+    { key: 'pickup_security',      label: 'Seguridad del retiro' },
+];
+
 export function buildUsageReportHtml(data, feedbackData, records, filters) {
     const { fromDate, toDate, groupBy, wasFoundFilter } = filters;
     const generatedAt = new Date().toLocaleString('es-AR');
@@ -113,12 +123,21 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
         { label: 'Fallidas', value: feedbackData.unsuccessful_searches || 0, color: '#e53935' },
     ]) : '';
 
-    const starBars = feedbackData && feedbackData.star_distribution
-        ? makeBarChart([5, 4, 3, 2, 1].map(s => ({
-            label: '★'.repeat(s),
-            value: feedbackData.star_distribution[s] || 0,
+    /* EU-375: el reporte del responsable de organizacion muestra un promedio POR ASPECTO de las
+       calificaciones posteriores a la devolucion, en lugar de la distribucion de estrellas que se
+       respondia en la pantalla de resultados. */
+    const aspectBars = feedbackData && feedbackData.total_ratings > 0
+        ? makeBarChart(ASPECT_LABELS.map(a => ({
+            label: a.label,
+            value: feedbackData.aspect_averages?.[a.key] || 0,
             color: '#f0a500',
         })), undefined)
+        : '';
+
+    const commentRows = feedbackData && feedbackData.comments && feedbackData.comments.length > 0
+        ? feedbackData.comments.map(c =>
+            `<tr><td>${c.created_at ? new Date(c.created_at).toLocaleDateString('es-AR') : '-'}</td>` +
+            `<td>${(c.comment || '').replace(/</g, '&lt;')}</td></tr>`).join('')
         : '';
 
     const topCategoriesChart = data && data.top_categories && data.top_categories.length > 0
@@ -135,7 +154,7 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
     ).join('') : '';
 
     const fbTrendRows = feedbackData && feedbackData.time_series ? feedbackData.time_series.map(p =>
-        `<tr><td>${p.label}</td><td>${(p.avg_rating || 0).toFixed(1)} ★</td><td>${p.successful}</td><td>${p.unsuccessful}</td></tr>`
+        `<tr><td>${p.label}</td><td>${p.successful}</td><td>${p.unsuccessful}</td></tr>`
     ).join('') : '';
 
     const recordRows = records && records.length > 0 ? records.map(r =>
@@ -143,12 +162,10 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
             <td>${r.id}</td>
             <td>${r.organizationId || '-'}</td>
             <td>${r.foundObjectTitle || r.foundObjectDescription || 'Objeto no especificado'}</td>
-            <td>${'★'.repeat(r.starRating || 0)}</td>
             <td>${r.wasFound ? 'Sí' : 'No'}</td>
             <td>${r.createdAt ? new Date(r.createdAt).toLocaleString('es-AR') : '-'}</td>
-            <td>${(r.comment || '').replace(/</g, '&lt;')}</td>
         </tr>`
-    ).join('') : '<tr><td colspan="7" style="text-align:center;color:#888">Sin registros en el período</td></tr>';
+    ).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">Sin registros en el período</td></tr>';
 
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Reporte de Uso</title><style>${baseStyle}</style></head>
@@ -190,29 +207,35 @@ ${feedbackData ? `
 <h2>Métricas de feedback</h2>
 <table>
     <tr><th>Indicador</th><th>Valor</th></tr>
-    <tr><td>Calificación promedio</td><td><b>${(feedbackData.average_rating || 0).toFixed(1)} ★</b></td></tr>
-    <tr><td>Total de feedbacks</td><td><b>${feedbackData.total_feedback}</b></td></tr>
+    <tr><td>Búsquedas registradas</td><td><b>${feedbackData.total_feedback}</b></td></tr>
     <tr><td>Búsquedas exitosas</td><td><b>${feedbackData.successful_searches}</b></td></tr>
     <tr><td>Búsquedas fallidas</td><td><b>${feedbackData.unsuccessful_searches}</b></td></tr>
+    <tr><td>Atenciones calificadas</td><td><b>${feedbackData.total_ratings || 0}</b></td></tr>
 </table>
 
 <h2>Gráfico: Resultado de búsquedas</h2>
 ${pieSearches}
 
-<h2>Distribución de calificaciones</h2>
-${starBars}
+${aspectBars ? `<h2>Calificación de la atención</h2>${aspectBars}` : ''}
+
+${commentRows ? `
+<h2>Comentarios</h2>
+<table>
+    <tr><th>Fecha</th><th>Comentario</th></tr>
+    ${commentRows}
+</table>` : ''}
 
 ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
-<h2>Tendencias de feedback</h2>
+<h2>Tendencias de búsquedas</h2>
 <table>
-    <tr><th>Período</th><th>Calif. promedio</th><th>Exitosas</th><th>Fallidas</th></tr>
+    <tr><th>Período</th><th>Exitosas</th><th>Fallidas</th></tr>
     ${fbTrendRows}
 </table>` : ''}
 ` : ''}
 
-<h2>Registros individuales de feedback</h2>
+<h2>Registros individuales de búsquedas</h2>
 <table>
-    <tr><th>ID</th><th>Organización</th><th>Objeto</th><th>Puntaje</th><th>Encontrado</th><th>Fecha</th><th>Comentario</th></tr>
+    <tr><th>ID</th><th>Organización</th><th>Objeto</th><th>Encontrado</th><th>Fecha</th></tr>
     ${recordRows}
 </table>
 </body></html>`;
