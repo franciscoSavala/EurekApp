@@ -273,7 +273,9 @@ public class ReturnFoundObjectService {
                                 user.getFirstName(),
                                 foundObject.getTitle(),
                                 caller.getOrganization().getName(),
-                                rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER)));
+                                rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER),
+                                // EU-373: identifica la devolución que se va a calificar.
+                                rfo.getId()));
             } catch (Exception e) {
                 log.warn("No se pudo enviar email de confirmación al retirador {}: {}", user.getUsername(), e.getMessage());
             }

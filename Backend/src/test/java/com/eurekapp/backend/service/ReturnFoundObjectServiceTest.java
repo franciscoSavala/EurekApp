@@ -456,6 +456,118 @@ class ReturnFoundObjectServiceTest {
         assertThat(savedCaptor.getAllValues().get(0).getOrganizationId()).isEqualTo(1L);
     }
 
+    /* EU-373: la invitacion a calificar viaja en el correo que ya se le enviaba a quien recupero su
+     * objeto, y lleva el identificador de SU devolucion. */
+    @Test
+    void devolucionDeUnUsuarioRegistrado_invitaACalificarConSuPropiaDevolucion() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        UserEurekapp retirador = UserEurekapp.builder()
+                .id(20L).username("julia@mail.com").firstName("Julia").lastName("Morales")
+                .role(Role.USER).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null)
+                .title("Billetera negra").build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Julia").lastName("Morales")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username("julia@mail.com")
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(userRepository.existsByUsername("julia@mail.com")).thenReturn(true);
+        when(userRepository.getByUsername("julia@mail.com")).thenReturn(retirador);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        // La devolucion guardada recibe su id, que es lo que despues identifica la encuesta.
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> {
+                    ReturnFoundObject saved = inv.getArgument(0);
+                    saved.setId(77L);
+                    return saved;
+                });
+
+        service.returnFoundObject(command, caller);
+
+        verify(emailTemplateService).buildObjectRecoveredEmail(
+                eq("Julia"), eq("Billetera negra"), eq("TestOrg"), anyString(), eq(77L));
+        verify(notificationService).sendNotification(
+                eq("julia@mail.com"), contains("Recuperaste tu objeto"), any());
+    }
+
+    /* Limite conocido: quien retira sin cuenta en EurekApp no recibe el correo, y por lo tanto
+     * tampoco la invitacion. La devolucion tiene que completarse igual, sin error. */
+    @Test
+    void devolucionDeAlguienSinCuenta_seCompletaSinInvitacion() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null)
+                .title("Billetera negra").build();
+
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina").lastName("Quiroga")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
+
+        doAnswer(inv -> {
+            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
+            Object result = callable.call();
+            Future<?> f = mock(Future.class);
+            doReturn(result).when(f).get();
+            return f;
+        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
+
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            Future<?> f = mock(Future.class);
+            doReturn(null).when(f).get();
+            return f;
+        }).when(executorService).submit(any(Runnable.class));
+
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        var dto = service.returnFoundObject(command, caller);
+
+        assertThat(dto.getFirstName()).isEqualTo("Marina");
+        verify(emailTemplateService, never()).buildObjectRecoveredEmail(
+                any(), any(), any(), any(), any());
+    }
+
     @Test
     void returnFails_whenFirstNameIsBlank() {
         Organization org = Organization.builder().id(1L).name("TestOrg").build();

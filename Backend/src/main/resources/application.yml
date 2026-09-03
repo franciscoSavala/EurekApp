@@ -47,6 +47,11 @@ application:
   weaviate:
     url: '${WEAVIATE_URL:localhost:8081}'
     schema: 'http'
+  # EU-373: base de los enlaces que viajan en los correos. Hasta ahora ningun correo llevaba
+  # enlaces a la app (el de recuperar contrasena manda un codigo), asi que no habia donde declararla.
+  # En local Expo se levanta en el 8082 porque Weaviate ocupa el 8081.
+  front:
+    url: ${FRONT_URL:http://localhost:8082}
 search:
   # Radio (metros) al que se circunscribe TODA busqueda. Es la UNICA definicion del radio: lo leen
   # los repositorios (filtro duro) y SearchScoringService (cuanto resta la distancia dentro del radio).
