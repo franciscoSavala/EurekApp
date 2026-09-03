@@ -501,13 +501,6 @@ const Reports = ({ navigation }) => {
                     </>
                 )}
             </View>
-                {/* Navegación a reporte de usabilidad */}
-                <TouchableOpacity
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate('UsabilityFeedbackReport')}
-                >
-                    <Text style={styles.navButtonText}>Ver reporte de usabilidad</Text>
-                </TouchableOpacity>
         </ScrollView>
     );
 };
@@ -694,20 +687,6 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#e0e8e8',
         marginBottom: 8,
-    },
-    navButton: {
-        marginTop: 8,
-        marginBottom: 24,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 10,
-        backgroundColor: '#f0f4f4',
-        alignItems: 'center',
-    },
-    navButtonText: {
-        fontSize: 15,
-        color: '#111818',
-        fontFamily: 'PlusJakartaSans-Regular',
     },
 });
 

@@ -39,7 +39,7 @@ import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectD
 import Achievements from "./screens/AchievementsStack/Achievements";
 import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 import Reports from "./screens/reportsStack/Reports";
-import UsabilityFeedbackReport from "./screens/reportsStack/UsabilityFeedbackReport";
+import UsabilityFeedbackReport from "./screens/adminStack/UsabilityFeedbackReport";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
@@ -229,10 +229,6 @@ const ReportsStackScreen = () => {
                 name='Reports'
                 component={Reports}
                 options={{headerShown: false, title: 'EurekApp - Reportes'}} />
-            <ReportsStack.Screen
-                name='UsabilityFeedbackReport'
-                component={UsabilityFeedbackReport}
-                options={{headerShown: true, title: 'Reporte de usabilidad'}} />
         </ReportsStack.Navigator>
     );
 }
@@ -417,6 +413,7 @@ const EurekappTab = () => {
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
     const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
     const slidersIcon = () => <Icon name={'sliders'} size={20}/>
+    const commentIcon = () => <Icon name={'comment-dots'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
@@ -624,6 +621,14 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: slidersIcon
                 }} component={FraudDetectionConfig} />
+                {/* EU-370: la opinión sobre la aplicación la lee quien puede corregir la
+                    aplicación. Antes colgaba del menú de reportes del responsable de organización,
+                    que no puede accionarla. */}
+                <Drawer.Screen name="UsabilityFeedbackReport" options={{
+                    title: 'Opiniones sobre la app',
+                    headerTitleAlign: 'center',
+                    drawerIcon: commentIcon
+                }} component={UsabilityFeedbackReport} />
             </> : null
             }
 
