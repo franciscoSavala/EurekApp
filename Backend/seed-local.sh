@@ -129,6 +129,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
 TRUNCATE TABLE usability_feedback;
+-- EU-371: la calificacion de la atencion cuelga de una devolucion. Va ANTES que
+-- return_found_objects: si sobrevive al reset, queda apuntando a devoluciones que ya no existen.
+TRUNCATE TABLE organization_feedback;
 -- TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
@@ -449,11 +452,12 @@ JOIN (
   SELECT '$FO_UUID_6'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
          'Me atendieron muy bien, todo rapidisimo' AS comentario, '2026-04-21 09:00:00' AS creado
   UNION ALL SELECT '$FO_UUID_8', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-05-07 10:00:00'
-  UNION ALL SELECT '$FO_UUID_9', 4, 3, 3, 4, 5, NULL, '2026-05-14 18:00:00'
 ) v ON v.uuid = r.found_objectuuid
 WHERE r.user_id IS NOT NULL AND r.organization_id IS NOT NULL;
 SQL
-success "3 calificaciones de atencion insertadas (1 UTN, 2 Terminal)"
+# La devolucion de $FO_UUID_9 (Julia, Terminal) queda SIN calificar a proposito: es la que
+# permite probar a mano la encuesta de atencion de punta a punta.
+success "2 calificaciones de atencion insertadas (1 UTN, 1 Terminal) + 1 devolucion sin calificar"
 
 # ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
 header "Insertando UsabilityFeedback"
@@ -686,7 +690,7 @@ echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                  
 echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 3                             ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 2  (+1 retiro sin calificar)  ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
