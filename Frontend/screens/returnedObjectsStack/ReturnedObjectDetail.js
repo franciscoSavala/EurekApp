@@ -94,6 +94,17 @@ const ReturnedObjectDetail = ({route}) => {
                     style={styles.image}
                     resizeMode="cover"
                 />
+                {/* EU-362: las devoluciones registradas antes del ticket no tienen nombre. Se muestra
+                    igual, aclarado, para que no parezca que el dato se perdió. */}
+                <View style={styles.textAreaContainer}>
+                    <Text style={styles.label}>Nombre y apellido: </Text>
+                    {rfo.firstName || rfo.lastName ? (
+                        <Text style={styles.label}>{[rfo.firstName, rfo.lastName].filter(Boolean).join(' ')}</Text>
+                    ) : (
+                        <Text style={styles.labelMuted}>No registrado</Text>
+                    )}
+                </View>
+
                 <View style={styles.textAreaContainer}>
                     <Text style={styles.label}>DNI: </Text>
                     <Text style={styles.label}>{rfo.dni}</Text>
@@ -291,6 +302,12 @@ const styles = StyleSheet.create({
         color: colors.text,
         fontSize: 16,
         fontWeight: '500',
+        fontFamily: 'PlusJakartaSans-Regular'
+    },
+    labelMuted: {
+        color: colors.textMuted,
+        fontSize: 16,
+        fontStyle: 'italic',
         fontFamily: 'PlusJakartaSans-Regular'
     },
     switchContainer: {

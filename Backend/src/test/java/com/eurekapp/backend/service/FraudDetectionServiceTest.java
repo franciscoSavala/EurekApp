@@ -18,6 +18,7 @@ import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,6 +42,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -61,6 +63,8 @@ class FraudDetectionServiceTest {
     @Mock FraudDetectionConfigService fraudDetectionConfigService;
     @Mock FraudBlockService fraudBlockService;
     @Mock InAppNotificationService inAppNotificationService;
+    @Mock NotificationService notificationService;
+    @Mock EmailTemplateService emailTemplateService;
 
     FraudDetectionService service;
 
@@ -69,7 +73,7 @@ class FraudDetectionServiceTest {
         service = new FraudDetectionService(
                 alertRepository, userRepository, foundObjectRepository,
                 returnFoundObjectRepository, fraudDetectionConfigService, fraudBlockService,
-                inAppNotificationService);
+                inAppNotificationService, notificationService, emailTemplateService);
         // Por defecto: sin alerta previa (dedup no bloquea).
         when(alertRepository.existsByDedupKeyAndCreatedAtAfter(anyString(), any())).thenReturn(false);
     }
@@ -118,6 +122,21 @@ class FraudDetectionServiceTest {
             UserEurekapp finder = findersByUuid.get(uuid);
             return FoundObject.builder().uuid(uuid).objectFinderUser(finder).organizationId("1").build();
         });
+    }
+
+    /**
+     * Tres devoluciones del mismo DNI, sin finder y con empleados distintos: dispara sólo el Caso 1,
+     * que es lo mínimo para que se cree una alerta.
+     */
+    private List<ReturnFoundObject> returnsTriggeringCase1(String dni) {
+        configWith(3, 1);
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, user(1, "e1@x", "E", "1")),
+                ret("u2", dni, null, user(2, "e2@x", "E", "2")),
+                ret("u3", dni, null, user(3, "e3@x", "E", "3")));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+        return returns;
     }
 
     private FraudAlert captureSavedAlert() {
@@ -512,5 +531,68 @@ class FraudDetectionServiceTest {
         assertThatThrownBy(() -> service.getFraudUserReport(
                 owner(org), LocalDate.now().minusDays(1), LocalDate.now(), null))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ---------- EU-353: aviso por correo al dueño de Eurekapp ----------
+
+    @Test
+    void alertaNueva_mandaCorreoACadaAdmin() {
+        String dni = "22222222";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin()));
+        when(emailTemplateService.buildFraudAlertEmail(any(), any(), any(), any()))
+                .thenReturn("<html>alerta</html>");
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(notificationService).sendNotification(
+                eq("admin@test.com"), anyString(), eq("<html>alerta</html>"));
+    }
+
+    @Test
+    void alertaDeduplicada_noMandaCorreo() {
+        // Si el dedup frena la creación no hay alerta nueva, y por lo tanto no hay nada que avisar.
+        String dni = "33333333";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+        when(alertRepository.existsByDedupKeyAndCreatedAtAfter(eq("dni:" + dni), any()))
+                .thenReturn(true);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin()));
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(notificationService, never()).sendNotification(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void correoCaido_noAfectaNiLaAlertaNiElBloqueo() {
+        // La alerta y los bloqueos ya están guardados cuando se intenta el envío: un SMTP caído no
+        // puede deshacerlos ni hacer fallar la devolución que disparó la detección.
+        String dni = "44444444";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin()));
+        doThrow(new RuntimeException("smtp caído")).when(notificationService)
+                .sendNotification(anyString(), anyString(), any());
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(alertRepository).save(any(FraudAlert.class));
+        verify(fraudBlockService).createBlocksForAlert(any(FraudAlert.class), eq(7));
+    }
+
+    @Test
+    void elCorreoNoNombraElCasoTecnico() {
+        // El motivo crudo es "CASE_1": jerga interna que no se le muestra a ninguna persona.
+        String dni = "55555555";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin()));
+
+        service.detectFraudForReturn(returns.get(2));
+
+        ArgumentCaptor<String> reason = ArgumentCaptor.forClass(String.class);
+        verify(emailTemplateService).buildFraudAlertEmail(
+                reason.capture(), anyString(), eq(dni), anyString());
+        assertThat(reason.getValue())
+                .doesNotContain("CASE_1")
+                .isEqualTo(FraudCaseType.CASE_1.getDisplayLabel());
     }
 }

@@ -24,6 +24,16 @@ public class ReturnFoundObject {
     @JoinColumn(name = "user_id", nullable = true)
     private UserEurekapp userEurekapp;
 
+    /* EU-362: nombre y apellido de quien retira. La persona puede no tener cuenta en EurekApp, así
+        que no alcanza con el usuario asociado: sin esto la devolución queda identificada sólo por un
+        número de documento. Van nullable en la base porque las devoluciones anteriores al ticket no
+        los tienen; para las nuevas son obligatorios y los valida el servicio. */
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
     /* Es String porque no lo usaremos para hacer operaciones matemáticas, y para no tener que lidiar
         con la posibilidad de que ocurra un overflow. */
     @Column(nullable = false, length = 20)

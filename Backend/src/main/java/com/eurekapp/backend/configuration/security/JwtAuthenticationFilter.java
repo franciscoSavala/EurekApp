@@ -51,7 +51,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     UserEurekapp eurekappUser = (UserEurekapp) userDetails;
                     if (!eurekappUser.isActive()) {
                         writeErrorResponse(response, "user_deactivated",
-                                "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte@eurekapp.com");
+                                "Tu cuenta fue desactivada. Si considerás que se trata de un error, contactá a soporte: soporte.eurekapp@gmail.com");
                         return;
                     }
                     if (eurekappUser.getOrganization() != null && !eurekappUser.getOrganization().isActive()) {

@@ -680,6 +680,102 @@ class LostObjectServiceTest {
         verify(objectStorage, never()).putObject(any(), anyString());
     }
 
+    // ---- EU-353: correo con los datos del retiro al reconocer un objeto como propio ----
+
+    @Test
+    void claimFromNotification_sendsPickupEmail() {
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(foundObjectAt(CORDOBA));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+        when(emailTemplateService.buildObjectClaimedEmail(any(), any(), any(), any(), any()))
+                .thenReturn("<html>retiro</html>");
+
+        service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1");
+
+        verify(notificationService).sendNotification(
+                eq("u1@test.com"), anyString(), eq("<html>retiro</html>"));
+        // Los datos de la organización que custodia el objeto son el motivo de mandar el correo:
+        // hasta EU-353 sólo existían en un modal que al cerrarse no volvía.
+        verify(emailTemplateService).buildObjectClaimedEmail(
+                eq("Nombre"), eq("Objeto encontrado"), any(),
+                eq("Org Test"), eq("contacto@org.com"));
+    }
+
+    @Test
+    void claimDuringLiveSearch_sendsPickupEmail() {
+        // EU-347: acá la búsqueda nace ya reclamada, así que el correo tiene que salir igual que
+        // cuando el reclamo llega desde el aviso de coincidencia.
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .description("billetera de cuero marrón")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .matchedObjectUuid("fo-1")
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(foundObjectAt(CORDOBA));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.reportLostObject(command);
+
+        verify(notificationService).sendNotification(eq("u1@test.com"), anyString(), any());
+    }
+
+    @Test
+    void savingSearchWithoutClaim_sendsNoEmail() {
+        // Guardar una búsqueda a mano no es reclamar nada: no hay objeto ni retiro del que informar.
+        ReportLostObjectCommand command = ReportLostObjectCommand.builder()
+                .description("campera negra")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(command);
+
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+    }
+
+    @Test
+    void claimedObjectNotResolvable_sendsNoEmailAndCompletesTheClaim() {
+        // getByUuid devuelve null si el objeto no existe o si Weaviate falló. Sin datos de retiro no
+        // hay correo que mandar —uno a medias sería peor—, pero el reclamo se completa igual.
+        LostObject search = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(null);
+
+        service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1");
+
+        verify(lostObjectRepository).markPendingPickup(search.getUuid(), "fo-1");
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+    }
+
+    @Test
+    void pickupEmailFailure_doesNotBreakTheClaim() {
+        // El estado es el dato que importa y ya quedó guardado. Hacer fallar el reclamo por un SMTP
+        // caído le sacaría al usuario también la pantalla que le dice a quién reclamarle el objeto.
+        LostObject search = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.ACTIVE);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(foundObjectAt(CORDOBA));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+        doThrow(new RuntimeException("smtp caído")).when(notificationService)
+                .sendNotification(any(), any(), any());
+
+        service.markPendingPickup("u1@test.com", search.getUuid(), "fo-1");
+
+        verify(lostObjectRepository).markPendingPickup(search.getUuid(), "fo-1");
+    }
+
     // ---- helpers ----
 
     private FoundObject foundObjectAt(GeoCoordinates coordinates) {
