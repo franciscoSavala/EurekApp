@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #017575; margin-top: 0;">Reconociste un objeto</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola <strong th:text="${firstName}">Nombre</strong>, reconociste este objeto como tuyo.
+    </p>
+
+    <!--/* Sin foto a propósito: el objeto ya lo vio en la aplicación al reconocerlo, y una imagen
+           remota en un correo suele llegar bloqueada por el cliente, que en su lugar muestra el
+           texto alternativo. */-->
+    <div style="background-color: #f0f4f4; border-radius: 6px; padding: 16px; margin: 20px 0;">
+      <p style="margin: 0; font-weight: bold; color: #333;" th:text="${objectTitle}">Objeto</p>
+      <p th:if="${!#strings.isEmpty(description)}"
+         style="margin: 6px 0 0 0; color: #555; line-height: 1.6;" th:text="${description}"></p>
+    </div>
+
+    <div style="background-color: #e8f5f5; border-left: 4px solid #017575; padding: 16px; border-radius: 4px;">
+      <p style="margin: 0 0 4px 0; font-weight: bold; color: #017575;">Dónde retirarlo</p>
+      <p style="margin: 0; color: #333;" th:text="${orgName}">Organización</p>
+      <p style="margin: 4px 0 0 0; color: #333;" th:text="${contactData}"></p>
+    </div>
+
+    <div style="background-color: #fff8e1; border-left: 4px solid #f9a825; padding: 16px; border-radius: 4px; margin-top: 16px;">
+      <p style="margin: 0 0 4px 0; font-weight: bold; color: #8d6e00;">Antes de ir</p>
+      <p style="margin: 0; color: #555; line-height: 1.6;">
+        Por motivos de seguridad, antes de entregarte el objeto el personal del lugar te va a pedir
+        algunos datos personales y de contacto, y te va a sacar una foto. Llevá tu documento.
+      </p>
+    </div>
+
+    <p style="color: #888; font-size: 13px; line-height: 1.6; margin-top: 20px;">
+      Si al verlo en persona resulta que no era el tuyo, avisales y desde “Mis búsquedas” volvé a
+      poner la tuya en “Buscando”: vas a seguir recibiendo avisos de nuevas coincidencias.
+    </p>
+  </th:block>
+</div>
+</body>
+</html>

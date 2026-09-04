@@ -119,14 +119,23 @@ public class EmailTemplateService {
         return templateEngine.process("email/org-owner-invited", ctx);
     }
 
-    public String buildObjectFoundEmail(String orgName, String contactData,
-                                         String description, String imageUrl) {
+    /**
+     * EU-353: el usuario reconoció una coincidencia como suya. Le manda los datos del hallazgo y de
+     * dónde retirarlo, que hasta ahora sólo existían en un modal que al cerrarse no volvía.
+     *
+     * <p>No confundir con {@link #buildObjectMatchFoundEmail}: aquél es el aviso previo ("apareció
+     * algo parecido a lo que buscás"); éste es la consecuencia de que el usuario ya haya dicho que
+     * el objeto es suyo.</p>
+     */
+    public String buildObjectClaimedEmail(String firstName, String objectTitle, String description,
+                                           String orgName, String contactData) {
         Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("objectTitle", objectTitle);
+        ctx.setVariable("description", description);
         ctx.setVariable("orgName", orgName);
         ctx.setVariable("contactData", contactData);
-        ctx.setVariable("description", description);
-        ctx.setVariable("imageUrl", imageUrl);
-        return templateEngine.process("email/object-found", ctx);
+        return templateEngine.process("email/object-claimed", ctx);
     }
 
     /**
@@ -155,12 +164,19 @@ public class EmailTemplateService {
         return templateEngine.process("email/object-returned", ctx);
     }
 
-    public String buildFraudAlertEmail(String orgName, String reason, String details,
-                                        String createdAt) {
+    /**
+     * EU-353: aviso al dueño de Eurekapp de que se generó una alerta de fraude.
+     *
+     * <p>Sin organización: las alertas nuevas son globales (se detectan cruzando organizaciones y las
+     * gestiona el ADMIN), así que la clave del caso es el DNI y no una organización. El {@code reason}
+     * tiene que llegar ya humanizado —{@code FraudCaseType.humanizeReason}—: el crudo es "CASE_1,CASE_3",
+     * jerga interna que no se le muestra a nadie.</p>
+     */
+    public String buildFraudAlertEmail(String reason, String details, String dni, String createdAt) {
         Context ctx = new Context();
-        ctx.setVariable("orgName", orgName);
         ctx.setVariable("reason", reason);
         ctx.setVariable("details", details);
+        ctx.setVariable("dni", dni);
         ctx.setVariable("createdAt", createdAt);
         return templateEngine.process("email/fraud-alert", ctx);
     }
