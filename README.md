@@ -225,7 +225,7 @@ Todos usan la misma contraseña: **`Eurekapp1!`**
 
 | Email | Rol | Organización | XP |
 |-------|-----|-------------|-----|
-| `admin@eurekapp.com` | ADMIN | — | 500 |
+| `soporte.eurekapp@gmail.com` | ADMIN | — | 500 |
 | `owner.utn@eurekapp.com` | ORGANIZATION_OWNER | UTN FRC | 150 |
 | `owner.term@eurekapp.com` | ORGANIZATION_OWNER | Terminal de Ómnibus | 80 |
 | `emp1.utn@eurekapp.com` | ORGANIZATION_EMPLOYEE | UTN FRC | 30 |
@@ -252,7 +252,7 @@ http://localhost:8080/swagger-ui/index.html
 2. Hacer clic en **Try it out** y enviar con tus credenciales:
    ```json
    {
-     "username": "admin@eurekapp.com",
+     "username": "soporte.eurekapp@gmail.com",
      "password": "Eurekapp1!"
    }
    ```
