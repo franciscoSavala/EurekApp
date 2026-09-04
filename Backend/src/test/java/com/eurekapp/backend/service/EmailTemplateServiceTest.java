@@ -29,25 +29,29 @@ class EmailTemplateServiceTest {
         service = new EmailTemplateService(engine, FRONT_URL);
     }
 
-    private String correoRecuperado(Long returnId) {
+    private static final String TOKEN = "8f2b1c7e-4d0a-4f31-9b6e-2a5c7d1e0f44";
+
+    private String correoRecuperado(String surveyToken) {
         return service.buildObjectRecoveredEmail(
-                "Julia", "Billetera negra", "UTN FRC", "03/09/2026 15:30", returnId);
+                "Julia", "Billetera negra", "UTN FRC", "03/09/2026 15:30", surveyToken);
     }
 
-    // El correo lleva el boton y un enlace que identifica de que devolucion se trata.
+    /* El correo lleva el boton y un enlace con el TOKEN de la encuesta. No lleva el id de la
+     * devolucion: es secuencial y quedaria a la vista en la barra de direcciones. */
     @Test
-    void correoDeObjetoRecuperado_invitaACalificarConElEnlaceDeEsaDevolucion() {
-        String html = correoRecuperado(55L);
+    void correoDeObjetoRecuperado_invitaACalificarConElTokenDeEsaEncuesta() {
+        String html = correoRecuperado(TOKEN);
 
         assertThat(html).contains("¿Cómo te atendieron?");
         assertThat(html).contains("Calificar la atención");
-        assertThat(html).contains(FRONT_URL + "/OrganizationFeedbackSurvey?returnId=55");
+        assertThat(html).contains(FRONT_URL + "/OrganizationFeedbackSurvey?token=" + TOKEN);
+        assertThat(html).doesNotContain("returnId");
     }
 
     // Sigue siendo el mismo correo de siempre: la invitacion se suma, no reemplaza nada.
     @Test
     void correoDeObjetoRecuperado_conservaLaConfirmacionDeLaRecuperacion() {
-        String html = correoRecuperado(55L);
+        String html = correoRecuperado(TOKEN);
 
         assertThat(html).contains("Julia");
         assertThat(html).contains("Billetera negra");
@@ -55,10 +59,10 @@ class EmailTemplateServiceTest {
         assertThat(html).contains("03/09/2026 15:30");
     }
 
-    /* Sin devolucion identificada no hay a que apuntar el enlace. Antes que mandar un enlace que no
-     * lleva a ningun lado, el correo sale sin la invitacion. */
+    /* Sin token no hay a que apuntar el enlace. Antes que mandar un enlace que no lleva a ningun
+     * lado, el correo sale sin la invitacion. */
     @Test
-    void correoDeObjetoRecuperado_sinDevolucionIdentificada_saleSinInvitacion() {
+    void correoDeObjetoRecuperado_sinTokenDeEncuesta_saleSinInvitacion() {
         String html = correoRecuperado(null);
 
         assertThat(html).doesNotContain("Calificar la atención");
@@ -80,9 +84,9 @@ class EmailTemplateServiceTest {
         EmailTemplateService conBarra = new EmailTemplateService(engine, "https://eurekapp.com/");
 
         String html = conBarra.buildObjectRecoveredEmail(
-                "Julia", "Billetera negra", "UTN FRC", "03/09/2026 15:30", 7L);
+                "Julia", "Billetera negra", "UTN FRC", "03/09/2026 15:30", TOKEN);
 
-        assertThat(html).contains("https://eurekapp.com/OrganizationFeedbackSurvey?returnId=7");
+        assertThat(html).contains("https://eurekapp.com/OrganizationFeedbackSurvey?token=" + TOKEN);
         assertThat(html).doesNotContain("eurekapp.com//");
     }
 }

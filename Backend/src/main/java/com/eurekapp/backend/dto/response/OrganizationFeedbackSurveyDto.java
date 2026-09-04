@@ -12,9 +12,6 @@ import lombok.Data;
 @Builder
 public class OrganizationFeedbackSurveyDto {
 
-    @JsonProperty("return_id")
-    private Long returnId;
-
     @JsonProperty("organization_name")
     private String organizationName;
 

@@ -454,6 +454,8 @@ class ReturnFoundObjectServiceTest {
         ArgumentCaptor<ReturnFoundObject> savedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
         verify(returnFoundObjectRepository, atLeastOnce()).save(savedCaptor.capture());
         assertThat(savedCaptor.getAllValues().get(0).getOrganizationId()).isEqualTo(1L);
+        // La devolucion nace con su token de encuesta: es lo unico que despues abre el enlace.
+        assertThat(savedCaptor.getAllValues().get(0).getFeedbackToken()).isNotBlank();
     }
 
     /* EU-373: la invitacion a calificar viaja en el correo que ya se le enviaba a quien recupero su
@@ -512,8 +514,12 @@ class ReturnFoundObjectServiceTest {
 
         service.returnFoundObject(command, caller);
 
+        // EU-374: al correo va el token de la encuesta, no el id de la devolucion.
+        ArgumentCaptor<String> tokenEnviado = ArgumentCaptor.forClass(String.class);
         verify(emailTemplateService).buildObjectRecoveredEmail(
-                eq("Julia"), eq("Billetera negra"), eq("TestOrg"), anyString(), eq(77L));
+                eq("Julia"), eq("Billetera negra"), eq("TestOrg"), anyString(), tokenEnviado.capture());
+        assertThat(tokenEnviado.getValue()).isNotBlank();
+        assertThat(tokenEnviado.getValue()).isNotEqualTo("77");
         verify(notificationService).sendNotification(
                 eq("julia@mail.com"), contains("Recuperaste tu objeto"), any());
     }

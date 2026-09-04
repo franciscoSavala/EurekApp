@@ -374,6 +374,23 @@ SQL
   success "'organization_id' agregada"
 fi
 
+# EU-374: token opaco de la encuesta de atencion. El enlace del correo lo lleva en vez del id de la
+# devolucion, que es secuencial y quedaria a la vista en la barra de direcciones.
+TOKEN_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = 'feedback_token';
+SQL
+)
+if echo "$TOKEN_COL_EXISTS" | grep -q "^1$"; then
+  success "'feedback_token' ya existe en return_found_objects — OK"
+else
+  warn "Falta 'feedback_token' en return_found_objects. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN feedback_token VARCHAR(36) NULL UNIQUE;
+SQL
+  success "'feedback_token' agregada"
+fi
+
 # EU-372: la calificacion de la pantalla de resultados dejo de atribuirse a la organizacion, asi que
 # search_feedback ya no la guarda. Hibernate NO afloja un NOT NULL existente con ddl-auto=update.
 $MYSQL_EXEC 2>/dev/null <<SQL
@@ -383,15 +400,16 @@ success "search_feedback.star_rating admite nulos (EU-372)"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
-  (found_objectuuid, user_id, organization_id, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
+  (found_objectuuid, user_id, organization_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-('$FO_UUID_6',  7,    1, 'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
-('$FO_UUID_11', NULL, 1, 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
-('$FO_UUID_2',  NULL, 1, NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
-('$FO_UUID_8',  8,    2, 'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
-('$FO_UUID_9',  7,    2, 'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
+('$FO_UUID_6',  7,    1, '11111111-1111-4111-8111-111111111111', 'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
+('$FO_UUID_11', NULL, 1, '22222222-2222-4222-8222-222222222222', 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
+('$FO_UUID_2',  NULL, 1, '33333333-3333-4333-8333-333333333333', NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
+('$FO_UUID_8',  8,    2, '44444444-4444-4444-8444-444444444444', 'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
+('$FO_UUID_9',  7,    2, '55555555-5555-4555-8555-555555555555', 'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
 SQL
-success "5 retornos insertados (3 UTN, 2 Terminal)"
+# Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
+success "5 retornos insertados (3 UTN, 2 Terminal), con su token de encuesta"
 
 header "Marcando objetos devueltos en Weaviate (was_returned=true)"
 for UUID in "$FO_UUID_6" "$FO_UUID_11" "$FO_UUID_2" "$FO_UUID_8" "$FO_UUID_9"; do

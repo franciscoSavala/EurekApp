@@ -176,27 +176,27 @@ public class EmailTemplateService {
      * calificar la atencion recibida. Se aprovecha el envio que ya existe en vez de mandar un correo
      * aparte: es el mismo momento y el mismo destinatario.
      *
-     * El enlace identifica la devolucion. Si no se sabe cual es (returnId nulo), el correo sale sin
-     * la invitacion: se prefiere un correo sin encuesta antes que un enlace que no lleva a ningun
-     * lado. Si la persona no responde, no pasa nada: no se insiste ni se bloquea nada.
+     * El enlace lleva el token de la encuesta, no el id de la devolucion. Si no hay token, el correo
+     * sale sin la invitacion: se prefiere un correo sin encuesta antes que un enlace que no lleva a
+     * ningun lado. Si la persona no responde, no pasa nada: no se insiste ni se bloquea nada.
      */
     public String buildObjectRecoveredEmail(String firstName, String objectTitle,
-                                             String orgName, String returnDateTime, Long returnId) {
+                                             String orgName, String returnDateTime, String surveyToken) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
         ctx.setVariable("objectTitle", objectTitle);
         ctx.setVariable("orgName", orgName);
         ctx.setVariable("returnDateTime", returnDateTime);
-        ctx.setVariable("surveyUrl", buildSurveyUrl(returnId));
+        ctx.setVariable("surveyUrl", buildSurveyUrl(surveyToken));
         return templateEngine.process("email/object-recovered", ctx);
     }
 
-    private String buildSurveyUrl(Long returnId) {
-        if (returnId == null) return null;
+    private String buildSurveyUrl(String surveyToken) {
+        if (surveyToken == null || surveyToken.isBlank()) return null;
         String base = frontUrl != null && frontUrl.endsWith("/")
                 ? frontUrl.substring(0, frontUrl.length() - 1)
                 : frontUrl;
-        return base + "/OrganizationFeedbackSurvey?returnId=" + returnId;
+        return base + "/OrganizationFeedbackSurvey?token=" + surveyToken;
     }
 
     public String buildObjectReceivedEmail(String firstName, String objectTitle, String orgName) {

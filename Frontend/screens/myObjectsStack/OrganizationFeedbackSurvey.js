@@ -34,7 +34,10 @@ const EMPTY_RATINGS = ASPECTS.reduce((acc, a) => ({ ...acc, [a.key]: 0 }), {});
  * no figura en ningún menú: la ruta existe, pero está oculta del drawer.
  */
 const OrganizationFeedbackSurvey = ({ route, navigation }) => {
-    const returnId = route?.params?.returnId;
+    /* EU-374: el enlace del correo trae un token opaco, no el id de la devolución. El id es
+     * secuencial: quedaría a la vista en la barra de direcciones y se podría tantear cambiando
+     * un número. */
+    const token = route?.params?.token;
     const { authFetch } = useAuthFetch();
 
     const [survey, setSurvey] = useState(null);
@@ -47,13 +50,13 @@ const OrganizationFeedbackSurvey = ({ route, navigation }) => {
 
     useEffect(() => {
         const load = async () => {
-            if (!returnId) {
+            if (!token) {
                 setError('No sabemos qué retiro querés calificar. Abrí el enlace desde el correo.');
                 setLoading(false);
                 return;
             }
             try {
-                const data = await authFetch('get', `${BACK_URL}/organization-feedback/${returnId}`);
+                const data = await authFetch('get', `${BACK_URL}/organization-feedback/${token}`);
                 setSurvey(data);
             } catch (e) {
                 setError(e?.response?.data?.message
@@ -63,7 +66,7 @@ const OrganizationFeedbackSurvey = ({ route, navigation }) => {
             }
         };
         load();
-    }, [returnId, authFetch]);
+    }, [token, authFetch]);
 
     const rate = (key, value) => setRatings(prev => ({ ...prev, [key]: value }));
 
@@ -72,7 +75,7 @@ const OrganizationFeedbackSurvey = ({ route, navigation }) => {
     const submit = async () => {
         setSubmitting(true);
         try {
-            await authFetch('post', `${BACK_URL}/organization-feedback/${returnId}`, {
+            await authFetch('post', `${BACK_URL}/organization-feedback/${token}`, {
                 ...ratings,
                 comment: comment.trim() || null,
             });

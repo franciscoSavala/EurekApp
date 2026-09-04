@@ -29,23 +29,23 @@ public class OrganizationFeedbackController {
         this.service = service;
     }
 
-    @GetMapping("/{returnId}")
+    @GetMapping("/{surveyToken}")
     @Operation(summary = "Datos de la encuesta de atención",
-            description = "Organización, objeto retirado y si esa devolución ya fue calificada. Solo para quien retiró.")
+            description = "Organización, objeto retirado y si esa devolución ya fue calificada. Se abre con el token del correo, y sólo por quien retiró.")
     public ResponseEntity<OrganizationFeedbackSurveyDto> getSurvey(
             @AuthenticationPrincipal UserEurekapp user,
-            @PathVariable Long returnId) {
-        return ResponseEntity.ok(service.getSurvey(user, returnId));
+            @PathVariable String surveyToken) {
+        return ResponseEntity.ok(service.getSurvey(user, surveyToken));
     }
 
-    @PostMapping("/{returnId}")
+    @PostMapping("/{surveyToken}")
     @Operation(summary = "Calificar la atención recibida",
             description = "Registra los cinco aspectos y el comentario. Una devolución admite una sola calificación.")
     public ResponseEntity<Void> submit(
             @AuthenticationPrincipal UserEurekapp user,
-            @PathVariable Long returnId,
+            @PathVariable String surveyToken,
             @Valid @RequestBody SubmitOrganizationFeedbackRequestDto dto) {
-        service.submit(user, returnId, dto);
+        service.submit(user, surveyToken, dto);
         return ResponseEntity.ok().build();
     }
 }

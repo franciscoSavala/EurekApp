@@ -740,10 +740,10 @@ const linking = {
  * vencida. En ese caso la app arranca en el login y, cuando el NavigationContainer ya está montado,
  * el árbol de pantallas cambia entero: la ruta que traía la URL se pierde. Por eso el destino se
  * recuerda al arrancar y se navega recién cuando hay sesión. */
-const parseSurveyReturnId = (url) => {
+const parseSurveyToken = (url) => {
     if (!url) return null;
-    const match = /OrganizationFeedbackSurvey\?.*returnId=(\d+)/.exec(url);
-    return match ? Number(match[1]) : null;
+    const match = /OrganizationFeedbackSurvey\?.*token=([A-Za-z0-9-]+)/.exec(url);
+    return match ? match[1] : null;
 };
 
 const App = () => {
@@ -752,7 +752,7 @@ const App = () => {
     const [sessionLoading, setSessionLoading] = useState(true);
     const navigationRef = useNavigationContainerRef();
     const [navigationReady, setNavigationReady] = useState(false);
-    const [pendingSurveyReturnId, setPendingSurveyReturnId] = useState(null);
+    const [pendingSurveyToken, setPendingSurveyToken] = useState(null);
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
         'PlusJakartaSans-Regular': require('./assets/fonts/PlusJakartaSans-Regular.ttf')
@@ -785,7 +785,7 @@ const App = () => {
     useEffect(() => {
         let cancelled = false;
         Linking.getInitialURL()
-            .then((url) => { if (!cancelled) setPendingSurveyReturnId(parseSurveyReturnId(url)); })
+            .then((url) => { if (!cancelled) setPendingSurveyToken(parseSurveyToken(url)); })
             .catch(() => {});
         return () => { cancelled = true; };
     }, []);
@@ -793,10 +793,10 @@ const App = () => {
     // Con sesión iniciada y la navegación montada, se cae directamente en la encuesta. Si la persona
     // ya estaba logueada, React Navigation la lleva sola y esto no cambia nada.
     useEffect(() => {
-        if (!user || !pendingSurveyReturnId || !navigationReady) return;
-        navigationRef.navigate('OrganizationFeedbackSurvey', { returnId: pendingSurveyReturnId });
-        setPendingSurveyReturnId(null);
-    }, [user, pendingSurveyReturnId, navigationReady, navigationRef]);
+        if (!user || !pendingSurveyToken || !navigationReady) return;
+        navigationRef.navigate('OrganizationFeedbackSurvey', { token: pendingSurveyToken });
+        setPendingSurveyToken(null);
+    }, [user, pendingSurveyToken, navigationReady, navigationRef]);
 
     if (!fontsLoaded || sessionLoading) return (<View></View>);
 

@@ -43,6 +43,9 @@ class OrganizationFeedbackServiceTest {
 
     private static final Long RETURN_ID = 55L;
     private static final Long ORG_ID = 3L;
+    // EU-374: la encuesta se abre con un token opaco, nunca con el id de la devolucion.
+    private static final String TOKEN = "8f2b1c7e-4d0a-4f31-9b6e-2a5c7d1e0f44";
+    private static final String OTRO_TOKEN = "00000000-0000-0000-0000-000000000000";
 
     @BeforeEach
     void setUp() {
@@ -64,6 +67,7 @@ class OrganizationFeedbackServiceTest {
         rfo.setUserEurekapp(retirador);
         rfo.setOrganizationId(organizationId);
         rfo.setFoundObjectUUID("uuid-objeto");
+        rfo.setFeedbackToken(TOKEN);
         return rfo;
     }
 
@@ -84,10 +88,10 @@ class OrganizationFeedbackServiceTest {
     void submit_guardaLosCincoAspectosLigadosALaDevolucion() {
         UserEurekapp usuario = quienRetiro();
         ReturnFoundObject rfo = devolucion(usuario, ORG_ID);
-        when(returnFoundObjectRepository.findById(RETURN_ID)).thenReturn(Optional.of(rfo));
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN)).thenReturn(Optional.of(rfo));
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);
 
-        service.submit(usuario, RETURN_ID, respuesta());
+        service.submit(usuario, TOKEN, respuesta());
 
         ArgumentCaptor<OrganizationFeedback> guardado = ArgumentCaptor.forClass(OrganizationFeedback.class);
         verify(repository).save(guardado.capture());
@@ -109,13 +113,13 @@ class OrganizationFeedbackServiceTest {
     @Test
     void submit_guardaSinComentarioCuandoVieneEnBlanco() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);
 
         SubmitOrganizationFeedbackRequestDto dto = respuesta();
         dto.setComment("   ");
-        service.submit(usuario, RETURN_ID, dto);
+        service.submit(usuario, TOKEN, dto);
 
         ArgumentCaptor<OrganizationFeedback> guardado = ArgumentCaptor.forClass(OrganizationFeedback.class);
         verify(repository).save(guardado.capture());
@@ -127,11 +131,11 @@ class OrganizationFeedbackServiceTest {
     @Test
     void submit_rechazaSiEsaDevolucionYaFueCalificada() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(true);
 
-        assertThatThrownBy(() -> service.submit(usuario, RETURN_ID, respuesta()))
+        assertThatThrownBy(() -> service.submit(usuario, TOKEN, respuesta()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Ya calificaste");
         verify(repository, never()).save(any());
@@ -143,10 +147,10 @@ class OrganizationFeedbackServiceTest {
      * comprobacion, cualquiera con sesion podria calificar la atencion que recibio otra persona. */
     @Test
     void submit_rechazaLaDevolucionDeOtraPersona() {
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(quienRetiro(), ORG_ID)));
 
-        assertThatThrownBy(() -> service.submit(otraPersona(), RETURN_ID, respuesta()))
+        assertThatThrownBy(() -> service.submit(otraPersona(), TOKEN, respuesta()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("no es tuya");
         verify(repository, never()).save(any());
@@ -155,31 +159,40 @@ class OrganizationFeedbackServiceTest {
     // Un retiro hecho por alguien sin cuenta no tiene a quien atribuirle la encuesta.
     @Test
     void submit_rechazaUnaDevolucionSinUsuarioAsociado() {
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(null, ORG_ID)));
 
-        assertThatThrownBy(() -> service.submit(quienRetiro(), RETURN_ID, respuesta()))
+        assertThatThrownBy(() -> service.submit(quienRetiro(), TOKEN, respuesta()))
                 .isInstanceOf(BadRequestException.class);
         verify(repository, never()).save(any());
     }
 
+    // Un token que no corresponde a ninguna devolucion no dice nada mas que "no existe".
     @Test
-    void submit_rechazaUnaDevolucionInexistente() {
-        when(returnFoundObjectRepository.findById(RETURN_ID)).thenReturn(Optional.empty());
+    void submit_rechazaUnTokenDesconocido() {
+        when(returnFoundObjectRepository.findByFeedbackToken(OTRO_TOKEN)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.submit(quienRetiro(), RETURN_ID, respuesta()))
+        assertThatThrownBy(() -> service.submit(quienRetiro(), OTRO_TOKEN, respuesta()))
                 .isInstanceOf(NotFoundException.class);
         verify(repository, never()).save(any());
+    }
+
+    // Sin token no hay encuesta que abrir.
+    @Test
+    void getSurvey_rechazaUnTokenVacio() {
+        assertThatThrownBy(() -> service.getSurvey(quienRetiro(), "  "))
+                .isInstanceOf(NotFoundException.class);
+        verifyNoInteractions(returnFoundObjectRepository);
     }
 
     // Las devoluciones anteriores al ticket no guardaron organizacion: no se les inventa una.
     @Test
     void submit_rechazaUnaDevolucionSinOrganizacion() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, null)));
 
-        assertThatThrownBy(() -> service.submit(usuario, RETURN_ID, respuesta()))
+        assertThatThrownBy(() -> service.submit(usuario, TOKEN, respuesta()))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("anterior a la encuesta");
         verify(repository, never()).save(any());
@@ -190,7 +203,7 @@ class OrganizationFeedbackServiceTest {
     @Test
     void getSurvey_devuelveOrganizacionObjetoYQueTodaviaNoFueCalificada() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
         when(organizationRepository.findById(ORG_ID))
                 .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
@@ -198,9 +211,8 @@ class OrganizationFeedbackServiceTest {
                 .thenReturn(FoundObject.builder().title("Billetera negra").build());
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);
 
-        OrganizationFeedbackSurveyDto dto = service.getSurvey(usuario, RETURN_ID);
+        OrganizationFeedbackSurveyDto dto = service.getSurvey(usuario, TOKEN);
 
-        assertThat(dto.getReturnId()).isEqualTo(RETURN_ID);
         assertThat(dto.getOrganizationName()).isEqualTo("UTN FRC");
         assertThat(dto.getObjectTitle()).isEqualTo("Billetera negra");
         assertThat(dto.getAlreadyRated()).isFalse();
@@ -210,7 +222,7 @@ class OrganizationFeedbackServiceTest {
     @Test
     void getSurvey_avisaCuandoLaDevolucionYaFueCalificada() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
         when(organizationRepository.findById(ORG_ID))
                 .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
@@ -218,7 +230,7 @@ class OrganizationFeedbackServiceTest {
                 .thenReturn(FoundObject.builder().title("Billetera negra").build());
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(true);
 
-        assertThat(service.getSurvey(usuario, RETURN_ID).getAlreadyRated()).isTrue();
+        assertThat(service.getSurvey(usuario, TOKEN).getAlreadyRated()).isTrue();
     }
 
     /* El titulo del objeto es contexto, no lo que se califica: si la base vectorial no responde, la
@@ -226,7 +238,7 @@ class OrganizationFeedbackServiceTest {
     @Test
     void getSurvey_seMuestraAunqueNoSePuedaRecuperarElTituloDelObjeto() {
         UserEurekapp usuario = quienRetiro();
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
         when(organizationRepository.findById(ORG_ID))
                 .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
@@ -234,7 +246,7 @@ class OrganizationFeedbackServiceTest {
                 .thenThrow(new RuntimeException("weaviate caido"));
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);
 
-        OrganizationFeedbackSurveyDto dto = service.getSurvey(usuario, RETURN_ID);
+        OrganizationFeedbackSurveyDto dto = service.getSurvey(usuario, TOKEN);
 
         assertThat(dto.getObjectTitle()).isNull();
         assertThat(dto.getOrganizationName()).isEqualTo("UTN FRC");
@@ -242,10 +254,10 @@ class OrganizationFeedbackServiceTest {
 
     @Test
     void getSurvey_rechazaLaDevolucionDeOtraPersona() {
-        when(returnFoundObjectRepository.findById(RETURN_ID))
+        when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(quienRetiro(), ORG_ID)));
 
-        assertThatThrownBy(() -> service.getSurvey(otraPersona(), RETURN_ID))
+        assertThatThrownBy(() -> service.getSurvey(otraPersona(), TOKEN))
                 .isInstanceOf(BadRequestException.class);
     }
 }
