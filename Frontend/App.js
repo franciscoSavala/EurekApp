@@ -780,14 +780,28 @@ const App = () => {
         restoreSession();
     }, []);
 
-    // EU-374: se anota a qué encuesta apuntaba el enlace con el que se abrió la app, antes de saber
-    // si hay sesión.
+    /* EU-374: se anota a qué encuesta apuntaba el enlace, antes de saber si hay sesión.
+     *
+     * Son DOS caminos, no uno. `getInitialURL` devuelve la URL con la que se ABRIÓ la app, y sirve
+     * sólo si estaba cerrada. Si ya estaba abierta —lo más común en el celular: se toca el enlace
+     * del correo con la app en segundo plano— la URL llega por el evento `url` y `getInitialURL`
+     * devuelve null. En web no se nota, porque ahí cada apertura es una carga de página nueva. */
     useEffect(() => {
         let cancelled = false;
         Linking.getInitialURL()
-            .then((url) => { if (!cancelled) setPendingSurveyToken(parseSurveyToken(url)); })
+            .then((url) => {
+                const token = parseSurveyToken(url);
+                if (!cancelled && token) setPendingSurveyToken(token);
+            })
             .catch(() => {});
-        return () => { cancelled = true; };
+        const subscription = Linking.addEventListener('url', ({ url }) => {
+            const token = parseSurveyToken(url);
+            if (token) setPendingSurveyToken(token);
+        });
+        return () => {
+            cancelled = true;
+            subscription?.remove?.();
+        };
     }, []);
 
     // Con sesión iniciada y la navegación montada, se cae directamente en la encuesta. Si la persona
