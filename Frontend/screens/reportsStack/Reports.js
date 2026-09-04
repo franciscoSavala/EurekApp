@@ -426,22 +426,22 @@ const Reports = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Tendencias de feedback */}
+                                {/* Tendencias de búsquedas */}
                                 {feedbackData.time_series && feedbackData.time_series.length > 0 && (
                                     <View style={styles.tableContainer}>
-                                        <Text style={styles.sectionTitle}>Tendencias de feedback</Text>
+                                        <Text style={styles.sectionTitle}>Tendencias de búsquedas</Text>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                             <View>
                                                 <View style={styles.tableRow}>
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 110 }]}>Período</Text>
-                                                    <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>Calif. prom.</Text>
+                                                    {/* EU-372: no hay columna de calificación promedio porque esta serie
+                                                        cuenta búsquedas, y las estrellas dejaron de ser de la organización. */}
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Exitosas</Text>
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Fallidas</Text>
                                                 </View>
                                                 {feedbackData.time_series.map(point => (
                                                     <View key={point.label} style={styles.tableRow}>
                                                         <Text style={[styles.tableCell, { width: 110 }]}>{point.label}</Text>
-                                                        <Text style={[styles.tableCell, { width: 90 }]}>{point.avg_rating?.toFixed(1) ?? '—'} ★</Text>
                                                         <View style={[styles.tableCell, { width: 80 }]}>
                                                             <Text style={styles.barValue}>{point.successful}</Text>
                                                             <View style={[styles.bar, { width: `${(point.successful / (point.total || 1)) * 100}%`, backgroundColor: '#4caf50' }]} />
