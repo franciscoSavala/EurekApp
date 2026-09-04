@@ -222,13 +222,18 @@ SQL
 success "6 organizaciones insertadas"
 
 # ─── 9. Insertar Usuarios ────────────────────────────────────────────────────
+# EU-378: el username ES la direccion a la que se le manda el correo. La cuenta
+# ADMIN usa una casilla real porque recibe avisos que alguien tiene que leer
+# (alertas de fraude, solicitudes de alta de organizacion); antes tenia
+# admin@eurekapp.com, un dominio sin registros MX, y esos correos no llegaban a
+# ninguna parte. Las demas cuentas son de prueba y no esperan recibir nada.
 header "Insertando Usuarios"
 
 HASH_ESCAPED="${BCRYPT_HASH//\'/\'\'}"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO users (id, username, password, active, first_name, last_name, role, organization_id, XP, returned_objects) VALUES
-(1,  'admin@eurekapp.com',          '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 0,   0),
+(1,  'soporte.eurekapp@gmail.com',  '$HASH_ESCAPED', 1, 'Admin',    'EurekApp',  'ADMIN',                  NULL, 0,   0),
 (2,  'owner.utn@eurekapp.com',      '$HASH_ESCAPED', 1, 'Martina',  'Gonzalez',  'ORGANIZATION_OWNER',     1,    150,  3),
 (3,  'owner.term@eurekapp.com',     '$HASH_ESCAPED', 1, 'Rodrigo',  'Fernandez', 'ORGANIZATION_OWNER',     2,    80,   2),
 (4,  'encargado.utn@eurekapp.com',  '$HASH_ESCAPED', 1, 'Carlos',   'Mendoza',   'ENCARGADO',              1,    0,    0),
@@ -650,7 +655,7 @@ echo -e "${GREEN}${BOLD}╠═════════════════�
 echo -e "${GREEN}${BOLD}║${NC}  Contrasena de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}           ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Usuarios disponibles:                                   ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    admin@eurekapp.com          → ADMIN                   ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    soporte.eurekapp@gmail.com  → ADMIN                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    owner.utn@eurekapp.com      → OWNER  (UTN FRC)        ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    owner.term@eurekapp.com     → OWNER  (Terminal)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    encargado.utn@eurekapp.com  → ENCARGADO (UTN FRC)     ${GREEN}${BOLD}║${NC}"
