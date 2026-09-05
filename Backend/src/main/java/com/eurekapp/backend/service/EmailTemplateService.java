@@ -1,17 +1,23 @@
 package com.eurekapp.backend.service;
 
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import java.util.List;
 
-@RequiredArgsConstructor
 @Service
 public class EmailTemplateService {
 
     private final TemplateEngine templateEngine;
+    private final String frontUrl;
+
+    public EmailTemplateService(TemplateEngine templateEngine,
+                                @Value("${application.front.url}") String frontUrl) {
+        this.templateEngine = templateEngine;
+        this.frontUrl = frontUrl;
+    }
 
     public String buildWelcomeEmail(String firstName) {
         Context ctx = new Context();
@@ -181,14 +187,32 @@ public class EmailTemplateService {
         return templateEngine.process("email/fraud-alert", ctx);
     }
 
+    /**
+     * EU-373: el correo que ya le avisaba a la persona que recupero su objeto suma la invitacion a
+     * calificar la atencion recibida. Se aprovecha el envio que ya existe en vez de mandar un correo
+     * aparte: es el mismo momento y el mismo destinatario.
+     *
+     * El enlace lleva el token de la encuesta, no el id de la devolucion. Si no hay token, el correo
+     * sale sin la invitacion: se prefiere un correo sin encuesta antes que un enlace que no lleva a
+     * ningun lado. Si la persona no responde, no pasa nada: no se insiste ni se bloquea nada.
+     */
     public String buildObjectRecoveredEmail(String firstName, String objectTitle,
-                                             String orgName, String returnDateTime) {
+                                             String orgName, String returnDateTime, String surveyToken) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
         ctx.setVariable("objectTitle", objectTitle);
         ctx.setVariable("orgName", orgName);
         ctx.setVariable("returnDateTime", returnDateTime);
+        ctx.setVariable("surveyUrl", buildSurveyUrl(surveyToken));
         return templateEngine.process("email/object-recovered", ctx);
+    }
+
+    private String buildSurveyUrl(String surveyToken) {
+        if (surveyToken == null || surveyToken.isBlank()) return null;
+        String base = frontUrl != null && frontUrl.endsWith("/")
+                ? frontUrl.substring(0, frontUrl.length() - 1)
+                : frontUrl;
+        return base + "/OrganizationFeedbackSurvey?token=" + surveyToken;
     }
 
     public String buildObjectReceivedEmail(String firstName, String objectTitle, String orgName) {

@@ -63,6 +63,12 @@ export default function UsabilityFeedbackModal({ visible, onClose, context }) {
                                 Tu opinión nos ayuda a mejorar la aplicación.
                             </Text>
                             <StarRating rating={starRating} onRate={setStarRating} size={32} />
+                            {/* Los aspectos aparecian sueltos, sin decir que eran ni que se podian
+                                tocar. Se notaba al pasar la encuesta del empleado —que la veia todos
+                                los dias— al usuario final, que la cruza una sola vez. */}
+                            <Text style={styles.aspectsLabel}>
+                                ¿Qué querés destacar? (opcional)
+                            </Text>
                             <View style={styles.aspectsRow}>
                                 {ASPECTS.map(({ key, label }) => {
                                     const active = selectedAspects.includes(key);
@@ -142,12 +148,21 @@ const styles = StyleSheet.create({
         marginBottom: 14,
         textAlign: 'center',
     },
+    aspectsLabel: {
+        fontSize: 13,
+        color: '#638888',
+        fontFamily: 'PlusJakartaSans-Regular',
+        marginTop: 14,
+        marginBottom: 2,
+        textAlign: 'center',
+    },
     aspectsRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 8,
         justifyContent: 'center',
-        marginTop: 14,
+        // El aire de arriba ahora lo pone la etiqueta; si se mantiene aca, queda separada de sus chips.
+        marginTop: 6,
         marginBottom: 4,
     },
     chip: {

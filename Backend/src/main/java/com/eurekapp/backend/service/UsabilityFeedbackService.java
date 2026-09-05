@@ -41,15 +41,9 @@ public class UsabilityFeedbackService {
     }
 
     public UsabilityFeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los reportes de feedback de usabilidad");
-        }
+        requireAdmin(user);
 
-        Long orgId = user.getOrganization().getId();
-        LocalDateTime fromDt = from.atStartOfDay();
-        LocalDateTime toDt = to.plusDays(1).atStartOfDay();
-
-        List<UsabilityFeedback> feedbacks = repository.findByUser_Organization_IdAndCreatedAtBetween(orgId, fromDt, toDt);
+        List<UsabilityFeedback> feedbacks = findInRange(from, to);
 
         double avg = feedbacks.stream().mapToInt(UsabilityFeedback::getStarRating).average().orElse(0.0);
 
@@ -83,13 +77,9 @@ public class UsabilityFeedbackService {
     }
 
     public List<UsabilityFeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los registros de feedback de usabilidad");
-        }
+        requireAdmin(user);
 
-        Long orgId = user.getOrganization().getId();
-        List<UsabilityFeedback> feedbacks = repository.findByUser_Organization_IdAndCreatedAtBetween(
-                orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        List<UsabilityFeedback> feedbacks = findInRange(from, to);
 
         return feedbacks.stream().map(f -> UsabilityFeedbackRecordDto.builder()
                 .id(f.getId())
@@ -104,13 +94,9 @@ public class UsabilityFeedbackService {
     }
 
     public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden exportar reportes de usabilidad");
-        }
+        requireAdmin(user);
 
-        Long orgId = user.getOrganization().getId();
-        List<UsabilityFeedback> feedbacks = repository.findByUser_Organization_IdAndCreatedAtBetween(
-                orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        List<UsabilityFeedback> feedbacks = findInRange(from, to);
 
         StringBuilder sb = new StringBuilder("id;starRating;aspects;comment;context;createdAt\n");
         for (UsabilityFeedback f : feedbacks) {
@@ -127,6 +113,24 @@ public class UsabilityFeedbackService {
         System.arraycopy(bom, 0, result, 0, bom.length);
         System.arraycopy(content, 0, result, bom.length, content.length);
         return result;
+    }
+
+    /* EU-367: la opinión sobre la aplicación sólo la puede accionar quien mantiene la aplicación, así
+     * que el reporte —agregado, registros y exportación— pasó a ser del administrador de EurekApp.
+     * El responsable de organización tiene su propio reporte, sobre su organización.
+     *
+     * Se rechaza con 400 y no con 403 a propósito: el front reserva el 401/403 para la sesión
+     * vencida y renueva el token, de modo que un rechazo de negocio con 403 se vería como un fallo
+     * silencioso. */
+    private void requireAdmin(UserEurekapp user) {
+        if (user.getRole() != Role.ADMIN) {
+            throw new BadRequestException("forbidden",
+                    "Solo el administrador de EurekApp puede acceder al reporte de opiniones sobre la aplicación");
+        }
+    }
+
+    private List<UsabilityFeedback> findInRange(LocalDate from, LocalDate to) {
+        return repository.findByCreatedAtBetween(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
     }
 
     private static String csvField(String v) {

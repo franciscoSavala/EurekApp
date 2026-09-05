@@ -23,7 +23,10 @@ public class SearchFeedback {
     @Column(name = "found_object_uuid", nullable = true, length = 36)
     private String foundObjectUUID;     // null si el usuario no encontró su objeto
 
-    @Column(name = "star_rating", nullable = false)
+    /* EU-372: la calificacion que se pedia en la pantalla de resultados dejo de atribuirse a la
+       organizacion —ahi la persona todavia no habia tratado con nadie— y pasa a contar como opinion
+       sobre la aplicacion. Los registros nuevos no la traen; la columna queda para los viejos. */
+    @Column(name = "star_rating", nullable = true)
     private Integer starRating;         // 1-5
 
     @Column(name = "was_found", nullable = false)

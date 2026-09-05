@@ -67,4 +67,20 @@ public class ReturnFoundObject {
     // Email del finder al que se debe enviar la notificación. Permite reprocesar registros con notification_sent_at IS NULL.
     @Column(name = "notification_recipient")
     private String notificationRecipient;
+
+    /* EU-371: organización donde se retiró el objeto. La devolución ya la conocía al registrarse,
+       pero no la guardaba: había que ir a buscarla a la base vectorial. La calificación posterior al
+       retiro se atribuye a esta organización, así que conviene tenerla acá y no reconstruirla.
+       Nullable porque las devoluciones anteriores al ticket no la tienen. */
+    @Column(name = "organization_id")
+    private Long organizationId;
+
+    /* EU-374: identificador de la encuesta de atencion que viaja en el enlace del correo. Es un
+       token opaco y no el id de la devolucion: el id es secuencial, se puede tantear cambiando un
+       numero en la barra de direcciones, y queda en el historial del navegador y en cualquier
+       captura de pantalla. Que el servicio ademas verifique de quien es la devolucion no lo vuelve
+       inofensivo: es la segunda barrera, no la primera.
+       Nullable porque las devoluciones anteriores al ticket no tienen encuesta. */
+    @Column(name = "feedback_token", length = 36, unique = true)
+    private String feedbackToken;
 }

@@ -39,7 +39,7 @@ public class UsabilityFeedbackController {
     }
 
     @GetMapping("/report")
-    @Operation(summary = "Obtener reporte de feedback de usabilidad", description = "Devuelve métricas agregadas de usabilidad. Solo accesible para ORGANIZATION_OWNER.")
+    @Operation(summary = "Obtener reporte de feedback de usabilidad", description = "Devuelve métricas agregadas de usabilidad, consolidadas sobre todas las respuestas. Solo accesible para ADMIN.")
     public ResponseEntity<UsabilityFeedbackReportDto> getReport(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
@@ -51,7 +51,7 @@ public class UsabilityFeedbackController {
     }
 
     @GetMapping("/records")
-    @Operation(summary = "Obtener registros de feedback de usabilidad", description = "Devuelve registros individuales sin datos personales. Solo ORGANIZATION_OWNER.")
+    @Operation(summary = "Obtener registros de feedback de usabilidad", description = "Devuelve registros individuales sin datos personales. Solo ADMIN.")
     public ResponseEntity<List<UsabilityFeedbackRecordDto>> getRecords(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
@@ -62,7 +62,7 @@ public class UsabilityFeedbackController {
     }
 
     @GetMapping("/report/export")
-    @Operation(summary = "Exportar reporte de usabilidad en CSV", description = "Descarga un CSV con registros de usabilidad sin datos personales. Solo ORGANIZATION_OWNER.")
+    @Operation(summary = "Exportar reporte de usabilidad en CSV", description = "Descarga un CSV con registros de usabilidad sin datos personales. Solo ADMIN.")
     public ResponseEntity<byte[]> exportCsv(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,

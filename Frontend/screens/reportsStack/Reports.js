@@ -19,12 +19,21 @@ import { fetchWithAuth, refreshJwt } from "../../utils/fetchWithAuth";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
-import StarRating from "../components/StarRating";
 import DonutChart from "../components/DonutChart";
 import RecoveryTimeChart, { formatHours } from "../components/RecoveryTimeChart";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
+
+/* EU-375: los cinco aspectos con los que se califica la atencion, en el orden en que se muestran.
+   Las claves son las que manda el backend. */
+const ASPECT_LABELS = [
+    { key: 'staff_treatment',      label: 'Trato del personal' },
+    { key: 'waiting_time',         label: 'Tiempo de espera' },
+    { key: 'instructions_clarity', label: 'Claridad de las indicaciones' },
+    { key: 'object_condition',     label: 'Estado del objeto' },
+    { key: 'pickup_security',      label: 'Seguridad del retiro' },
+];
 
 const Reports = ({ navigation }) => {
     const thirtyDaysAgo = new Date();
@@ -349,14 +358,8 @@ const Reports = ({ navigation }) => {
                                     ))}
                                 </View>
                                 <View style={styles.cardsRow}>
-                                    <View style={[styles.card, { borderLeftColor: '#f0a500', alignItems: 'center' }]}>
-                                        <StarRating rating={Math.round(feedbackData.average_rating || 0)} size={18} disabled />
-                                        <Text style={[styles.cardValue, { color: '#f0a500', fontSize: 20 }]}>
-                                            {feedbackData.average_rating?.toFixed(1) ?? '—'}
-                                        </Text>
-                                        <Text style={styles.cardLabel}>Calificación promedio</Text>
-                                    </View>
-                                    <MetricCard label="Total de feedbacks" value={feedbackData.total_feedback} color="#638888" />
+                                    <MetricCard label="Búsquedas registradas" value={feedbackData.total_feedback} color="#638888" />
+                                    <MetricCard label="Atenciones calificadas" value={feedbackData.total_ratings} color="#f0a500" />
                                 </View>
                                 <View style={styles.cardsRow}>
                                     <MetricCard label="Búsquedas exitosas" value={feedbackData.successful_searches} color="#4caf50" />
@@ -379,54 +382,66 @@ const Reports = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Distribución de estrellas */}
-                                {feedbackData.star_distribution && (
-                                    <View style={styles.tableContainer}>
-                                        <Text style={styles.sectionTitle}>Distribución de calificaciones</Text>
-
-                                        {/* Promedio dentro de la sección con divisor */}
-                                        <View style={styles.ratingAvgRow}>
-                                            <StarRating rating={Math.round(feedbackData.average_rating || 0)} size={20} disabled />
-                                            <Text style={styles.ratingAvgNumber}>
-                                                {feedbackData.average_rating?.toFixed(1) ?? '—'}
-                                            </Text>
-                                            <Text style={styles.ratingAvgLabel}>promedio</Text>
-                                        </View>
-                                        <View style={styles.divider} />
-
-                                        {[5, 4, 3, 2, 1].map(star => {
-                                            const count = feedbackData.star_distribution[star] || 0;
-                                            const total = feedbackData.total_feedback || 1;
-                                            const pct = Math.round((count / total) * 100);
+                                {/* EU-375: promedio POR ASPECTO de las calificaciones que la gente
+                                    deja despues de retirar su objeto. Antes aca vivia la distribucion
+                                    de estrellas de la pantalla de resultados, que se respondia antes
+                                    de pisar la organizacion. Un promedio unico avisa que algo anda
+                                    mal; estos cinco dicen que corregir. */}
+                                <View style={styles.tableContainer}>
+                                    <Text style={styles.sectionTitle}>Calificación de la atención</Text>
+                                    {feedbackData.total_ratings > 0 ? (
+                                        ASPECT_LABELS.map(({ key, label }) => {
+                                            const value = feedbackData.aspect_averages?.[key] || 0;
                                             return (
-                                                <View key={star} style={[styles.tableRow, { alignItems: 'center' }]}>
-                                                    <Text style={[styles.tableCell, { width: 30, color: '#f0a500' }]}>{'★'.repeat(star)}</Text>
+                                                <View key={key} style={[styles.tableRow, { alignItems: 'center' }]}>
+                                                    <Text style={[styles.tableCell, { width: 190 }]}>{label}</Text>
                                                     <View style={[styles.tableCell, { flex: 1 }]}>
-                                                        <View style={[styles.bar, { width: `${pct}%`, backgroundColor: '#f0a500', minWidth: 2 }]} />
+                                                        <View style={[styles.bar, { width: `${(value / 5) * 100}%`, backgroundColor: '#f0a500', minWidth: 2 }]} />
                                                     </View>
-                                                    <Text style={[styles.tableCell, { width: 50, textAlign: 'right' }]}>{count}</Text>
+                                                    <Text style={[styles.tableCell, { width: 50, textAlign: 'right' }]}>
+                                                        {value ? value.toFixed(1) : '—'}
+                                                    </Text>
                                                 </View>
                                             );
-                                        })}
+                                        })
+                                    ) : (
+                                        <Text style={styles.emptyText}>
+                                            Todavía nadie calificó la atención en el período seleccionado.
+                                        </Text>
+                                    )}
+                                </View>
+
+                                {/* Comentarios libres de quienes retiraron su objeto. */}
+                                {feedbackData.comments && feedbackData.comments.length > 0 && (
+                                    <View style={styles.tableContainer}>
+                                        <Text style={styles.sectionTitle}>Comentarios</Text>
+                                        {feedbackData.comments.map((c, idx) => (
+                                            <View key={idx} style={styles.commentRow}>
+                                                <Text style={styles.commentDate}>
+                                                    {c.created_at ? formatDateISO(new Date(c.created_at)) : ''}
+                                                </Text>
+                                                <Text style={styles.commentText}>{c.comment}</Text>
+                                            </View>
+                                        ))}
                                     </View>
                                 )}
 
-                                {/* Tendencias de feedback */}
+                                {/* Tendencias de búsquedas */}
                                 {feedbackData.time_series && feedbackData.time_series.length > 0 && (
                                     <View style={styles.tableContainer}>
-                                        <Text style={styles.sectionTitle}>Tendencias de feedback</Text>
+                                        <Text style={styles.sectionTitle}>Tendencias de búsquedas</Text>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                             <View>
                                                 <View style={styles.tableRow}>
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 110 }]}>Período</Text>
-                                                    <Text style={[styles.tableCell, styles.tableHeader, { width: 90 }]}>Calif. prom.</Text>
+                                                    {/* EU-372: no hay columna de calificación promedio porque esta serie
+                                                        cuenta búsquedas, y las estrellas dejaron de ser de la organización. */}
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Exitosas</Text>
                                                     <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Fallidas</Text>
                                                 </View>
                                                 {feedbackData.time_series.map(point => (
                                                     <View key={point.label} style={styles.tableRow}>
                                                         <Text style={[styles.tableCell, { width: 110 }]}>{point.label}</Text>
-                                                        <Text style={[styles.tableCell, { width: 90 }]}>{point.avg_rating?.toFixed(1) ?? '—'} ★</Text>
                                                         <View style={[styles.tableCell, { width: 80 }]}>
                                                             <Text style={styles.barValue}>{point.successful}</Text>
                                                             <View style={[styles.bar, { width: `${(point.successful / (point.total || 1)) * 100}%`, backgroundColor: '#4caf50' }]} />
@@ -501,13 +516,6 @@ const Reports = ({ navigation }) => {
                     </>
                 )}
             </View>
-                {/* Navegación a reporte de usabilidad */}
-                <TouchableOpacity
-                    style={styles.navButton}
-                    onPress={() => navigation.navigate('UsabilityFeedbackReport')}
-                >
-                    <Text style={styles.navButtonText}>Ver reporte de usabilidad</Text>
-                </TouchableOpacity>
         </ScrollView>
     );
 };
@@ -640,6 +648,22 @@ const styles = StyleSheet.create({
         color: "#111818",
         fontFamily: "PlusJakartaSans-Regular",
     },
+    commentRow: {
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f4f4',
+    },
+    commentDate: {
+        fontSize: 12,
+        color: '#638888',
+        fontFamily: 'PlusJakartaSans-Regular',
+        marginBottom: 2,
+    },
+    commentText: {
+        fontSize: 14,
+        color: '#111818',
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
     emptyText: {
         color: "#638888",
         textAlign: "center",
@@ -694,20 +718,6 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#e0e8e8',
         marginBottom: 8,
-    },
-    navButton: {
-        marginTop: 8,
-        marginBottom: 24,
-        paddingVertical: 14,
-        paddingHorizontal: 20,
-        borderRadius: 10,
-        backgroundColor: '#f0f4f4',
-        alignItems: 'center',
-    },
-    navButtonText: {
-        fontSize: 15,
-        color: '#111818',
-        fontFamily: 'PlusJakartaSans-Regular',
     },
 });
 

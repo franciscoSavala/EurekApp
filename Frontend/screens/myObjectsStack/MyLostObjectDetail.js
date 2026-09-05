@@ -15,6 +15,7 @@ import Constants from 'expo-constants';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import useAuthFetch from '../../utils/useAuthFetch';
 import AppImage from '../components/AppImage';
+import UsabilityFeedbackModal from '../components/UsabilityFeedbackModal';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -46,6 +47,7 @@ const MyLostObjectDetail = ({ route, navigation }) => {
     const [promptVisible, setPromptVisible] = useState(false);
     const [reopenPromptVisible, setReopenPromptVisible] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [feedbackVisible, setFeedbackVisible] = useState(false);
 
     const closeSearch = async (recovered) => {
         setSubmitting(true);
@@ -53,13 +55,28 @@ const MyLostObjectDetail = ({ route, navigation }) => {
             await authFetch('post', `${BACK_URL}/lost-objects/${lostObject.uuid}/close`, { recovered });
             Toast.show({ type: 'success', text1: 'Búsqueda cerrada' });
             setPromptVisible(false);
-            navigation.goBack();
+            /* EU-369: cerrar la búsqueda es el momento en que la persona ya recorrió la aplicación
+             * entera —cargó el objeto, recibió avisos, revisó coincidencias— y puede opinar sobre
+             * ella. Antes se le preguntaba al empleado al cargar cada objeto, que es quien menos
+             * tiene para decir sobre la experiencia de buscar.
+             *
+             * Se pregunta tanto si recuperó el objeto como si no: las dos experiencias importan, y
+             * la segunda más. La búsqueda YA quedó cerrada en el servidor antes de esto, así que
+             * omitir la encuesta no deshace nada. */
+            setFeedbackVisible(true);
         } catch (e) {
             const msg = e?.response?.data?.message || 'No se pudo cerrar la búsqueda. Intentá de nuevo.';
             Toast.show({ type: 'error', text1: 'Error', text2: msg });
         } finally {
             setSubmitting(false);
         }
+    };
+
+    /* La búsqueda ya está cerrada; la encuesta es lo último que queda antes de volver al listado,
+     * tanto si la responde como si la omite. */
+    const handleFeedbackClose = () => {
+        setFeedbackVisible(false);
+        navigation.goBack();
     };
 
     // Fue hasta la organización, vio el objeto y no era el suyo: la búsqueda NO se cierra, vuelve a
@@ -268,6 +285,11 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                     </View>
                 </View>
             </Modal>
+            <UsabilityFeedbackModal
+                visible={feedbackVisible}
+                onClose={handleFeedbackClose}
+                context="close_search"
+            />
         </ScrollView>
     );
 };

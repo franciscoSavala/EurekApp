@@ -4,13 +4,14 @@ import {
     NavigationContainer,
     StackActions,
     useFocusEffect,
-    useNavigation
+    useNavigation,
+    useNavigationContainerRef
 } from '@react-navigation/native';
 
 import FindObject from './screens/findObjectStack/FindObject';
 import UploadObject from "./screens/uploadFoundObjectStack/UploadObject";
 import {createBottomTabNavigator} from "@react-navigation/bottom-tabs";
-import {StyleSheet, Text, View} from "react-native";
+import {Linking, StyleSheet, Text, View} from "react-native";
 import {useFonts} from "expo-font";
 import {createNativeStackNavigator} from "@react-navigation/native-stack";
 import FoundObjects from "./screens/findObjectStack/FoundObjects";
@@ -39,7 +40,8 @@ import ReturnedObjectDetail from "./screens/returnedObjectsStack/ReturnedObjectD
 import Achievements from "./screens/AchievementsStack/Achievements";
 import FoundObjectDetail from "./screens/inventoryStack/FoundObjectDetail";
 import Reports from "./screens/reportsStack/Reports";
-import UsabilityFeedbackReport from "./screens/reportsStack/UsabilityFeedbackReport";
+import UsabilityFeedbackReport from "./screens/adminStack/UsabilityFeedbackReport";
+import OrganizationFeedbackSurvey from "./screens/myObjectsStack/OrganizationFeedbackSurvey";
 import FraudAlerts from "./screens/fraudAlertsStack/FraudAlerts";
 import FraudAlertDetail from "./screens/fraudAlertsStack/FraudAlertDetail";
 import FraudReport from "./screens/fraudAlertsStack/FraudReport";
@@ -229,10 +231,6 @@ const ReportsStackScreen = () => {
                 name='Reports'
                 component={Reports}
                 options={{headerShown: false, title: 'EurekApp - Reportes'}} />
-            <ReportsStack.Screen
-                name='UsabilityFeedbackReport'
-                component={UsabilityFeedbackReport}
-                options={{headerShown: true, title: 'Reporte de usabilidad'}} />
         </ReportsStack.Navigator>
     );
 }
@@ -417,6 +415,7 @@ const EurekappTab = () => {
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
     const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
     const slidersIcon = () => <Icon name={'sliders'} size={20}/>
+    const commentIcon = () => <Icon name={'comment-dots'} size={20}/>
     const navigation = useNavigation();
     const [ isOrgAdmin, setIsOrgAdmin ] = useState(false);
     const { userRole } = useContext(LoginContext);
@@ -624,6 +623,14 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: slidersIcon
                 }} component={FraudDetectionConfig} />
+                {/* EU-370: la opinión sobre la aplicación la lee quien puede corregir la
+                    aplicación. Antes colgaba del menú de reportes del responsable de organización,
+                    que no puede accionarla. */}
+                <Drawer.Screen name="UsabilityFeedbackReport" options={{
+                    title: 'Opiniones sobre la app',
+                    headerTitleAlign: 'center',
+                    drawerIcon: commentIcon
+                }} component={UsabilityFeedbackReport} />
             </> : null
             }
 
@@ -655,6 +662,17 @@ const EurekappTab = () => {
                 headerTitleAlign: 'center',
                 drawerIcon: userIcon
             }} component={ProfileStackScreen}
+            />
+
+            {/* EU-374: a la encuesta de atención se llega ÚNICAMENTE por el enlace del correo. La
+                ruta tiene que existir para que el enlace resuelva, pero no se lista en el menú:
+                fuera de ese correo no hay ningún camino que lleve acá. Quién puede responderla lo
+                decide el backend, que verifica que la devolución sea de quien la está abriendo. */}
+            <Drawer.Screen name="OrganizationFeedbackSurvey" options={{
+                title: 'Calificar la atención',
+                headerTitleAlign: 'center',
+                drawerItemStyle: { display: 'none' }
+            }} component={OrganizationFeedbackSurvey}
             />
 
             {userRole === 'ORGANIZATION_OWNER' ?
@@ -718,10 +736,23 @@ const linking = {
     prefixes: ['eurekapp://'],
 };
 
+/* EU-374: el enlace del correo apunta a la encuesta de atención, y puede abrirse con la sesión
+ * vencida. En ese caso la app arranca en el login y, cuando el NavigationContainer ya está montado,
+ * el árbol de pantallas cambia entero: la ruta que traía la URL se pierde. Por eso el destino se
+ * recuerda al arrancar y se navega recién cuando hay sesión. */
+const parseSurveyToken = (url) => {
+    if (!url) return null;
+    const match = /OrganizationFeedbackSurvey\?.*token=([A-Za-z0-9-]+)/.exec(url);
+    return match ? match[1] : null;
+};
+
 const App = () => {
     const [user, setUser] = useState('');
     const [userRole, setUserRole] = useState('');
     const [sessionLoading, setSessionLoading] = useState(true);
+    const navigationRef = useNavigationContainerRef();
+    const [navigationReady, setNavigationReady] = useState(false);
+    const [pendingSurveyToken, setPendingSurveyToken] = useState(null);
     const [ fontsLoaded ] = useFonts({
         'PlusJakartaSans-Bold': require('./assets/fonts/PlusJakartaSans-Bold.ttf'),
         'PlusJakartaSans-Regular': require('./assets/fonts/PlusJakartaSans-Regular.ttf')
@@ -749,11 +780,43 @@ const App = () => {
         restoreSession();
     }, []);
 
+    /* EU-374: se anota a qué encuesta apuntaba el enlace, antes de saber si hay sesión.
+     *
+     * Son DOS caminos, no uno. `getInitialURL` devuelve la URL con la que se ABRIÓ la app, y sirve
+     * sólo si estaba cerrada. Si ya estaba abierta —lo más común en el celular: se toca el enlace
+     * del correo con la app en segundo plano— la URL llega por el evento `url` y `getInitialURL`
+     * devuelve null. En web no se nota, porque ahí cada apertura es una carga de página nueva. */
+    useEffect(() => {
+        let cancelled = false;
+        Linking.getInitialURL()
+            .then((url) => {
+                const token = parseSurveyToken(url);
+                if (!cancelled && token) setPendingSurveyToken(token);
+            })
+            .catch(() => {});
+        const subscription = Linking.addEventListener('url', ({ url }) => {
+            const token = parseSurveyToken(url);
+            if (token) setPendingSurveyToken(token);
+        });
+        return () => {
+            cancelled = true;
+            subscription?.remove?.();
+        };
+    }, []);
+
+    // Con sesión iniciada y la navegación montada, se cae directamente en la encuesta. Si la persona
+    // ya estaba logueada, React Navigation la lleva sola y esto no cambia nada.
+    useEffect(() => {
+        if (!user || !pendingSurveyToken || !navigationReady) return;
+        navigationRef.navigate('OrganizationFeedbackSurvey', { token: pendingSurveyToken });
+        setPendingSurveyToken(null);
+    }, [user, pendingSurveyToken, navigationReady, navigationRef]);
+
     if (!fontsLoaded || sessionLoading) return (<View></View>);
 
     return (
         <>
-            <NavigationContainer linking={linking}>
+            <NavigationContainer ref={navigationRef} linking={linking} onReady={() => setNavigationReady(true)}>
                 <LoginContext.Provider value={{ setUser, user, userRole, setUserRole }}>
                     <AxiosSetup />
                     {user ? <EurekappTab /> : <AuthStackScreen />}

@@ -26,7 +26,6 @@ import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
 import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useFocusEffect, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
-import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 import { isWeb, isIOS } from "../../utils/platform";
 import { CATEGORIES } from "../../utils/constants";
 
@@ -101,7 +100,6 @@ const UploadObject = () => {
 });
 
     const [successModal, setSuccessModal] = useState(false);
-    const [usabilityModalVisible, setUsabilityModalVisible] = useState(false);
     const [showSubmitButton, setShowSubmitButton] = useState(true);
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const videoRef = useRef(null);
@@ -130,7 +128,7 @@ useEffect(() => {
 /* EU-349: el formulario conservaba TODO después de un receptado fallido —la foto, el título, el
  * email y el mensaje de error— y al salir y volver a la pantalla seguía igual, porque el drawer la
  * mantiene montada y nada reiniciaba su estado. El camino del éxito sí limpiaba (ver
- * handleUsabilityModalClose); el del error no. Esto los deja simétricos.
+ * handleCloseSuccessModal); el del error no. Esto los deja simétricos.
  *
  * Se limpia SÓLO si el intento anterior ya terminó. Si el usuario dejó el formulario a medio
  * completar y salió un momento —a mirar el inventario, por ejemplo— al volver encuentra su trabajo
@@ -388,11 +386,6 @@ const submitData = async () => {
 
 const handleCloseSuccessModal = () => {
     setSuccessModal(false);
-    setUsabilityModalVisible(true);
-}
-
-const handleUsabilityModalClose = () => {
-    setUsabilityModalVisible(false);
     navigation.dispatch(
         CommonActions.reset({
             index: 0,
@@ -603,12 +596,6 @@ return (
                 </View>
             </View>
         </Modal>
-        <UsabilityFeedbackModal
-            visible={usabilityModalVisible}
-            onClose={handleUsabilityModalClose}
-            context="upload_object"
-        />
-
         {isWeb && (
             <input
                 ref={fileInputRef}

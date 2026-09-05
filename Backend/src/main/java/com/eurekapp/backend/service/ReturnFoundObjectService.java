@@ -176,6 +176,12 @@ public class ReturnFoundObjectService {
         rfo.setPhoneNumber(phoneNumber);
         rfo.setPersonPhotoUUID(personPhotoUUID);
         rfo.setReturnedByEmployee(caller);
+        // EU-371: la organización queda asentada en la devolución, que es de donde cuelga la
+        // calificación que la persona puede dejar después de retirar.
+        rfo.setOrganizationId(command.getOrganizationId());
+        // EU-374: token de la encuesta. Se genera aca, con la devolucion, porque es lo unico que
+        // despues permite abrirla desde el correo sin exponer el id.
+        rfo.setFeedbackToken(UUID.randomUUID().toString());
         // Guardar el objeto devuelto
         //returnFoundObjectRepository.save(rfo);
         Future<ReturnFoundObject> saveReturnFoundObjectFuture = (Future<ReturnFoundObject>) executorService.submit(() -> returnFoundObjectRepository.save(rfo));
@@ -270,7 +276,9 @@ public class ReturnFoundObjectService {
                                 user.getFirstName(),
                                 foundObject.getTitle(),
                                 caller.getOrganization().getName(),
-                                rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER)));
+                                rfo.getDatetimeOfReturn().format(DISPLAY_FORMATTER),
+                                // EU-373: identifica la devolución que se va a calificar.
+                                rfo.getFeedbackToken()));
             } catch (Exception e) {
                 log.warn("No se pudo enviar email de confirmación al retirador {}: {}", user.getUsername(), e.getMessage());
             }

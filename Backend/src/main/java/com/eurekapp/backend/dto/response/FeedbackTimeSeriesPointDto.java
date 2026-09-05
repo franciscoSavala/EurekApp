@@ -15,9 +15,6 @@ public class FeedbackTimeSeriesPointDto {
     @JsonProperty("label")
     private String label;
 
-    @JsonProperty("avg_rating")
-    private Double avgRating;
-
     @JsonProperty("successful")
     private Long successful;
 

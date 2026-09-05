@@ -41,6 +41,24 @@
         Gracias por usar EurekApp. Esperamos haberte sido de ayuda.
       </p>
     </div>
+
+    <!-- EU-373: invitación a calificar la atención recibida. Es opcional: si no responde, no pasa
+         nada. Sin enlace (surveyUrl nulo) el correo sale igual, sin este bloque. -->
+    <div th:if="${surveyUrl != null}"
+         style="border: 1px solid #dde8e8; border-radius: 6px; padding: 16px; margin-top: 20px; text-align: center;">
+      <p style="margin: 0 0 4px 0; color: #017575; font-size: 15px; font-weight: bold;">
+        ¿Cómo te atendieron?
+      </p>
+      <p style="margin: 0 0 14px 0; color: #555; font-size: 13px;">
+        Contanos cómo fue la atención en <strong th:text="${orgName}">Organización</strong> al retirar
+        tu objeto. Te lleva menos de un minuto y ayuda a que atiendan mejor a la próxima persona.
+      </p>
+      <a th:href="${surveyUrl}"
+         style="display: inline-block; background-color: #017575; color: #ffffff; text-decoration: none;
+                padding: 10px 22px; border-radius: 6px; font-size: 14px; font-weight: bold;">
+        Calificar la atención
+      </a>
+    </div>
   </th:block>
 </div>
 </body>

@@ -129,6 +129,9 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
 TRUNCATE TABLE usability_feedback;
+-- EU-371: la calificacion de la atencion cuelga de una devolucion. Va ANTES que
+-- return_found_objects: si sobrevive al reset, queda apuntando a devoluciones que ya no existen.
+TRUNCATE TABLE organization_feedback;
 -- TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
@@ -358,17 +361,60 @@ SQL
   fi
 done
 
+# EU-371: la devolucion asienta en que organizacion ocurrio; de ahi cuelga la calificacion de la
+# atencion. Hibernate agrega la columna sola en una DB que ya existia, pero el seed inserta las
+# devoluciones a mano y necesita que este.
+ORG_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = 'organization_id';
+SQL
+)
+if echo "$ORG_COL_EXISTS" | grep -q "^1$"; then
+  success "'organization_id' ya existe en return_found_objects — OK"
+else
+  warn "Falta 'organization_id' en return_found_objects. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN organization_id BIGINT NULL;
+SQL
+  success "'organization_id' agregada"
+fi
+
+# EU-374: token opaco de la encuesta de atencion. El enlace del correo lo lleva en vez del id de la
+# devolucion, que es secuencial y quedaria a la vista en la barra de direcciones.
+TOKEN_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = 'feedback_token';
+SQL
+)
+if echo "$TOKEN_COL_EXISTS" | grep -q "^1$"; then
+  success "'feedback_token' ya existe en return_found_objects — OK"
+else
+  warn "Falta 'feedback_token' en return_found_objects. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN feedback_token VARCHAR(36) NULL UNIQUE;
+SQL
+  success "'feedback_token' agregada"
+fi
+
+# EU-372: la calificacion de la pantalla de resultados dejo de atribuirse a la organizacion, asi que
+# search_feedback ya no la guarda. Hibernate NO afloja un NOT NULL existente con ddl-auto=update.
+$MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE search_feedback MODIFY star_rating INT NULL;
+SQL
+success "search_feedback.star_rating admite nulos (EU-372)"
+
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
-  (found_objectuuid, user_id, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
+  (found_objectuuid, user_id, organization_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-('$FO_UUID_6',  7,    'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
-('$FO_UUID_11', NULL, 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
-('$FO_UUID_2',  NULL, NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
-('$FO_UUID_8',  8,    'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
-('$FO_UUID_9',  7,    'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
+('$FO_UUID_6',  7,    1, '11111111-1111-4111-8111-111111111111', 'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
+('$FO_UUID_11', NULL, 1, '22222222-2222-4222-8222-222222222222', 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
+('$FO_UUID_2',  NULL, 1, '33333333-3333-4333-8333-333333333333', NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
+('$FO_UUID_8',  8,    2, '44444444-4444-4444-8444-444444444444', 'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
+('$FO_UUID_9',  7,    2, '55555555-5555-4555-8555-555555555555', 'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
 SQL
-success "5 retornos insertados (3 UTN, 2 Terminal)"
+# Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
+success "5 retornos insertados (3 UTN, 2 Terminal), con su token de encuesta"
 
 header "Marcando objetos devueltos en Weaviate (was_returned=true)"
 for UUID in "$FO_UUID_6" "$FO_UUID_11" "$FO_UUID_2" "$FO_UUID_8" "$FO_UUID_9"; do
@@ -398,32 +444,60 @@ success "3 exclusiones de recompensa registradas (empleados internos)"
 header "Insertando SearchFeedback"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
-INSERT INTO search_feedback (organization_id, found_object_uuid, star_rating, was_found, comment, created_at, user_id) VALUES
-('1', '$FO_UUID_1', 5, 1, 'Lo encontre rapido, excelente sistema',             '2026-04-29 11:00:00', 7),
-('1', NULL,          2, 0, 'No encontre mi objeto, poca descripcion disponible', '2026-05-03 09:30:00', 8),
-('2', '$FO_UUID_3',  4, 1, NULL,                                                 '2026-05-06 15:00:00', 8),
-('1', NULL,          1, 0, 'La busqueda no funciono bien',                       '2026-05-07 10:00:00', 9),
-('1', '$FO_UUID_4',  3, 1, 'Tardo un poco pero lo encontre',                    '2026-05-08 14:00:00', 9),
-('3', NULL,          5, 0, NULL,                                                 '2026-05-10 08:00:00', 7),
-('1', '$FO_UUID_2',  4, 1, 'Muy util la app',                                   '2026-05-11 16:00:00', 7),
-('2', NULL,          2, 0, 'No habia resultados precisos',                       '2026-05-12 12:00:00', 9),
-('2', '$FO_UUID_9',  5, 1, 'Recupere mi billetera al dia siguiente!',            '2026-05-13 10:00:00', 7),
-('1', NULL,          3, 0, NULL,                                                 '2026-05-15 09:00:00', 8);
+INSERT INTO search_feedback (organization_id, found_object_uuid, was_found, created_at, user_id) VALUES
+('1', '$FO_UUID_1', 1, '2026-04-29 11:00:00', 7),
+('1', NULL,         0, '2026-05-03 09:30:00', 8),
+('2', '$FO_UUID_3', 1, '2026-05-06 15:00:00', 8),
+('1', NULL,         0, '2026-05-07 10:00:00', 9),
+('1', '$FO_UUID_4', 1, '2026-05-08 14:00:00', 9),
+('3', NULL,         0, '2026-05-10 08:00:00', 7),
+('1', '$FO_UUID_2', 1, '2026-05-11 16:00:00', 7),
+('2', NULL,         0, '2026-05-12 12:00:00', 9),
+('2', '$FO_UUID_9', 1, '2026-05-13 10:00:00', 7),
+('1', NULL,         0, '2026-05-15 09:00:00', 8);
 SQL
 success "10 registros de search_feedback insertados"
+
+# ─── 14.b Insertar OrganizationFeedback ──────────────────────────────────────
+# EU-375: la calificacion de la ATENCION, que la persona deja despues de retirar su objeto. Cuelga
+# de la devolucion, y por ella de la organizacion. Se toman las devoluciones con usuario asociado:
+# la encuesta llega por correo, y sin cuenta no hay correo.
+header "Insertando OrganizationFeedback"
+
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO organization_feedback
+  (return_found_object_id, organization_id, user_id, staff_treatment, waiting_time,
+   instructions_clarity, object_condition, pickup_security, comment, created_at)
+SELECT r.id, r.organization_id, r.user_id, v.trato, v.espera, v.claridad, v.estado, v.seguridad,
+       v.comentario, v.creado
+FROM return_found_objects r
+JOIN (
+  SELECT '$FO_UUID_6'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
+         'Me atendieron muy bien, todo rapidisimo' AS comentario, '2026-04-21 09:00:00' AS creado
+  UNION ALL SELECT '$FO_UUID_8', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-05-07 10:00:00'
+) v ON v.uuid = r.found_objectuuid
+WHERE r.user_id IS NOT NULL AND r.organization_id IS NOT NULL;
+SQL
+# La devolucion de $FO_UUID_9 (Julia, Terminal) queda SIN calificar a proposito: es la que
+# permite probar a mano la encuesta de atencion de punta a punta.
+success "2 calificaciones de atencion insertadas (1 UTN, 1 Terminal) + 1 devolucion sin calificar"
 
 # ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
 header "Insertando UsabilityFeedback"
 
+# EU-367: la opinion sobre la aplicacion se le pide al USUARIO FINAL y la lee el administrador de
+# EurekApp, consolidada. Las respuestas viejas eran de empleados opinando al cargar objetos
+# ('upload_object'), un momento que ya no existe; se descartan y se siembran respuestas de usuarios
+# finales (7 Julia, 8 Pedro, 9 Valeria), que antes quedaban invisibles por no tener organizacion.
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 INSERT INTO usability_feedback (star_rating, aspects, comment, context, created_at, user_id) VALUES
-(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                     'search',        '2026-04-20 10:00:00', 5),
-(4, 'CLARIDAD',                  NULL,                                    'profile',       '2026-04-25 11:00:00', 6),
-(2, 'NAVEGACION',               'Me confundi con los menus',              'upload_object', '2026-05-01 09:00:00', 5),
-(5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',                  'search',        '2026-05-05 14:00:00', 2),
-(3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',     'profile',       '2026-05-10 16:00:00', 6),
-(4, 'CLARIDAD',                  NULL,                                    'upload_object', '2026-05-14 08:00:00', 5),
-(1, 'NAVEGACION',               'No entendi como reportar un objeto',     'upload_object', '2026-05-18 10:00:00', 6);
+(5, 'FACILIDAD_USO,NAVEGACION', 'Muy facil de usar',                  'close_search', '2026-04-20 10:00:00', 7),
+(4, 'CLARIDAD',                  NULL,                                'profile',      '2026-04-25 11:00:00', 8),
+(2, 'NAVEGACION',               'Me confundi con los menus',          'close_search', '2026-05-01 09:00:00', 9),
+(5, 'FACILIDAD_USO,CLARIDAD',   'Excelente experiencia',              'close_search', '2026-05-05 14:00:00', 7),
+(3, 'NAVEGACION,FACILIDAD_USO', 'Regular, algunos botones confusos',  'profile',      '2026-05-10 16:00:00', 8),
+(4, 'CLARIDAD',                  NULL,                                'close_search', '2026-05-14 08:00:00', 9),
+(1, 'NAVEGACION',               'No entendi como cerrar mi busqueda', 'close_search', '2026-05-18 10:00:00', 8);
 SQL
 success "7 registros de usability_feedback insertados"
 
@@ -639,6 +713,7 @@ echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                  
 echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 2  (+1 retiro sin calificar)  ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"

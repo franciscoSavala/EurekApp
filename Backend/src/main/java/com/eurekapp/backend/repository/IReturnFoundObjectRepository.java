@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundObject, Long> {
@@ -15,6 +16,9 @@ public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundO
     List<Long> findAllId();
     ReturnFoundObject getReferenceByFoundObjectUUID(String foundObjectUUID);
     ReturnFoundObject findByFoundObjectUUID(String foundObjectUUID);
+
+    // EU-374: la encuesta de atencion se resuelve por su token, nunca por el id de la devolucion.
+    Optional<ReturnFoundObject> findByFeedbackToken(String feedbackToken);
     List<ReturnFoundObject> findByFoundObjectUUIDInAndDatetimeOfReturnBetween(
             List<String> uuids, LocalDateTime from, LocalDateTime to);
 

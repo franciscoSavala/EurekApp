@@ -5,10 +5,23 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Nada abierto.** El rework se terminó el **2026-08-07** y ese mismo día se **mergeó a `main`**
-(merge `c7e9add`, ya pusheado). No queda trabajo pendiente en este tracker.
+**Rework del feedback — EU-319 + EU-366.** Arrancado el 2026-09-03. El estado vive en
+[REWORK-FEEDBACK.md](../REWORK-FEEDBACK.md): leerlo antes de tocar nada.
 
-### Cómo cerró
+Separa **la opinión sobre la aplicación** (se la pide al usuario final, la ve el administrador de
+EurekApp) de **la opinión sobre la organización** (se la pide a quien retiró un objeto, después de
+retirarlo, y la ve el responsable de esa organización).
+
+**Rama de trabajo: `EU-319-rework-feedback`.** No trabajar sobre `main`.
+
+**Estado al 2026-09-03: las nueve subtareas están implementadas** (8 commits, suite de 241 tests
+sin fallas, front bundleado). **Nada mergeado a `main` y nada publicado en Jira.**
+Lo que queda es **ejecutar las pruebas de usuario**: la tabla está en la sección 8 del tracker.
+Antes de probar hay que correr `bash Backend/seed-local.sh` — cambió el esquema.
+
+## Tracker del rework anterior (terminado)
+
+### Cómo cerró el rework de búsqueda (2026-08-07)
 
 - Merge sin conflictos. `main` había avanzado 6 commits con fixes ajenos al rework (EU-330, EU-315,
   EU-332); ninguno tocaba archivos de búsqueda.
@@ -27,7 +40,6 @@ cerraba: cada pantalla fallaba sola y sin aviso (se detectó porque el desplegab
 aparecía vacío). Ahora la expiración responde 401 con el código `token_expired` y el mecanismo de
 renovación que ya existía en el front se activa solo. Commit `5f23760`, con tests del filtro.
 
-## Tracker del rework
 
 | Tracker | Estado |
 |---|---|
