@@ -39,7 +39,7 @@ quien retiró un objeto, después de retirarlo, y la ve el responsable de esa or
 
 - **Los correos dicen que EurekApp es "la red de objetos perdidos de Córdoba"**, en el encabezado
   común, en el pie (que además dice 2025) y en el de bienvenida. Nada ata la aplicación a una
-  ciudad. Viene de EU-260, no de este rework. **Falta crear la tarea.**
+  ciudad. Viene de EU-260, no de este rework. **Se decidió no crear la tarea (2026-09-04).**
 - **El enlace del correo no abre la app en un celular**, abre el navegador. Necesita un dominio
   propio con Universal Links / App Links. Excede al rework.
 
