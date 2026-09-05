@@ -5,21 +5,45 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Rework del feedback — EU-319 + EU-366.** Arrancado el 2026-09-03. El estado vive en
-[REWORK-FEEDBACK.md](../REWORK-FEEDBACK.md): leerlo antes de tocar nada.
+**Ninguno.** El rework del feedback cerró el 2026-09-04.
 
-Separa **la opinión sobre la aplicación** (se la pide al usuario final, la ve el administrador de
-EurekApp) de **la opinión sobre la organización** (se la pide a quien retiró un objeto, después de
-retirarlo, y la ve el responsable de esa organización).
+## Cómo cerró el rework del feedback (2026-09-04)
 
-**Rama de trabajo: `EU-319-rework-feedback`.** No trabajar sobre `main`.
+**EU-319 + EU-366, con sus nueve subtareas, todas en Done y mergeadas a `main`** (merge `a6a2635`).
+El estado completo vive en [REWORK-FEEDBACK.md](../REWORK-FEEDBACK.md).
 
-**Estado al 2026-09-03: las nueve subtareas están implementadas** (8 commits, suite de 241 tests
-sin fallas, front bundleado). **Nada mergeado a `main` y nada publicado en Jira.**
-Lo que queda es **ejecutar las pruebas de usuario**: la tabla está en la sección 8 del tracker.
-Antes de probar hay que correr `bash Backend/seed-local.sh` — cambió el esquema.
+Separó **la opinión sobre la aplicación** (se le pide al usuario final al cerrar una búsqueda
+guardada, la ve el administrador de EurekApp) de **la opinión sobre la organización** (se le pide a
+quien retiró un objeto, después de retirarlo, y la ve el responsable de esa organización).
 
-## Tracker del rework anterior (terminado)
+- **Suite: 255 tests, 0 failures** después del merge y antes de pushear. El único error es
+  `BackendApplicationTests.contextLoads` (`Driver ... claims to not accept jdbcUrl, ${DATABASE_URL}`),
+  **ambiental y conocido**. Front bundleado sin errores.
+- **Un conflicto en el merge**, resuelto sumando y no eligiendo: `main` y la rama habían creado cada
+  una su `EmailTemplateServiceTest`. El archivo final conserva los cuatro tests de EU-353 y los
+  cuatro de EU-373.
+- Además de los tests unitarios, se ejercitó la API real por HTTP (42 verificaciones) y se probó la
+  app entera a mano. **De las pruebas manuales salieron cuatro arreglos**, el más importante en
+  `eb5c086`: el enlace del correo llevaba el id de la devolución, que era secuencial y se podía
+  tantear; ahora lleva un token opaco.
+
+### Cambios de entorno que dejó
+
+- **`seed-local.sh` cambió el esquema**: agrega `organization_id` y `feedback_token` a
+  `return_found_objects`, y afloja el `NOT NULL` de `search_feedback.star_rating`, que Hibernate no
+  relaja solo con `ddl-auto: update`. Si venís de una base vieja, **hay que resembrar**.
+- **Nueva configuración `FRONT_URL`** (por defecto `http://localhost:8082`): es la base de los
+  enlaces que viajan en los correos. Hasta ahora ningún correo llevaba enlaces a la app.
+
+### Lo que quedó abierto
+
+- **Los correos dicen que EurekApp es "la red de objetos perdidos de Córdoba"**, en el encabezado
+  común, en el pie (que además dice 2025) y en el de bienvenida. Nada ata la aplicación a una
+  ciudad. Viene de EU-260, no de este rework. **Falta crear la tarea.**
+- **El enlace del correo no abre la app en un celular**, abre el navegador. Necesita un dominio
+  propio con Universal Links / App Links. Excede al rework.
+
+## Trackers anteriores (terminados)
 
 ### Cómo cerró el rework de búsqueda (2026-08-07)
 
