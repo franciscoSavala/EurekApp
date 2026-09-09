@@ -351,7 +351,7 @@ const ReturnObjectForm = ({ route, navigation}) => {
                     }]}>{"\n"}Toma una foto de la persona a la que le entregarás el objeto. Es importante tener esto como evidencia.
                     </Text>
                     <Text style={styles.label}>Foto de la persona que se llevará el objeto:</Text>
-                    <View style={{width: "65%"}}>
+                    <View style={styles.imageContainer}>
                         { imageUploaded ? (
                             <ImageBackground
                                 source={{ uri: image.uri }}
@@ -569,6 +569,13 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         borderRadius: 16,
         marginBottom: 10,
+    },
+    // Mismo ancho y encuadre que los botones de carga, para que la foto (o el placeholder
+    // cuando todavia no hay foto) quede centrada sobre ellos y no corrida a la izquierda.
+    imageContainer: {
+        width: '100%',
+        maxWidth: 500,
+        alignSelf: 'center',
     },
     imageLoadContainer: {
         flexDirection: 'row',

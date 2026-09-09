@@ -304,6 +304,21 @@ const Notifications = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 )}
+                {item.type === "REWARD_EARNED" && (
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.acceptButton}
+                            onPress={() => {
+                                markAsRead(item.id);
+                                navigation.navigate("AchievementsStackScreen", {
+                                    screen: "Achievements",
+                                });
+                            }}
+                        >
+                            <Text style={styles.actionButtonText}>Ver mis logros</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
                 {item.type === "FRAUD_ALERT" && item.related_request_id != null && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity
