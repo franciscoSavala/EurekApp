@@ -70,6 +70,10 @@ const FraudReport = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [groupBy, setGroupBy] = useState('USER');
     const [entries, setEntries] = useState([]);
+    // EU-392: los totales del período los calcula el backend sobre las alertas del rango. No se
+    // pueden sacar de las filas: una alerta con varios sospechosos cae en la fila de cada uno, y una
+    // de Caso 1 puro no cae en ninguna.
+    const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
@@ -92,7 +96,8 @@ const FraudReport = () => {
             const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`
                 + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
             const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
-            setEntries(data);
+            setEntries(data?.entries ?? []);
+            setSummary(data?.summary ?? null);
         } catch (error) {
             console.log(error);
         } finally {
@@ -150,7 +155,7 @@ const FraudReport = () => {
                 toDate: formatDate(toDate),
                 statusFilter,
                 groupBy,
-            });
+            }, summary);
             await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);

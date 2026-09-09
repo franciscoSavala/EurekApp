@@ -3,6 +3,8 @@ package com.eurekapp.backend.service;
 import com.eurekapp.backend.dto.response.FraudAlertDto;
 import com.eurekapp.backend.dto.response.FraudCaseMatchDto;
 import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
+import com.eurekapp.backend.dto.response.FraudReportResponseDto;
+import com.eurekapp.backend.dto.response.FraudReportSummaryDto;
 import com.eurekapp.backend.dto.response.FraudUserDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.BadRequestException;
@@ -287,8 +289,12 @@ public class FraudDetectionService {
      * Eurekapp). El rango de fechas determina qué usuarios aparecen y los conteos del rango; el
      * acumulado histórico ({@code historicalCount}) y el historial completo de incidentes se traen
      * aparte para la marca de reincidencia y el drill-down, sin contaminar los números del rango.
+     *
+     * Los totales del período viajan aparte en {@code summary} (EU-392): no se pueden sumar de las
+     * filas, porque una alerta cae en la de cada sospechoso que señala, o en ninguna si no señala a
+     * nadie.
      */
-    public List<FraudUserReportEntryDto> getFraudUserReport(
+    public FraudReportResponseDto<FraudUserReportEntryDto> getFraudUserReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
 
@@ -302,7 +308,7 @@ public class FraudDetectionService {
             }
         }
 
-        return inRangeByUser.entrySet().stream().map(e -> {
+        List<FraudUserReportEntryDto> entries = inRangeByUser.entrySet().stream().map(e -> {
             UserEurekapp suspect = userRepository.findById(e.getKey()).orElse(null);
             if (suspect == null) return null;
             List<FraudAlert> inRange = e.getValue();
@@ -324,14 +330,22 @@ public class FraudDetectionService {
                 .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
+
+        return FraudReportResponseDto.<FraudUserReportEntryDto>builder()
+                .summary(summarize(filtered))
+                .entries(entries)
+                .build();
     }
 
     /**
      * Reporte de fraude global agrupado por DNI (EU-288). Mismos criterios que el de usuario, pero
      * cada fila es un DNI (sin nombre ni email): el modelo nuevo gira alrededor del DNI de quien
      * retira, y mucha de esa gente no tiene cuenta.
+     *
+     * El {@code summary} es el mismo que devuelve la agrupación por usuario: sale de las alertas del
+     * rango, que son las mismas en las dos vistas.
      */
-    public List<FraudDniReportEntryDto> getFraudDniReport(
+    public FraudReportResponseDto<FraudDniReportEntryDto> getFraudDniReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
         List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
 
@@ -339,7 +353,7 @@ public class FraudDetectionService {
                 .filter(a -> a.getDni() != null)
                 .collect(Collectors.groupingBy(FraudAlert::getDni));
 
-        return inRangeByDni.entrySet().stream().map(e -> {
+        List<FraudDniReportEntryDto> entries = inRangeByDni.entrySet().stream().map(e -> {
             String dni = e.getKey();
             List<FraudAlert> inRange = e.getValue();
             List<FraudAlert> all = alertRepository.findByDni(dni); // histórico completo del DNI
@@ -357,6 +371,24 @@ public class FraudDetectionService {
                 .thenComparingLong(FraudDniReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
+
+        return FraudReportResponseDto.<FraudDniReportEntryDto>builder()
+                .summary(summarize(filtered))
+                .entries(entries)
+                .build();
+    }
+
+    /**
+     * Totales del período (EU-392). Se cuentan las alertas del rango, no las filas del reporte: una
+     * fila es una persona o un DNI, y una alerta puede señalar a varias o a ninguna. Al calcularse
+     * acá, las dos agrupaciones devuelven exactamente el mismo resumen.
+     */
+    private FraudReportSummaryDto summarize(List<FraudAlert> filtered) {
+        return FraudReportSummaryDto.builder()
+                .totalAlerts(filtered.size())
+                .activeCount(countByStatus(filtered, FraudAlertStatus.ACTIVE))
+                .falsePositiveCount(countByStatus(filtered, FraudAlertStatus.FALSE_POSITIVE))
+                .build();
     }
 
     // Carga las alertas del rango (+ status opcional) que determinan quiénes entran al reporte.
@@ -398,7 +430,7 @@ public class FraudDetectionService {
         StringBuilder sb = new StringBuilder();
         if ("DNI".equalsIgnoreCase(groupBy)) {
             sb.append("dni;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
-            for (FraudDniReportEntryDto e : getFraudDniReport(user, from, to, status)) {
+            for (FraudDniReportEntryDto e : getFraudDniReport(user, from, to, status).getEntries()) {
                 sb.append(csvField(e.getDni())).append(';')
                   .append(e.getFraudCount()).append(';')
                   .append(e.getActiveCount()).append(';')
@@ -408,7 +440,7 @@ public class FraudDetectionService {
             }
         } else {
             sb.append("userId;email;fullName;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
-            for (FraudUserReportEntryDto e : getFraudUserReport(user, from, to, status)) {
+            for (FraudUserReportEntryDto e : getFraudUserReport(user, from, to, status).getEntries()) {
                 sb.append(e.getUserId()).append(';')
                   .append(csvField(e.getEmail())).append(';')
                   .append(csvField(e.getFullName())).append(';')
