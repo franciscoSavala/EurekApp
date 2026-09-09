@@ -241,7 +241,7 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 </body></html>`;
 }
 
-export function buildFraudReportHtml(entries, filters) {
+export function buildFraudReportHtml(entries, filters, summary) {
     const { fromDate, toDate, statusFilter, groupBy } = filters;
     const generatedAt = new Date().toLocaleString('es-AR');
     const statusLabel = { '': 'Todos', ACTIVE: 'Activa', FALSE_POSITIVE: 'Falsa alarma' }[statusFilter] || statusFilter || 'Todos';
@@ -249,9 +249,13 @@ export function buildFraudReportHtml(entries, filters) {
     const groupLabel = isDni ? 'DNI' : 'Usuario';
 
     // Los conteos son del período consultado (EU-288); el histórico va aparte como reincidencia.
-    const totalAlerts = entries.reduce((s, e) => s + (e.fraudCount || 0), 0);
-    const totalActive = entries.reduce((s, e) => s + (e.activeCount || 0), 0);
-    const totalFalse = entries.reduce((s, e) => s + (e.falsePositiveCount || 0), 0);
+    //
+    // EU-392: los totales vienen del backend, que los cuenta sobre las alertas del rango. Antes se
+    // sumaban las filas, y eso contaba una misma alerta una vez por cada sospechoso que señalaba,
+    // mientras perdía enteras las que no señalan a nadie (las que solo disparan el Caso 1).
+    const totalAlerts = summary?.totalAlerts ?? 0;
+    const totalActive = summary?.activeCount ?? 0;
+    const totalFalse = summary?.falsePositiveCount ?? 0;
 
     const pieFraud = makePieChart([
         { label: 'Activas', value: totalActive, color: '#ED4337' },

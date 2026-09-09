@@ -2,6 +2,7 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
 import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
+import com.eurekapp.backend.dto.response.FraudReportSummaryDto;
 import com.eurekapp.backend.dto.response.FraudUserReportEntryDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
@@ -489,7 +490,8 @@ class FraudDetectionServiceTest {
         when(alertRepository.findBySuspectUsers_Id(7L))
                 .thenReturn(List.of(inRangeActive, olderHistorical));
 
-        List<FraudUserReportEntryDto> report = service.getFraudUserReport(admin(), from, to, null);
+        List<FraudUserReportEntryDto> report =
+                service.getFraudUserReport(admin(), from, to, null).getEntries();
 
         assertThat(report).hasSize(1);
         FraudUserReportEntryDto e = report.get(0);
@@ -514,7 +516,7 @@ class FraudDetectionServiceTest {
         when(alertRepository.findByDni("30111222")).thenReturn(List.of(a));
 
         List<FraudDniReportEntryDto> report =
-                service.getFraudDniReport(admin(), from, to, FraudAlertStatus.ACTIVE);
+                service.getFraudDniReport(admin(), from, to, FraudAlertStatus.ACTIVE).getEntries();
 
         assertThat(report).hasSize(1);
         FraudDniReportEntryDto e = report.get(0);
@@ -531,6 +533,74 @@ class FraudDetectionServiceTest {
         assertThatThrownBy(() -> service.getFraudUserReport(
                 owner(org), LocalDate.now().minusDays(1), LocalDate.now(), null))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    // ---------- Totales del período (EU-392) ----------
+    //
+    // Los totales no se pueden derivar de las filas: una alerta con varios sospechosos cae en la fila
+    // de cada uno, y una que solo dispara el Caso 1 no cae en ninguna. Sumar filas sobre estos datos
+    // daría 3 alertas y 3 falsas alarmas en vez de 2 y 1.
+
+    /** Alerta con 3 sospechosos (falsa alarma) + alerta sin ningún sospechoso registrado (activa). */
+    private List<FraudAlert> alertsThatBreakRowSums() {
+        UserEurekapp u1 = user(7L, "a@test.com", "A", "A");
+        UserEurekapp u2 = user(8L, "b@test.com", "B", "B");
+        UserEurekapp u3 = user(9L, "c@test.com", "C", "C");
+        FraudAlert varios = FraudAlert.builder()
+                .id(1L).dni("111").reason("CASE_1,CASE_2").status(FraudAlertStatus.FALSE_POSITIVE)
+                .suspectUsers(new LinkedHashSet<>(List.of(u1, u2, u3)))
+                .createdAt(LocalDateTime.now().minusDays(1)).build();
+        FraudAlert soloCaso1 = FraudAlert.builder()
+                .id(2L).dni("222").reason("CASE_1").status(FraudAlertStatus.ACTIVE)
+                .suspectUsers(new LinkedHashSet<>())
+                .createdAt(LocalDateTime.now().minusDays(2)).build();
+        return List.of(varios, soloCaso1);
+    }
+
+    @Test
+    void summary_countsAlertsOnce_notOncePerSuspect() {
+        List<FraudAlert> alerts = alertsThatBreakRowSums();
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(alerts);
+        when(userRepository.findById(any())).thenAnswer(inv -> alerts.get(0).getSuspectUsers().stream()
+                .filter(u -> u.getId().equals(inv.getArgument(0))).findFirst());
+
+        FraudReportSummaryDto summary = service
+                .getFraudUserReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null)
+                .getSummary();
+
+        assertThat(summary.getTotalAlerts()).isEqualTo(2);
+        assertThat(summary.getActiveCount()).isEqualTo(1);
+        assertThat(summary.getFalsePositiveCount()).isEqualTo(1);
+    }
+
+    @Test
+    void summary_includesAlertWithoutRegisteredSuspects() {
+        List<FraudAlert> alerts = alertsThatBreakRowSums();
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(alerts);
+
+        var report = service.getFraudUserReport(
+                admin(), LocalDate.now().minusDays(7), LocalDate.now(), null);
+
+        // La alerta de Caso 1 puro no aparece en ninguna fila, porque no señala a nadie...
+        assertThat(report.getEntries()).noneMatch(e -> e.getActiveCount() > 0);
+        // ...pero sí cuenta en el total del período.
+        assertThat(report.getSummary().getTotalAlerts()).isEqualTo(2);
+        assertThat(report.getSummary().getActiveCount()).isEqualTo(1);
+    }
+
+    @Test
+    void summary_isTheSameGroupedByUserAndByDni() {
+        List<FraudAlert> alerts = alertsThatBreakRowSums();
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(alerts);
+        LocalDate from = LocalDate.now().minusDays(7);
+        LocalDate to = LocalDate.now();
+
+        FraudReportSummaryDto byUser =
+                service.getFraudUserReport(admin(), from, to, null).getSummary();
+        FraudReportSummaryDto byDni =
+                service.getFraudDniReport(admin(), from, to, null).getSummary();
+
+        assertThat(byUser).isEqualTo(byDni);
     }
 
     // ---------- EU-353: aviso por correo al dueño de Eurekapp ----------
