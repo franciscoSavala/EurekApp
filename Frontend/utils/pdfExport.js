@@ -1,5 +1,6 @@
 import { Platform, Alert } from 'react-native';
 import { STATUS_LABELS, humanizeReason } from './fraudLabels';
+import { filterIncidentsInRange } from './fraudEvolution';
 
 // SVG pie chart from segments [{label, value, color}]
 function makePieChart(segments) {
@@ -296,9 +297,12 @@ export function buildFraudReportHtml(entries, filters, summary) {
         : '<tr><th>Nombre</th><th>Email</th><th>En período</th><th>Activas</th><th>Falsas alarmas</th><th>Histórico</th><th>Motivos</th></tr>';
     const summaryCols = isDni ? 6 : 7;
 
+    // EU-391: `incidents` trae el historial completo de la persona, que es lo que alimenta la
+    // reincidencia y la columna "Histórico". El detalle, en cambio, va debajo de un encabezado que
+    // anuncia un período, así que lista sólo las alertas de ese rango.
     const incidentBlocks = entries.map(e => {
         const header = isDni ? `DNI ${e.dni}` : `${e.fullName} (${e.email})`;
-        const rows = (e.incidents || []).map(inc => `<tr>
+        const rows = filterIncidentsInRange([e], fromDate, toDate).map(inc => `<tr>
             <td>${inc.id}</td>
             <td>${humanizeReason(inc.reason)}</td>
             <td>${STATUS_LABELS[inc.status] || inc.status}</td>
@@ -307,7 +311,7 @@ export function buildFraudReportHtml(entries, filters, summary) {
         return `<h3>${header}</h3>
         <table>
             <tr><th>ID alerta</th><th>Motivo</th><th>Estado</th><th>Fecha</th></tr>
-            ${rows || '<tr><td colspan="4" style="color:#888">Sin incidentes</td></tr>'}
+            ${rows || '<tr><td colspan="4" style="color:#888">Sin incidentes en el período</td></tr>'}
         </table>`;
     }).join('');
 

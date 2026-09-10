@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { TouchableOpacity } from 'react-native';
+import { buildEvolutionGroups } from '../../utils/fraudEvolution';
 
 const CHART_H = 130;
 const BAR_W = 14;
@@ -12,66 +13,24 @@ const GROUP_W = BAR_W * 2 + BAR_GAP + GROUP_GAP;
 const COLOR_ACTIVE = '#ED4337';
 const COLOR_FALSE = '#008000';
 
-const MONTH_SHORT = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
 const GRANULARITIES = [
     { label: 'Día', value: 'day' },
     { label: 'Semana', value: 'week' },
     { label: 'Mes', value: 'month' },
 ];
 
-function getISOWeek(date) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-}
-
-function getPeriodKey(date, granularity) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    if (granularity === 'day') return `${year}-${month}-${day}`;
-    if (granularity === 'week') {
-        const week = String(getISOWeek(date)).padStart(2, '0');
-        return `${year}-S${week}`;
-    }
-    return `${year}-${month}`;
-}
-
-function getPeriodLabel(key, granularity) {
-    if (granularity === 'day') {
-        const [, month, day] = key.split('-');
-        return `${day}/${month}`;
-    }
-    if (granularity === 'week') {
-        const [year, weekPart] = key.split('-S');
-        return `S${weekPart}/${String(year).slice(2)}`;
-    }
-    // month
-    const [year, month] = key.split('-');
-    return `${MONTH_SHORT[parseInt(month, 10) - 1]}/${String(year).slice(2)}`;
-}
-
-export default function FraudEvolutionChart({ entries }) {
+export default function FraudEvolutionChart({ entries, fromDate, toDate }) {
     const [granularity, setGranularity] = useState('month');
 
-    const groups = useMemo(() => {
-        const allIncidents = (entries || []).flatMap(e => e.incidents || []);
-        const map = {};
-        for (const inc of allIncidents) {
-            if (!inc.createdAt) continue;
-            const status = inc.status;
-            if (status !== 'ACTIVE' && status !== 'FALSE_POSITIVE') continue;
-            const date = new Date(inc.createdAt);
-            const key = getPeriodKey(date, granularity);
-            if (!map[key]) map[key] = { key, label: getPeriodLabel(key, granularity), active: 0, falseAlarm: 0 };
-            if (status === 'ACTIVE') map[key].active++;
-            else map[key].falseAlarm++;
-        }
-        return Object.values(map).sort((a, b) => a.key.localeCompare(b.key));
-    }, [entries, granularity]);
+    // El gráfico muestra sólo las alertas del rango consultado y cubre todos sus períodos, incluso
+    // los que no tuvieron casos. El historial completo sigue disponible en el resto del reporte.
+    const groups = useMemo(
+        () => buildEvolutionGroups(entries, granularity, fromDate, toDate),
+        [entries, granularity, fromDate, toDate]);
+
+    // Con el eje completo siempre hay períodos dibujables: lo que decide si hay algo que mostrar es
+    // que alguno tenga casos.
+    const hasData = groups.some(g => g.active + g.falseAlarm > 0);
 
     const maxVal = groups.length > 0 ? Math.max(...groups.map(g => g.active + g.falseAlarm), 1) : 1;
 
@@ -103,7 +62,7 @@ export default function FraudEvolutionChart({ entries }) {
                 </View>
             </View>
 
-            {groups.length === 0 ? (
+            {!hasData ? (
                 <View style={styles.emptyBox}>
                     <Text style={styles.emptyText}>No hay datos para el período seleccionado</Text>
                 </View>

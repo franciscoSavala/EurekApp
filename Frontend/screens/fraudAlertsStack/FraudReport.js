@@ -292,7 +292,10 @@ const FraudReport = () => {
             {entries.length > 0 && (
                 <View style={styles.chartBlock}>
                     <Text style={styles.filterLabel}>Evolución de casos</Text>
-                    <FraudEvolutionChart entries={entries} />
+                    <FraudEvolutionChart
+                        entries={entries}
+                        fromDate={generatedFilters?.fromDate}
+                        toDate={generatedFilters?.toDate} />
                 </View>
             )}
         </>
