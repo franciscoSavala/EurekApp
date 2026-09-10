@@ -5,7 +5,16 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Ninguno.** El rework del feedback cerró el 2026-09-04.
+**Tanda de bugs sueltos** (vía `/bugs`): se toman de a tres bugs de Jira, se resuelven, se validan
+con pruebas unitarias + pruebas de interfaz, y recién ahí van a Done. No tiene tracker propio: el
+estado de cada bug vive en su ítem de Jira.
+
+Ya salieron a `main` en esta tanda: **EU-385** (foto de la devolución desalineada), **EU-386** (el
+aviso de recompensa lleva a Logros), **EU-392** (los totales del reporte de fraude contaban
+sospechosos en vez de alertas) y **EU-337**, que resultó estar ya implementada.
+
+El rework del feedback cerró el 2026-09-04; el de búsqueda, el 2026-08-07. Ninguno tiene trabajo
+pendiente.
 
 ## Cómo cerró el rework del feedback (2026-09-04)
 
