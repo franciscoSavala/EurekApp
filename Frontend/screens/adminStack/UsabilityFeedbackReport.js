@@ -236,7 +236,12 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                                     const pct = Math.round((count / total) * 100);
                                     return (
                                         <View key={star} style={[styles.tableRow, { alignItems: "center" }]}>
-                                            <Text style={[styles.tableCell, { width: 50, color: "#f0a500", fontSize: 13 }]}>{"★".repeat(star)}</Text>
+                                            {/* EU-276: cinco estrellas de 13px no entran en 50 y las
+                                                filas de 5 y 4 se partían en dos renglones, con lo
+                                                que la escala dejaba de leerse. */}
+                                            <Text
+                                                numberOfLines={1}
+                                                style={[styles.tableCell, styles.starLabel]}>{"★".repeat(star)}</Text>
                                             <View style={[styles.tableCell, { flex: 1 }]}>
                                                 <View style={[styles.hBar, { width: `${pct}%`, backgroundColor: "#f0a500" }]} />
                                             </View>
@@ -384,6 +389,7 @@ const styles = StyleSheet.create({
     },
     tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e0e8e8", paddingVertical: 6 },
     tableCell: { paddingHorizontal: 6, justifyContent: "center" },
+    starLabel: { width: 80, color: "#f0a500", fontSize: 13 },
     tableHeader: { fontFamily: "PlusJakartaSans-Bold", fontSize: 13, color: "#111818" },
     hBar: { height: 6, borderRadius: 3, marginTop: 3, minWidth: 2 },
     barValue: { fontSize: 13, color: "#111818", fontFamily: "PlusJakartaSans-Regular" },
