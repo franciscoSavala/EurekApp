@@ -11,7 +11,14 @@ estado de cada bug vive en su ítem de Jira.
 
 Ya salieron a `main` en esta tanda: **EU-385** (foto de la devolución desalineada), **EU-386** (el
 aviso de recompensa lleva a Logros), **EU-392** (los totales del reporte de fraude contaban
-sospechosos en vez de alertas) y **EU-337**, que resultó estar ya implementada.
+sospechosos en vez de alertas), **EU-379** (el aviso de fraude le llegaba al propio dueño),
+**EU-390** (la torta de activas vs. falsas alarmas ahora también se ve en pantalla), **EU-394** (el
+PDF del reporte de fraude mezclaba el encabezado de un filtro con los datos de otro) y **EU-337**,
+que resultó estar ya implementada. A eso se suman **EU-391** y **EU-355** (el gráfico de evolución
+del reporte de fraude se recortaba mal: mostraba el historial completo en vez del período y salteaba
+los períodos sin casos) y **EU-276** (las estrellas del reporte de opiniones se partían en dos
+renglones). El arreglo de EU-391 cerró además **EU-354**, que describía el mismo defecto del
+gráfico. Todos están en Done en Jira.
 
 El rework del feedback cerró el 2026-09-04; el de búsqueda, el 2026-08-07. Ninguno tiene trabajo
 pendiente.
