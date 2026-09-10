@@ -13,6 +13,7 @@ import {
 import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import { STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import FraudEvolutionChart from '../components/FraudEvolutionChart';
+import DonutChart from '../components/DonutChart';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
@@ -74,13 +75,20 @@ const FraudReport = () => {
     // pueden sacar de las filas: una alerta con varios sospechosos cae en la fila de cada uno, y una
     // de Caso 1 puro no cae en ninguna.
     const [summary, setSummary] = useState(null);
+    // EU-394: los filtros con los que se trajo lo que está en pantalla. Los controles de arriba
+    // cambian en el momento, los datos sólo al generar; el PDF tiene que usar estos y no aquéllos,
+    // o sale con el encabezado de un filtro y las filas de otro.
+    const [generatedFilters, setGeneratedFilters] = useState(null);
     const [loading, setLoading] = useState(false);
     const [exporting, setExporting] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedKey, setExpandedKey] = useState(null);
     const [sortBy, setSortBy] = useState('activeCount');
 
-    const isDniMode = groupBy === 'DNI';
+    // EU-394: las filas se dibujan según el agrupamiento con el que se TRAJERON los datos, no según
+    // el del control. Si no, al cambiar a "Por DNI" sin regenerar la lista pasa a modo DNI con la
+    // columna vacía, porque las filas de usuario no tienen ese campo: el mismo cruce que el PDF.
+    const isDniMode = (generatedFilters?.groupBy ?? groupBy) === 'DNI';
     const keyOf = (item) => (item.userId != null ? item.userId.toString() : item.dni);
 
     const sortedEntries = useMemo(() => {
@@ -92,12 +100,19 @@ const FraudReport = () => {
 
     const fetchReport = async () => {
         setLoading(true);
+        const filters = {
+            fromDate: formatDate(fromDate),
+            toDate: formatDate(toDate),
+            statusFilter,
+            groupBy,
+        };
         try {
-            const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`
+            const params = `from=${filters.fromDate}&to=${filters.toDate}`
                 + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
             const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
             setEntries(data?.entries ?? []);
             setSummary(data?.summary ?? null);
+            setGeneratedFilters(filters);
         } catch (error) {
             console.log(error);
         } finally {
@@ -148,14 +163,10 @@ const FraudReport = () => {
     };
 
     const handleExportPdf = async () => {
+        if (!generatedFilters) return;
         setExportingPdf(true);
         try {
-            const html = buildFraudReportHtml(entries, {
-                fromDate: formatDate(fromDate),
-                toDate: formatDate(toDate),
-                statusFilter,
-                groupBy,
-            }, summary);
+            const html = buildFraudReportHtml(entries, generatedFilters, summary);
             await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
@@ -234,6 +245,58 @@ const FraudReport = () => {
             </TouchableOpacity>
         );
     };
+
+    // EU-394: los controles se movieron después de generar, así que lo que se ve (y lo que saldría
+    // en el PDF) ya no es lo que los filtros dicen. Se avisa en pantalla en vez de dejarlo pasar.
+    const filtersOutOfDate = generatedFilters != null && (
+        generatedFilters.fromDate !== formatDate(fromDate)
+        || generatedFilters.toDate !== formatDate(toDate)
+        || generatedFilters.statusFilter !== statusFilter
+        || generatedFilters.groupBy !== groupBy
+    );
+
+    // EU-390: los totales del período salen del resumen que arma el backend, igual que en el PDF.
+    const activeCount = summary?.activeCount ?? 0;
+    const falsePositiveCount = summary?.falsePositiveCount ?? 0;
+    const totalAlerts = activeCount + falsePositiveCount;
+
+    // Los gráficos y el aviso viajan como encabezado de la lista, no como bloque fijo entre los
+    // filtros y ella: la pantalla ya tiene dos zonas con scroll propio disputándose el alto, y todo
+    // lo que crece en el medio se lo come a alguna de las dos.
+    const reportHeader = (
+        <>
+            {filtersOutOfDate && (
+                <View style={styles.staleNotice}>
+                    <Text style={styles.staleNoticeText}>
+                        Estás viendo el reporte generado antes de cambiar los filtros. Generá el
+                        reporte de nuevo para aplicarlos, acá y en el PDF.
+                    </Text>
+                </View>
+            )}
+
+            {entries.length > 0 && totalAlerts > 0 && (
+                <View style={styles.chartBlock}>
+                    <Text style={styles.filterLabel}>Activas vs. falsas alarmas</Text>
+                    <DonutChart
+                        recovered={activeCount}
+                        total={totalAlerts}
+                        primaryColor="#ED4337"
+                        secondaryColor="#008000"
+                        primaryLabel="Activas"
+                        secondaryLabel="Falsas alarmas"
+                        centerLabel="activas"
+                    />
+                </View>
+            )}
+
+            {entries.length > 0 && (
+                <View style={styles.chartBlock}>
+                    <Text style={styles.filterLabel}>Evolución de casos</Text>
+                    <FraudEvolutionChart entries={entries} />
+                </View>
+            )}
+        </>
+    );
 
     const sortOptions = [
         { label: 'Activas', value: 'activeCount' },
@@ -348,18 +411,12 @@ const FraudReport = () => {
                 </View>
             )}
 
-            {entries.length > 0 && (
-                <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
-                    <Text style={styles.filterLabel}>Evolución de casos</Text>
-                    <FraudEvolutionChart entries={entries} />
-                </View>
-            )}
-
             <FlatList
                 data={sortedEntries}
                 keyExtractor={keyOf}
                 renderItem={renderEntry}
                 contentContainerStyle={styles.listContent}
+                ListHeaderComponent={reportHeader}
                 ListEmptyComponent={
                     !loading ? (
                         <View style={styles.emptyContainer}>
@@ -448,6 +505,23 @@ const styles = StyleSheet.create({
         gap: 10,
         marginHorizontal: 16,
         marginBottom: 8,
+    },
+    chartBlock: {
+        marginBottom: 12,
+    },
+    staleNotice: {
+        marginHorizontal: 0,
+        marginBottom: 8,
+        padding: 10,
+        borderRadius: 8,
+        backgroundColor: '#fff4e5',
+        borderWidth: 1,
+        borderColor: '#f0a500',
+    },
+    staleNoticeText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 12,
+        color: '#8a5a00',
     },
     exportBtn: {
         flex: 1,
