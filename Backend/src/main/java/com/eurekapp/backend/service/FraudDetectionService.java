@@ -200,16 +200,23 @@ public class FraudDetectionService {
         }
     }
 
+    /**
+     * EU-379: quien registra la devolución puede ser un empleado, un encargado o el propio dueño
+     * ({@code ReturnFoundObjectService} guarda al llamador sin mirar el rol). Por eso el aviso dice
+     * "integrante" y no "empleado", y no se manda cuando el involucrado es el mismo dueño: se
+     * estaría avisando a alguien sobre sí mismo, hablándole en tercera persona.
+     */
     private void notifyOrganizationOwnerIfEmployeeInvolved(UserEurekapp employee) {
         if (employee == null || employee.getOrganization() == null) return;
         userRepository.findByOrganizationAndRole(employee.getOrganization(), Role.ORGANIZATION_OWNER)
                 .stream().findFirst()
+                .filter(owner -> !owner.getId().equals(employee.getId()))
                 .ifPresent(owner -> inAppNotificationService.createNotification(
                         owner,
-                        "Empleado involucrado en una alerta de fraude",
+                        "Integrante involucrado en una alerta de fraude",
                         "Se generó una alerta de fraude en la que aparece involucrado "
                                 + employee.getFirstName() + " " + employee.getLastName()
-                                + ", empleado de tu organización. La alerta la gestiona el equipo de Eurekapp.",
+                                + ", integrante de tu organización. La alerta la gestiona el equipo de Eurekapp.",
                         "FRAUD_EMPLOYEE_INVOLVED",
                         null));
     }

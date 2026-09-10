@@ -463,8 +463,34 @@ class FraudDetectionServiceTest {
 
         service.detectFraudForReturn(returns.get(2));
 
+        ArgumentCaptor<String> body = ArgumentCaptor.forClass(String.class);
         verify(inAppNotificationService).createNotification(
-                eq(orgOwner), anyString(), anyString(), eq("FRAUD_EMPLOYEE_INVOLVED"), isNull());
+                eq(orgOwner), anyString(), body.capture(), eq("FRAUD_EMPLOYEE_INVOLVED"), isNull());
+        // EU-379: quien registra la devolución no siempre es un empleado.
+        assertThat(body.getValue()).contains("integrante de tu organización");
+        assertThat(body.getValue()).doesNotContain("empleado de tu organización");
+    }
+
+    @Test
+    void detection_case3_doesNotNotifyOwnerAboutHimself() {
+        configWith(3, 1);
+        String dni = "77777777";
+        Organization org = Organization.builder().id(9L).name("Org").build();
+        // EU-379: el dueño registró él mismo las devoluciones que disparan el Caso 3.
+        UserEurekapp orgOwner = owner(org);
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, orgOwner),
+                ret("u2", dni, null, orgOwner),
+                ret("u3", dni, null, orgOwner));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+        when(userRepository.findByOrganizationAndRole(org, Role.ORGANIZATION_OWNER))
+                .thenReturn(List.of(orgOwner));
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(inAppNotificationService, never()).createNotification(
+                any(), anyString(), anyString(), eq("FRAUD_EMPLOYEE_INVOLVED"), any());
     }
 
     // ---------- Reporte de fraude global, ADMIN (EU-288) ----------
