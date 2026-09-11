@@ -260,15 +260,20 @@ public class FraudDetectionService {
      * se hubiera generado una alerta: la alerta se creaba, bloqueaba, y esperaba a que alguien
      * entrara al panel. El único aviso salía por correo (EU-353), fuera de la aplicación.</p>
      *
-     * <p>Cuenta las creadas <b>después de la última visita</b> de este usuario, así que el indicador
-     * se enciende con cada alerta nueva y se apaga al entrar a mirarlas. No se filtra por estado: lo
-     * que enciende el indicador es que la alerta sea nueva para quien mira, y una alerta nace
-     * siempre ACTIVE. Si nunca entró ({@code fraudAlertsSeenAt} en null), cuentan todas.</p>
+     * <p>Cuenta las pendientes creadas <b>después de la última visita</b> de este usuario, así que
+     * el indicador se enciende con cada alerta nueva y se apaga al entrar a mirarlas.</p>
+     *
+     * <p>Se piden ACTIVE y no todas para que el número signifique trabajo por hacer. Para el aviso
+     * de una alerta nueva da igual —una alerta nace siempre ACTIVE—, pero cambia el caso de quien
+     * nunca entró: sin el filtro, la primera vez se le mostraría el histórico completo, incluidas
+     * las que ya se resolvieron hace meses.</p>
      */
     public long getUnseenAlertCount(UserEurekapp user) {
         validateAccess(user);
         LocalDateTime seenAt = user.getFraudAlertsSeenAt();
-        return seenAt == null ? alertRepository.count() : alertRepository.countByCreatedAtAfter(seenAt);
+        return seenAt == null
+                ? alertRepository.countByStatus(FraudAlertStatus.ACTIVE)
+                : alertRepository.countByStatusAndCreatedAtAfter(FraudAlertStatus.ACTIVE, seenAt);
     }
 
     /**
