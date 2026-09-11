@@ -122,9 +122,8 @@ header "Limpiando MySQL"
 
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
--- (rework fraude/reclamos) Reclamo y Fraude deshabilitados en el seed:
--- 'reclamo_history' ya no existe (EU-278) y 'reclamos' se extirpa (EU-292);
--- el modelo de fraude se rediseñó (EU-282/284). Truncarlas rompía la sesión.
+-- (rework fraude/reclamos) Reclamo deshabilitado en el seed:
+-- 'reclamo_history' ya no existe (EU-278) y 'reclamos' se extirpa (EU-292).
 -- TRUNCATE TABLE reclamo_history;
 -- TRUNCATE TABLE reclamos;
 TRUNCATE TABLE search_feedback;
@@ -132,7 +131,14 @@ TRUNCATE TABLE usability_feedback;
 -- EU-371: la calificacion de la atencion cuelga de una devolucion. Va ANTES que
 -- return_found_objects: si sobrevive al reset, queda apuntando a devoluciones que ya no existen.
 TRUNCATE TABLE organization_feedback;
--- TRUNCATE TABLE fraud_alert;
+-- EU-393: las alertas de fraude se limpian junto con los usuarios a los que apuntan. Si
+-- sobreviven al reset quedan sospechosos y bloqueos colgando de usuarios que ya no existen,
+-- y como el TRUNCATE de 'users' reinicia el contador, esos ids se reasignan a otras personas.
+-- Van antes que 'users': los hijos primero (sospechosos, casos y bloqueos), después la alerta.
+TRUNCATE TABLE fraud_alert_suspect_user;
+TRUNCATE TABLE fraud_alert_case;
+TRUNCATE TABLE fraud_block;
+TRUNCATE TABLE fraud_alert;
 TRUNCATE TABLE reward_exclusions;
 TRUNCATE TABLE return_found_objects;
 TRUNCATE TABLE add_employee_request;
