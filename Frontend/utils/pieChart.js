@@ -11,22 +11,36 @@ const R = 80;
 /**
  * Convierte una lista de segmentos {label, value, color} en los sectores de una torta.
  *
- * Devuelve `{ total, slices }`, donde cada sector suma el atributo `d` de su path y el `percent`
- * redondeado. Con el total en cero devuelve la lista vacía: no hay nada que graficar.
+ * Devuelve `{ total, empty, slices, emptyPath }`. Cada sector trae el atributo `d` de su path y el
+ * `percent` redondeado.
+ *
+ * EU-336: con el total en cero antes devolvía la lista vacía y quien la consumía mostraba un cartel
+ * de "sin datos". Ahora devuelve `empty: true`, los segmentos en cero para armar la leyenda y un
+ * `emptyPath` con el círculo entero, para dibujarlo en gris. Un período sin movimiento es un dato en
+ * sí mismo y se lee mejor como un gráfico en cero que como la ausencia del gráfico.
  */
 export function buildPieSlices(segments) {
-    const total = (segments || []).reduce((sum, seg) => sum + (seg.value || 0), 0);
-    if (total === 0) return { total: 0, slices: [] };
+    const list = segments || [];
+    const total = list.reduce((sum, seg) => sum + (seg.value || 0), 0);
+
+    if (total === 0) {
+        return {
+            total: 0,
+            empty: true,
+            slices: list.map(seg => ({ ...seg, d: null, percent: 0 })),
+            emptyPath: fullCirclePath(),
+        };
+    }
 
     let angle = -Math.PI / 2; // arranca arriba, como se espera de una torta
-    const slices = (segments || []).map(seg => {
+    const slices = list.map(seg => {
         const frac = (seg.value || 0) / total;
         const d = frac >= 1 ? fullCirclePath() : slicePath(angle, frac * 2 * Math.PI);
         angle += frac * 2 * Math.PI;
         return { ...seg, d, percent: Math.round(frac * 100) };
     });
 
-    return { total, slices };
+    return { total, empty: false, slices, emptyPath: null };
 }
 
 function slicePath(startAngle, sweep) {
@@ -53,3 +67,7 @@ function fullCirclePath() {
 }
 
 export const PIE_VIEWBOX = `0 0 ${CX * 2} ${CY * 2}`;
+
+// Gris neutro para el círculo de un período sin movimiento (EU-336). Pintarlo con el color de alguna
+// de las categorías haría creer que esa categoría se llevó todo.
+export const EMPTY_COLOR = '#d1d5db';

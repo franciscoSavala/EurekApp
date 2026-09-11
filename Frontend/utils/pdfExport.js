@@ -1,16 +1,19 @@
 import { Platform, Alert } from 'react-native';
 import { STATUS_LABELS, humanizeReason } from './fraudLabels';
-import { buildPieSlices, PIE_VIEWBOX } from './pieChart';
+import { buildPieSlices, PIE_VIEWBOX, EMPTY_COLOR } from './pieChart';
 import { filterIncidentsInRange } from './fraudEvolution';
 
 // SVG pie chart from segments [{label, value, color}]
 // EU-335: la geometría de los sectores sale de utils/pieChart, que se puede probar por separado.
+// EU-336: un período sin movimiento se dibuja igual, con el círculo en gris y la leyenda en cero, en
+// lugar de reemplazar el gráfico por un cartel.
 function makePieChart(segments) {
-    const { total, slices } = buildPieSlices(segments);
-    if (total === 0) return '<p style="color:#888">Sin datos para graficar</p>';
+    const { empty, slices, emptyPath } = buildPieSlices(segments);
 
-    const paths = slices.map(s =>
-        `<path d="${s.d}" fill="${s.color}" stroke="white" stroke-width="1.5"/>`).join('');
+    const paths = empty
+        ? `<path d="${emptyPath}" fill="${EMPTY_COLOR}"/>`
+        : slices.map(s =>
+            `<path d="${s.d}" fill="${s.color}" stroke="white" stroke-width="1.5"/>`).join('');
     const legend = slices.map(s =>
         `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${s.color}"></span><span style="font-size:13px">${s.label}: <b>${s.value}</b> (${s.percent}%)</span></div>`).join('');
 

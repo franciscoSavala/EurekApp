@@ -281,16 +281,17 @@ const Reports = ({ navigation }) => {
                             <MetricCard label="Usuarios activos" value={data.active_users} color="#7c4dff" />
                         </View>
 
-                        {/* Gráfico de recuperación de objetos */}
-                        {data.found_objects > 0 && (
-                            <View style={styles.tableContainer}>
-                                <Text style={styles.sectionTitle}>Tasa de recuperación</Text>
-                                <DonutChart
-                                    recovered={data.returned_objects || 0}
-                                    total={data.found_objects}
-                                />
-                            </View>
-                        )}
+                        {/* Gráfico de recuperación de objetos.
+                            EU-336: se muestra aunque el período no tenga objetos. Antes la sección
+                            desaparecía y no se distinguía "no hubo movimiento" de "esta pantalla no
+                            tiene este gráfico". */}
+                        <View style={styles.tableContainer}>
+                            <Text style={styles.sectionTitle}>Tasa de recuperación</Text>
+                            <DonutChart
+                                recovered={data.returned_objects || 0}
+                                total={data.found_objects || 0}
+                            />
+                        </View>
 
                         {/* Objetos más reportados por categoría */}
                         {data.top_categories && data.top_categories.length > 0 && (
@@ -366,21 +367,20 @@ const Reports = ({ navigation }) => {
                                     <MetricCard label="Búsquedas fallidas" value={feedbackData.unsuccessful_searches} color="#e53935" />
                                 </View>
 
-                                {/* Donut de precisión de coincidencias */}
-                                {feedbackData.total_feedback > 0 && (
-                                    <View style={styles.tableContainer}>
-                                        <Text style={styles.sectionTitle}>Precisión de coincidencias</Text>
-                                        <DonutChart
-                                            recovered={feedbackData.successful_searches}
-                                            total={feedbackData.total_feedback}
-                                            primaryColor="#4caf50"
-                                            secondaryColor="#e53935"
-                                            primaryLabel="Exitosas"
-                                            secondaryLabel="Fallidas"
-                                            centerLabel="exitosas"
-                                        />
-                                    </View>
-                                )}
+                                {/* Donut de precisión de coincidencias.
+                                    EU-336: se muestra aunque no haya búsquedas en el período. */}
+                                <View style={styles.tableContainer}>
+                                    <Text style={styles.sectionTitle}>Precisión de coincidencias</Text>
+                                    <DonutChart
+                                        recovered={feedbackData.successful_searches || 0}
+                                        total={feedbackData.total_feedback || 0}
+                                        primaryColor="#4caf50"
+                                        secondaryColor="#e53935"
+                                        primaryLabel="Exitosas"
+                                        secondaryLabel="Fallidas"
+                                        centerLabel="exitosas"
+                                    />
+                                </View>
 
                                 {/* EU-375: promedio POR ASPECTO de las calificaciones que la gente
                                     deja despues de retirar su objeto. Antes aca vivia la distribucion
