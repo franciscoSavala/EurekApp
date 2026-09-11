@@ -1,32 +1,21 @@
 import { Platform, Alert } from 'react-native';
 import { STATUS_LABELS, humanizeReason } from './fraudLabels';
+import { buildPieSlices, PIE_VIEWBOX } from './pieChart';
 import { filterIncidentsInRange } from './fraudEvolution';
 
 // SVG pie chart from segments [{label, value, color}]
+// EU-335: la geometría de los sectores sale de utils/pieChart, que se puede probar por separado.
 function makePieChart(segments) {
-    const total = segments.reduce((s, seg) => s + (seg.value || 0), 0);
+    const { total, slices } = buildPieSlices(segments);
     if (total === 0) return '<p style="color:#888">Sin datos para graficar</p>';
 
-    const cx = 100, cy = 100, r = 80;
-    let angle = -Math.PI / 2;
-    let paths = '';
-    let legend = '';
-
-    for (const seg of segments) {
-        const frac = seg.value / total;
-        const sweep = frac * 2 * Math.PI;
-        const x1 = cx + r * Math.cos(angle);
-        const y1 = cy + r * Math.sin(angle);
-        const x2 = cx + r * Math.cos(angle + sweep);
-        const y2 = cy + r * Math.sin(angle + sweep);
-        const largeArc = sweep > Math.PI ? 1 : 0;
-        paths += `<path d="M${cx},${cy} L${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc},1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${seg.color}" stroke="white" stroke-width="1.5"/>`;
-        legend += `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${seg.color}"></span><span style="font-size:13px">${seg.label}: <b>${seg.value}</b> (${Math.round(frac * 100)}%)</span></div>`;
-        angle += sweep;
-    }
+    const paths = slices.map(s =>
+        `<path d="${s.d}" fill="${s.color}" stroke="white" stroke-width="1.5"/>`).join('');
+    const legend = slices.map(s =>
+        `<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><span style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${s.color}"></span><span style="font-size:13px">${s.label}: <b>${s.value}</b> (${s.percent}%)</span></div>`).join('');
 
     return `<div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap">
-        <svg width="200" height="200" viewBox="0 0 200 200">${paths}</svg>
+        <svg width="200" height="200" viewBox="${PIE_VIEWBOX}">${paths}</svg>
         <div>${legend}</div>
     </div>`;
 }
