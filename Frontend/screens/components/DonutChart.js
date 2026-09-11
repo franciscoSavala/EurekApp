@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { EMPTY_COLOR } from '../../utils/pieChart';
 
 /**
  * Donut chart built with react-native-svg — strokeDasharray technique.
@@ -32,8 +33,14 @@ const DonutChart = ({
     const cy = size / 2;
     const circumference = 2 * Math.PI * r;
 
-    const pct = total > 0 ? Math.min(100, Math.max(0, Math.round((recovered / total) * 100))) : 0;
-    const notPct = 100 - pct;
+    // EU-336: un período sin movimiento se dibuja igual, con el anillo en gris y la leyenda en cero.
+    // Antes el anillo de fondo salía del color secundario, o sea un círculo rojo entero que se leía
+    // como "todo mal" cuando en realidad no había nada que repartir. Y `notPct` daba 100, así que la
+    // leyenda decía "No recuperados: 0 (100%)".
+    const hasData = total > 0;
+    const pct = hasData ? Math.min(100, Math.max(0, Math.round((recovered / total) * 100))) : 0;
+    const notPct = hasData ? 100 - pct : 0;
+    const ringColor = hasData ? secondaryColor : EMPTY_COLOR;
     const dashoffset = circumference * (1 - pct / 100);
 
     return (
@@ -45,12 +52,12 @@ const DonutChart = ({
                     height={size}
                     style={{ transform: [{ rotate: '-90deg' }] }}
                 >
-                    {/* Background ring (secondary color, full circle) */}
+                    {/* Background ring (secondary color, full circle; gris si no hay datos) */}
                     <Circle
                         cx={cx}
                         cy={cy}
                         r={r}
-                        stroke={secondaryColor}
+                        stroke={ringColor}
                         strokeWidth={stroke}
                         fill="none"
                     />

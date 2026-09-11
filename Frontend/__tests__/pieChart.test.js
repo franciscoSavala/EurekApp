@@ -1,18 +1,57 @@
-const { buildPieSlices, PIE_VIEWBOX } = require('../utils/pieChart');
+const { buildPieSlices, PIE_VIEWBOX, EMPTY_COLOR } = require('../utils/pieChart');
+
+const SIN_MOVIMIENTO = [
+    { label: 'Devueltos', value: 0, color: '#4caf50' },
+    { label: 'No devueltos', value: 0, color: '#f0a500' },
+];
 
 describe('buildPieSlices', () => {
-    test('sin datos no devuelve sectores', () => {
-        const { total, slices } = buildPieSlices([
-            { label: 'Devueltos', value: 0, color: '#4caf50' },
-            { label: 'No devueltos', value: 0, color: '#f0a500' },
-        ]);
-        expect(total).toBe(0);
-        expect(slices).toHaveLength(0);
-    });
-
     test('tolera una lista vacía o sin definir', () => {
         expect(buildPieSlices([]).total).toBe(0);
         expect(buildPieSlices(undefined).total).toBe(0);
+    });
+
+    // EU-336: un período sin movimiento se dibuja igual, en gris y con la leyenda en cero, en vez de
+    // reemplazar el gráfico por un cartel de "sin datos".
+    describe('período sin movimiento', () => {
+        test('se marca como vacío', () => {
+            const { total, empty } = buildPieSlices(SIN_MOVIMIENTO);
+            expect(total).toBe(0);
+            expect(empty).toBe(true);
+        });
+
+        test('devuelve un sector por categoría, todos en cero', () => {
+            const { slices } = buildPieSlices(SIN_MOVIMIENTO);
+            expect(slices).toHaveLength(2);
+            expect(slices.map(s => s.percent)).toEqual([0, 0]);
+            expect(slices.map(s => s.value)).toEqual([0, 0]);
+        });
+
+        test('conserva las etiquetas para poder armar la leyenda', () => {
+            const { slices } = buildPieSlices(SIN_MOVIMIENTO);
+            expect(slices.map(s => s.label)).toEqual(['Devueltos', 'No devueltos']);
+        });
+
+        test('trae el círculo entero para dibujarlo en gris', () => {
+            const { emptyPath } = buildPieSlices(SIN_MOVIMIENTO);
+            expect(typeof emptyPath).toBe('string');
+            expect(emptyPath.match(/A/g)).toHaveLength(2);
+            expect(EMPTY_COLOR).toBe('#d1d5db');
+        });
+
+        test('los sectores no traen path propio: el dibujo es el círculo gris', () => {
+            const { slices } = buildPieSlices(SIN_MOVIMIENTO);
+            slices.forEach(s => expect(s.d).toBeNull());
+        });
+    });
+
+    test('con datos no se marca como vacío', () => {
+        const { empty, emptyPath } = buildPieSlices([
+            { label: 'Devueltos', value: 4, color: '#4caf50' },
+            { label: 'No devueltos', value: 6, color: '#f0a500' },
+        ]);
+        expect(empty).toBe(false);
+        expect(emptyPath).toBeNull();
     });
 
     test('suma el total de todos los segmentos', () => {
