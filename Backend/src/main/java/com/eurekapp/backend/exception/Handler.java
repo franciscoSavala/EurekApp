@@ -2,12 +2,15 @@ package com.eurekapp.backend.exception;
 
 import io.jsonwebtoken.JwtException;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.ArrayList;
@@ -15,6 +18,8 @@ import java.util.List;
 
 @ControllerAdvice
 public class Handler {
+
+    private static final Logger log = LoggerFactory.getLogger(Handler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
@@ -115,6 +120,38 @@ public class Handler {
                 .build();
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(apiError);
+    }
+
+    /**
+     * EU-363: última red para cualquier excepción que no tenga un handler propio. Sin esto la
+     * petición terminaba con un 200 de cuerpo vacío —una falla de base de datos, de conversión o de
+     * integridad se veía como una operación exitosa— y ni el front ni el log se enteraban.
+     *
+     * <p>Las excepciones que Spring ya sabe traducir (método HTTP no soportado, recurso inexistente,
+     * tipo de contenido inválido) conservan su propio código: sólo se les da el cuerpo común.</p>
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiError> handleUnexpectedException(Exception e) {
+        HttpStatus status = e instanceof ErrorResponse errorResponse
+                ? HttpStatus.valueOf(errorResponse.getStatusCode().value())
+                : HttpStatus.INTERNAL_SERVER_ERROR;
+
+        if (status.is5xxServerError()) {
+            log.error("Excepción no contemplada", e);
+        } else {
+            log.warn("Petición rechazada: {}", e.getMessage());
+        }
+
+        ApiError apiError = ApiError.builder()
+                .error(status.is5xxServerError() ? "internal_error" : "bad_request")
+                .message(status.is5xxServerError()
+                        ? "Ocurrió un error inesperado. Intentá de nuevo."
+                        : "No se pudo procesar la petición.")
+                .status(status.value())
+                .details(List.of(e.getClass().getSimpleName()))
+                .build();
+
+        return ResponseEntity.status(status).body(apiError);
     }
 
     @ExceptionHandler(NotFoundException.class)
