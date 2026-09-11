@@ -1,7 +1,15 @@
 import { Platform, Alert } from 'react-native';
 import { STATUS_LABELS, humanizeReason } from './fraudLabels';
 import { buildPieSlices, PIE_VIEWBOX, EMPTY_COLOR } from './pieChart';
-import { filterIncidentsInRange } from './fraudEvolution';
+import { buildEvolutionGroups, filterIncidentsInRange } from './fraudEvolution';
+
+// Modelo de 2 estados de una alerta (EU-288). Los dos gráficos de fraude del PDF comparten los
+// colores para que el lector no tenga que releer la referencia al pasar de uno al otro.
+const COLOR_ALERT_ACTIVE = '#ED4337';
+const COLOR_ALERT_FALSE = '#4caf50';
+
+// Cómo se lee en el título del gráfico de evolución la agrupación elegida en pantalla (EU-395).
+const GRANULARITY_LABELS = { day: 'día', week: 'semana', month: 'mes' };
 
 // SVG pie chart from segments [{label, value, color}]
 // EU-335: la geometría de los sectores sale de utils/pieChart, que se puede probar por separado.
@@ -43,6 +51,58 @@ function makeBarChart(rows, maxVal) {
     return `<svg width="480" height="${height}" viewBox="0 0 480 ${height}" font-family="sans-serif">${bars}</svg>`;
 }
 
+/* EU-395: el mismo gráfico "Evolución de casos" que se ve en pantalla, pero dibujado en SVG para
+   el PDF. Cada período lleva dos barras, activas y falsas alarmas, como en la pantalla; la
+   agrupación (día/semana/mes) es la que el administrador tenga elegida al exportar, porque el PDF
+   no tiene los botones para cambiarla.
+
+   El ancho del dibujo crece con la cantidad de períodos y la hoja lo achica proporcionalmente, así
+   un rango largo por día entra igual en la página. */
+function makeEvolutionChart(groups) {
+    if (!groups || groups.length === 0) return '<p style="color:#888">Sin datos para graficar</p>';
+    // Con el eje completo (EU-355) siempre hay períodos dibujables: lo que decide si hay algo que
+    // mostrar es que alguno tenga casos.
+    if (!groups.some(g => g.active + g.falseAlarm > 0)) {
+        return '<p style="color:#888">No hay datos para el período seleccionado</p>';
+    }
+
+    const CHART_H = 130, BAR_W = 14, BAR_GAP = 2, GROUP_GAP = 14;
+    const GROUP_W = BAR_W * 2 + BAR_GAP + GROUP_GAP;
+    const padT = 16, padB = 26, padL = 4;
+    const W = padL * 2 + groups.length * GROUP_W;
+    const H = padT + CHART_H + padB;
+    const maxVal = Math.max(...groups.map(g => g.active + g.falseAlarm), 1);
+
+    let bars = '';
+    groups.forEach((g, i) => {
+        const x = padL + i * GROUP_W + GROUP_GAP / 2;
+        const hActive = Math.round((g.active / maxVal) * CHART_H);
+        const hFalse = Math.round((g.falseAlarm / maxVal) * CHART_H);
+        const baseY = padT + CHART_H;
+        if (g.active > 0) {
+            bars += `<rect x="${x}" y="${baseY - hActive}" width="${BAR_W}" height="${hActive}" rx="2" fill="${COLOR_ALERT_ACTIVE}"/>
+                <text x="${x + BAR_W / 2}" y="${baseY - hActive - 4}" font-size="9" fill="#555" text-anchor="middle">${g.active}</text>`;
+        }
+        if (g.falseAlarm > 0) {
+            const xf = x + BAR_W + BAR_GAP;
+            bars += `<rect x="${xf}" y="${baseY - hFalse}" width="${BAR_W}" height="${hFalse}" rx="2" fill="${COLOR_ALERT_FALSE}"/>
+                <text x="${xf + BAR_W / 2}" y="${baseY - hFalse - 4}" font-size="9" fill="#555" text-anchor="middle">${g.falseAlarm}</text>`;
+        }
+        bars += `<text x="${x + BAR_W + BAR_GAP / 2}" y="${baseY + 14}" font-size="9" fill="#666" text-anchor="middle">${g.label}</text>`;
+    });
+
+    const legend = `<div style="display:flex;gap:16px;margin-bottom:6px">
+        <span style="font-size:13px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLOR_ALERT_ACTIVE};margin-right:5px"></span>Activa</span>
+        <span style="font-size:13px"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLOR_ALERT_FALSE};margin-right:5px"></span>Falsa alarma</span>
+    </div>`;
+
+    return `${legend}
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${Math.max(W, 320)}px;height:auto" font-family="sans-serif">
+        ${bars}
+        <line x1="${padL}" y1="${padT + CHART_H}" x2="${W - padL}" y2="${padT + CHART_H}" stroke="#d1d5db" stroke-width="1"/>
+    </svg>`;
+}
+
 // SVG line chart from time series points [{label, avg_recovery_hours}]
 function makeLineChart(points, color = '#7c4dff') {
     const pts = (points || []).filter(p => p.avg_recovery_hours > 0);
@@ -77,6 +137,10 @@ const baseStyle = `
     th { background: #f0f4f4; text-align: left; padding: 7px 10px; font-size: 12px; color: #111818; }
     td { padding: 6px 10px; font-size: 12px; border-bottom: 1px solid #e0e8e8; }
     .chip { display:inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: bold; color: white; }
+    /* EU-395: un gráfico no se parte por la mitad, ni queda su título solo al pie de una hoja
+       con el dibujo en la siguiente. */
+    .chart-block { break-inside: avoid; page-break-inside: avoid; }
+    .chart-block h2 { break-after: avoid; page-break-after: avoid; }
     @media print { body { margin: 12px; } }
 `;
 
@@ -234,7 +298,7 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 </body></html>`;
 }
 
-export function buildFraudReportHtml(entries, filters, summary) {
+export function buildFraudReportHtml(entries, filters, summary, evolutionGranularity = 'month') {
     const { fromDate, toDate, statusFilter, groupBy } = filters;
     const generatedAt = new Date().toLocaleString('es-AR');
     const statusLabel = { '': 'Todos', ACTIVE: 'Activa', FALSE_POSITIVE: 'Falsa alarma' }[statusFilter] || statusFilter || 'Todos';
@@ -251,9 +315,14 @@ export function buildFraudReportHtml(entries, filters, summary) {
     const totalFalse = summary?.falsePositiveCount ?? 0;
 
     const pieFraud = makePieChart([
-        { label: 'Activas', value: totalActive, color: '#ED4337' },
-        { label: 'Falsas alarmas', value: totalFalse, color: '#4caf50' },
+        { label: 'Activas', value: totalActive, color: COLOR_ALERT_ACTIVE },
+        { label: 'Falsas alarmas', value: totalFalse, color: COLOR_ALERT_FALSE },
     ]);
+
+    // EU-395: se arma con la misma función que la pantalla, así ambos muestran exactamente las
+    // mismas barras.
+    const evolutionChart = makeEvolutionChart(
+        buildEvolutionGroups(entries, evolutionGranularity, fromDate, toDate));
 
     const topRows = [...entries]
         .sort((a, b) => b.fraudCount - a.fraudCount)
@@ -325,11 +394,20 @@ export function buildFraudReportHtml(entries, filters, summary) {
     <tr><td>Falsas alarmas</td><td><b>${totalFalse}</b></td></tr>
 </table>
 
-<h2>Gráfico: Activas vs. falsas alarmas</h2>
-${pieFraud}
+<div class="chart-block">
+    <h2>Gráfico: Activas vs. falsas alarmas</h2>
+    ${pieFraud}
+</div>
 
-<h2>Gráfico: ${isDni ? 'DNIs' : 'Usuarios'} con más alertas</h2>
-${barTop}
+<div class="chart-block">
+    <h2>Gráfico: Evolución de casos (por ${GRANULARITY_LABELS[evolutionGranularity] || 'mes'})</h2>
+    ${evolutionChart}
+</div>
+
+<div class="chart-block">
+    <h2>Gráfico: ${isDni ? 'DNIs' : 'Usuarios'} con más alertas</h2>
+    ${barTop}
+</div>
 
 <h2>Resumen por ${groupLabel.toLowerCase()}</h2>
 <table>

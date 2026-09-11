@@ -19,8 +19,12 @@ const GRANULARITIES = [
     { label: 'Mes', value: 'month' },
 ];
 
-export default function FraudEvolutionChart({ entries, fromDate, toDate }) {
-    const [granularity, setGranularity] = useState('month');
+/* EU-395: la agrupación elegida acá también decide con qué barras sale el PDF, así que la puede
+   manejar la pantalla. Sin esos props el componente sigue funcionando solo, como antes. */
+export default function FraudEvolutionChart({ entries, fromDate, toDate, granularity: granularityProp, onGranularityChange }) {
+    const [ownGranularity, setOwnGranularity] = useState('month');
+    const granularity = granularityProp ?? ownGranularity;
+    const setGranularity = onGranularityChange ?? setOwnGranularity;
 
     // El gráfico muestra sólo las alertas del rango consultado y cubre todos sus períodos, incluso
     // los que no tuvieron casos. El historial completo sigue disponible en el resto del reporte.

@@ -71,6 +71,9 @@ const FraudReport = () => {
     const [statusFilter, setStatusFilter] = useState('');
     const [groupBy, setGroupBy] = useState('USER');
     const [entries, setEntries] = useState([]);
+    // EU-395: la agrupación del gráfico de evolución vive acá, y no adentro del gráfico, porque el
+    // PDF se exporta con la que esté elegida en pantalla (el PDF no tiene los botones).
+    const [evolutionGranularity, setEvolutionGranularity] = useState('month');
     // EU-392: los totales del período los calcula el backend sobre las alertas del rango. No se
     // pueden sacar de las filas: una alerta con varios sospechosos cae en la fila de cada uno, y una
     // de Caso 1 puro no cae en ninguna.
@@ -166,7 +169,7 @@ const FraudReport = () => {
         if (!generatedFilters) return;
         setExportingPdf(true);
         try {
-            const html = buildFraudReportHtml(entries, generatedFilters, summary);
+            const html = buildFraudReportHtml(entries, generatedFilters, summary, evolutionGranularity);
             await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
@@ -295,7 +298,9 @@ const FraudReport = () => {
                     <FraudEvolutionChart
                         entries={entries}
                         fromDate={generatedFilters?.fromDate}
-                        toDate={generatedFilters?.toDate} />
+                        toDate={generatedFilters?.toDate}
+                        granularity={evolutionGranularity}
+                        onGranularityChange={setEvolutionGranularity} />
                 </View>
             )}
         </>
