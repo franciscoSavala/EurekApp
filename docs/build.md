@@ -20,6 +20,19 @@ los períodos sin casos) y **EU-276** (las estrellas del reporte de opiniones se
 renglones). El arreglo de EU-391 cerró además **EU-354**, que describía el mismo defecto del
 gráfico. Todos están en Done en Jira.
 
+En la tanda del 2026-09-11 salieron tres más: **EU-393** y **EU-381** (el seed no limpiaba las
+alertas de fraude, así que sobrevivían apuntando a usuarios borrados), **EU-395** (el PDF del
+reporte de fraude no traía el gráfico de evolución, que sólo existía en pantalla) y **EU-363** (las
+fallas no previstas respondían "todo salió bien" con el cuerpo vacío, que es lo que escondió EU-352
+durante meses). Todos en Done, verificados con pruebas unitarias y con la aplicación levantada.
+
+**EU-382 no era un error**: la búsqueda se queda en "Por retirar" después de la devolución porque
+nunca se definió qué pasa cuando el objeto se entrega, ni cuando lo retira una persona distinta de
+la que guardó la búsqueda. EU-361, que introdujo el estado, sólo cubre el camino feliz. Las
+definiciones que faltaban se tomaron en la story nueva **EU-396**: la búsqueda pasa a "Retirado" si
+la retiró su dueño, o a "Retirado por alguien más" si fue otro, sin mostrar datos de terceros y sin
+cerrar nada por su cuenta. EU-382 queda abierto, bloqueado por EU-396.
+
 El rework del feedback cerró el 2026-09-04; el de búsqueda, el 2026-08-07. Ninguno tiene trabajo
 pendiente.
 
