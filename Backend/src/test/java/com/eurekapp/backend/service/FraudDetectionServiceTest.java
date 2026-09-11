@@ -691,4 +691,35 @@ class FraudDetectionServiceTest {
                 .doesNotContain("CASE_1")
                 .isEqualTo(FraudCaseType.CASE_1.getDisplayLabel());
     }
+
+    // ---------- EU-388: el numerito del menú cuenta las alertas pendientes ----------
+
+    @Test
+    void getActiveAlertCount_cuentaSoloLasPendientes() {
+        // Lo que alimenta el badge es cuántas quedan sin gestionar. Las marcadas como falsa alarma
+        // ya no son trabajo pendiente y no tienen que sumar al número.
+        when(alertRepository.countByStatus(FraudAlertStatus.ACTIVE)).thenReturn(3L);
+
+        assertThat(service.getActiveAlertCount(admin())).isEqualTo(3L);
+        verify(alertRepository).countByStatus(FraudAlertStatus.ACTIVE);
+        verify(alertRepository, never()).countByStatus(FraudAlertStatus.FALSE_POSITIVE);
+    }
+
+    @Test
+    void getActiveAlertCount_sinAlertasPendientes_esCero() {
+        // Con el contador en cero el menú no dibuja nada: el badge aparece sólo si hay algo que ver.
+        when(alertRepository.countByStatus(FraudAlertStatus.ACTIVE)).thenReturn(0L);
+
+        assertThat(service.getActiveAlertCount(admin())).isZero();
+    }
+
+    @Test
+    void getActiveAlertCount_nonAdmin_throwsForbidden() {
+        // Mismo criterio que el resto del servicio: el fraude es global y lo gestiona el dueño de
+        // Eurekapp. Un responsable de organización no puede ni contarlas.
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.getActiveAlertCount(owner(org)))
+                .isInstanceOf(ForbiddenException.class);
+        verify(alertRepository, never()).countByStatus(any());
+    }
 }

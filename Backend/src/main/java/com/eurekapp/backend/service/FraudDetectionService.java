@@ -253,6 +253,22 @@ public class FraudDetectionService {
                 .stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * EU-388: cuántas alertas siguen pendientes, para el numerito del menú.
+     *
+     * <p>Hasta ahora, con la aplicación abierta, el dueño de Eurekapp no tenía ninguna señal de que
+     * se hubiera generado una alerta: la alerta se creaba, bloqueaba, y esperaba a que alguien
+     * entrara al panel. El único aviso salía por correo (EU-353), fuera de la aplicación.</p>
+     *
+     * <p>Se cuentan las ACTIVE y no las "no vistas" porque el modelo tiene dos estados y ninguno es
+     * "vista" (ver {@link FraudAlertStatus}). Una alerta deja de contar cuando se la marca como
+     * falsa alarma, que es la única acción posible sobre ella: entrar a mirarla no la gestiona.</p>
+     */
+    public long getActiveAlertCount(UserEurekapp user) {
+        validateAccess(user);
+        return alertRepository.countByStatus(FraudAlertStatus.ACTIVE);
+    }
+
     public FraudAlertDto getAlertDetail(Long alertId, UserEurekapp user) {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
