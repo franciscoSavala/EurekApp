@@ -442,7 +442,7 @@ const EurekappTab = () => {
     const { userRole } = useContext(LoginContext);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
     const [pendingOrgRequestCount, setPendingOrgRequestCount] = useState(0);
-    const [activeFraudAlertCount, setActiveFraudAlertCount] = useState(0);
+    const [unseenFraudAlertCount, setUnseenFraudAlertCount] = useState(0);
     const prevCountRef = useRef(0);
     const isFirstFetchRef = useRef(true);
 
@@ -496,16 +496,16 @@ const EurekappTab = () => {
     /* EU-388: hasta ahora, con la aplicación abierta, el dueño de Eurekapp no tenía ninguna señal
      * de que se hubiera generado una alerta de fraude: la alerta se creaba, bloqueaba, y esperaba a
      * que alguien entrara al panel. El único aviso salía por correo (EU-353), fuera de la
-     * aplicación. El número cuenta las alertas PENDIENTES, así que baja sólo cuando se marca una
-     * como falsa alarma; entrar a mirarlas no lo apaga, porque mirarlas no las gestiona. */
-    const fetchActiveFraudAlertCount = useCallback(async () => {
+     * aplicación. El número cuenta las alertas creadas desde la última visita, así que se enciende
+     * con cada alerta nueva y se apaga al entrar a mirarlas. */
+    const fetchUnseenFraudAlertCount = useCallback(async () => {
         if (userRole !== 'ADMIN') return;
         try {
             const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(BACK_URL + '/fraud-alerts/active-count', {
+            const res = await axiosInstance.get(BACK_URL + '/fraud-alerts/unseen-count', {
                 headers: { Authorization: 'Bearer ' + jwt },
             });
-            setActiveFraudAlertCount(res.data.count || 0);
+            setUnseenFraudAlertCount(res.data.count || 0);
         } catch (e) {
             // silently ignore — badge es opcional
         }
@@ -513,16 +513,36 @@ const EurekappTab = () => {
 
     useEffect(() => {
         if (userRole !== 'ADMIN') return;
-        fetchActiveFraudAlertCount();
-        const interval = setInterval(fetchActiveFraudAlertCount, 30000);
+        fetchUnseenFraudAlertCount();
+        const interval = setInterval(fetchUnseenFraudAlertCount, 30000);
         return () => clearInterval(interval);
-    }, [fetchActiveFraudAlertCount]);
+    }, [fetchUnseenFraudAlertCount]);
+
+    /* El número se apaga en la pantalla ANTES de que conteste el servidor: entrar a la sección es
+     * el gesto de "ya las vi", y esperar medio segundo a que vuelva la respuesta se ve como que el
+     * indicador quedó pegado. Si el guardado falla, el refresco de los 30 segundos lo vuelve a
+     * encender, que es lo correcto —no se vio lo que no se pudo registrar—.
+     *
+     * Va acá y no en la pantalla de alertas para que valga por cualquier camino: el botón del menú,
+     * pero también el enlace desde una notificación. */
+    const markFraudAlertsSeen = useCallback(async () => {
+        if (userRole !== 'ADMIN') return;
+        setUnseenFraudAlertCount(0);
+        try {
+            const jwt = await AsyncStorage.getItem('jwt');
+            await axiosInstance.post(BACK_URL + '/fraud-alerts/seen', {}, {
+                headers: { Authorization: 'Bearer ' + jwt },
+            });
+        } catch (e) {
+            // silently ignore — lo recupera el próximo refresco
+        }
+    }, [userRole]);
 
     const orgRequestsIcon = () => <BadgeIcon name={'sitemap'} count={pendingOrgRequestCount} />;
 
     const bellIcon = () => <BadgeIcon name={'bell'} count={unreadNotifCount} />;
 
-    const fraudAlertsIcon = () => <BadgeIcon name={'shield-halved'} count={activeFraudAlertCount} />;
+    const fraudAlertsIcon = () => <BadgeIcon name={'shield-halved'} count={unseenFraudAlertCount} />;
 
     const resetAndNavigate = (navigation, screenName) => {
         navigation.dispatch(
@@ -633,7 +653,7 @@ const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: fraudAlertsIcon
                 }} listeners={{
-                    focus: () => fetchActiveFraudAlertCount()
+                    focus: () => markFraudAlertsSeen()
                 }} component={FraudAlertsStackScreen} />
                 <Drawer.Screen name="FraudDetectionConfigStackScreen" options={{
                     title: 'Configuración de fraude',

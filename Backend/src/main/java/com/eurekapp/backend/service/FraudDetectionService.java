@@ -254,19 +254,34 @@ public class FraudDetectionService {
     }
 
     /**
-     * EU-388: cuántas alertas siguen pendientes, para el numerito del menú.
+     * EU-388: cuántas alertas de fraude hay sin ver, para el numerito del menú.
      *
      * <p>Hasta ahora, con la aplicación abierta, el dueño de Eurekapp no tenía ninguna señal de que
      * se hubiera generado una alerta: la alerta se creaba, bloqueaba, y esperaba a que alguien
      * entrara al panel. El único aviso salía por correo (EU-353), fuera de la aplicación.</p>
      *
-     * <p>Se cuentan las ACTIVE y no las "no vistas" porque el modelo tiene dos estados y ninguno es
-     * "vista" (ver {@link FraudAlertStatus}). Una alerta deja de contar cuando se la marca como
-     * falsa alarma, que es la única acción posible sobre ella: entrar a mirarla no la gestiona.</p>
+     * <p>Cuenta las creadas <b>después de la última visita</b> de este usuario, así que el indicador
+     * se enciende con cada alerta nueva y se apaga al entrar a mirarlas. No se filtra por estado: lo
+     * que enciende el indicador es que la alerta sea nueva para quien mira, y una alerta nace
+     * siempre ACTIVE. Si nunca entró ({@code fraudAlertsSeenAt} en null), cuentan todas.</p>
      */
-    public long getActiveAlertCount(UserEurekapp user) {
+    public long getUnseenAlertCount(UserEurekapp user) {
         validateAccess(user);
-        return alertRepository.countByStatus(FraudAlertStatus.ACTIVE);
+        LocalDateTime seenAt = user.getFraudAlertsSeenAt();
+        return seenAt == null ? alertRepository.count() : alertRepository.countByCreatedAtAfter(seenAt);
+    }
+
+    /**
+     * EU-388: deja constancia de que este usuario ya miró las alertas, y con eso apaga el indicador
+     * del menú hasta que aparezca una nueva.
+     *
+     * <p>La marca se guarda por usuario, no sobre las alertas: que un ADMIN entre no significa que
+     * los demás se hayan enterado.</p>
+     */
+    public void markAlertsSeen(UserEurekapp user) {
+        validateAccess(user);
+        user.setFraudAlertsSeenAt(LocalDateTime.now());
+        userRepository.save(user);
     }
 
     public FraudAlertDto getAlertDetail(Long alertId, UserEurekapp user) {

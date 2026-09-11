@@ -82,6 +82,17 @@ public class UserEurekapp implements UserDetails {
     @Column(name = "password_reset_token_expiry", nullable = true)
     private LocalDateTime passwordResetTokenExpiry;
 
+    /**
+     * EU-388: cuándo fue la última vez que este usuario entró a ver las alertas de fraude. Sostiene
+     * el indicador del menú: cuenta como nueva toda alerta creada después de esta marca.
+     *
+     * <p>Va por usuario y no por alerta porque "vista" no es una propiedad de la alerta sino de
+     * quien la mira: hay más de un ADMIN, y que uno entre no significa que el otro se haya enterado.
+     * En null (nunca entró) cuentan todas.</p>
+     */
+    @Column(name = "fraud_alerts_seen_at", nullable = true)
+    private LocalDateTime fraudAlertsSeenAt;
+
     // Implementación de los métodos de la interfaz UserDetails
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
