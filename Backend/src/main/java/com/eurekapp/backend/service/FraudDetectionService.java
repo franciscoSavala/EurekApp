@@ -253,6 +253,42 @@ public class FraudDetectionService {
                 .stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * EU-388: cuántas alertas de fraude hay sin ver, para el numerito del menú.
+     *
+     * <p>Hasta ahora, con la aplicación abierta, el dueño de Eurekapp no tenía ninguna señal de que
+     * se hubiera generado una alerta: la alerta se creaba, bloqueaba, y esperaba a que alguien
+     * entrara al panel. El único aviso salía por correo (EU-353), fuera de la aplicación.</p>
+     *
+     * <p>Cuenta las pendientes creadas <b>después de la última visita</b> de este usuario, así que
+     * el indicador se enciende con cada alerta nueva y se apaga al entrar a mirarlas.</p>
+     *
+     * <p>Se piden ACTIVE y no todas para que el número signifique trabajo por hacer. Para el aviso
+     * de una alerta nueva da igual —una alerta nace siempre ACTIVE—, pero cambia el caso de quien
+     * nunca entró: sin el filtro, la primera vez se le mostraría el histórico completo, incluidas
+     * las que ya se resolvieron hace meses.</p>
+     */
+    public long getUnseenAlertCount(UserEurekapp user) {
+        validateAccess(user);
+        LocalDateTime seenAt = user.getFraudAlertsSeenAt();
+        return seenAt == null
+                ? alertRepository.countByStatus(FraudAlertStatus.ACTIVE)
+                : alertRepository.countByStatusAndCreatedAtAfter(FraudAlertStatus.ACTIVE, seenAt);
+    }
+
+    /**
+     * EU-388: deja constancia de que este usuario ya miró las alertas, y con eso apaga el indicador
+     * del menú hasta que aparezca una nueva.
+     *
+     * <p>La marca se guarda por usuario, no sobre las alertas: que un ADMIN entre no significa que
+     * los demás se hayan enterado.</p>
+     */
+    public void markAlertsSeen(UserEurekapp user) {
+        validateAccess(user);
+        user.setFraudAlertsSeenAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
     public FraudAlertDto getAlertDetail(Long alertId, UserEurekapp user) {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/fraud-alerts")
@@ -35,6 +36,25 @@ public class FraudAlertController {
     public ResponseEntity<List<FraudAlertDto>> getAlerts(
             @AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(service.getAlerts(user));
+    }
+
+    // Va ANTES de "/{id}" a propósito: son dos rutas de un segmento y, aunque Spring resuelve
+    // primero el literal, leerlas en este orden evita la duda.
+    @GetMapping("/unseen-count")
+    @Operation(summary = "Cantidad de alertas de fraude sin ver",
+            description = "Devuelve cuántas alertas se crearon desde la última visita del usuario. Alimenta el indicador del menú. Solo ADMIN.")
+    public ResponseEntity<Map<String, Long>> getUnseenAlertCount(
+            @AuthenticationPrincipal UserEurekapp user) {
+        return ResponseEntity.ok(Map.of("count", service.getUnseenAlertCount(user)));
+    }
+
+    @PostMapping("/seen")
+    @Operation(summary = "Marcar las alertas de fraude como vistas",
+            description = "Deja constancia de que el usuario entró a mirarlas y apaga el indicador del menú. Solo ADMIN.")
+    public ResponseEntity<Void> markAlertsSeen(
+            @AuthenticationPrincipal UserEurekapp user) {
+        service.markAlertsSeen(user);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{id}")

@@ -402,6 +402,28 @@ const CustomDrawerContent = (props) => {
     );
 }
 
+/* Los tres indicadores del menú (solicitudes de alta, notificaciones y alertas de fraude) se dibujan
+ * igual: el mismo circulito rojo arriba a la derecha del ícono. Estaba escrito dos veces palabra por
+ * palabra; con el tercero se vuelve uno solo. */
+const BadgeIcon = ({ name, count }) => (
+    <View style={{ position: 'relative' }}>
+        <Icon name={name} size={20} />
+        {count > 0 && (
+            <View style={{
+                position: 'absolute', top: -5, right: -8,
+                backgroundColor: '#CC4444', borderRadius: 8,
+                minWidth: 16, height: 16,
+                justifyContent: 'center', alignItems: 'center',
+                paddingHorizontal: 2,
+            }}>
+                <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
+                    {count > 99 ? '99+' : count}
+                </Text>
+            </View>
+        )}
+    </View>
+);
+
 const Drawer = createDrawerNavigator();
 
 const EurekappTab = () => {
@@ -413,7 +435,6 @@ const EurekappTab = () => {
     const userIcon = () => <Icon name={'user'} size={20}/>
     const organizationIcon = () => <Icon name={'sitemap'} size={20}/>
     const chartIcon = () => <Icon name={'chart-bar'} size={20}/>
-    const shieldIcon = () => <Icon name={'shield-halved'} size={20}/>
     const slidersIcon = () => <Icon name={'sliders'} size={20}/>
     const commentIcon = () => <Icon name={'comment-dots'} size={20}/>
     const navigation = useNavigation();
@@ -421,6 +442,7 @@ const EurekappTab = () => {
     const { userRole } = useContext(LoginContext);
     const [unreadNotifCount, setUnreadNotifCount] = useState(0);
     const [pendingOrgRequestCount, setPendingOrgRequestCount] = useState(0);
+    const [unseenFraudAlertCount, setUnseenFraudAlertCount] = useState(0);
     const prevCountRef = useRef(0);
     const isFirstFetchRef = useRef(true);
 
@@ -471,43 +493,56 @@ const EurekappTab = () => {
         return () => clearInterval(interval);
     }, [fetchPendingCount]);
 
-    const orgRequestsIcon = () => (
-        <View style={{ position: 'relative' }}>
-            <Icon name={'sitemap'} size={20} />
-            {pendingOrgRequestCount > 0 && (
-                <View style={{
-                    position: 'absolute', top: -5, right: -8,
-                    backgroundColor: '#CC4444', borderRadius: 8,
-                    minWidth: 16, height: 16,
-                    justifyContent: 'center', alignItems: 'center',
-                    paddingHorizontal: 2,
-                }}>
-                    <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
-                        {pendingOrgRequestCount > 99 ? '99+' : pendingOrgRequestCount}
-                    </Text>
-                </View>
-            )}
-        </View>
-    );
+    /* EU-388: hasta ahora, con la aplicación abierta, el dueño de Eurekapp no tenía ninguna señal
+     * de que se hubiera generado una alerta de fraude: la alerta se creaba, bloqueaba, y esperaba a
+     * que alguien entrara al panel. El único aviso salía por correo (EU-353), fuera de la
+     * aplicación. El número cuenta las alertas creadas desde la última visita, así que se enciende
+     * con cada alerta nueva y se apaga al entrar a mirarlas. */
+    const fetchUnseenFraudAlertCount = useCallback(async () => {
+        if (userRole !== 'ADMIN') return;
+        try {
+            const jwt = await AsyncStorage.getItem('jwt');
+            const res = await axiosInstance.get(BACK_URL + '/fraud-alerts/unseen-count', {
+                headers: { Authorization: 'Bearer ' + jwt },
+            });
+            setUnseenFraudAlertCount(res.data.count || 0);
+        } catch (e) {
+            // silently ignore — badge es opcional
+        }
+    }, [userRole]);
 
-    const bellIcon = () => (
-        <View style={{ position: 'relative' }}>
-            <Icon name={'bell'} size={20} />
-            {unreadNotifCount > 0 && (
-                <View style={{
-                    position: 'absolute', top: -5, right: -8,
-                    backgroundColor: '#CC4444', borderRadius: 8,
-                    minWidth: 16, height: 16,
-                    justifyContent: 'center', alignItems: 'center',
-                    paddingHorizontal: 2,
-                }}>
-                    <Text style={{ color: '#FFF', fontSize: 9, fontWeight: 'bold' }}>
-                        {unreadNotifCount > 99 ? '99+' : unreadNotifCount}
-                    </Text>
-                </View>
-            )}
-        </View>
-    );
+    useEffect(() => {
+        if (userRole !== 'ADMIN') return;
+        fetchUnseenFraudAlertCount();
+        const interval = setInterval(fetchUnseenFraudAlertCount, 30000);
+        return () => clearInterval(interval);
+    }, [fetchUnseenFraudAlertCount]);
+
+    /* El número se apaga en la pantalla ANTES de que conteste el servidor: entrar a la sección es
+     * el gesto de "ya las vi", y esperar medio segundo a que vuelva la respuesta se ve como que el
+     * indicador quedó pegado. Si el guardado falla, el refresco de los 30 segundos lo vuelve a
+     * encender, que es lo correcto —no se vio lo que no se pudo registrar—.
+     *
+     * Va acá y no en la pantalla de alertas para que valga por cualquier camino: el botón del menú,
+     * pero también el enlace desde una notificación. */
+    const markFraudAlertsSeen = useCallback(async () => {
+        if (userRole !== 'ADMIN') return;
+        setUnseenFraudAlertCount(0);
+        try {
+            const jwt = await AsyncStorage.getItem('jwt');
+            await axiosInstance.post(BACK_URL + '/fraud-alerts/seen', {}, {
+                headers: { Authorization: 'Bearer ' + jwt },
+            });
+        } catch (e) {
+            // silently ignore — lo recupera el próximo refresco
+        }
+    }, [userRole]);
+
+    const orgRequestsIcon = () => <BadgeIcon name={'sitemap'} count={pendingOrgRequestCount} />;
+
+    const bellIcon = () => <BadgeIcon name={'bell'} count={unreadNotifCount} />;
+
+    const fraudAlertsIcon = () => <BadgeIcon name={'shield-halved'} count={unseenFraudAlertCount} />;
 
     const resetAndNavigate = (navigation, screenName) => {
         navigation.dispatch(
@@ -616,7 +651,9 @@ const EurekappTab = () => {
                 <Drawer.Screen name="FraudAlertsStackScreen" options={{
                     title: 'Alertas de fraude',
                     headerTitleAlign: 'center',
-                    drawerIcon: shieldIcon
+                    drawerIcon: fraudAlertsIcon
+                }} listeners={{
+                    focus: () => markFraudAlertsSeen()
                 }} component={FraudAlertsStackScreen} />
                 <Drawer.Screen name="FraudDetectionConfigStackScreen" options={{
                     title: 'Configuración de fraude',

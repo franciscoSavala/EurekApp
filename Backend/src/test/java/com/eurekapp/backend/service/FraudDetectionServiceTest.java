@@ -691,4 +691,100 @@ class FraudDetectionServiceTest {
                 .doesNotContain("CASE_1")
                 .isEqualTo(FraudCaseType.CASE_1.getDisplayLabel());
     }
+
+    // ---------- EU-388: el numerito del menú cuenta las alertas sin ver ----------
+
+    @Test
+    void getUnseenAlertCount_cuentaLasAparecidasDespuesDeLaUltimaVisita() {
+        // Lo que enciende el indicador es que la alerta sea NUEVA para quien mira: se cuentan las
+        // creadas después de su última visita, no todas las que existen.
+        UserEurekapp admin = admin();
+        LocalDateTime lastVisit = LocalDateTime.now().minusHours(2);
+        admin.setFraudAlertsSeenAt(lastVisit);
+        when(alertRepository.countByStatusAndCreatedAtAfter(FraudAlertStatus.ACTIVE, lastVisit))
+                .thenReturn(2L);
+
+        assertThat(service.getUnseenAlertCount(admin)).isEqualTo(2L);
+        verify(alertRepository).countByStatusAndCreatedAtAfter(FraudAlertStatus.ACTIVE, lastVisit);
+    }
+
+    @Test
+    void getUnseenAlertCount_siNuncaEntro_cuentaLasPendientes() {
+        // Sin marca de visita no hay contra qué comparar. Se muestran las pendientes y NO el
+        // histórico completo: la primera vez, ver un número con alertas resueltas hace meses sería
+        // un aviso de trabajo que ya está hecho.
+        UserEurekapp admin = admin();
+        assertThat(admin.getFraudAlertsSeenAt()).isNull();
+        when(alertRepository.countByStatus(FraudAlertStatus.ACTIVE)).thenReturn(3L);
+
+        assertThat(service.getUnseenAlertCount(admin)).isEqualTo(3L);
+        verify(alertRepository, never()).countByStatusAndCreatedAtAfter(any(), any());
+    }
+
+    @Test
+    void getUnseenAlertCount_noCuentaLasFalsasAlarmas() {
+        // El número tiene que significar trabajo por hacer: lo ya gestionado no avisa nada.
+        UserEurekapp admin = admin();
+        service.getUnseenAlertCount(admin);
+        verify(alertRepository, never()).countByStatus(FraudAlertStatus.FALSE_POSITIVE);
+        verify(alertRepository, never()).count();
+    }
+
+    @Test
+    void getUnseenAlertCount_sinAlertasNuevas_esCero() {
+        // Con el contador en cero el menú no dibuja nada: el indicador aparece sólo si hay algo nuevo.
+        UserEurekapp admin = admin();
+        admin.setFraudAlertsSeenAt(LocalDateTime.now().minusMinutes(5));
+        when(alertRepository.countByStatusAndCreatedAtAfter(any(), any())).thenReturn(0L);
+
+        assertThat(service.getUnseenAlertCount(admin)).isZero();
+    }
+
+    @Test
+    void markAlertsSeen_guardaLaMarcaEnElUsuarioQueMira() {
+        // La marca es por usuario y no sobre las alertas: que un ADMIN entre no significa que los
+        // demás se hayan enterado.
+        UserEurekapp admin = admin();
+        LocalDateTime antes = LocalDateTime.now();
+
+        service.markAlertsSeen(admin);
+
+        ArgumentCaptor<UserEurekapp> saved = ArgumentCaptor.forClass(UserEurekapp.class);
+        verify(userRepository).save(saved.capture());
+        assertThat(saved.getValue().getId()).isEqualTo(admin.getId());
+        assertThat(saved.getValue().getFraudAlertsSeenAt()).isAfterOrEqualTo(antes);
+    }
+
+    @Test
+    void marcarComoVistasApagaElIndicador() {
+        // El recorrido completo: hay alertas pendientes sin ver, entra a mirarlas y deja de haberlas.
+        UserEurekapp admin = admin();
+        when(alertRepository.countByStatus(FraudAlertStatus.ACTIVE)).thenReturn(3L);
+        assertThat(service.getUnseenAlertCount(admin)).isEqualTo(3L);
+
+        service.markAlertsSeen(admin);
+        when(alertRepository.countByStatusAndCreatedAtAfter(
+                FraudAlertStatus.ACTIVE, admin.getFraudAlertsSeenAt())).thenReturn(0L);
+
+        assertThat(service.getUnseenAlertCount(admin)).isZero();
+    }
+
+    @Test
+    void getUnseenAlertCount_nonAdmin_throwsForbidden() {
+        // Mismo criterio que el resto del servicio: el fraude es global y lo gestiona el dueño de
+        // Eurekapp. Un responsable de organización no puede ni contarlas.
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.getUnseenAlertCount(owner(org)))
+                .isInstanceOf(ForbiddenException.class);
+        verify(alertRepository, never()).countByStatus(any());
+        verify(alertRepository, never()).countByStatusAndCreatedAtAfter(any(), any());
+    }
+
+    @Test
+    void markAlertsSeen_nonAdmin_throwsForbidden() {
+        Organization org = Organization.builder().id(1L).name("Org").build();
+        assertThatThrownBy(() -> service.markAlertsSeen(owner(org)))
+                .isInstanceOf(ForbiddenException.class);
+        verify(userRepository, never()).save(any());
+    }
 }

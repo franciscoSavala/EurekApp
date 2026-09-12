@@ -25,6 +25,14 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
     List<FraudAlert> findByStatusAndCreatedAtBetween(
             FraudAlertStatus status, LocalDateTime from, LocalDateTime to);
 
+    // EU-388: para el indicador del menú. Se cuenta en la base y no trayendo la lista entera: el
+    // indicador se refresca cada 30 segundos y no necesita ningún dato de las alertas, sólo cuántas
+    // hay. La segunda acota a las aparecidas desde la última visita; la primera es el caso de quien
+    // nunca entró, donde no hay visita contra la cual comparar.
+    long countByStatus(FraudAlertStatus status);
+
+    long countByStatusAndCreatedAtAfter(FraudAlertStatus status, LocalDateTime since);
+
     // Historial completo (sin filtro de fecha) de un usuario sospechoso / de un DNI: alimenta el dato
     // de reincidencia (acumulado histórico) y el drill-down del reporte (EU-288).
     List<FraudAlert> findBySuspectUsers_Id(Long userId);
