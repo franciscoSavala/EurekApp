@@ -1,6 +1,6 @@
 import React, {useState} from "react";
 
-import {FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
+import {ActivityIndicator, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
 import Toast from 'react-native-toast-message';
 import EurekappButton from "../components/Button";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -43,6 +43,11 @@ const FoundObjects = ({ route, navigation }) => {
     const [pendingWasFound, setPendingWasFound] = useState(null);
     const [starRating, setStarRating] = useState(0);
     const [comment, setComment] = useState('');
+    // EU-387: reconocer el objeto como propio no es instantáneo —se manda la opinión y se guarda o
+    // actualiza la búsqueda, que sube la foto—, y hasta ahora la pantalla no cambiaba en nada durante
+    // esos segundos: parecía que el botón no había respondido y se lo volvía a tocar. Este estado
+    // muestra que la acción se registró y bloquea el reintento mientras está en curso.
+    const [processingClaim, setProcessingClaim] = useState(false);
     // EU-347: si le guardamos la búsqueda sola. Decide si el modal se lo avisa y si al cerrarlo lo
     // llevamos a verla; si el guardado falló no tiene sentido mandarlo a una pantalla donde no está.
     const [searchSaved, setSearchSaved] = useState(false);
@@ -60,6 +65,18 @@ const FoundObjects = ({ route, navigation }) => {
     };
 
     const onFeedbackDone = async (skip = false) => {
+        // EU-387: un segundo toque mientras se está procesando volvería a mandar todo (otra opinión,
+        // otra búsqueda guardada). Se ignora.
+        if (processingClaim) return;
+        setProcessingClaim(true);
+        try {
+            await runFeedbackDone(skip);
+        } finally {
+            setProcessingClaim(false);
+        }
+    };
+
+    const runFeedbackDone = async (skip) => {
         const shouldSubmit = pendingWasFound || (!skip && starRating > 0);
         if (shouldSubmit) {
             const selected = foundObjectsMap.get(objectSelectedId);
@@ -77,17 +94,22 @@ const FoundObjects = ({ route, navigation }) => {
                 console.warn('Error enviando feedback:', e);
             }
         }
-        setFeedbackModal(false);
         if (pendingWasFound) {
             // Desde el aviso la búsqueda guardada ya existe y sólo cambia de estado. Desde la búsqueda
             // en vivo no existe ninguna, así que hay que crearla (EU-347).
             if (fromNotification) await markPendingPickup();
             else await autoSaveSearch();
+            // EU-387: el modal de la opinión se cierra recién acá, mostrando el indicador de carga
+            // mientras tanto. Antes se cerraba primero y la espera más larga —la de guardar la
+            // búsqueda— transcurría con la pantalla de resultados quieta y sin ninguna señal.
+            setFeedbackModal(false);
             setOrganizationInformationModal(true);
+            return;
         }
+        setFeedbackModal(false);
         // EU-345: viniendo del aviso no se ofrece guardar una búsqueda. El usuario ya tiene una
         // guardada —es justamente la que disparó el aviso—; proponerle otra igual no tiene sentido.
-        else if (fromNotification) navigation.goBack();
+        if (fromNotification) navigation.goBack();
         else setUploadLostObjectModal(true);
     };
 
@@ -310,6 +332,14 @@ const FoundObjects = ({ route, navigation }) => {
                             maxLength={500}
                             style={styles.commentInput}
                         />
+                        {/* EU-387: mientras se procesa, el modal dice que la acción se registró en
+                            lugar de quedarse quieto, y los botones no aceptan otro toque. */}
+                        {processingClaim ? (
+                            <View style={styles.processingRow}>
+                                <ActivityIndicator size="small" color="#19b8b8" />
+                                <Text style={styles.processingText}>Procesando…</Text>
+                            </View>
+                        ) : (
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
                             <TouchableOpacity
                                 style={[styles.feedbackBtn, { backgroundColor: '#f0f4f4' }]}
@@ -323,6 +353,7 @@ const FoundObjects = ({ route, navigation }) => {
                                 <Text style={[styles.feedbackBtnText, { color: 'white' }]}>Enviar</Text>
                             </TouchableOpacity>
                         </View>
+                        )}
             </BaseModal>
 
             <BaseModal
@@ -533,6 +564,18 @@ const styles = StyleSheet.create({
         color: '#638888',
         fontSize: 14,
         fontFamily: 'PlusJakartaSans-Regular',
+    },
+    processingRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 20,
+        height: 44,
+    },
+    processingText: {
+        fontFamily: 'PlusJakartaSans-Regular',
+        fontSize: 15,
+        color: '#638888',
     },
     feedbackBtn: {
         flex: 1,
