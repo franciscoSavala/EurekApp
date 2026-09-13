@@ -28,6 +28,7 @@ class AuthServiceRefreshTest {
     private IUserRepository userRepository;
     private JwtService jwtService;
     private AuthService authService;
+    private FraudBlockService fraudBlockService;
 
     private UserEurekapp user;
 
@@ -40,7 +41,10 @@ class AuthServiceRefreshTest {
         EmailTemplateService emailTemplateService = mock(EmailTemplateService.class);
 
         IOrganizationRequestRepository orgRequestRepository = mock(IOrganizationRequestRepository.class);
-        authService = new AuthService(userRepository, orgRequestRepository, jwtService, authenticationManager, notificationService, emailTemplateService);
+        fraudBlockService = mock(FraudBlockService.class);
+        when(fraudBlockService.describeActiveUserBlock(any(), any())).thenReturn(Optional.empty());
+        authService = new AuthService(userRepository, orgRequestRepository, jwtService, authenticationManager,
+                notificationService, emailTemplateService, fraudBlockService);
 
         user = UserEurekapp.builder()
                 .username("usuario@eurekapp.com")
@@ -85,5 +89,20 @@ class AuthServiceRefreshTest {
 
         assertThrows(BadRequestException.class, () -> authService.refreshToken(badToken));
         verify(userRepository, never()).findByUsername(any());
+    }
+
+    // EU-384: quien ya estaba adentro cuando saltó la alerta no sigue usando la aplicación: su
+    // sesión no se renueva y queda afuera.
+    @Test
+    void refreshToken_cuentaBloqueadaPorFraude_noRenuevaLaSesion() {
+        String validRefresh = "valid-refresh-token";
+        when(jwtService.isRefreshToken(validRefresh)).thenReturn(true);
+        when(jwtService.getUsername(validRefresh)).thenReturn("usuario@eurekapp.com");
+        when(userRepository.findByUsername("usuario@eurekapp.com")).thenReturn(Optional.of(user));
+        when(fraudBlockService.describeActiveUserBlock(any(), any()))
+                .thenReturn(Optional.of("Tu cuenta está temporalmente bloqueada por sospecha de fraude."));
+
+        assertThrows(BadRequestException.class, () -> authService.refreshToken(validRefresh));
+        verify(jwtService, never()).generateToken(any());
     }
 }

@@ -52,10 +52,12 @@ public class AuthService {
     private final RestTemplate restTemplate;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
+    private final FraudBlockService fraudBlockService;
 
     public AuthService(IUserRepository userRepository, IOrganizationRequestRepository organizationRequestRepository,
                        JwtService jwtService, AuthenticationManager authenticationManager,
-                       NotificationService notificationService, EmailTemplateService emailTemplateService) {
+                       NotificationService notificationService, EmailTemplateService emailTemplateService,
+                       FraudBlockService fraudBlockService) {
         this.userRepository = userRepository;
         this.organizationRequestRepository = organizationRequestRepository;
         this.passwordEncoder = new BCryptPasswordEncoder();
@@ -64,6 +66,7 @@ public class AuthService {
         this.restTemplate = new RestTemplate();
         this.notificationService = notificationService;
         this.emailTemplateService = emailTemplateService;
+        this.fraudBlockService = fraudBlockService;
     }
 
 
@@ -86,6 +89,8 @@ public class AuthService {
                 throw new ForbiddenException("org_deactivated",
                         "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
             }
+
+            rejectIfFraudBlocked(userEurekapp);
 
             log.info("[action:login] Usuario {} autenticado exitosamente", user.getUsername());
 
@@ -193,6 +198,7 @@ public class AuthService {
                 throw new ForbiddenException("org_deactivated",
                         "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
             }
+            rejectIfFraudBlocked(user);
             if (user.getProviderId() == null) {
                 user.setProviderType(provider);
                 user.setProviderId(providerId);
@@ -335,10 +341,33 @@ public class AuthService {
                     "Tu organización fue desactivada. Contactá al administrador de EurekApp.");
         }
 
+        // EU-384: quien ya estaba adentro cuando saltó la alerta tampoco sigue usando la aplicación:
+        // su sesión no se renueva y queda afuera.
+        rejectIfFraudBlocked(user);
+
         log.info("[action:refreshToken] Token renovado para el usuario {}", username);
 
         String newJwt = jwtService.generateToken(user);
         return createLoginResponse(user, newJwt);
+    }
+
+    /**
+     * EU-384: el bloqueo por sospecha de fraude (EU-286) se hace efectivo acá. Hasta ahora sólo se
+     * consultaba al registrar una devolución, así que la persona bloqueada seguía entrando y usando
+     * la aplicación con normalidad: el bloqueo se anunciaba pero no existía. Cortando el ingreso y la
+     * renovación de la sesión, el bloqueo alcanza a toda la aplicación mientras dura, tanto para quien
+     * retira como para el empleado señalado por la alerta.
+     *
+     * El rechazo va como pedido inválido y no como falta de permisos: es una regla de negocio, y el
+     * mensaje —qué pasó, hasta cuándo dura y a dónde escribir— se le muestra tal cual a la persona.
+     */
+    private void rejectIfFraudBlocked(UserEurekapp user) {
+        fraudBlockService.describeActiveUserBlock(user.getId(), "Tu usuario")
+                .ifPresent(message -> {
+                    log.warn("[action:login] Acceso rechazado: la cuenta {} está bloqueada por sospecha de fraude",
+                            user.getUsername());
+                    throw new BadRequestException("user_fraud_blocked", message);
+                });
     }
 
     // Metodo auxiliar para crear la respuesta del token JWT

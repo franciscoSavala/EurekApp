@@ -10,6 +10,7 @@ import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +26,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +38,9 @@ class AuthServiceTest {
     @Mock IOrganizationRequestRepository organizationRequestRepository;
     @Mock JwtService jwtService;
     @Mock AuthenticationManager authenticationManager;
+    @Mock NotificationService notificationService;
+    @Mock EmailTemplateService emailTemplateService;
+    @Mock FraudBlockService fraudBlockService;
 
     @InjectMocks AuthService authService;
 
@@ -154,5 +160,54 @@ class AuthServiceTest {
         // Password should NOT be stored in plaintext
         assertThat(captor.getValue().getPassword()).isNotEqualTo("plaintext");
         assertThat(captor.getValue().getPassword()).isNotBlank();
+    }
+
+    // --- EU-384: el bloqueo por sospecha de fraude impide usar la aplicación ---
+
+    @Test
+    void login_cuentaBloqueadaPorFraude_noDejaEntrar() {
+        UserEurekapp user = buildUser("sospechoso@mail.com");
+        when(authenticationManager.authenticate(any())).thenReturn(null);
+        when(userRepository.findByUsername("sospechoso@mail.com")).thenReturn(Optional.of(user));
+        when(fraudBlockService.describeActiveUserBlock(eq(1L), any()))
+                .thenReturn(Optional.of("Tu cuenta está temporalmente bloqueada por sospecha de fraude."));
+
+        assertThatThrownBy(() -> authService.login(
+                LoginRequestDto.builder().username("sospechoso@mail.com").password("pass").build()))
+                .isInstanceOf(BadRequestException.class);
+
+        // Sin sesión: no se emite ningún token para una cuenta bloqueada.
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void login_cuentaBloqueada_leExplicaPorQueYHastaCuando() {
+        UserEurekapp user = buildUser("sospechoso@mail.com");
+        String aviso = "Tu cuenta está temporalmente bloqueado por sospecha de fraude: retiros repetidos. "
+                + "El bloqueo se levanta el 20/09/2026. Si se trata de un error, escribí a soporte.";
+        when(authenticationManager.authenticate(any())).thenReturn(null);
+        when(userRepository.findByUsername("sospechoso@mail.com")).thenReturn(Optional.of(user));
+        when(fraudBlockService.describeActiveUserBlock(eq(1L), any())).thenReturn(Optional.of(aviso));
+
+        assertThatThrownBy(() -> authService.login(
+                LoginRequestDto.builder().username("sospechoso@mail.com").password("pass").build()))
+                .hasMessageContaining("bloqueado por sospecha de fraude")
+                .hasMessageContaining("20/09/2026");
+    }
+
+    @Test
+    void login_cuentaSinBloqueo_entraNormalmente() {
+        // El bloqueo no puede volverse un peaje para todo el mundo: sin bloqueo vigente, se entra igual.
+        UserEurekapp user = buildUser("legitimo@mail.com");
+        when(authenticationManager.authenticate(any())).thenReturn(null);
+        when(userRepository.findByUsername("legitimo@mail.com")).thenReturn(Optional.of(user));
+        when(fraudBlockService.describeActiveUserBlock(eq(1L), any())).thenReturn(Optional.empty());
+        when(jwtService.generateToken(any())).thenReturn("jwt");
+        when(jwtService.generateRefreshToken(any())).thenReturn("refresh");
+
+        LoginResponseDto res = authService.login(
+                LoginRequestDto.builder().username("legitimo@mail.com").password("pass").build());
+
+        assertThat(res.getToken()).isEqualTo("jwt");
     }
 }
