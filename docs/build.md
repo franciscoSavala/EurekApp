@@ -26,6 +26,20 @@ reporte de fraude no traía el gráfico de evolución, que sólo existía en pan
 fallas no previstas respondían "todo salió bien" con el cuerpo vacío, que es lo que escondió EU-352
 durante meses). Todos en Done, verificados con pruebas unitarias y con la aplicación levantada.
 
+En la tanda del 2026-09-12 salieron otros tres: **EU-397** (el rango de fechas de los reportes no se
+podía escribir a mano; de paso, "Opiniones sobre la app" dejó de recargarse sola en cada tecla y pasó
+a tener botón), **EU-387** (reclamar un objeto no avisaba que se estaba procesando, y volver a tocar
+guardaba la búsqueda de nuevo) y **EU-384** (el bloqueo por sospecha de fraude se anunciaba pero no
+impedía usar la aplicación). Los tres verificados con pruebas unitarias y con la app levantada.
+
+**EU-388 no lo hicimos nosotros**: lo resolvió y mergeó otra persona del equipo mientras estaba
+tomado. Se le devolvió el ítem y se le pidió el comentario de cierre; sigue abierto por eso.
+
+**Ojo con el entorno local (EU-399):** hay dos juegos de datos de prueba distintos y el que carga
+`seed-local.sh` quedó de antes del rework de búsqueda, así que deja una aplicación donde **ninguna
+búsqueda encuentra nada**, sin ningún aviso. Para probar búsqueda, sembrar con
+`bash Backend/seed-data/seed.sh`. El ítem tiene el detalle y las dos opciones para resolverlo.
+
 **EU-382 no era un error**: la búsqueda se queda en "Por retirar" después de la devolución porque
 nunca se definió qué pasa cuando el objeto se entrega, ni cuando lo retira una persona distinta de
 la que guardó la búsqueda. EU-361, que introdujo el estado, sólo cubre el camino feliz. Las
