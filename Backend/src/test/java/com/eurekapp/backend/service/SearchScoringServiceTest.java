@@ -155,8 +155,15 @@ class SearchScoringServiceTest {
     }
 
     @Test
-    void displayScore_mapsThresholdToExactlySeventyFivePercent() {
-        // El criterio de producto: una coincidencia justo en el umbral se le muestra al usuario como 75%.
+    void displayThreshold_isEightyPercent() {
+        /* EU-380: el piso que ve el usuario es 80%, no 75%. Queda fijado acá para que nadie lo mueva
+           sin enterarse: el resto de los tests usa la constante, así que sólo este falla si cambia. */
+        assertThat(SearchScoringService.DISPLAY_THRESHOLD).isEqualTo(0.80);
+    }
+
+    @Test
+    void displayScore_mapsThresholdToExactlyEightyPercent() {
+        // El criterio de producto: una coincidencia justo en el umbral se le muestra al usuario como 80%.
         assertThat(scoring.displayScore(properties.getMatchThreshold(), WITH_PHOTO))
                 .isCloseTo(SearchScoringService.DISPLAY_THRESHOLD, within(1e-9));
     }
@@ -179,9 +186,9 @@ class SearchScoringServiceTest {
     }
 
     @Test
-    void displayScore_showsEveryTrueSeedPairAboveSeventyFivePercent() {
+    void displayScore_showsEveryTrueSeedPairAboveEightyPercent() {
         // Puntajes CRUDOS medidos sobre los 5 pares verdaderos del seed (EU-327). El umbral se calibró
-        // como "el peor par (paraguas, 0.5820) menos 0.05", así que los cinco tienen que mostrarse >= 75%.
+        // como "el peor par (paraguas, 0.5820) menos 0.05", así que los cinco tienen que mostrarse >= 80%.
         double[] trueSeedPairs = {0.5820, 0.7001, 0.7248, 0.7925, 0.8032};
         for (double raw : trueSeedPairs) {
             assertThat(scoring.isCombinedMatch(raw, WITH_PHOTO)).isTrue();
@@ -192,7 +199,7 @@ class SearchScoringServiceTest {
 
     @Test
     void displayScore_followsThresholdWhenRecalibrated() {
-        // El exponente se DERIVA del umbral: si mañana se recalibra, el piso mostrado sigue dando 75%
+        // El exponente se DERIVA del umbral: si mañana se recalibra, el piso mostrado sigue dando 80%
         // solo, sin tener que acordarse de ajustar un segundo número.
         properties.setMatchThreshold(0.40);
         assertThat(scoring.displayScore(0.40, WITH_PHOTO))

@@ -38,7 +38,7 @@ public class ScoringProperties {
      * par (el paraguas, catálogo vs calle) puntúa 0.5820, y se le resta un margen de 0.05 de seguridad.
      *
      * <p><b>No es el número que ve el usuario.</b> La presentación se remapea con
-     * {@code SearchScoringService.displayScore}, que lleva este umbral a 0.75 exactamente.</p>
+     * {@code SearchScoringService.displayScore}, que lleva este umbral a 0.80 exactamente.</p>
      */
     private double matchThreshold = 0.5320;
 

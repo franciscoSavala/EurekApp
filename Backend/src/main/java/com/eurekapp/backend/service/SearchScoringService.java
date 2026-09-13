@@ -158,8 +158,15 @@ public class SearchScoringService {
 
     // ── EU-327: umbral calibrado y curva de presentación ────────────────────────────────────────
 
-    /** Puntaje que se le MUESTRA al usuario cuando un match está justo en el umbral (75%). */
-    public static final double DISPLAY_THRESHOLD = 0.75;
+    /**
+     * Puntaje que se le MUESTRA al usuario cuando un match está justo en el umbral (80%).
+     *
+     * <p>EU-380: era 75%. Se subió a 80% porque un 76% en pantalla se lee como una coincidencia
+     * dudosa. Mover este número NO cambia qué coincidencias se muestran ni en qué orden —eso lo
+     * decide el umbral crudo de {@link ScoringProperties}, en otra escala—: sólo corre el piso de
+     * la curva de presentación.</p>
+     */
+    public static final double DISPLAY_THRESHOLD = 0.80;
 
     /**
      * Modo de búsqueda. <b>Cada modo tiene su propio umbral crudo</b> (EU-337): con foto se promedian
@@ -179,7 +186,7 @@ public class SearchScoringService {
      * {@code true} si el puntaje combinado CRUDO alcanza el umbral calibrado del modo.
      *
      * <p>Se compara contra el umbral crudo —la escala real de {@link #combinedScore}—, <b>no</b>
-     * contra el 0.75 que ve el usuario. Filtrar acá y no sobre el puntaje ya remapeado es equivalente
+     * contra el 0.80 que ve el usuario. Filtrar acá y no sobre el puntaje ya remapeado es equivalente
      * (la curva es monótona), pero deja el corte expresado en la única escala en la que se lo puede
      * volver a medir.</p>
      */
@@ -200,21 +207,21 @@ public class SearchScoringService {
      *
      * <p><b>Por qué existe:</b> el umbral calibrado (~0.53) es el corte correcto según los datos, pero
      * mostrarle "53% de coincidencia" a alguien que está mirando SU objeto se lee como un fracaso. El
-     * criterio de producto es que una coincidencia verdadera se presente con al menos 75%. Esta curva
+     * criterio de producto es que una coincidencia verdadera se presente con al menos 80%. Esta curva
      * hace esa traducción y nada más.</p>
      *
      * <p><b>Por qué no distorsiona el resultado:</b> es estrictamente creciente, así que <b>no altera
      * el orden</b> de los candidatos ni qué candidatos pasan el filtro. Es presentación, no ranking.
      * Además fija los extremos: 0 sigue siendo 0 y 1 sigue siendo 1.</p>
      *
-     * <p>El exponente se <b>deriva</b> del umbral ({@code k = ln(0.75) / ln(umbral)}) en vez de ser una
-     * segunda constante suelta: si se recalibra el umbral, el piso mostrado sigue cayendo en 75% solo,
+     * <p>El exponente se <b>deriva</b> del umbral ({@code k = ln(0.80) / ln(umbral)}) en vez de ser una
+     * segunda constante suelta: si se recalibra el umbral, el piso mostrado sigue cayendo en 80% solo,
      * sin que nadie tenga que acordarse de ajustar dos números a la vez. Por lo mismo, <b>cada modo
-     * usa SU umbral</b> (EU-337): así el 75% del piso significa lo mismo con foto y sin foto.</p>
+     * usa SU umbral</b> (EU-337): así el 80% del piso significa lo mismo con foto y sin foto.</p>
      *
      * @param combinedScore puntaje crudo de {@link #combinedScore}, en {@code [0, 1]}.
      * @param mode modo de búsqueda, que elige el umbral desde el que se deriva la curva.
-     * @return puntaje a mostrar, en {@code [0, 1]}; vale exactamente 0.75 cuando el crudo está en el umbral.
+     * @return puntaje a mostrar, en {@code [0, 1]}; vale exactamente 0.80 cuando el crudo está en el umbral.
      */
     public double displayScore(double combinedScore, SearchMode mode) {
         if (combinedScore <= 0.0) {
