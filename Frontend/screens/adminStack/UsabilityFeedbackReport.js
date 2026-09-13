@@ -18,6 +18,7 @@ import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
 import StarRating from "../components/StarRating";
+import WebDateInput from "../components/WebDateInput";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -46,6 +47,7 @@ const UsabilityFeedbackReport = ({ navigation }) => {
     const [loading, setLoading] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [error, setError] = useState(null);
+    const [appliedRange, setAppliedRange] = useState(null);
 
     const fetchData = async () => {
         setLoading(true);
@@ -53,6 +55,7 @@ const UsabilityFeedbackReport = ({ navigation }) => {
         try {
             const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
+            setAppliedRange({ from: params.from, to: params.to });
             const headers = { Authorization: `Bearer ${jwt}` };
 
             const [repRes, recRes] = await Promise.all([
@@ -124,9 +127,19 @@ const UsabilityFeedbackReport = ({ navigation }) => {
         }
     };
 
+    // EU-397: el rango de fechas ya NO dispara la consulta solo. Al poder escribirse a mano, cada
+    // tramo de la fecha cambiaba el filtro y recargaba el reporte entero: una consulta por tecla.
+    // El rango se aplica al apretar "Generar reporte", como en el reporte de fraude. La agrupación
+    // sí sigue siendo inmediata: es un solo toque deliberado.
     useEffect(() => {
         fetchData();
-    }, [fromDate, toDate, groupBy]);
+    }, [groupBy]);
+
+    // El rango con el que se trajo lo que está en pantalla. Si los campos dicen otra cosa, se avisa
+    // en vez de mostrar un reporte que no corresponde a los filtros que se leen arriba.
+    const rangeOutOfDate = appliedRange != null && (
+        appliedRange.from !== formatDateISO(fromDate) || appliedRange.to !== formatDateISO(toDate)
+    );
 
     const aspectMax = reportData?.aspect_distribution
         ? Math.max(1, ...ASPECT_ORDER.map(k => reportData.aspect_distribution[k] || 0))
@@ -146,14 +159,10 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                         </TouchableOpacity>
                         {showFromPicker && (
                             isWeb ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDateISO(fromDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc", fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => { setShowFromPicker(false); if (e.target.value) setFromDate(new Date(e.target.value)); }}
-                                    onBlur={() => setShowFromPicker(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={fromDate}
+                                    onChange={setFromDate}
+                                    onClose={() => setShowFromPicker(false)} />
                             ) : (
                                 <DateTimePicker
                                     value={fromDate}
@@ -171,14 +180,10 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                         </TouchableOpacity>
                         {showToPicker && (
                             isWeb ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDateISO(toDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: "1px solid #ccc", fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => { setShowToPicker(false); if (e.target.value) setToDate(new Date(e.target.value)); }}
-                                    onBlur={() => setShowToPicker(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={toDate}
+                                    onChange={setToDate}
+                                    onClose={() => setShowToPicker(false)} />
                             ) : (
                                 <DateTimePicker
                                     value={toDate}
@@ -205,6 +210,17 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                         </Pressable>
                     ))}
                 </View>
+
+                <Pressable style={styles.generateBtn} onPress={fetchData} disabled={loading}>
+                    {loading
+                        ? <ActivityIndicator color="#fff" />
+                        : <Text style={styles.generateBtnText}>Actualizar reporte</Text>}
+                </Pressable>
+                {rangeOutOfDate && !loading && (
+                    <Text style={styles.outOfDateNotice}>
+                        El rango cambió: actualizá el reporte para verlo con estas fechas.
+                    </Text>
+                )}
 
                 {loading && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
                 {error && <Text style={styles.errorText}>{error}</Text>}
@@ -433,6 +449,20 @@ const styles = StyleSheet.create({
         flexWrap: "wrap",
     },
     exportRow: { flexDirection: "row", gap: 10, marginTop: 12, marginBottom: 20 },
+    generateBtn: {
+        paddingVertical: 12,
+        backgroundColor: "#19b8b8",
+        borderRadius: 10,
+        alignItems: "center",
+        marginBottom: 6,
+    },
+    generateBtnText: { color: "white", fontFamily: "PlusJakartaSans-Bold", fontSize: 15 },
+    outOfDateNotice: {
+        color: "#b45309",
+        fontFamily: "PlusJakartaSans-Regular",
+        fontSize: 13,
+        marginBottom: 8,
+    },
     exportBtn: {
         paddingVertical: 12,
         paddingHorizontal: 24,

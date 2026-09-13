@@ -25,6 +25,7 @@ import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
 import { isWeb } from "../../utils/platform";
 import { colors } from "../../styles/globalStyles";
 import EurekappDateComponent from "../components/EurekappDateComponent";
+import WebDateInput from "../components/WebDateInput";
 import {useFocusEffect} from "@react-navigation/native";
 import MapViewComponent from "../components/MapViewComponent";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -281,14 +282,10 @@ const FindObject = ({ navigation, route }) => {
                         </TouchableOpacity>
                         {showDateToPicker && (
                             Platform.OS === 'web' ? (
-                                <input
-                                    type="date"
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14 }}
-                                    onChange={(e) => {
-                                        setShowDateToPicker(false);
-                                        if (e.target.value) setFilterLostDateTo(new Date(e.target.value));
-                                    }}
-                                />
+                                <WebDateInput
+                                    value={filterLostDateTo}
+                                    onChange={setFilterLostDateTo}
+                                    onClose={() => setShowDateToPicker(false)} />
                             ) : (
                                 <DateTimePicker
                                     value={filterLostDateTo || new Date()}

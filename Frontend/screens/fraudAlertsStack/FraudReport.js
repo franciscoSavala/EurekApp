@@ -14,6 +14,7 @@ import { buildFraudReportHtml, exportPdf } from '../../utils/pdfExport';
 import { STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import DonutChart from '../components/DonutChart';
+import WebDateInput from '../components/WebDateInput';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
@@ -324,14 +325,10 @@ const FraudReport = () => {
                         </TouchableOpacity>
                         {showFrom && (
                             Platform.OS === 'web' ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDate(fromDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => { setShowFrom(false); if (e.target.value) setFromDate(new Date(e.target.value)); }}
-                                    onBlur={() => setShowFrom(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={fromDate}
+                                    onChange={setFromDate}
+                                    onClose={() => setShowFrom(false)} />
                             ) : (
                                 <DateTimePicker value={fromDate} mode="date" display={isIOS ? 'inline' : 'default'}
                                     onChange={(_, d) => { setShowFrom(false); if (d) setFromDate(d); }} />
@@ -345,14 +342,10 @@ const FraudReport = () => {
                         </TouchableOpacity>
                         {showTo && (
                             Platform.OS === 'web' ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDate(toDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => { setShowTo(false); if (e.target.value) setToDate(new Date(e.target.value)); }}
-                                    onBlur={() => setShowTo(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={toDate}
+                                    onChange={setToDate}
+                                    onClose={() => setShowTo(false)} />
                             ) : (
                                 <DateTimePicker value={toDate} mode="date" display={isIOS ? 'inline' : 'default'}
                                     onChange={(_, d) => { setShowTo(false); if (d) setToDate(d); }} />

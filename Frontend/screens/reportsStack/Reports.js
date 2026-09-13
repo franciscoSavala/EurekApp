@@ -21,6 +21,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
 import DonutChart from "../components/DonutChart";
 import RecoveryTimeChart, { formatHours } from "../components/RecoveryTimeChart";
+import WebDateInput from "../components/WebDateInput";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -186,17 +187,10 @@ const Reports = ({ navigation }) => {
                         </TouchableOpacity>
                         {showFromPicker && (
                             isWeb ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDateISO(fromDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => {
-                                        setShowFromPicker(false);
-                                        if (e.target.value) setFromDate(new Date(e.target.value));
-                                    }}
-                                    onBlur={() => setShowFromPicker(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={fromDate}
+                                    onChange={setFromDate}
+                                    onClose={() => setShowFromPicker(false)} />
                             ) : (
                                 <DateTimePicker
                                     value={fromDate}
@@ -220,17 +214,10 @@ const Reports = ({ navigation }) => {
                         </TouchableOpacity>
                         {showToPicker && (
                             isWeb ? (
-                                <input
-                                    type="date"
-                                    defaultValue={formatDateISO(toDate)}
-                                    style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
-                                    onChange={(e) => {
-                                        setShowToPicker(false);
-                                        if (e.target.value) setToDate(new Date(e.target.value));
-                                    }}
-                                    onBlur={() => setShowToPicker(false)}
-                                    autoFocus
-                                />
+                                <WebDateInput
+                                    value={toDate}
+                                    onChange={setToDate}
+                                    onClose={() => setShowToPicker(false)} />
                             ) : (
                                 <DateTimePicker
                                     value={toDate}
