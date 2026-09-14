@@ -3,6 +3,7 @@ import {
     formatDateTimeES,
     formatDateISO,
     formatDateTimeLocaleES,
+    formatDateLocaleES,
 } from '../utils/dateFormatter';
 
 // ─── formatDateES ─────────────────────────────────────────────────────────────
@@ -85,5 +86,26 @@ describe('formatDateTimeLocaleES', () => {
     test('resultado contiene el año de la fecha', () => {
         const result = formatDateTimeLocaleES('2026-06-20T14:30:00');
         expect(result).toContain('2026');
+    });
+});
+
+// ─── formatDateLocaleES ───────────────────────────────────────────────────────
+//
+// EU-302: el formato que el historial de búsquedas definía por su cuenta. Se trajo al módulo tal
+// cual para que lo que se ve en esa pantalla no cambie.
+
+describe('formatDateLocaleES', () => {
+    test('rellena el día y el mes con cero, a diferencia de formatDateES', () => {
+        expect(formatDateLocaleES('2026-01-05T12:00:00')).toBe('05/01/2026');
+    });
+
+    test('muestra la fecha sola, sin hora', () => {
+        expect(formatDateLocaleES('2026-06-20T14:30:00')).toBe('20/06/2026');
+    });
+
+    test('sin fecha devuelve el guión, igual que formatDateTimeLocaleES', () => {
+        [null, undefined, ''].forEach(vacio => {
+            expect(formatDateLocaleES(vacio)).toBe('—');
+        });
     });
 });

@@ -14,6 +14,7 @@ import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import EmptyState from '../components/EmptyState';
+import { formatDateLocaleES } from '../../utils/dateFormatter';
 import AppImage from '../components/AppImage';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -54,12 +55,6 @@ const MyObjectHistory = ({ navigation }) => {
 
     useFocusEffect(useCallback(() => { fetchData(); }, []));
 
-    const formatDate = (isoString) => {
-        if (!isoString) return '';
-        const d = new Date(isoString);
-        return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    };
-
     const renderLostObject = ({ item }) => {
         const status = item.status || 'ACTIVE';
         return (
@@ -90,12 +85,12 @@ const MyObjectHistory = ({ navigation }) => {
                 </View>
                 <View style={styles.cardFooter}>
                     <Icon name="calendar" size={12} color="#638888" />
-                    <Text style={styles.cardDate}> Registrada: {formatDate(item.lostDate)}</Text>
+                    <Text style={styles.cardDate}> Registrada: {formatDateLocaleES(item.lostDate)}</Text>
                 </View>
                 {status === 'CLOSED' && !!item.closedDate && (
                     <View style={styles.cardFooter}>
                         <Icon name="circle-check" size={12} color="#638888" />
-                        <Text style={styles.cardDate}> Cerrada: {formatDate(item.closedDate)}</Text>
+                        <Text style={styles.cardDate}> Cerrada: {formatDateLocaleES(item.closedDate)}</Text>
                     </View>
                 )}
                 {status === 'CLOSED' && item.recovered != null && (

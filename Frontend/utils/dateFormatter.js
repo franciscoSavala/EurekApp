@@ -20,3 +20,16 @@ export const formatDateTimeLocaleES = (isoString) => {
         hour: '2-digit', minute: '2-digit',
     });
 };
+
+/**
+ * EU-302: fecha sola, en español y con día y mes de dos dígitos: "20/06/2026".
+ *
+ * Ni `formatDateES`, que no rellena con ceros ("20/6/2026"), ni `formatDateTimeLocaleES`, que
+ * además muestra la hora. Es el formato que venía usando por su cuenta el historial de búsquedas, y
+ * al traerlo acá no cambia lo que se ve en esa pantalla.
+ */
+export const formatDateLocaleES = (isoString) => {
+    if (!isoString) return '—';
+    const d = new Date(isoString);
+    return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
