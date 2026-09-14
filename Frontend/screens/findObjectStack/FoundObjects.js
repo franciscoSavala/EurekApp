@@ -169,7 +169,7 @@ const FoundObjects = ({ route, navigation }) => {
             Toast.show({
                 type: 'error',
                 text1: 'No pudimos guardar tu búsqueda',
-                text2: 'Anotá los datos de contacto: no van a quedar en "Mis búsquedas".',
+                text2: 'Anotá dónde retirarlo: no va a quedar en "Mis búsquedas".',
             });
         }
     };
@@ -356,17 +356,22 @@ const FoundObjects = ({ route, navigation }) => {
                         )}
             </BaseModal>
 
+            {/* EU-401: acá se mostraba la "información de contacto" de la organización, que al
+                aprobarla se rellena sola con el correo del dueño. Era un dato personal que nadie
+                ofreció como contacto público, repartido a cualquiera que reconociera un objeto.
+                Con el nombre y la dirección alcanza: quien sabe dónde está su objeto se arregla
+                para llegar, o para buscar por su cuenta cómo contactarse. */}
             <BaseModal
                 visible={organizationInformationModal}
                 onClose={() => setOrganizationInformationModal(!organizationInformationModal)}>
                         <Icon style={styles.infoIcon} name={'circle-info'} size={32} color={'#111818'}/>
                         <Text style={styles.modalText}>
-                            Para recuperar tu objeto, ponte en contacto con la organización que lo está custodiando:{"\n"} {"\n"}
+                            Tu objeto está acá. Acercate a retirarlo:{"\n"} {"\n"}
                             {foundObjectsMap.has(objectSelectedId) ?
                                 (
                                 <>
                                     {foundObjectsMap.get(objectSelectedId).organization.name}{"\n"}
-                                    {foundObjectsMap.get(objectSelectedId).organization.contactData}
+                                    {foundObjectsMap.get(objectSelectedId).organization.address}
                                 </>
                                 ) : null}
                             {"\n"}{"\n"}

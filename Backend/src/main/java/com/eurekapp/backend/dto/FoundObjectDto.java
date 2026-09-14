@@ -1,5 +1,6 @@
 package com.eurekapp.backend.dto;
 
+import com.eurekapp.backend.dto.response.PublicOrganizationDto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,7 +19,9 @@ public class FoundObjectDto {
     private String imageUrl;
     private Float score;
     private String id;
-    private OrganizationDto organization;
+    /* EU-401: sin la información de contacto. Es el correo del dueño, que se rellena solo al
+     * aprobar la organización; lo que necesita quien viene a retirar es el nombre y la dirección. */
+    private PublicOrganizationDto organization;
     @JsonProperty("found_date")
     private LocalDateTime foundDate;
     /* EU-348: fecha en que el objeto se devolvió a su dueño. Null salvo en el listado de objetos

@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.util.OrganizationAddress;
 import com.eurekapp.backend.util.TextNormalizer;
 import com.eurekapp.backend.dto.command.ReportLostObjectCommand;
 import com.eurekapp.backend.dto.response.LostObjectResponseDto;
@@ -213,7 +214,7 @@ public class LostObjectService {
                     .map(UserEurekapp::getFirstName).orElse("");
             String message = emailTemplateService.buildObjectClaimedEmail(
                     firstName, foundObject.getTitle(), foundObject.getHumanDescription(),
-                    organization.getName(), organization.getContactData());
+                    organization.getName(), OrganizationAddress.format(organization));
 
             notificationService.sendNotification(username,
                     "Reconociste un objeto: así lo retirás — EurekApp", message);
@@ -322,7 +323,8 @@ public class LostObjectService {
 
             // Email.
             String message = emailTemplateService.buildObjectMatchFoundEmail(
-                    organization.getName(), organization.getContactData(), matchingSearchDescriptions, imageUrl);
+                    organization.getName(), OrganizationAddress.format(organization),
+                    matchingSearchDescriptions, imageUrl);
             notificationService.sendNotification(username,
                     "¡Alguien podría haber encontrado tu objeto! — EurekApp", message);
 

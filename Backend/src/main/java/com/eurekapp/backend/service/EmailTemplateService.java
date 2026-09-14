@@ -132,15 +132,19 @@ public class EmailTemplateService {
      * <p>No confundir con {@link #buildObjectMatchFoundEmail}: aquél es el aviso previo ("apareció
      * algo parecido a lo que buscás"); éste es la consecuencia de que el usuario ya haya dicho que
      * el objeto es suyo.</p>
+     *
+     * <p>EU-401: lleva la dirección, no la información de contacto de la organización. Ese campo se
+     * rellena solo con el correo del dueño al aprobarla, y este correo va a la casilla de cualquiera
+     * que reconozca un objeto.</p>
      */
     public String buildObjectClaimedEmail(String firstName, String objectTitle, String description,
-                                           String orgName, String contactData) {
+                                           String orgName, String address) {
         Context ctx = new Context();
         ctx.setVariable("firstName", firstName);
         ctx.setVariable("objectTitle", objectTitle);
         ctx.setVariable("description", description);
         ctx.setVariable("orgName", orgName);
-        ctx.setVariable("contactData", contactData);
+        ctx.setVariable("address", address);
         return templateEngine.process("email/object-claimed", ctx);
     }
 
@@ -148,11 +152,11 @@ public class EmailTemplateService {
      * Email de la búsqueda INVERSA (EU-279): se cargó un objeto que coincide con una o más búsquedas
      * guardadas del usuario. Lista las búsquedas coincidentes de ese usuario.
      */
-    public String buildObjectMatchFoundEmail(String orgName, String contactData,
+    public String buildObjectMatchFoundEmail(String orgName, String address,
                                               List<String> searchDescriptions, String imageUrl) {
         Context ctx = new Context();
         ctx.setVariable("orgName", orgName);
-        ctx.setVariable("contactData", contactData);
+        ctx.setVariable("address", address);
         ctx.setVariable("searchDescriptions", searchDescriptions);
         ctx.setVariable("imageUrl", imageUrl);
         return templateEngine.process("email/object-match-found", ctx);

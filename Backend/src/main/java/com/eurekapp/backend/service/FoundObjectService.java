@@ -2,10 +2,10 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.util.TextNormalizer;
 import com.eurekapp.backend.dto.FoundObjectDto;
-import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.command.FoundObjectDetailCommand;
 import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
+import com.eurekapp.backend.dto.response.PublicOrganizationDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -486,8 +486,8 @@ public class FoundObjectService implements IFoundObjectService {
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)
                 .orElse(null);
-        OrganizationDto organizationDto = organization != null ?
-                organizationService.organizationToDto(organization) :
+        PublicOrganizationDto organizationDto = organization != null ?
+                organizationService.organizationToPublicDto(organization) :
                 null;
 
         GeoCoordinates coordinates = foundObject.getCoordinates();
