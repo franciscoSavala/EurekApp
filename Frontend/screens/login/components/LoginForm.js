@@ -8,6 +8,20 @@ import { Input, Text, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 import SocialAuthButtons from './SocialAuthButtons';
 import InfoModal from '../../components/InfoModal';
+import PasswordInput from '../../components/PasswordInput';
+
+/* EU-406: el ancho y los márgenes van aparte del resto porque el campo de contraseña los necesita
+   en su contenedor, no en el campo: el ojo se para contra el borde derecho del contenedor. */
+const FIELD_LAYOUT = { width: '80%', maxWidth: 300, marginHorizontal: 10 };
+
+const INPUT_LOOK = {
+    color: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: 'white',
+    fontSize: 16,
+    paddingHorizontal: 5,
+    paddingVertical: 10,
+};
 
 export default function LoginForm(props) {
     const { isLoginLoading, hasLoginError, loginErrorCode, loginErrorMessage, login, isLogged, clearLoginError, clearLoginErrorDelayed } = useUser();
@@ -17,7 +31,9 @@ export default function LoginForm(props) {
         setValue,
         getValues } = useForm();
 
-    const InputLogin = ({text, valueName, value, secure = true,
+    /* EU-406: sin contraseñas. La única que había en este formulario ahora es un PasswordInput, y
+       dejar acá la opción de ocultar el texto invitaba a volver a poner una sin el ojo. */
+    const InputLogin = ({text, valueName, value,
                             autoComplete = 'off', keyboardType = 'default'}) => {
         return (
             <TextInput
@@ -25,21 +41,10 @@ export default function LoginForm(props) {
                 placeholderTextColor={'rgba(255,255,255,0.6)'}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
-                secureTextEntry={secure}
                 autoComplete={autoComplete}
                 keyboardType={keyboardType}
                 accessibilityLabel={text}
-                style={{
-                    color: 'white',
-                    borderBottomWidth: 1,
-                    borderBottomColor: 'white',
-                    maxWidth: 300,
-                    fontSize: 16,
-                    paddingHorizontal: 5,
-                    paddingVertical: 10,
-                    marginHorizontal: 10,
-                    width: '80%',
-                }}
+                style={[INPUT_LOOK, FIELD_LAYOUT]}
             />
         );
     }
@@ -57,8 +62,7 @@ export default function LoginForm(props) {
                                 valueName='Username'
                                 value={value}
                                 autoComplete={'email'}
-                                keyboardType={'email-address'}
-                                secure={false}/>
+                                keyboardType={'email-address'}/>
                 )}
                 name='Username'
                 rules={{
@@ -73,7 +77,15 @@ export default function LoginForm(props) {
             <Controller
                 control={control}
                 render={({ onChange, value }) => (
-                    <InputLogin text='Contraseña' valueName='Password' value={value}/>
+                    <PasswordInput
+                        placeholder='Contraseña'
+                        placeholderTextColor={'rgba(255,255,255,0.6)'}
+                        onChangeText={(text) => setValue('Password', text)}
+                        value={value}
+                        accessibilityLabel='Contraseña'
+                        containerStyle={FIELD_LAYOUT}
+                        style={INPUT_LOOK}
+                    />
                 )}
                 name='Password'
                 rules={{ required: { value: true, message: 'Contraseña requerida' } }}

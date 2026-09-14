@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View,
     StyleSheet,
@@ -8,6 +8,38 @@ import { useForm, Controller } from 'react-hook-form';
 import { Input, Text, Button } from 'react-native-elements';
 import useUser from '../../../hooks/useUser';
 import SocialAuthButtons from './SocialAuthButtons';
+import { PasswordEye } from '../../components/PasswordInput';
+
+/* EU-406: el campo de la contraseña, con el ojo para mostrar lo escrito.
+ *
+ * Va aparte del `InputLogin` que usan los demás campos porque necesita recordar si la contraseña
+ * está a la vista, y `InputLogin` se vuelve a crear en cada dibujado del formulario: una memoria
+ * adentro de él se borraría sola. Y va con el `Input` de react-native-elements, como sus vecinos,
+ * para no quedar distinto justo en el medio del formulario; el ojo entra por `rightIcon`, que es
+ * donde ese componente ubica lo que va a la derecha. */
+const PasswordField = ({ text, value, onChangeText }) => {
+    const [visible, setVisible] = useState(false);
+
+    return (
+        <Input
+            placeholder={text}
+            placeholderTextColor={'rgba(255,255,255,0.6)'}
+            onChangeText={onChangeText}
+            value={value}
+            secureTextEntry={!visible}
+            inputContainerStyle={{
+                borderBottomWidth: 1,
+                borderBottomColor: 'white',
+            }}
+            style={{
+                color: 'white'
+            }}
+            rightIcon={
+                <PasswordEye visible={visible} onPress={() => setVisible(!visible)} />
+            }
+        />
+    );
+};
 
 export default function RegistrationForm(props) {
     const { isLoginLoading, hasLoginError, loginErrorMessage, register } = useUser();
@@ -17,14 +49,15 @@ export default function RegistrationForm(props) {
         setValue,
         getValues } = useForm();
 
-    const InputLogin = ({text, valueName, value, secure = false}) => {
+    /* EU-406: sin contraseñas. La de este formulario ahora es un PasswordField, y dejar acá la
+       opción de ocultar el texto invitaba a volver a poner una sin el ojo. */
+    const InputLogin = ({text, valueName, value}) => {
         return (
             <Input
                 placeholder={text}
                 placeholderTextColor={'rgba(255,255,255,0.6)'}
                 onChangeText={(value) => setValue(valueName, value)}
                 value={value}
-                secureTextEntry={secure}
                 inputContainerStyle={{
                     borderBottomWidth: 1,
                     borderBottomColor: 'white',
@@ -107,7 +140,11 @@ export default function RegistrationForm(props) {
             <Controller
                 control={control}
                 render={({ onChange, value }) => (
-                    <InputLogin text='Contraseña' valueName='Password' value={value} secure={true}/>
+                    <PasswordField
+                        text='Contraseña'
+                        value={value}
+                        onChangeText={(text) => setValue('Password', text)}
+                    />
                 )}
                 name='Password'
                 rules={{

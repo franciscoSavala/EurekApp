@@ -12,6 +12,7 @@ import {
 import { Image } from 'react-native-elements';
 import axiosInstance from '../../utils/axiosInstance';
 import Constants from 'expo-constants';
+import PasswordInput from '../components/PasswordInput';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -112,22 +113,25 @@ const ResetPasswordScreen = ({ navigation, route }) => {
                         onChangeText={setToken}
                         keyboardType="numeric"
                         maxLength={6}
-                        style={styles.input}
+                        style={[styles.input, styles.field]}
                     />
-                    <TextInput
+                    {/* EU-406: las dos con el ojo para mostrar lo escrito. Acá importa más que en
+                        ningún otro lado: son dos contraseñas que tienen que coincidir y, a ciegas,
+                        el único aviso de que no coinciden llega después de mandar el formulario. */}
+                    <PasswordInput
                         placeholder="Nueva contraseña"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={newPassword}
                         onChangeText={setNewPassword}
-                        secureTextEntry
+                        containerStyle={styles.field}
                         style={styles.input}
                     />
-                    <TextInput
+                    <PasswordInput
                         placeholder="Confirmar contraseña"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
-                        secureTextEntry
+                        containerStyle={styles.field}
                         style={styles.input}
                     />
 
@@ -181,16 +185,20 @@ const styles = StyleSheet.create({
         fontFamily: 'PlusJakartaSans-Regular',
         marginBottom: 16,
     },
+    /* EU-406: el ancho y los márgenes van aparte del resto. El campo de contraseña los necesita en
+       su contenedor, no en el campo: el ojo se para contra el borde derecho del contenedor. */
+    field: {
+        width: '80%',
+        marginHorizontal: 10,
+        marginBottom: 8,
+    },
     input: {
         color: 'white',
         borderBottomWidth: 1,
         borderBottomColor: 'white',
-        width: '80%',
         fontSize: 16,
         paddingHorizontal: 5,
         paddingVertical: 10,
-        marginHorizontal: 10,
-        marginBottom: 8,
     },
     errorText: { color: 'white', marginBottom: 8, textAlign: 'center' },
     successText: { color: '#b9f6ca', marginBottom: 8, textAlign: 'center', fontWeight: 'bold' },
