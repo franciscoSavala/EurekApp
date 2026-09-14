@@ -137,9 +137,9 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
                         // sólo por texto. Por eso el camino fácil es adjuntar y guardar sin foto queda
                         // como salida secundaria, deliberadamente menos prominente.
                         <Text style={styles.recommendText}>
-                            Te recomendamos adjuntar una foto: sin ella sólo podemos comparar tu búsqueda
-                            por la descripción y es mucho más fácil que se nos pase. Si no tenés una del
-                            objeto, sirve igual una parecida sacada de internet.
+                            Te recomendamos adjuntar una foto para mejorar la precisión de la búsqueda.
+                            Si no tenés una foto del objeto, podés utilizar una imagen similar de internet
+                            como referencia.
                         </Text>
                     )}
                     {!buttonWasPressed && effectivePhoto && (
