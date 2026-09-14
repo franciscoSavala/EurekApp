@@ -22,6 +22,7 @@ import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { isIOS } from '../../utils/platform';
+import { formatDateISO } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -37,8 +38,6 @@ const GROUP_OPTIONS = [
     { label: 'Por usuario', value: 'USER' },
     { label: 'Por DNI', value: 'DNI' },
 ];
-
-const formatDate = (d) => d.toISOString().split('T')[0];
 
 const defaultFrom = () => {
     const d = new Date();
@@ -105,8 +104,8 @@ const FraudReport = () => {
     const fetchReport = async () => {
         setLoading(true);
         const filters = {
-            fromDate: formatDate(fromDate),
-            toDate: formatDate(toDate),
+            fromDate: formatDateISO(fromDate),
+            toDate: formatDateISO(toDate),
             statusFilter,
             groupBy,
         };
@@ -126,7 +125,7 @@ const FraudReport = () => {
 
     const exportCsv = async () => {
         setExporting(true);
-        const params = `from=${formatDate(fromDate)}&to=${formatDate(toDate)}`
+        const params = `from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`
             + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
         const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
         if (Platform.OS === 'web') {
@@ -171,7 +170,7 @@ const FraudReport = () => {
         setExportingPdf(true);
         try {
             const html = buildFraudReportHtml(entries, generatedFilters, summary, evolutionGranularity);
-            await exportPdf(html, `Reporte_Fraude_${formatDate(new Date())}.pdf`);
+            await exportPdf(html, `Reporte_Fraude_${formatDateISO(new Date())}.pdf`);
         } catch (e) {
             console.warn('Error exportando PDF:', e);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo exportar el PDF. Intentá nuevamente.' });
@@ -253,8 +252,8 @@ const FraudReport = () => {
     // EU-394: los controles se movieron después de generar, así que lo que se ve (y lo que saldría
     // en el PDF) ya no es lo que los filtros dicen. Se avisa en pantalla en vez de dejarlo pasar.
     const filtersOutOfDate = generatedFilters != null && (
-        generatedFilters.fromDate !== formatDate(fromDate)
-        || generatedFilters.toDate !== formatDate(toDate)
+        generatedFilters.fromDate !== formatDateISO(fromDate)
+        || generatedFilters.toDate !== formatDateISO(toDate)
         || generatedFilters.statusFilter !== statusFilter
         || generatedFilters.groupBy !== groupBy
     );
@@ -321,7 +320,7 @@ const FraudReport = () => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Desde</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowFrom(true)}>
-                            <Text style={styles.dateButtonText}>{formatDate(fromDate)}</Text>
+                            <Text style={styles.dateButtonText}>{formatDateISO(fromDate)}</Text>
                         </TouchableOpacity>
                         {showFrom && (
                             Platform.OS === 'web' ? (
@@ -338,7 +337,7 @@ const FraudReport = () => {
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Hasta</Text>
                         <TouchableOpacity style={styles.dateButton} onPress={() => setShowTo(true)}>
-                            <Text style={styles.dateButtonText}>{formatDate(toDate)}</Text>
+                            <Text style={styles.dateButtonText}>{formatDateISO(toDate)}</Text>
                         </TouchableOpacity>
                         {showTo && (
                             Platform.OS === 'web' ? (

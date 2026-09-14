@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import { ROLE_LABELS } from '../../utils/constants';
 import EmptyState from '../components/EmptyState';
+import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -46,15 +47,6 @@ const RewardExclusionsList = () => {
 
     useFocusEffect(useCallback(() => { load(); }, []));
 
-    const formatDate = (isoString) => {
-        if (!isoString) return '—';
-        const d = new Date(isoString);
-        return d.toLocaleDateString('es-AR', {
-            day: '2-digit', month: '2-digit', year: 'numeric',
-            hour: '2-digit', minute: '2-digit',
-        });
-    };
-
     const truncateUUID = (uuid) => uuid ? `${uuid.substring(0, 8)}...` : '—';
 
     const renderItem = ({ item }) => (
@@ -69,7 +61,7 @@ const RewardExclusionsList = () => {
             <View style={styles.cardMeta}>
                 <View style={styles.metaItem}>
                     <Icon name="calendar" size={12} color="#638888" />
-                    <Text style={styles.metaText}> {formatDate(item.excludedAt)}</Text>
+                    <Text style={styles.metaText}> {formatDateTimeLocaleES(item.excludedAt)}</Text>
                 </View>
                 <View style={styles.metaItem}>
                     <Icon name="box" size={12} color="#638888" />
