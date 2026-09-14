@@ -221,8 +221,8 @@ const FindObject = ({ navigation, route }) => {
                 <View style={styles.textDescriptionContainer}>
                     <Text style={styles.labelText}>Foto del objeto (opcional):</Text>
                     <Text style={styles.helperText}>
-                        Cargar una foto aumenta bastante las chances de encontrarlo. Si no tenés una del
-                        objeto, sirve igual una parecida sacada de internet.
+                        Cargar una foto mejora la precisión de la búsqueda. Si no tenés una foto del
+                        objeto, podés utilizar una imagen similar de internet como referencia.
                     </Text>
                     <View style={{ width: '100%', alignItems: 'center' }}>
                         {image ? (
