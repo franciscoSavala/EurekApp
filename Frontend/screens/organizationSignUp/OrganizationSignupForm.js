@@ -211,10 +211,18 @@ const OrganizationSignupForm = () => {
 
                         <Label text="Tipo de organización *" />
                         <View style={styles.pickerContainer}>
+                            {/* EU-403: el desplegable se dibuja con las mismas medidas que los
+                                campos de texto de al lado. Sin eso se caía a la tipografía y al
+                                alto que trae el navegador por su cuenta, y quedaba aplastado
+                                contra el campo del nombre, que está justo arriba.
+
+                                Cuando todavía no se eligió nada, el texto va en gris, igual que
+                                el placeholder de los TextInput del formulario: es una invitación
+                                a elegir, no un tipo de organización ya elegido. */}
                             <Picker
                                 selectedValue={organizationType}
                                 onValueChange={setOrganizationType}
-                                style={styles.picker}
+                                style={[styles.picker, organizationType === "" && styles.pickerPlaceholder]}
                             >
                                 {ORG_TYPES.map(t => (
                                     <Picker.Item key={t.value} label={t.label} value={t.value} />
@@ -441,8 +449,22 @@ const styles = StyleSheet.create({
     },
     readOnly: { color: "#638888" },
     multiline: { height: 150, textAlignVertical: "top", paddingTop: 10 },
-    pickerContainer: { borderRadius: 12, backgroundColor: "#f0f4f4", overflow: "hidden", marginBottom: 2 },
-    picker: { color: "#111818" },
+    /* EU-403: el contenedor pone el fondo y NO recorta. Recortaba, para que las esquinas vivas del
+       desplegable no asomaran por fuera de las redondeadas; ahora las esquinas las pone el propio
+       desplegable y el recorte sobra. Y estorbaba: el navegador dibuja el resaltado de foco por
+       FUERA del elemento, así que el recorte se comía la mitad de afuera y el mismo gesto se veía
+       con un trazo más finito acá que en los campos de texto de al lado. */
+    pickerContainer: { borderRadius: 12, backgroundColor: "#f0f4f4", marginBottom: 2 },
+    /* Las mismas medidas que `input`. El fondo lo pone el contenedor, así que el desplegable va
+       transparente y sin borde propio; las esquinas, en cambio, van acá, porque el resaltado de foco
+       sigue el radio DEL ELEMENTO y sin ellas quedaba un rectángulo de esquinas vivas alrededor del
+       campo cada vez que se lo usaba. */
+    picker: {
+        borderWidth: 0, borderRadius: 12, backgroundColor: "transparent",
+        color: "#111818", fontSize: 16, fontFamily: "PlusJakartaSans-Regular",
+        paddingVertical: 10, paddingHorizontal: 16,
+    },
+    pickerPlaceholder: { color: "#638888" },
     textError: {
         color: "#ED4337", fontSize: 12,
         fontFamily: "PlusJakartaSans-Regular", marginBottom: 4, marginLeft: 2,
