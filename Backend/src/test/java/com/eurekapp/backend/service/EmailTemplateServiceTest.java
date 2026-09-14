@@ -56,16 +56,42 @@ class EmailTemplateServiceTest {
     void objectClaimed_renderizaLosDatosDelRetiro() {
         String html = service.buildObjectClaimedEmail(
                 "Ana", "Mochila azul", "Tiene un llavero de tela",
-                "UTN FRC", "consultas@utn.edu.ar / 351 555-0000");
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba");
 
         assertThat(html)
                 .contains("Ana")
                 .contains("Mochila azul")
                 .contains("Tiene un llavero de tela")
                 .contains("UTN FRC")
-                .contains("consultas@utn.edu.ar");
+                .contains("Maestro Marcelo López 3814, Córdoba");
         // Lo que hasta ahora sólo vivía en el modal y se perdía al cerrarlo.
         assertThat(html).contains("documento");
+    }
+
+    // -- EU-401: el correo del dueño no viaja en los avisos al usuario ---------
+
+    @Test
+    void objectClaimed_diceDondeRetirarloYNoUnCorreoDeContacto() {
+        // Antes acá iba la "información de contacto" de la organización, que al aprobarla se
+        // rellena sola con el correo del dueño: quedaba en la casilla de cualquiera que reconociera
+        // un objeto. Ahora va la dirección, que es lo que hace falta para ir a buscarlo.
+        String html = service.buildObjectClaimedEmail(
+                "Ana", "Mochila azul", "Tiene un llavero de tela",
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba");
+
+        assertThat(html).contains("Dónde retirarlo").doesNotContain("@");
+    }
+
+    @Test
+    void objectMatchFound_diceDondeEstaYNoUnCorreoDeContacto() {
+        String html = service.buildObjectMatchFoundEmail(
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba",
+                java.util.List.of("Mochila azul con llavero"), null);
+
+        assertThat(html)
+                .contains("UTN FRC")
+                .contains("Maestro Marcelo López 3814, Córdoba")
+                .doesNotContain("@");
     }
 
     @Test
@@ -75,7 +101,7 @@ class EmailTemplateServiceTest {
         // en su lugar, que es exactamente lo que se veía.
         String html = service.buildObjectClaimedEmail(
                 "Ana", "Mochila azul", "Tiene un llavero de tela",
-                "UTN FRC", "consultas@utn.edu.ar");
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba");
 
         assertThat(html).doesNotContain("<img");
     }
@@ -84,7 +110,7 @@ class EmailTemplateServiceTest {
     void objectClaimed_sinDescripcion_noDejaUnParrafoVacio() {
         // humanDescription puede venir vacía: en ese caso el bloque muestra sólo el título.
         String html = service.buildObjectClaimedEmail(
-                "Ana", "Mochila azul", null, "UTN FRC", "consultas@utn.edu.ar");
+                "Ana", "Mochila azul", null, "UTN FRC", "Maestro Marcelo López 3814, Córdoba");
 
         assertThat(html).contains("Mochila azul").doesNotContain("null");
     }

@@ -95,7 +95,13 @@ class LostObjectServiceTest {
 
         Organization organization = mock(Organization.class);
         when(organization.getName()).thenReturn("Org Test");
+        // EU-401: la organización tiene información de contacto, pero los avisos al usuario ya no
+        // la llevan: el campo se rellena solo con el correo del dueño. Va la dirección.
         when(organization.getContactData()).thenReturn("contacto@org.com");
+        when(organization.getStreet()).thenReturn("Bvd. Perón");
+        when(organization.getStreetNumber()).thenReturn("380");
+        when(organization.getCity()).thenReturn("Córdoba");
+        when(organization.getProvince()).thenReturn("Córdoba");
         when(organizationRepository.findById(1L)).thenReturn(Optional.of(organization));
         when(objectStorage.getObjectUrl(anyString())).thenReturn("http://img/found.jpg");
         when(emailTemplateService.buildObjectMatchFoundEmail(any(), any(), any(), any()))
@@ -699,9 +705,10 @@ class LostObjectServiceTest {
                 eq("u1@test.com"), anyString(), eq("<html>retiro</html>"));
         // Los datos de la organización que custodia el objeto son el motivo de mandar el correo:
         // hasta EU-353 sólo existían en un modal que al cerrarse no volvía.
+        // EU-401: y son el nombre y la dirección, no el correo del dueño.
         verify(emailTemplateService).buildObjectClaimedEmail(
                 eq("Nombre"), eq("Objeto encontrado"), any(),
-                eq("Org Test"), eq("contacto@org.com"));
+                eq("Org Test"), eq("Bvd. Perón 380, Córdoba"));
     }
 
     @Test

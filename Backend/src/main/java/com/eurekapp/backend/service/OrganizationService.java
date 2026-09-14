@@ -1,6 +1,5 @@
 package com.eurekapp.backend.service;
 
-import com.eurekapp.backend.dto.OrganizationDto;
 import com.eurekapp.backend.dto.request.OrganizationRegistrationRequestDto;
 import com.eurekapp.backend.dto.request.ResolveOrganizationRequestDto;
 import com.eurekapp.backend.dto.response.*;
@@ -10,6 +9,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.notification.NotificationService;
+import com.eurekapp.backend.util.OrganizationAddress;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
@@ -39,18 +39,29 @@ public class OrganizationService {
     private EmailTemplateService emailTemplateService;
 
     public OrganizationListResponseDto getAllOrganizations() {
-        List<OrganizationDto> organizationDtos = organizationRepository.findAll().stream()
+        List<PublicOrganizationDto> organizationDtos = organizationRepository.findAll().stream()
                 .filter(Organization::isActive)
-                .map(this::organizationToDto)
+                .map(this::organizationToPublicDto)
                 .toList();
         return new OrganizationListResponseDto(organizationDtos);
     }
 
-    public OrganizationDto organizationToDto(Organization organization) {
-        return OrganizationDto.builder()
+    /**
+     * EU-401: la organización como se le muestra a un usuario común, sin la información de contacto.
+     *
+     * <p>Ese campo se rellena solo con el correo del dueño al aprobar la organización, así que
+     * mandarlo en la respuesta de una búsqueda repartía un correo personal que nadie ofreció como
+     * contacto público. Va la dirección en su lugar: es lo que hace falta para ir a retirar.</p>
+     *
+     * <p>Es el único mapeo que queda: el que llevaba la información de contacto no tenía más
+     * llamadores que éstos. La propia organización sigue recibiendo sus datos de contacto al iniciar
+     * sesión y en su pantalla, que arman el DTO por su cuenta (AuthService, UserService).</p>
+     */
+    public PublicOrganizationDto organizationToPublicDto(Organization organization) {
+        return PublicOrganizationDto.builder()
                 .id(organization.getId())
                 .name(organization.getName())
-                .contactData(organization.getContactData())
+                .address(OrganizationAddress.format(organization))
                 .build();
     }
 
