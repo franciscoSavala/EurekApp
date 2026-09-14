@@ -71,6 +71,24 @@ public class InAppNotificationService {
         repository.save(notification);
     }
 
+    /**
+     * EU-398: deja constancia de que el usuario entró a ver sus notificaciones.
+     *
+     * <p>Hasta ahora lo único que marcaba algo era tocar cada aviso, uno por uno. Al entrar a la
+     * sección el numerito del menú se ponía en cero sólo en la pantalla y, como el contador se vuelve
+     * a consultar cada 30 segundos, reaparecía con el mismo valor: se había visto la lista, pero no
+     * quedaba registrado en ningún lado.</p>
+     *
+     * <p>A diferencia de las alertas de fraude (EU-388), acá no hace falta una marca de última visita:
+     * cada notificación ya tiene su propia bandera de leída, así que alcanza con marcar las que
+     * quedaban pendientes. Si no quedaba ninguna, no se guarda nada.</p>
+     */
+    public void markAllAsRead(UserEurekapp user) {
+        List<InAppNotification> unread = repository.findByUserAndReadFalse(user);
+        unread.forEach(n -> n.setRead(true));
+        repository.saveAll(unread);
+    }
+
     private InAppNotificationDto toDto(InAppNotification n) {
         return InAppNotificationDto.builder()
                 .id(n.getId())

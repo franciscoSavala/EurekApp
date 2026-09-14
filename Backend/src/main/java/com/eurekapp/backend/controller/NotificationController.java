@@ -46,4 +46,13 @@ public class NotificationController {
         notificationService.markAsRead(user, id);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/read-all")
+    @Operation(summary = "Marcar todas las notificaciones como leídas",
+            description = "Deja constancia de que el usuario entró a ver sus notificaciones y apaga el indicador del menú.")
+    public ResponseEntity<Void> markAllAsRead(
+            @AuthenticationPrincipal UserEurekapp user) {
+        notificationService.markAllAsRead(user);
+        return ResponseEntity.ok().build();
+    }
 }
