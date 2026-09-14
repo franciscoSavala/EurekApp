@@ -1,4 +1,4 @@
-import { dateToCommit, parseDateInputValue, toDateInputValue } from '../utils/dateInput';
+import { dateToCommit, isDaySelection, parseDateInputValue, toDateInputValue } from '../utils/dateInput';
 
 // ─── EU-397: escribir la fecha a mano en el campo de la web ───────────────────
 //
@@ -68,5 +68,42 @@ describe('dateToCommit', () => {
     test('confirma la primera fecha de un campo que arrancó vacío', () => {
         const date = dateToCommit('2026-08-01', '');
         expect(toDateInputValue(date)).toBe('2026-08-01');
+    });
+});
+
+// ─── EU-400: navegar entre meses en el calendario no es elegir una fecha ──────────────────────
+//
+// El calendario del navegador avisa de un cambio de valor tanto cuando se mueve de mes con las
+// flechas como cuando se elige un día. Tomar el primero por definitivo confirmaba una fecha que
+// nadie eligió y cerraba el campo: había que reabrirlo para cada mes.
+
+describe('isDaySelection', () => {
+    test('mover de mes con las flechas no es elegir la fecha', () => {
+        expect(isDaySelection('2026-09-25', '2026-10-25')).toBe(false);
+        expect(isDaySelection('2026-09-25', '2026-08-25')).toBe(false);
+    });
+
+    test('tampoco lo es al cruzar de año', () => {
+        expect(isDaySelection('2026-12-25', '2027-01-25')).toBe(false);
+        expect(isDaySelection('2026-01-25', '2025-12-25')).toBe(false);
+    });
+
+    test('tampoco cuando el mes nuevo es más corto y el navegador recorta el día', () => {
+        // Del 31 de enero a febrero: el día llega distinto sin que nadie lo haya elegido.
+        expect(isDaySelection('2026-01-31', '2026-02-28')).toBe(false);
+    });
+
+    test('elegir un día del mes que se está mirando sí es elegir la fecha', () => {
+        expect(isDaySelection('2026-09-25', '2026-09-03')).toBe(true);
+    });
+
+    test('en un campo vacío, la primera fecha completa es la elegida', () => {
+        expect(isDaySelection('', '2026-09-03')).toBe(true);
+    });
+
+    test('no se toma por elegida una fecha a medio escribir ni una que no existe', () => {
+        expect(isDaySelection('2026-09-25', '2026-09')).toBe(false);
+        expect(isDaySelection('2026-09-25', '')).toBe(false);
+        expect(isDaySelection('2026-01-15', '2026-02-31')).toBe(false);
     });
 });

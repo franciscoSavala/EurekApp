@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { dateToCommit, toDateInputValue } from '../../utils/dateInput';
+import { dateToCommit, isDaySelection, toDateInputValue } from '../../utils/dateInput';
 
 /**
  * EU-397: campo de fecha de la versión web, compartido por las pantallas que acotan por rango de
@@ -15,10 +15,16 @@ import { dateToCommit, toDateInputValue } from '../../utils/dateInput';
  * tramo, y cada confirmación intermedia es una fecha que nadie pidió —en las pantallas que recargan
  * solas, una consulta al servidor por tramo—. Escape cierra sin confirmar.
  *
- * Eligiéndola del calendario del navegador, en cambio, se confirma en el momento: ahí la fecha que
- * llega ya es la definitiva —se eligió de una sola vez, no por tramos— y esperar a que el foco se
- * vaya haría que la pantalla siguiera mostrando la fecha anterior después de haber elegido otra. Los
- * dos casos se distinguen por si hubo teclas en el campo.
+ * Eligiéndola del calendario del navegador, en cambio, se confirma en el momento: esa fecha se
+ * eligió de una sola vez, no por tramos, y esperar a que el foco se vaya haría que la pantalla
+ * siguiera mostrando la fecha anterior después de haber elegido otra. Los dos casos se distinguen
+ * por si hubo teclas en el campo.
+ *
+ * EU-400: pero no todo lo que avisa el calendario es una fecha elegida. Moviéndose de mes con las
+ * flechas el navegador también cambia el valor, y tomar ese aviso por definitivo cerraba el campo
+ * justo cuando se estaba buscando el mes —había que reabrirlo para cada mes, y en las pantallas que
+ * recargan solas cada paso se llevaba además una consulta al servidor—. Cuál de los dos avisos es
+ * lo decide `isDaySelection`.
  *
  * @param value    fecha actual del filtro (puede ser null: el campo arranca vacío)
  * @param onChange se llama una vez por edición, sólo con una fecha completa y válida
@@ -42,8 +48,12 @@ const WebDateInput = ({ value, onChange, onClose }) => {
             defaultValue={initialValue}
             style={{ padding: 8, borderRadius: 8, border: '1px solid #ccc', fontSize: 14, marginTop: 4 }}
             onChange={(e) => {
+                const previous = typedValue.current;
                 typedValue.current = e.target.value;
-                if (!usedKeyboard.current) { commit(); onClose(); }
+                if (!usedKeyboard.current && isDaySelection(previous, e.target.value)) {
+                    commit();
+                    onClose();
+                }
             }}
             onKeyDown={(e) => {
                 usedKeyboard.current = true;
