@@ -59,10 +59,33 @@ const Notifications = ({ navigation, route }) => {
         }
     };
 
+    /**
+     * EU-398: entrar a la sección deja constancia de que las notificaciones se vieron. Antes el
+     * numerito del menú se apagaba sólo en la pantalla y reaparecía al refrescarse el contador,
+     * porque del lado del servidor seguían sin leer: lo único que marcaba algo era tocarlas de a una.
+     *
+     * El error se ignora en silencio. El indicador es opcional y no puede romper la pantalla; si el
+     * guardado falla, el refresco de los 30 segundos lo vuelve a encender, que es lo correcto: no se
+     * da por visto lo que no se pudo registrar.
+     */
+    const markAllAsRead = async () => {
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            await axiosInstance.post(BACK_URL + "/notifications/read-all", {}, {
+                headers: { Authorization: "Bearer " + jwt },
+            });
+        } catch (e) {
+            // silently ignore — lo recupera el próximo refresco
+        }
+    };
+
+    /* El marcado va DESPUÉS de traer la lista, y no en el botón del menú, para no pisar el resaltado
+       de las no leídas: si se marcaran primero, la lista llegaría con todo leído y se perdería
+       justamente lo que se venía a mirar. */
     useFocusEffect(
         useCallback(() => {
             setLoading(true);
-            fetchNotifications();
+            fetchNotifications().then(markAllAsRead);
         }, [])
     );
 
