@@ -38,3 +38,27 @@ export const dateToCommit = (typedValue, initialValue) => {
     if (typedValue === initialValue) return null;
     return parseDateInputValue(typedValue);
 };
+
+/**
+ * EU-400: ¿el aviso del calendario es un día elegido, o sólo el paso de un mes a otro con las
+ * flechas?
+ *
+ * El navegador avisa igual en los dos casos, pero el valor los distingue: las flechas conservan el
+ * día y corren el mes (25/09 -> 25/10, y también el año al cruzar diciembre), mientras que elegir un
+ * día cambia el día dentro del mes que se está mirando. Por eso se toma por elección únicamente el
+ * cambio que deja el mes y el año donde estaban.
+ *
+ * Mirar el mes en lugar del día es además lo que cubre el recorte de fin de mes: yendo del 31/01 a
+ * febrero el navegador manda 28/02, que con un criterio basado en el día parecería una elección.
+ *
+ * Un campo que arrancó vacío no tiene mes del que salir: ahí el primer valor completo es siempre una
+ * elección.
+ */
+export const isDaySelection = (previousValue, newValue) => {
+    const chosen = parseDateInputValue(newValue);
+    if (!chosen) return false;
+    const previous = parseDateInputValue(previousValue);
+    if (!previous) return true;
+    return previous.getUTCFullYear() === chosen.getUTCFullYear()
+        && previous.getUTCMonth() === chosen.getUTCMonth();
+};
