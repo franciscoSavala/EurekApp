@@ -31,9 +31,26 @@ podía escribir a mano; de paso, "Opiniones sobre la app" dejó de recargarse so
 a tener botón), **EU-387** (reclamar un objeto no avisaba que se estaba procesando, y volver a tocar
 guardaba la búsqueda de nuevo) y **EU-384** (el bloqueo por sospecha de fraude se anunciaba pero no
 impedía usar la aplicación). Los tres verificados con pruebas unitarias y con la app levantada.
+Después salió **EU-380** (las coincidencias se muestran desde 80 %), y se cerraron sin cambios
+**EU-383** (la descripción completa del objeto es visible a propósito) y **EU-389** (una devolución
+no crea una búsqueda; "Mis objetos recuperados" sería alcance nuevo).
 
-**EU-388 no lo hicimos nosotros**: lo resolvió y mergeó otra persona del equipo mientras estaba
-tomado. Se le devolvió el ítem y se le pidió el comentario de cierre; sigue abierto por eso.
+**EU-388 no lo hicimos nosotros**: lo resolvió y mergeó otra persona del equipo; ya está en Done.
+
+El 2026-09-14 Evelyn subió a `main` EU-398, EU-342, EU-400, EU-401, EU-403, EU-406 y EU-302 (este
+último asignado a Nelson). Todos en Done.
+
+En la tanda del 2026-09-16 salieron **EU-402** (reclamar un objeto con toques repetidos guardaba la
+búsqueda varias veces), **EU-396** (la búsqueda pasa a "Retirado" o "Retirado por alguien más" cuando
+la organización entrega el objeto; cierra también **EU-382**) y **EU-358** (Día/Semana/Mes del
+reporte de opiniones se movió a "Evolución temporal"). En EU-396 se definió además que "Retirado por
+alguien más" no recibe avisos y sólo se puede cerrar, y que de la organización se muestran nombre y
+dirección, nunca el correo del dueño. Verificados con pruebas unitarias y con la app levantada.
+
+**Para probar la búsqueda desde la pantalla**, la fecha de pérdida tiene que ser anterior a mayo de
+2026: los objetos de prueba se encontraron en abril y mayo, y la búsqueda sólo muestra objetos
+encontrados después de esa fecha. Con la fecha de hoy no aparece nada. El front web se levanta en
+un puerto que el backend acepte (8082); en 19006 el login falla por origen no permitido.
 
 **Ojo con el entorno local (EU-399):** hay dos juegos de datos de prueba distintos y el que carga
 `seed-local.sh` quedó de antes del rework de búsqueda, así que deja una aplicación donde **ninguna
