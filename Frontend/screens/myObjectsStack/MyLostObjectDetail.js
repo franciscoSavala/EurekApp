@@ -24,7 +24,9 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 const STATUS_META = {
     ACTIVE:         { label: 'Buscando',    icon: 'clock',        bg: '#ccf2f2', color: '#0d6e6e' },
     PENDING_PICKUP: { label: 'Por retirar', icon: 'box-open',     bg: '#fdeccd', color: '#b45309' },
-    CLOSED:         { label: 'Cerrada',     icon: 'circle-check', bg: '#e6ecec', color: '#638888' },
+    RETRIEVED:      { label: 'Retirado',    icon: 'circle-check', bg: '#dcfce7', color: '#15803d' },
+    RETRIEVED_BY_OTHER: { label: 'Retirado por alguien más', icon: 'triangle-exclamation', bg: '#ffedd5', color: '#c2410c' },
+    CLOSED:        { label: 'Cerrada',     icon: 'circle-check', bg: '#e6ecec', color: '#638888' },
 };
 
 const InfoRow = ({ icon, label, value }) => (
@@ -43,6 +45,8 @@ const MyLostObjectDetail = ({ route, navigation }) => {
     const status = lostObject.status || 'ACTIVE';
     const isClosed = status === 'CLOSED';
     const isPendingPickup = status === 'PENDING_PICKUP';
+    const isRetrieved = status === 'RETRIEVED';
+    const isRetrievedByOther = status === 'RETRIEVED_BY_OTHER';
     const statusMeta = STATUS_META[status] || STATUS_META.ACTIVE;
     const [promptVisible, setPromptVisible] = useState(false);
     const [reopenPromptVisible, setReopenPromptVisible] = useState(false);
@@ -192,9 +196,9 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                                     Retiralo en {lostObject.matchedOrganizationName}.
                                 </Text>
                             )}
-                            {!!lostObject.matchedOrganizationContactData && (
+                            {!!lostObject.matchedOrganizationAddress && (
                                 <Text style={[styles.infoBoxText, styles.pickupText]}>
-                                    Contacto: {lostObject.matchedOrganizationContactData}
+                                    Dirección: {lostObject.matchedOrganizationAddress}
                                 </Text>
                             )}
                             <Text style={[styles.infoBoxText, styles.pickupText]}>
@@ -214,7 +218,57 @@ const MyLostObjectDetail = ({ route, navigation }) => {
                 </>
             )}
 
-            {!isClosed && !isPendingPickup && (
+            {/* EU-396: la organización ya le entregó el objeto. Sólo le queda cerrar la búsqueda. */}
+            {isRetrieved && (
+                <>
+                    <View style={[styles.infoBox, styles.retrievedBox]}>
+                        <Icon name="circle-check" size={16} color="#15803d" />
+                        <Text style={[styles.infoBoxText, styles.retrievedText]}>
+                            Retiraste tu objeto{lostObject.matchedOrganizationName
+                                ? ` en ${lostObject.matchedOrganizationName}` : ''}. Ya podés cerrar esta búsqueda.
+                        </Text>
+                    </View>
+
+                    <TouchableOpacity style={styles.closeButton} onPress={() => setPromptVisible(true)}>
+                        <Text style={styles.closeButtonText}>Cerrar búsqueda</Text>
+                    </TouchableOpacity>
+                </>
+            )}
+
+            {/* EU-396: el objeto se entregó, pero a otra persona. No se dice a quién: si quiere
+                reclamar, lo hace por su cuenta con la organización. La búsqueda ya no recibe avisos
+                y sólo queda cerrarla. */}
+            {isRetrievedByOther && (
+                <>
+                    <View style={[styles.infoBox, styles.retrievedByOtherBox]}>
+                        <Icon name="triangle-exclamation" size={16} color="#c2410c" />
+                        <View style={{ flex: 1, gap: 4 }}>
+                            <Text style={[styles.infoBoxText, styles.retrievedByOtherText, styles.pickupTitle]}>
+                                El objeto que reconociste ya lo retiró otra persona
+                            </Text>
+                            {!!lostObject.matchedOrganizationName && (
+                                <Text style={[styles.infoBoxText, styles.retrievedByOtherText]}>
+                                    Si querés reclamarlo, acercate a {lostObject.matchedOrganizationName}.
+                                </Text>
+                            )}
+                            {!!lostObject.matchedOrganizationAddress && (
+                                <Text style={[styles.infoBoxText, styles.retrievedByOtherText]}>
+                                    Dirección: {lostObject.matchedOrganizationAddress}
+                                </Text>
+                            )}
+                            <Text style={[styles.infoBoxText, styles.retrievedByOtherText]}>
+                                Desde la aplicación ya no podemos hacer más por esta búsqueda. Cuando quieras, cerrala.
+                            </Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity style={styles.closeButton} onPress={() => setPromptVisible(true)}>
+                        <Text style={styles.closeButtonText}>Cerrar búsqueda</Text>
+                    </TouchableOpacity>
+                </>
+            )}
+
+            {status === 'ACTIVE' && (
                 <>
                     <View style={styles.infoBox}>
                         <Icon name="bell" size={16} color="#0d6e6e" />
@@ -416,6 +470,18 @@ const styles = StyleSheet.create({
     },
     pickupText: {
         color: '#8a4008',
+    },
+    retrievedBox: {
+        backgroundColor: '#dcfce7',
+    },
+    retrievedText: {
+        color: '#166534',
+    },
+    retrievedByOtherBox: {
+        backgroundColor: '#ffedd5',
+    },
+    retrievedByOtherText: {
+        color: '#9a3412',
     },
     pickupTitle: {
         fontFamily: 'PlusJakartaSans-Bold',

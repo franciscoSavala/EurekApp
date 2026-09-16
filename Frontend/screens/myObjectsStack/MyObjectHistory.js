@@ -24,7 +24,11 @@ const STATUS_CONFIG = {
     // Hay un objeto reconocido esperando al usuario en una organización. Ámbar para que se despegue
     // del verde de "Buscando": es el estado que pide una acción suya.
     PENDING_PICKUP: { label: 'Por retirar', color: '#b45309', bg: '#fdeccd' },
-    CLOSED: { label: 'Cerrada',  color: '#638888', bg: '#e6ecec' },
+    // EU-396: la organización entregó el objeto. Verde si se lo llevó el usuario; naranja si fue
+    // otra persona, más encendido que el ámbar de "Por retirar" para que no se confundan.
+    RETRIEVED: { label: 'Retirado', color: '#15803d', bg: '#dcfce7' },
+    RETRIEVED_BY_OTHER: { label: 'Retirado por alguien más', color: '#c2410c', bg: '#ffedd5' },
+    CLOSED:{ label: 'Cerrada',  color: '#638888', bg: '#e6ecec' },
 };
 
 const StatusChip = ({ status }) => {

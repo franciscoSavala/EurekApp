@@ -52,6 +52,7 @@ public class ReturnFoundObjectService {
     private final EmailTemplateService emailTemplateService;
     private final FraudDetectionService fraudDetectionService;
     private final FraudBlockService fraudBlockService;
+    private final LostObjectService lostObjectService;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -62,7 +63,8 @@ public class ReturnFoundObjectService {
                                     InAppNotificationService inAppNotificationService,
                                     EmailTemplateService emailTemplateService,
                                     FraudDetectionService fraudDetectionService,
-                                    FraudBlockService fraudBlockService){
+                                    FraudBlockService fraudBlockService,
+                                    LostObjectService lostObjectService){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -75,6 +77,7 @@ public class ReturnFoundObjectService {
         this.emailTemplateService = emailTemplateService;
         this.fraudDetectionService = fraudDetectionService;
         this.fraudBlockService = fraudBlockService;
+        this.lostObjectService = lostObjectService;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -203,6 +206,10 @@ public class ReturnFoundObjectService {
         // considera completada sin pasar por el control. Si el control falla, el error se
         // propaga y la operación NO se da por exitosa.
         fraudDetectionService.detectFraudForReturn(rfo);
+
+        // EU-396: las búsquedas "Por retirar" que esperaban este objeto se enteran de la entrega.
+        lostObjectService.onObjectReturned(command.getFoundObjectUUID(),
+                user != null ? user.getUsername() : null);
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();

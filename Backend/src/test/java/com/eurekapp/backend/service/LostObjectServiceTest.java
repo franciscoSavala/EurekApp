@@ -38,6 +38,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,6 +48,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -783,7 +786,221 @@ class LostObjectServiceTest {
         verify(lostObjectRepository).markPendingPickup(search.getUuid(), "fo-1");
     }
 
+    // ---- EU-402: reclamar dos veces el mismo objeto no guarda dos búsquedas ----
+
+    @Test
+    void reportLostObject_claimAlreadyPending_doesNotSaveAnotherSearch() {
+        // El segundo toque llega cuando el primero ya guardó la búsqueda "Por retirar".
+        LostObject existing = savedSearch("u1@test.com", "billetera", 1.0f, CORDOBA);
+        existing.setStatus(LostObjectStatus.PENDING_PICKUP);
+        existing.setMatchedObjectUuid("found-uuid-1");
+        when(lostObjectRepository.findByMatchedObjectUuid("found-uuid-1")).thenReturn(List.of(existing));
+
+        service.reportLostObject(claimCommand("u1@test.com", "found-uuid-1"));
+
+        verify(lostObjectRepository, never()).add(any());
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+    }
+
+    @Test
+    void reportLostObject_otherUserClaimedSameObject_stillSaves() {
+        // Que otra persona espere el mismo objeto no es un duplicado.
+        LostObject othersSearch = savedSearch("otro@test.com", "billetera", 1.0f, CORDOBA);
+        othersSearch.setStatus(LostObjectStatus.PENDING_PICKUP);
+        othersSearch.setMatchedObjectUuid("found-uuid-1");
+        when(lostObjectRepository.findByMatchedObjectUuid("found-uuid-1")).thenReturn(List.of(othersSearch));
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+
+        service.reportLostObject(claimCommand("u1@test.com", "found-uuid-1"));
+
+        verify(lostObjectRepository).add(any());
+    }
+
+    @Test
+    void reportLostObject_concurrentDuplicateClaim_savesOnlyOnce() throws Exception {
+        // Dos toques simultáneos: el segundo llega mientras el primero todavía está guardando.
+        CountDownLatch firstIsSaving = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
+        doAnswer(inv -> {
+            firstIsSaving.countDown();
+            releaseFirst.await(5, TimeUnit.SECONDS);
+            return null;
+        }).when(lostObjectRepository).add(any());
+
+        Thread first = new Thread(() -> service.reportLostObject(claimCommand("u1@test.com", "found-uuid-1")));
+        first.start();
+        assertThat(firstIsSaving.await(5, TimeUnit.SECONDS)).isTrue();
+
+        service.reportLostObject(claimCommand("u1@test.com", "found-uuid-1"));
+        releaseFirst.countDown();
+        first.join(5000);
+
+        verify(lostObjectRepository, times(1)).add(any());
+    }
+
+    // ---- EU-396: la búsqueda se entera de que el objeto se entregó ----
+
+    @Test
+    void objectReturnedToSearchOwner_marksSearchRetrieved() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        when(lostObjectRepository.findByMatchedObjectUuid("fo-1")).thenReturn(List.of(search));
+
+        service.onObjectReturned("fo-1", "u1@test.com");
+
+        verify(lostObjectRepository).markRetrieved(search.getUuid(), LostObjectStatus.RETRIEVED);
+        verify(lostObjectRepository, never()).close(any(), any(), anyBoolean());
+    }
+
+    @Test
+    void objectReturnedToSomeoneElse_marksSearchRetrievedByOther() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        when(lostObjectRepository.findByMatchedObjectUuid("fo-1")).thenReturn(List.of(search));
+
+        service.onObjectReturned("fo-1", "otro@test.com");
+
+        verify(lostObjectRepository).markRetrieved(search.getUuid(), LostObjectStatus.RETRIEVED_BY_OTHER);
+    }
+
+    @Test
+    void objectReturnedToPersonWithoutAccount_marksSearchRetrievedByOther() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        when(lostObjectRepository.findByMatchedObjectUuid("fo-1")).thenReturn(List.of(search));
+
+        service.onObjectReturned("fo-1", null);
+
+        verify(lostObjectRepository).markRetrieved(search.getUuid(), LostObjectStatus.RETRIEVED_BY_OTHER);
+    }
+
+    @Test
+    void objectReturned_onlyTouchesSearchesWaitingForIt() {
+        // Una búsqueda cerrada que alguna vez apuntó al objeto no cambia.
+        LostObject closed = pendingPickupSearch("u1@test.com", "fo-1");
+        closed.setStatus(LostObjectStatus.CLOSED);
+        when(lostObjectRepository.findByMatchedObjectUuid("fo-1")).thenReturn(List.of(closed));
+
+        service.onObjectReturned("fo-1", "u1@test.com");
+
+        verify(lostObjectRepository, never()).markRetrieved(any(), any());
+    }
+
+    @Test
+    void objectReturned_failureDoesNotBreakTheReturn() {
+        when(lostObjectRepository.findByMatchedObjectUuid("fo-1")).thenThrow(new RuntimeException("weaviate caído"));
+
+        service.onObjectReturned("fo-1", "u1@test.com");
+
+        verify(lostObjectRepository, never()).markRetrieved(any(), any());
+    }
+
+    @Test
+    void retrievedSearch_isNotNotified() {
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.RETRIEVED);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+    }
+
+    @Test
+    void retrievedByOtherSearch_isNotNotified() {
+        // El usuario afirmó que el objeto entregado era el suyo: más coincidencias no le sirven.
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject search = savedSearch("u1@test.com", "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.RETRIEVED_BY_OTHER);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(search));
+        when(userRepository.findByUsername("u1@test.com"))
+                .thenReturn(Optional.of(user("u1@test.com", Role.USER)));
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void retrievedSearch_canBeClosed() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        search.setStatus(LostObjectStatus.RETRIEVED);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        service.closeLostObject("u1@test.com", search.getUuid(), true);
+
+        verify(lostObjectRepository).close(eq(search.getUuid()), any(LocalDateTime.class), eq(true));
+    }
+
+    @Test
+    void retrievedSearch_cannotClaimAnotherObject() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        search.setStatus(LostObjectStatus.RETRIEVED);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.markPendingPickup("u1@test.com", search.getUuid(), "fo-2"))
+                .isInstanceOf(BadRequestException.class);
+        verify(lostObjectRepository, never()).markPendingPickup(any(), any());
+    }
+
+    @Test
+    void retrievedByOtherSearch_cannotClaimAnotherObject() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        search.setStatus(LostObjectStatus.RETRIEVED_BY_OTHER);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        assertThatThrownBy(() -> service.markPendingPickup("u1@test.com", search.getUuid(), "fo-2"))
+                .isInstanceOf(BadRequestException.class);
+        verify(lostObjectRepository, never()).markPendingPickup(any(), any());
+    }
+
+    @Test
+    void retrievedByOtherSearch_canBeClosedAnsweringNotRecovered() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        search.setStatus(LostObjectStatus.RETRIEVED_BY_OTHER);
+        when(lostObjectRepository.getByUuid(search.getUuid())).thenReturn(search);
+
+        service.closeLostObject("u1@test.com", search.getUuid(), false);
+
+        verify(lostObjectRepository).close(eq(search.getUuid()), any(LocalDateTime.class), eq(false));
+    }
+
+    @Test
+    void myLostObjects_showOrganizationAddressAndNeverItsContactEmail() {
+        LostObject search = pendingPickupSearch("u1@test.com", "fo-1");
+        search.setStatus(LostObjectStatus.RETRIEVED_BY_OTHER);
+        when(lostObjectRepository.query(null, "u1@test.com", null, null, null)).thenReturn(List.of(search));
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(foundObjectAt(CORDOBA));
+
+        LostObjectResponseDto dto = service.getMyLostObjects("u1@test.com").get(0);
+
+        assertThat(dto.getStatus()).isEqualTo("RETRIEVED_BY_OTHER");
+        assertThat(dto.getMatchedOrganizationName()).isEqualTo("Org Test");
+        assertThat(dto.getMatchedOrganizationAddress()).contains("Bvd. Perón 380").doesNotContain("contacto@org.com");
+    }
+
     // ---- helpers ----
+
+    private ReportLostObjectCommand claimCommand(String username, String foundObjectUuid) {
+        return ReportLostObjectCommand.builder()
+                .image(null)
+                .description("billetera de cuero marrón")
+                .username(username)
+                .geoCoordinates(CORDOBA)
+                .organizationId("1")
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .matchedObjectUuid(foundObjectUuid)
+                .build();
+    }
+
+    private LostObject pendingPickupSearch(String username, String foundObjectUuid) {
+        LostObject search = savedSearch(username, "mochila azul", 1.0f, CORDOBA);
+        search.setStatus(LostObjectStatus.PENDING_PICKUP);
+        search.setMatchedObjectUuid(foundObjectUuid);
+        return search;
+    }
 
     private FoundObject foundObjectAt(GeoCoordinates coordinates) {
         return FoundObject.builder()

@@ -39,6 +39,7 @@ class ReturnFoundObjectServiceTest {
     @Mock EmailTemplateService emailTemplateService;
     @Mock FraudDetectionService fraudDetectionService;
     @Mock FraudBlockService fraudBlockService;
+    @Mock LostObjectService lostObjectService;
 
     ReturnFoundObjectService service;
 
@@ -49,7 +50,7 @@ class ReturnFoundObjectServiceTest {
                 foundObjectRepository, s3Service, executorService, notificationService,
                 rewardExclusionRepository,
                 inAppNotificationService, emailTemplateService, fraudDetectionService,
-                fraudBlockService);
+                fraudBlockService, lostObjectService);
     }
 
     @Test
@@ -121,6 +122,9 @@ class ReturnFoundObjectServiceTest {
         ReturnFoundObject persisted = savedCaptor.getAllValues().get(0);
         assertThat(persisted.getReturnedByEmployee()).isEqualTo(caller);
         assertThat(persisted.getDNI()).isEqualTo("12345678");
+        // EU-396: la devolución les avisa a las búsquedas que esperaban el objeto. Sin cuenta
+        // asociada, quien retiró llega vacío.
+        verify(lostObjectService).onObjectReturned("uuid-123", null);
     }
 
     @Test

@@ -18,5 +18,16 @@ public enum LostObjectStatus {
      * acá puede no ser el correcto, que es justamente el caso que contempla la vuelta atrás.</p>
      */
     PENDING_PICKUP,
+    /**
+     * EU-396: la organización registró la devolución del objeto que la búsqueda esperaba, y se lo
+     * llevó el dueño de la búsqueda. Ya no recibe avisos; sólo le queda cerrarla.
+     */
+    RETRIEVED,
+    /**
+     * EU-396: la organización entregó el objeto que la búsqueda esperaba, pero a otra persona. El
+     * usuario había afirmado que era suyo, así que lo que queda se resuelve fuera de la app: se le
+     * muestra la organización, no recibe más avisos y sólo puede cerrarla. No se le dice quién lo retiró.
+     */
+    RETRIEVED_BY_OTHER,
     CLOSED
 }

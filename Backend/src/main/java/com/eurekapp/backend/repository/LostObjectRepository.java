@@ -390,6 +390,16 @@ public class LostObjectRepository {
     }
 
     /**
+     * EU-396: el objeto que la búsqueda esperaba se entregó. Sólo cambia el estado; la referencia al
+     * objeto se conserva, porque de ahí sale a qué organización puede consultar el usuario.
+     */
+    public void markRetrieved(String uuid, LostObjectStatus status) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("status", status.name());
+        weaviateService.update("LostObject", uuid, null, properties);
+    }
+
+    /**
      * Vuelta atrás de "Por retirar": el objeto no era el suyo, así que la búsqueda sigue viva. Se
      * limpia la referencia al objeto — con cadena vacía y no null, que es como se persiste "sin
      * valor" en el resto de esta clase (ver "category" en add()).
@@ -399,6 +409,30 @@ public class LostObjectRepository {
         properties.put("status", LostObjectStatus.ACTIVE.name());
         properties.put("matched_object_uuid", "");
         weaviateService.update("LostObject", uuid, null, properties);
+    }
+
+    /**
+     * Búsquedas guardadas que apuntan a un objeto encontrado, en cualquier estado. Sin vector: es un
+     * Get filtrado. La igualdad se vuelve a comprobar acá porque Weaviate compara texto por palabras,
+     * y un UUID con guiones se parte en varias.
+     */
+    public List<LostObject> findByMatchedObjectUuid(String foundObjectUuid) {
+        WhereFilter filter = WhereFilter.builder()
+                .path("matched_object_uuid")
+                .operator(Operator.Equal)
+                .valueText(foundObjectUuid)
+                .build();
+        List<LostObject> result = new ArrayList<>();
+        for (WeaviateObject wo : weaviateService.queryObjects("LostObject", null, null, filter,
+                List.of("username", "description", "lost_date", "organization_id", "coordinates",
+                        "status", "closed_date", "recovered", "category", "has_image",
+                        "matched_object_uuid"))) {
+            LostObject lostObject = convertToLostObject(wo);
+            if (foundObjectUuid.equals(lostObject.getMatchedObjectUuid())) {
+                result.add(lostObject);
+            }
+        }
+        return result;
     }
 
     /** Weaviate devuelve "" para las properties de texto sin valor; el modelo prefiere null. */

@@ -26,7 +26,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,6 +57,8 @@ public class LostObjectService {
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
     private final SearchScoringService searchScoringService;
+    /** EU-402: reclamos en curso, como "usuario|objeto". */
+    private final Set<String> claimsInFlight = ConcurrentHashMap.newKeySet();
 
     public LostObjectService(
             EmbeddingService embeddingService,
@@ -87,15 +91,49 @@ public class LostObjectService {
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
     // similar a la publicación.
-    @SneakyThrows
     public void reportLostObject(ReportLostObjectCommand command) {
         // EU-326: la descripción es obligatoria; la FOTO es opcional. Guardar sin foto deja una búsqueda
         // más débil (sin vector visual y sin categoría), pero es preferible a no poder guardarla: el front
         // recomienda adjuntar una foto —aunque sea de internet— porque sube las chances de que matchee.
-        MultipartFile image = command.getImage();
         if (command.getDescription() == null || command.getDescription().isBlank()) {
             throw new BadRequestException("description_required", "La descripción es obligatoria para guardar la búsqueda.");
         }
+
+        String matched = command.getMatchedObjectUuid();
+        if (matched == null || matched.isBlank()) {
+            saveLostObject(command);
+            return;
+        }
+
+        /* EU-402: reclamar un objeto tarda unos segundos y un segundo toque llegaba como otro pedido
+         * completo, que guardaba otra búsqueda "Por retirar" igual. Dos barreras: mientras un reclamo
+         * del mismo usuario sobre el mismo objeto está en curso, el otro se descarta; y si ya existe
+         * una búsqueda suya esperando ese objeto, no se crea otra. En los dos casos se responde bien:
+         * para el usuario el reclamo está hecho. */
+        String claimKey = command.getUsername() + "|" + matched;
+        if (!claimsInFlight.add(claimKey)) {
+            log.info("LostObjectService: reclamo duplicado en curso de '{}' sobre '{}'. Se ignora.",
+                    command.getUsername(), matched);
+            return;
+        }
+        try {
+            boolean alreadyClaimed = lostObjectRepository.findByMatchedObjectUuid(matched).stream()
+                    .anyMatch(lo -> command.getUsername().equals(lo.getUsername())
+                            && lo.getStatus() == LostObjectStatus.PENDING_PICKUP);
+            if (alreadyClaimed) {
+                log.info("LostObjectService: '{}' ya tiene una búsqueda esperando '{}'. No se crea otra.",
+                        command.getUsername(), matched);
+                return;
+            }
+            saveLostObject(command);
+        } finally {
+            claimsInFlight.remove(claimKey);
+        }
+    }
+
+    @SneakyThrows
+    private void saveLostObject(ReportLostObjectCommand command) {
+        MultipartFile image = command.getImage();
         boolean hasImage = image != null && !image.isEmpty();
 
         byte[] imageBytes = hasImage ? image.getBytes() : null;
@@ -261,7 +299,12 @@ public class LostObjectService {
         // EU-292: las búsquedas CERRADAS no disparan avisos (el usuario ya recuperó / dejó de buscar).
         List<LostObject> matches = new ArrayList<>();
         for (LostObject candidate : candidates) {
-            if (candidate.getStatus() == LostObjectStatus.CLOSED) {
+            // EU-396: las retiradas tampoco. "Retirado" ya tiene su objeto; en "Retirado por alguien
+            // más" el usuario afirmó que el objeto entregado era el suyo, y lo que le queda se
+            // resuelve con la organización, no con otras coincidencias.
+            if (candidate.getStatus() == LostObjectStatus.CLOSED
+                    || candidate.getStatus() == LostObjectStatus.RETRIEVED
+                    || candidate.getStatus() == LostObjectStatus.RETRIEVED_BY_OTHER) {
                 continue;
             }
             // Filtro DURO por categoría: nunca se notifica entre categorías distintas (decisión 5).
@@ -402,8 +445,10 @@ public class LostObjectService {
                                     ? objectStorage.getObjectUrl(lo.getUuid()) : null)
                             .matchedObjectUuid(lo.getMatchedObjectUuid())
                             .matchedOrganizationName(custodian != null ? custodian.getName() : null)
-                            .matchedOrganizationContactData(
-                                    custodian != null ? custodian.getContactData() : null)
+                            // EU-396: la dirección y no la "información de contacto", que es el correo
+                            // del dueño de la organización (mismo criterio que EU-401).
+                            .matchedOrganizationAddress(
+                                    custodian != null ? blankToNull(OrganizationAddress.format(custodian)) : null)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -486,10 +531,39 @@ public class LostObjectService {
             throw new BadRequestException("lost_object_already_pending_pickup",
                     "Esta búsqueda ya tiene un objeto para retirar.");
         }
+        // EU-396: una vez entregado el objeto, a quien sea, la búsqueda sólo se puede cerrar.
+        if (lostObject.getStatus() == LostObjectStatus.RETRIEVED
+                || lostObject.getStatus() == LostObjectStatus.RETRIEVED_BY_OTHER) {
+            throw new BadRequestException("lost_object_already_retrieved",
+                    "El objeto de esta búsqueda ya fue retirado.");
+        }
         lostObjectRepository.markPendingPickup(uuid, foundObjectUuid);
 
         // EU-353: recién acá, con el estado ya guardado, se le manda por correo dónde retirarlo.
         notifyClaimConfirmed(username, foundObjectUuid);
+    }
+
+    /**
+     * EU-396: la organización registró la devolución de un objeto. Las búsquedas "Por retirar" que lo
+     * esperaban pasan a "Retirado" si se lo llevó su dueño, o a "Retirado por alguien más" si no
+     * (incluye la devolución a alguien sin cuenta, que llega sin usuario). No se cierra ninguna: eso
+     * lo decide el usuario.
+     *
+     * <p>No puede hacer fallar la devolución, que ya quedó registrada: el error se loguea.</p>
+     */
+    public void onObjectReturned(String foundObjectUuid, String retrieverUsername) {
+        try {
+            for (LostObject lo : lostObjectRepository.findByMatchedObjectUuid(foundObjectUuid)) {
+                if (lo.getStatus() != LostObjectStatus.PENDING_PICKUP) continue;
+                LostObjectStatus next = lo.getUsername() != null && lo.getUsername().equals(retrieverUsername)
+                        ? LostObjectStatus.RETRIEVED
+                        : LostObjectStatus.RETRIEVED_BY_OTHER;
+                lostObjectRepository.markRetrieved(lo.getUuid(), next);
+            }
+        } catch (RuntimeException e) {
+            log.error("LostObjectService: no se pudieron actualizar las búsquedas que esperaban '{}'.",
+                    foundObjectUuid, e);
+        }
     }
 
     /**
@@ -516,5 +590,9 @@ public class LostObjectService {
             throw new NotFoundException("lost_object_not_found", "No se encontró la búsqueda guardada.");
         }
         return lostObject;
+    }
+
+    private static String blankToNull(String value) {
+        return value != null && !value.isBlank() ? value : null;
     }
 }

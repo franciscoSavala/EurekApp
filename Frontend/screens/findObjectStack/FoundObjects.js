@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useRef, useState} from "react";
 
 import {ActivityIndicator, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, Platform} from "react-native";
 import Toast from 'react-native-toast-message';
@@ -48,6 +48,7 @@ const FoundObjects = ({ route, navigation }) => {
     // esos segundos: parecía que el botón no había respondido y se lo volvía a tocar. Este estado
     // muestra que la acción se registró y bloquea el reintento mientras está en curso.
     const [processingClaim, setProcessingClaim] = useState(false);
+    const claimInFlight = useRef(false);
     // EU-347: si le guardamos la búsqueda sola. Decide si el modal se lo avisa y si al cerrarlo lo
     // llevamos a verla; si el guardado falló no tiene sentido mandarlo a una pantalla donde no está.
     const [searchSaved, setSearchSaved] = useState(false);
@@ -67,11 +68,15 @@ const FoundObjects = ({ route, navigation }) => {
     const onFeedbackDone = async (skip = false) => {
         // EU-387: un segundo toque mientras se está procesando volvería a mandar todo (otra opinión,
         // otra búsqueda guardada). Se ignora.
-        if (processingClaim) return;
+        // EU-402: el estado solo no alcanzaba: dos toques antes de que la pantalla se redibuje leen
+        // los dos "no se está procesando". La marca en la referencia se ve al instante.
+        if (claimInFlight.current) return;
+        claimInFlight.current = true;
         setProcessingClaim(true);
         try {
             await runFeedbackDone(skip);
         } finally {
+            claimInFlight.current = false;
             setProcessingClaim(false);
         }
     };

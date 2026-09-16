@@ -29,10 +29,11 @@ public class LostObjectResponseDto {
     // EU-326: URL presignada de la foto con la que se guardó la búsqueda. null si se guardó sin foto
     // (la foto es opcional), en cuyo caso el front muestra el placeholder.
     private String imageUrl;
-    // Objeto encontrado que el usuario reconoció como suyo (estado PENDING_PICKUP), y dónde ir a
-    // retirarlo. Los tres van juntos y sólo tienen valor en ese estado: si el objeto ya no existe
-    // quedan en null y la pantalla no muestra el bloque, en vez de hacer fallar el listado entero.
+    // Objeto encontrado que el usuario reconoció como suyo (PENDING_PICKUP y, desde EU-396, también
+    // RETRIEVED y RETRIEVED_BY_OTHER), y la organización que lo tenía. Los tres van juntos: si el
+    // objeto ya no existe quedan en null y la pantalla no muestra el bloque, en vez de hacer fallar
+    // el listado entero.
     private String matchedObjectUuid;
     private String matchedOrganizationName;
-    private String matchedOrganizationContactData;
+    private String matchedOrganizationAddress;
 }
