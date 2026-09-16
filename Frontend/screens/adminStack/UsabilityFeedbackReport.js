@@ -131,8 +131,28 @@ const UsabilityFeedbackReport = ({ navigation }) => {
     // tramo de la fecha cambiaba el filtro y recargaba el reporte entero: una consulta por tecla.
     // El rango se aplica al apretar "Generar reporte", como en el reporte de fraude. La agrupación
     // sí sigue siendo inmediata: es un solo toque deliberado.
+    //
+    // EU-358: con los botones al pie del cuadro, recargar el reporte entero lo hacía desaparecer
+    // mientras cargaba y la pantalla saltaba hacia arriba. Al cambiar la agrupación se vuelve a pedir
+    // sólo el reporte, con el período que ya está aplicado, sin ocultar lo que se ve.
+    const regroup = async () => {
+        if (!appliedRange) return;
+        try {
+            const jwt = await AsyncStorage.getItem("jwt");
+            const res = await axiosInstance.get(`${BACK_URL}/usability-feedback/report`, {
+                headers: { Authorization: `Bearer ${jwt}` },
+                params: { from: appliedRange.from, to: appliedRange.to, groupBy },
+            });
+            setReportData(res.data);
+        } catch (e) {
+            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo cambiar la agrupación.' });
+            console.error(e);
+        }
+    };
+
     useEffect(() => {
-        fetchData();
+        if (appliedRange) regroup();
+        else fetchData();
     }, [groupBy]);
 
     // El rango con el que se trajo lo que está en pantalla. Si los campos dicen otra cosa, se avisa
@@ -194,21 +214,6 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                             )
                         )}
                     </View>
-                </View>
-
-                {/* GroupBy */}
-                <View style={styles.row}>
-                    {["DAY", "WEEK", "MONTH"].map((g) => (
-                        <Pressable
-                            key={g}
-                            style={[styles.groupBtn, groupBy === g && styles.groupBtnActive]}
-                            onPress={() => setGroupBy(g)}
-                        >
-                            <Text style={[styles.groupBtnText, groupBy === g && styles.groupBtnTextActive]}>
-                                {g === "DAY" ? "Día" : g === "WEEK" ? "Semana" : "Mes"}
-                            </Text>
-                        </Pressable>
-                    ))}
                 </View>
 
                 <Pressable style={styles.generateBtn} onPress={fetchData} disabled={loading}>
@@ -294,6 +299,23 @@ const UsabilityFeedbackReport = ({ navigation }) => {
                         {reportData.time_series && reportData.time_series.length > 0 && (
                             <View style={styles.tableContainer}>
                                 <Text style={styles.sectionTitle}>Evolución temporal</Text>
+                                {/* EU-358: estos botones estaban arriba, pegados al rango de fechas, y se
+                                    leían como atajos de período. Sólo cambian cómo se agrupan las filas
+                                    de este cuadro, así que viven acá y lo dicen. */}
+                                <Text style={styles.label}>Agrupar por:</Text>
+                                <View style={styles.row}>
+                                    {["DAY", "WEEK", "MONTH"].map((g) => (
+                                        <Pressable
+                                            key={g}
+                                            style={[styles.groupBtn, groupBy === g && styles.groupBtnActive]}
+                                            onPress={() => setGroupBy(g)}
+                                        >
+                                            <Text style={[styles.groupBtnText, groupBy === g && styles.groupBtnTextActive]}>
+                                                {g === "DAY" ? "Día" : g === "WEEK" ? "Semana" : "Mes"}
+                                            </Text>
+                                        </Pressable>
+                                    ))}
+                                </View>
                                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                     <View>
                                         <View style={styles.tableRow}>
