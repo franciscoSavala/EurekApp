@@ -77,6 +77,33 @@ y con la app levantada.
 De paso se arregló el esquema de pruebas: **EU-388** (de otra persona) agregó una columna al modelo
 de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de seguridad de endpoints.
 
+**EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
+ya estaban resueltos. Quedó en Done con el comentario que lo explica.
+
+## Próximo paso pedido (2026-09-18)
+
+**Reordenar los ítems abiertos de Jira según cuántos otros ítems desbloquea cada uno**, para
+priorizar el trabajo. No se llegó a hacer: el chat se limpió antes por tamaño. Se lee de los
+vínculos "blocks" / "is blocked by" de cada ítem en Jira.
+
+Lo que ya se sabe de ese mapa:
+
+- **EU-365 es el mayor destrabador: bloquea EU-225, EU-226, EU-227 y EU-277** (las cuatro stories que
+  siguen EN TESTING). Es el esquema de la tabla de alertas de fraude, que quedó con dos columnas en
+  su forma vieja: mientras siga así no se genera ninguna alerta y el reporte no tiene datos que
+  mostrar, así que esas cuatro no se pueden validar.
+- **Arreglar el deploy (EU-360) NO destraba a esas cuatro.** Son cosas distintas: el deploy mueve
+  código, y acá lo que está mal es el esquema de la base, que el deploy no toca (el ajuste automático
+  sólo agrega, nunca modifica una columna existente). Los dos hacen falta, pero ninguno reemplaza al
+  otro.
+- **EU-365 se puede partir:** la mitad ejecutable es que `seed-local.sh` corrija el esquema solo,
+  siguiendo el precedente del ENUM de roles. La otra mitad —aplicarlo en la base del ambiente
+  compartido— necesita acceso a esa base, que Facundo no tiene.
+- **Ya no quedan bugs sueltos fáciles.** Lo abierto es EU-365, EU-364 (migraciones versionadas, el
+  más grande), EU-359 (cerrar el bucket de fotos; necesita acceso a AWS) y EU-399 (los dos juegos de
+  datos de prueba; espera una decisión, no código). Aparte están los 8 epics viejos sin asignar, cuyo
+  cierre sigue sin decidirse desde agosto.
+
 **El botón de cerrar sesión funciona**, aunque la prueba de interfaz de esta tanda lo reportó como
 roto: se comprobó a mano que saca de la pantalla y lleva al login sin recargar. Fue cosa del entorno
 de prueba, no de la aplicación.
