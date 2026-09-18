@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -15,8 +17,6 @@ import org.mockito.quality.Strictness;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,7 +32,6 @@ class ReturnFoundObjectServiceTest {
     @Mock IReturnFoundObjectRepository returnFoundObjectRepository;
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock ObjectStorage s3Service;
-    @Mock ExecutorService executorService;
     @Mock NotificationService notificationService;
     @Mock IRewardExclusionRepository rewardExclusionRepository;
     @Mock InAppNotificationService inAppNotificationService;
@@ -47,7 +46,7 @@ class ReturnFoundObjectServiceTest {
     void setUp() {
         service = new ReturnFoundObjectService(
                 organizationRepository, userRepository, returnFoundObjectRepository,
-                foundObjectRepository, s3Service, executorService, notificationService,
+                foundObjectRepository, s3Service, notificationService,
                 rewardExclusionRepository,
                 inAppNotificationService, emailTemplateService, fraudDetectionService,
                 fraudBlockService, lostObjectService);
@@ -89,29 +88,7 @@ class ReturnFoundObjectServiceTest {
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
-        Future<Void> voidFuture = mock(Future.class);
-        when(voidFuture.get()).thenReturn(null);
-        Future<ReturnFoundObject> saveFuture = mock(Future.class);
-
         ArgumentCaptor<ReturnFoundObject> savedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
-
-        // Stub para submit(Callable): ejecuta sincrónicamente y devuelve el resultado.
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        // Stub para submit(Runnable): ejecuta sincrónicamente y devuelve Future<null>.
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
 
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -163,24 +140,6 @@ class ReturnFoundObjectServiceTest {
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
-        // Stub para submit(Callable): ejecuta sincrónicamente y devuelve el resultado.
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        // Stub para submit(Runnable): ejecuta sincrónicamente y devuelve Future<null>.
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
-
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -228,22 +187,6 @@ class ReturnFoundObjectServiceTest {
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
-
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
 
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -322,22 +265,6 @@ class ReturnFoundObjectServiceTest {
                 .thenReturn(Optional.empty());
         when(fraudBlockService.isUserBlocked(99L)).thenReturn(true);
 
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
-
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -379,22 +306,6 @@ class ReturnFoundObjectServiceTest {
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
-
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
 
@@ -433,22 +344,6 @@ class ReturnFoundObjectServiceTest {
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
-
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
 
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -491,22 +386,6 @@ class ReturnFoundObjectServiceTest {
         when(userRepository.getByUsername("julia@mail.com")).thenReturn(retirador);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
-
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
 
         // La devolucion guardada recibe su id, que es lo que despues identifica la encuesta.
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
@@ -551,22 +430,6 @@ class ReturnFoundObjectServiceTest {
         when(organizationRepository.existsById(1L)).thenReturn(true);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
-
-        doAnswer(inv -> {
-            java.util.concurrent.Callable<?> callable = inv.getArgument(0);
-            Object result = callable.call();
-            Future<?> f = mock(Future.class);
-            doReturn(result).when(f).get();
-            return f;
-        }).when(executorService).submit(any(java.util.concurrent.Callable.class));
-
-        doAnswer(inv -> {
-            Runnable r = inv.getArgument(0);
-            r.run();
-            Future<?> f = mock(Future.class);
-            doReturn(null).when(f).get();
-            return f;
-        }).when(executorService).submit(any(Runnable.class));
 
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -653,5 +516,122 @@ class ReturnFoundObjectServiceTest {
         assertThat(dto.getFirstName()).isEqualTo("Marina");
         assertThat(dto.getLastName()).isEqualTo("Quiroga");
         assertThat(dto.getDNI()).isEqualTo("12345678");
+    }
+
+    // ----------------------------------------------------------------------------------------
+    // EU-408: una devolución se registra completa o no se registra. Los tres pasos (foto, registro
+    // y marca de "devuelto") corrían en paralelo: si uno fallaba, los otros quedaban aplicados y el
+    // objeto figuraba entregado sin entrega registrada, sin forma de volver a intentarlo.
+    // ----------------------------------------------------------------------------------------
+
+    /** Datos mínimos de una devolución válida, para los casos de falla de EU-408. */
+    private ReturnFoundObjectCommand comandoDeDevolucion() {
+        return ReturnFoundObjectCommand.builder()
+                .firstName("Marina").lastName("Quiroga")
+                .DNI("12345678").phoneNumber("3511234567")
+                .foundObjectUUID("uuid-123").organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+    }
+
+    private UserEurekapp empleadoDeLaOrganizacion(Organization org) {
+        return UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+    }
+
+    private void devolucionEnCurso(Organization org) {
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    @Test
+    void siFallaLaFoto_elObjetoNoQuedaMarcadoComoDevuelto() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        doThrow(new RuntimeException("S3 caído"))
+                .when(s3Service).putObject(any(byte[].class), anyString());
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org)))
+                .isInstanceOf(ApiException.class);
+
+        // Nada se registró ni se marcó: el objeto sigue disponible para entregarse.
+        verify(returnFoundObjectRepository, never()).save(any());
+        verify(foundObjectRepository, never()).markAsReturned(anyString());
+    }
+
+    @Test
+    void siFallaElRegistro_elObjetoNoQuedaMarcadoComoDevuelto() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
+                .thenThrow(new RuntimeException("la base rechazó la fila"));
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org)))
+                .isInstanceOf(ApiException.class);
+
+        verify(foundObjectRepository, never()).markAsReturned(anyString());
+    }
+
+    @Test
+    void siFallaElControlDeFraude_seDeshaceElRegistroYElObjetoSigueDisponible() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        doThrow(new RuntimeException("no se pudo evaluar el fraude"))
+                .when(fraudDetectionService).detectFraudForReturn(any());
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org)))
+                .isInstanceOf(RuntimeException.class);
+
+        verify(returnFoundObjectRepository).delete(any(ReturnFoundObject.class));
+        verify(foundObjectRepository, never()).markAsReturned(anyString());
+    }
+
+    @Test
+    void siFallaLaMarcaDeDevuelto_seDeshaceElRegistroDeLaEntrega() {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        doThrow(new RuntimeException("Weaviate no responde"))
+                .when(foundObjectRepository).markAsReturned("uuid-123");
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org)))
+                .isInstanceOf(ApiException.class);
+
+        // Sin registro de entrega colgado: la organización puede volver a registrar la devolución.
+        verify(returnFoundObjectRepository).delete(any(ReturnFoundObject.class));
+    }
+
+    @Test
+    void laMarcaDeDevueltoEsElUltimoPaso() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+
+        service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org));
+
+        InOrder orden = inOrder(s3Service, returnFoundObjectRepository, fraudDetectionService, foundObjectRepository);
+        orden.verify(s3Service).putObject(any(byte[].class), anyString());
+        orden.verify(returnFoundObjectRepository).save(any(ReturnFoundObject.class));
+        orden.verify(fraudDetectionService).detectFraudForReturn(any());
+        orden.verify(foundObjectRepository).markAsReturned("uuid-123");
+        verify(returnFoundObjectRepository, never()).delete(any(ReturnFoundObject.class));
+    }
+
+    @Test
+    void siFallaElAvisoALasBusquedas_laDevolucionYaEntregadaNoSeCae() throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        doThrow(new RuntimeException("no se pudieron actualizar las búsquedas"))
+                .when(lostObjectService).onObjectReturned(anyString(), any());
+
+        // El objeto ya se entregó en el mostrador: un aviso posterior que falla no puede convertir
+        // una entrega hecha en un error.
+        service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org));
+
+        verify(foundObjectRepository).markAsReturned("uuid-123");
+        verify(returnFoundObjectRepository, never()).delete(any(ReturnFoundObject.class));
     }
 }

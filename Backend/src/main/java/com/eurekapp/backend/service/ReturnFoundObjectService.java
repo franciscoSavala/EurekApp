@@ -24,9 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 @Service
 public class ReturnFoundObjectService {
@@ -45,7 +42,6 @@ public class ReturnFoundObjectService {
     private final IReturnFoundObjectRepository returnFoundObjectRepository;
     private final FoundObjectRepository foundObjectRepository;
     private final ObjectStorage s3Service;
-    private final ExecutorService executorService;
     private final NotificationService notificationService;
     private final IRewardExclusionRepository rewardExclusionRepository;
     private final InAppNotificationService inAppNotificationService;
@@ -58,7 +54,7 @@ public class ReturnFoundObjectService {
                                     IUserRepository userRepository,
                                     IReturnFoundObjectRepository returnFoundObjectRepository,
                                     FoundObjectRepository foundObjectRepository, ObjectStorage s3Service,
-                                    ExecutorService executorService, NotificationService notificationService,
+                                    NotificationService notificationService,
                                     IRewardExclusionRepository rewardExclusionRepository,
                                     InAppNotificationService inAppNotificationService,
                                     EmailTemplateService emailTemplateService,
@@ -70,7 +66,6 @@ public class ReturnFoundObjectService {
         this.returnFoundObjectRepository = returnFoundObjectRepository;
         this.foundObjectRepository = foundObjectRepository;
         this.s3Service = s3Service;
-        this.executorService = executorService;
         this.notificationService = notificationService;
         this.rewardExclusionRepository = rewardExclusionRepository;
         this.inAppNotificationService = inAppNotificationService;
@@ -152,18 +147,22 @@ public class ReturnFoundObjectService {
             }
         }
 
-        // Actualizamos el objeto en la BD vectorial para marcarlo como devuelto.
-        //foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
-        Future<Void> updateFoundObjectFuture = (Future<Void>) executorService.submit(() -> foundObjectRepository.markAsReturned(command.getFoundObjectUUID()));
-
-
-
                         // 4- INSERT DE FOTO DE QUIEN SE LLEVA EL OBJETO
+        // EU-408: los tres pasos de la devolución (foto, registro y marca de "devuelto") corrían en
+        // paralelo, así que si uno fallaba los otros quedaban aplicados igual: el objeto figuraba
+        // entregado sin entrega registrada, y la organización ya no podía volver a registrarla.
+        // Ahora van en orden, y la marca de "devuelto" es el último paso: mientras algo pueda
+        // fallar, el objeto sigue disponible para entregarse.
         // Generamos de forma aleatoria un ID para la foto de la persona que se lleva el objeto.
         String personPhotoUUID = UUID.randomUUID().toString();
         // Convertimos la foto en bytes, para poder enviarla en una request.
         final byte[] imageBytes = command.getImage().getBytes();
-        Future<Void> uploadImageFuture = (Future<Void>) executorService.submit(() -> s3Service.putObject(imageBytes,personPhotoUUID));
+        try {
+            s3Service.putObject(imageBytes, personPhotoUUID);
+        } catch (Exception e) {
+            log.error("EU-408: falló la subida de la foto de la devolución. {}", e.toString());
+            throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
 
 
 
@@ -186,30 +185,44 @@ public class ReturnFoundObjectService {
         // despues permite abrirla desde el correo sin exponer el id.
         rfo.setFeedbackToken(UUID.randomUUID().toString());
         // Guardar el objeto devuelto
-        //returnFoundObjectRepository.save(rfo);
-        Future<ReturnFoundObject> saveReturnFoundObjectFuture = (Future<ReturnFoundObject>) executorService.submit(() -> returnFoundObjectRepository.save(rfo));
-
-
-
-                    // 6- EJECUCIÓN ASÍNCRONA DE LAS TRANSACCIONES
-        // Ejecutamos las transacciones de forma asíncrona
         try {
-            uploadImageFuture.get();
-            saveReturnFoundObjectFuture.get();
-            updateFoundObjectFuture.get();
-        } catch (ExecutionException | InterruptedException e){
-            log.error(e.toString());
+            returnFoundObjectRepository.save(rfo);
+        } catch (Exception e) {
+            log.error("EU-408: falló el registro de la devolución. {}", e.toString());
             throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-        // Control de fraude OBLIGATORIO sobre la devolución (EU-285): una devolución no se
+                    // 6- CONTROL DE FRAUDE Y CIERRE DE LA DEVOLUCIÓN
+        // Control de fraude OBLIGATORIO sobre la devolucion (EU-285): una devolucion no se
         // considera completada sin pasar por el control. Si el control falla, el error se
-        // propaga y la operación NO se da por exitosa.
-        fraudDetectionService.detectFraudForReturn(rfo);
+        // propaga y la operacion NO se da por exitosa.
+        // EU-408: y como todavía no se marcó nada, se deshace el registro para que la entrega se
+        // pueda volver a intentar.
+        try {
+            fraudDetectionService.detectFraudForReturn(rfo);
+        } catch (Exception e) {
+            undoReturnRecord(rfo, "el control de fraude", e);
+            throw e;
+        }
 
-        // EU-396: las búsquedas "Por retirar" que esperaban este objeto se enteran de la entrega.
-        lostObjectService.onObjectReturned(command.getFoundObjectUUID(),
-                user != null ? user.getUsername() : null);
+        // Marca de "devuelto" en el catálogo: el último paso, y el que da la devolución por hecha.
+        try {
+            foundObjectRepository.markAsReturned(command.getFoundObjectUUID());
+        } catch (Exception e) {
+            undoReturnRecord(rfo, "la marca de devuelto", e);
+            throw new ApiException("upload_error", "There was an error registering the return of the object", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        // EU-396: las busquedas "Por retirar" que esperaban este objeto se enteran de la entrega.
+        // EU-408: de acá en más el objeto ya se entregó; lo que falle se registra, pero no tira
+        // abajo una devolución que en el mostrador ya ocurrió.
+        try {
+            lostObjectService.onObjectReturned(command.getFoundObjectUUID(),
+                    user != null ? user.getUsername() : null);
+        } catch (Exception e) {
+            log.warn("No se pudo actualizar el estado de las búsquedas del objeto {}: {}",
+                    command.getFoundObjectUUID(), e.getMessage());
+        }
 
                     // 7- NOTIFICACIÓN AL FINDER + ACTUALIZACIÓN DE XP
         UserEurekapp finderProxy = foundObject.getObjectFinderUser();
@@ -301,6 +314,22 @@ public class ReturnFoundObjectService {
                 .returnDateTime(rfo.getDatetimeOfReturn())
                 .phoneNumber(phoneNumber)
                 .build();
+    }
+
+    /**
+     * EU-408: deshace el registro de una devolución que no llegó a completarse, para que el objeto
+     * siga disponible y la entrega se pueda volver a registrar. Si ni siquiera se puede borrar, se
+     * deja asentado: el error que se le devuelve a quien atiende es el de la falla original.
+     */
+    private void undoReturnRecord(ReturnFoundObject rfo, String failedStep, Exception cause) {
+        log.error("EU-408: falló {} de la devolución del objeto {}; se deshace el registro. {}",
+                failedStep, rfo.getFoundObjectUUID(), cause.toString());
+        try {
+            returnFoundObjectRepository.delete(rfo);
+        } catch (Exception e) {
+            log.error("EU-408: no se pudo deshacer el registro de la devolución del objeto {}. {}",
+                    rfo.getFoundObjectUUID(), e.toString());
+        }
     }
 
     /**
