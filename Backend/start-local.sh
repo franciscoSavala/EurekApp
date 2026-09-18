@@ -104,6 +104,46 @@ done
 echo ""
 success "MySQL listo"
 
+# ─── 5-bis. Rehacer la base si arrastra el esquema de fraude viejo (EU-365) ────
+# La tabla fraud_alert quedó con dos columnas en su forma anterior al rediseño: organization_id como
+# NOT NULL (la alerta es cross-organización y va en null a propósito) y status como ENUM con valores
+# que ya no existen. Hibernate corre con ddl-auto: update, que **sólo agrega**: jamás modifica una
+# columna que ya existe. Por eso esas dos quedan congeladas y todo INSERT de alerta termina en
+# ROLLBACK: la detección de fraude no genera nada y el reporte queda vacío, sin ningún error visible.
+# Sólo afecta a bases creadas antes del rediseño; una base nueva sale bien sola.
+#
+# Se rehace la base ENTERA en vez de parchear la tabla, porque no hay datos que valga la pena
+# conservar. No se dropea sólo fraud_alert a propósito: tres claves foráneas le apuntan —una de
+# ellas NOT NULL, fraud_block.fraud_alert_id— así que el DROP fallaría, y forzarlo dejaría bloqueos
+# huérfanos que ddl-auto update tampoco limpia (nunca borra nada).
+#
+# Idempotente y autodesactivable: sobre una base ya correcta no hace nada. Se puede borrar este
+# bloque cuando entre EU-364 (migraciones versionadas).
+MYSQL_ROOT="docker exec -i eurekapp-mysql mysql -u root -proot -N -B"
+LEGACY_FRAUD=$($MYSQL_ROOT 2>/dev/null <<'SQL'
+SELECT COUNT(*) FROM information_schema.COLUMNS
+ WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'fraud_alert'
+   AND ( (COLUMN_NAME = 'status'          AND DATA_TYPE   = 'enum')
+      OR (COLUMN_NAME = 'organization_id' AND IS_NULLABLE = 'NO'  ) );
+SQL
+)
+if [[ "${LEGACY_FRAUD:-0}" -gt 0 ]]; then
+  warn "La base arrastra el esquema de fraude anterior al rediseño (EU-365)."
+  warn "Se rehace entera; el esquema correcto lo regenera el backend al arrancar."
+  $MYSQL_ROOT <<'SQL'
+DROP DATABASE IF EXISTS eurekapp;
+CREATE DATABASE eurekapp CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON eurekapp.* TO 'eurekapp'@'%';
+FLUSH PRIVILEGES;
+SQL
+  success "Base recreada, vacía."
+  warn "OJO: cuando termine de arrancar el backend, corré el seed en otra terminal:"
+  warn "     bash Backend/seed-local.sh"
+else
+  info "Esquema de fraude al día (EU-365): no hay nada que rehacer."
+fi
+echo ""
+
 # ─── 6. Esperar Weaviate (healthcheck) ───────────────────────────────────────
 info "Esperando que Weaviate esté saludable..."
 i=0
