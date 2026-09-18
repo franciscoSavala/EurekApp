@@ -80,6 +80,66 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
+## Próximo paso pedido (2026-09-18): sembrar datos de fraude consistentes
+
+**Estado: diseño sin empezar.** Se cortó acá para arrancar en un chat limpio.
+
+**El problema.** Aun con la base rehecha (EU-365), las pantallas de fraude y de reclamos arrancan
+**vacías**: el seed planta 0 alertas y 0 reclamos desde el rediseño. Así no se pueden validar las
+cuatro stories EN TESTING.
+
+**El criterio que fijó Facundo:** las alertas no se fabrican. Si una alerta dice que alguien retiró
+muchos objetos, **tienen que existir las devoluciones que la provocaron**. El seed viejo las
+insertaba a mano y por eso quedó inconsistente (EU-393: sospechosos apuntando a usuarios borrados).
+
+**El patrón a seguir** (ya establecido, no inventar otro): cargar **una sola vez por la API** para
+que las reglas de negocio armen las estructuras válidas, después volcar el resultado al snapshot
+como INSERT literales. Nadie más vuelve a tocar la API ni S3. El script de carga por API
+**salió del repo** (commit `29085d0`): es de uso exclusivo de Facundo porque resube las 15 fotos.
+`dump_seed.sh` es la mitad que sí sirve al equipo.
+
+### Lo que ya se averiguó (no volver a investigarlo)
+
+**Las tres reglas de detección** agrupan todas **por DNI**:
+
+- `CASE_1` — retiros repetidos del mismo DNI.
+- `CASE_2` — mismo par (quien registró el objeto, DNI): acuerdo entre ambos.
+- `CASE_3` — mismo par (empleado que entrega, DNI): complicidad del empleado.
+
+Una alerta puede marcar varios casos a la vez. La config tiene umbral, ventana en días y duración
+del bloqueo (`FraudDetectionConfig`).
+
+**Identidad en una devolución:** el DNI es **obligatorio**; el vínculo al usuario (`user_id`) es
+**opcional** y es una clave foránea, no el mail. Por eso el bloqueo tiene dos blancos separados y
+ambos opcionales: `target_dni` y `target_user`. **Consecuencia útil: se puede armar un foco de
+fraude con un DNI que no corresponda a ningún usuario del seed.**
+
+**Qué necesita ver cada story:** EU-225, alertas activas **y** falsas alarmas (es una comparación);
+EU-226, alguien con 2+ alertas; EU-227, alertas repartidas **en el tiempo**; EU-277, bloqueos
+vigentes.
+
+**La tensión del diseño:** EU-227 pide meses de historia, pero la ventana de detección es de días.
+No se puede generar de una sentada algo que se vea como evolución. **Propuesta:** generar todo por
+API (así los casos, sospechosos y bloqueos salen bien armados) y al volcar al snapshot **correr las
+fechas hacia atrás**. Mismas filas y mismas referencias; sólo cambian los timestamps.
+
+### Lo que falta decidir antes de diseñar
+
+1. **EU-399 primero, y es bloqueante de verdad.** Su descripción dice que las devoluciones y alertas
+   de prueba **cuelgan de los identificadores de los objetos**. Si se unifican los dos juegos de
+   datos, cambian esos identificadores y las devoluciones que diseñemos hay que rehacerlas.
+2. Cuántos focos de fraude (sugerido: 4 o 5, uno por combinación de casos).
+3. Qué personajes: reutilizar de los 16 usuarios del seed, o DNIs nuevos sin usuario.
+4. Sobre qué ventana de tiempo va la evolución (¿tres meses, seis?).
+
+**No tiene ítem de Jira.** Ninguno de los abiertos lo cubre: EU-365 es rehacer la base y EU-399 es
+la decisión sobre los objetos. Hay que crear uno nuevo.
+
+### Otro pendiente chico
+
+El título de **EU-365** sigue diciendo "propagar el arreglo" cuando ya no hay arreglo que propagar.
+Falta decidir si se le cambia.
+
 ## Prioridad de los ítems abiertos por poder de desbloqueo (2026-09-18)
 
 Hecho. Se leyeron los vínculos "blocks" / "is blocked by" de los **24 ítems abiertos**. Resultado:
