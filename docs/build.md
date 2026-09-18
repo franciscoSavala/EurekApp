@@ -171,39 +171,47 @@ Dato pendiente de verificar: **no se sabe dónde corre MySQL en la EC2**. `setup
 Docker, Weaviate y nginx, pero MySQL no, y `DATABASE_URL` es un secret que podría apuntar a cualquier
 lado. Hay que entrar a mirar antes de planificar la mudanza.
 
-### Orden propuesto
+### Orden propuesto (reevaluado tras crear EU-410)
 
-1. **EU-365 — desbloquea 4, y ahora es barato.** Libera EU-225, EU-226, EU-227 y EU-277, las cuatro
-   stories EN TESTING, y es lo único que separa a **EU-226** de cerrarse. Ya no es escribir un parche:
-   es rehacer la base del ambiente compartido, recargar los datos de prueba y avisarle al equipo que
-   rehaga la suya. Lo único que falta es el acceso a esa máquina.
-2. **EU-360 — desbloquea 0 por vínculos, condiciona todo lo demás.** Los deploys fallan desde el 7/8:
-   nada de lo mergeado llega al ambiente compartido. No sustituye a EU-365 (uno mueve código, el otro
-   rehace la base). Si se decide la mudanza a Railway, conviene no tocarlo hasta entonces: se
-   arreglaría de arrastre.
-3. **EU-364 — desbloquea 0, y ahora es la única red de contención.** Migraciones versionadas. Al
-   caerse el parche intermedio de EU-365, este ítem pasa a ser lo único que impide que el esquema se
-   vuelva a desincronizar. Subió de importancia aunque no desbloquee nada.
-4. **EU-399 — desbloquea 0, espera una decisión, no código.** Los dos juegos de datos de prueba.
-   Barato de cerrar en cuanto se defina cuál queda, y conviene resolverlo *antes* de recargar la base
-   en EU-365: define con qué datos se la repuebla.
-5. **EU-338 — desbloquea 0.** La búsqueda dice "no hay coincidencias" cuando en realidad falló. Único
-   bug suelto que no depende de accesos externos.
-6. **EU-359 — desbloquea 0, bloqueado por acceso.** Cerrar el bucket de fotos de S3 necesita acceso a
-   AWS. Ojo: **la mudanza a Railway no lo resuelve**, porque las fotos se quedan en S3.
-7. **Los 8 epics viejos y los spykes de documentación** (EU-5, EU-6, EU-7, EU-9, EU-10, EU-39, EU-45,
-   EU-53; EU-138, EU-140, EU-141 y sus subtareas EU-143/144/145). No desbloquean nada y su cierre
-   sigue sin decidirse desde agosto. Es cierre administrativo, no trabajo.
+**Cambió el grafo:** ya no hay una sola arista. **EU-399 pasó a bloquear a EU-410**, así que dejó
+de ser un ítem suelto y se convirtió en el arranque de una cadena.
+
+1. **EU-365 — desbloquea 4, y es barato.** Libera EU-225, EU-226, EU-227 y EU-277, y es lo único que
+   separa a **EU-226** de cerrarse. Ya no es escribir código: es rehacer la base del ambiente
+   compartido, recargar los datos de prueba y avisarle al equipo. Sólo falta el acceso.
+2. **EU-399 — desbloquea 1, y es el ítem más barato de toda la lista.** Es una **decisión**, no
+   código: cuál de los dos juegos de datos queda. Subió del puesto 4 al 2 porque ahora bloquea a
+   EU-410, y porque decidirlo tarde obliga a rehacer las devoluciones que se diseñen.
+3. **EU-410 — desbloquea 0 por vínculos, pero es lo que hace verificables a las cuatro stories.**
+   Sembrar alertas de fraude consistentes. Ver la nota de abajo: para EU-227 es un bloqueo real.
+4. **EU-360 — desbloquea 0, condiciona todo lo demás.** Los deploys fallan desde el 7/8. Si se
+   decide la mudanza a Railway, conviene no tocarlo: se arreglaría de arrastre.
+5. **EU-364 — desbloquea 0, única red de contención.** Migraciones versionadas. Al caerse el parche
+   intermedio de EU-365, es lo único que impide que el esquema se vuelva a desincronizar.
+6. **EU-338 — desbloquea 0.** Único bug suelto que no depende de accesos externos.
+7. **EU-359 — desbloquea 0, bloqueado por acceso.** Cerrar el bucket de fotos. **La mudanza a
+   Railway no lo resuelve**: las fotos se quedan en S3.
+8. **Los 8 epics viejos y los spykes de documentación.** Cierre administrativo, no trabajo.
+
+### Una duda honesta sobre EU-410
+
+No se lo vinculó como bloqueante de las cuatro stories, y vale explicar por qué. Con EU-365 hecho se
+pueden generar alertas **a mano**, como hizo Evelyn, y validar. Así que en general EU-410 no bloquea:
+hace que la validación sea repetible en lugar de artesanal.
+
+**La excepción es EU-227.** Pide ver la evolución de los casos a lo largo del tiempo, y la detección
+mira una ventana de pocos días: no hay forma manual de fabricar meses de historia. Para esa story,
+EU-410 **sí** es un bloqueo real. Falta decidir si se lo vincula como tal.
 
 ### Lo que dice este orden
 
-El grafo casi no discrimina: **una sola arista** contra veintitrés ítems sueltos. La lectura útil no
-es "ordenar veinticuatro cosas" sino que **EU-365 vale por sí solo más que el resto junto** — y desde
-hoy, además, casi no cuesta. Del puesto 2 para abajo el orden es criterio, no dependencias.
+Los tres primeros puestos son, en conjunto, **muy baratos**: uno es rehacer una base, otro es tomar
+una decisión, y recién el tercero es trabajo de verdad. Entre los tres se destraban las cuatro
+stories EN TESTING, que es lo único que queda entre el proyecto y cerrar el circuito de fraude.
 
-Y hay un cambio de forma respecto de la primera versión de esta lista: el cuello de botella dejó de
-ser técnico y pasó a ser **de acceso**. EU-365 y EU-359 esperan credenciales, no código. Por eso la
-decisión sobre Railway pesa más que cualquier reordenamiento.
+Y sigue en pie lo de la versión anterior: el cuello de botella es **de acceso**, no técnico. EU-365 y
+EU-359 esperan credenciales, no código. Por eso la decisión sobre Railway pesa más que cualquier
+reordenamiento.
 
 **El botón de cerrar sesión funciona**, aunque la prueba de interfaz de esta tanda lo reportó como
 roto: se comprobó a mano que saca de la pantalla y lleva al login sin recargar. Fue cosa del entorno
