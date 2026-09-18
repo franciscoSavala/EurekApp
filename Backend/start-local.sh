@@ -106,8 +106,13 @@ success "MySQL listo"
 
 # ─── 5-bis. Rehacer la base si arrastra el esquema de fraude viejo (EU-365) ────
 # La tabla fraud_alert quedó con dos columnas en su forma anterior al rediseño: organization_id como
-# NOT NULL (la alerta es cross-organización y va en null a propósito) y status como ENUM con valores
-# que ya no existen. Hibernate corre con ddl-auto: update, que **sólo agrega**: jamás modifica una
+# NOT NULL (la alerta es cross-organización y va en null a propósito) y status como ENUM con los
+# valores viejos ('PENDING', 'CONFIRMED_FRAUD') en lugar de los dos actuales.
+#
+# OJO con la condición: lo que delata una base vieja son los VALORES del enum, no que sea un enum.
+# Hibernate genera igual un ENUM nativo de MySQL a partir del enum de Java —en una base sana queda
+# enum('ACTIVE','FALSE_POSITIVE')—, así que preguntar por el tipo daría verdadero siempre y este
+# bloque dropearía la base en cada arranque. Hibernate corre con ddl-auto: update, que **sólo agrega**: jamás modifica una
 # columna que ya existe. Por eso esas dos quedan congeladas y todo INSERT de alerta termina en
 # ROLLBACK: la detección de fraude no genera nada y el reporte queda vacío, sin ningún error visible.
 # Sólo afecta a bases creadas antes del rediseño; una base nueva sale bien sola.
@@ -123,8 +128,9 @@ MYSQL_ROOT="docker exec -i eurekapp-mysql mysql -u root -proot -N -B"
 LEGACY_FRAUD=$($MYSQL_ROOT 2>/dev/null <<'SQL'
 SELECT COUNT(*) FROM information_schema.COLUMNS
  WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'fraud_alert'
-   AND ( (COLUMN_NAME = 'status'          AND DATA_TYPE   = 'enum')
-      OR (COLUMN_NAME = 'organization_id' AND IS_NULLABLE = 'NO'  ) );
+   AND ( (COLUMN_NAME = 'status' AND (   COLUMN_TYPE LIKE '%PENDING%'
+                                      OR COLUMN_TYPE LIKE '%CONFIRMED_FRAUD%' ))
+      OR (COLUMN_NAME = 'organization_id' AND IS_NULLABLE = 'NO') );
 SQL
 )
 if [[ "${LEGACY_FRAUD:-0}" -gt 0 ]]; then
