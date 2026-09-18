@@ -95,6 +95,20 @@ class EmailTemplateServiceTest {
     }
 
     @Test
+    void objectMatchFound_diceQueElObjetoSeReclamaDesdeNotificaciones() {
+        // EU-409: el correo termina diciendo dónde mirar. El objeto sólo se ve y se reclama desde el
+        // aviso de coincidencia en "Notificaciones"; desde "Mis búsquedas" no se llega, así que
+        // "ingresá a EurekApp" a secas dejaba a la persona sin encontrar lo que le avisaron.
+        String html = service.buildObjectMatchFoundEmail(
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba",
+                java.util.List.of("Mochila azul con llavero"), null);
+
+        assertThat(html)
+                .contains("Notificaciones")
+                .contains("Este es mi objeto");
+    }
+
+    @Test
     void objectClaimed_noLlevaImagen() {
         // El correo va sin foto a propósito: el objeto ya lo vio en la aplicación al reconocerlo, y
         // los clientes de correo suelen bloquear las imágenes remotas y mostrar el texto alternativo

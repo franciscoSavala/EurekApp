@@ -22,8 +22,13 @@
       <p style="margin: 0; color: #333;" th:text="${orgName}">Organización</p>
       <p style="margin: 4px 0 0 0; color: #333;" th:text="${address}"></p>
     </div>
+    <!-- EU-409: el correo decía "ingresá a EurekApp para más detalles" sin decir a dónde. El objeto
+         sólo se ve y se reclama desde el aviso de coincidencia en "Notificaciones": desde "Mis
+         búsquedas" no se llega. -->
     <p style="color: #333; line-height: 1.6; margin-top: 20px;">
-      Si reconocés el objeto, ingresá a EurekApp para más detalles.
+      Si reconocés el objeto, ingresá a EurekApp y entrá a <strong>Notificaciones</strong>: ahí vas a
+      encontrar este aviso, con los detalles del objeto y la opción <strong>“Este es mi objeto”</strong>
+      para reclamarlo.
     </p>
   </th:block>
 </div>
