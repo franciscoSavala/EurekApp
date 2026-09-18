@@ -80,29 +80,70 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
-## Próximo paso pedido (2026-09-18)
+## Prioridad de los ítems abiertos por poder de desbloqueo (2026-09-18)
 
-**Reordenar los ítems abiertos de Jira según cuántos otros ítems desbloquea cada uno**, para
-priorizar el trabajo. No se llegó a hacer: el chat se limpió antes por tamaño. Se lee de los
-vínculos "blocks" / "is blocked by" de cada ítem en Jira.
+Hecho. Se leyeron los vínculos "blocks" / "is blocked by" de los **24 ítems abiertos**. Resultado:
+entre lo abierto **hay un solo ítem que destraba a otros**. Los catorce bloqueos restantes que
+figuran en las cuatro stories EN TESTING ya están en Done (EU-335, EU-352, EU-354, EU-355, EU-363,
+EU-379, EU-381, EU-384, EU-388, EU-390, EU-391, EU-392, EU-393, EU-395). Las cuatro stories no
+esperan un pelotón de arreglos: esperan uno solo.
 
-Lo que ya se sabe de ese mapa:
+### Antes de la lista: una decisión que la reordena entera
 
-- **EU-365 es el mayor destrabador: bloquea EU-225, EU-226, EU-227 y EU-277** (las cuatro stories que
-  siguen EN TESTING). Es el esquema de la tabla de alertas de fraude, que quedó con dos columnas en
-  su forma vieja: mientras siga así no se genera ninguna alerta y el reporte no tiene datos que
-  mostrar, así que esas cuatro no se pueden validar.
-- **Arreglar el deploy (EU-360) NO destraba a esas cuatro.** Son cosas distintas: el deploy mueve
-  código, y acá lo que está mal es el esquema de la base, que el deploy no toca (el ajuste automático
-  sólo agrega, nunca modifica una columna existente). Los dos hacen falta, pero ninguno reemplaza al
-  otro.
-- **EU-365 se puede partir:** la mitad ejecutable es que `seed-local.sh` corrija el esquema solo,
-  siguiendo el precedente del ENUM de roles. La otra mitad —aplicarlo en la base del ambiente
-  compartido— necesita acceso a esa base, que Facundo no tiene.
-- **Ya no quedan bugs sueltos fáciles.** Lo abierto es EU-365, EU-364 (migraciones versionadas, el
-  más grande), EU-359 (cerrar el bucket de fotos; necesita acceso a AWS) y EU-399 (los dos juegos de
-  datos de prueba; espera una decisión, no código). Aparte están los 8 epics viejos sin asignar, cuyo
-  cierre sigue sin decidirse desde agosto.
+**Facundo confirmó que en los entornos compartidos no hay nada que valga la pena conservar** — ni
+datos de personas reales ni nada que no se pueda regenerar. Se puede hacer borrón y cuenta nueva.
+
+Eso cambia EU-365 de raíz y quedó anotado en su ticket. El propio diagnóstico dice que *el problema
+sólo aparece en bases creadas antes del rediseño; una base nueva sale bien sola*. Entonces no hace
+falta el parche en `seed-local.sh` ni las tres sentencias de corrección: **se rehace la base y listo**.
+EU-365 pasó de ser trabajo de código a ser trabajo de acceso.
+
+Encima de todo esto hay una decisión abierta que no es un ítem de Jira: **mudar el ambiente
+compartido a Railway**. Hoy es una única EC2 que aloja backend, MySQL y Weaviate; el frontend web
+vive aparte en S3+CloudFront y las fotos en otro bucket. Estimación: medio día a un día, casi todo
+configuración. El enganche real es que `seed-local.sh` llega a la base con `docker exec` sobre un
+contenedor local (línea 12) y hardcodea Weaviate (línea 13) — pero ambas cosas están centralizadas en
+una variable cada una, así que son dos líneas. `init-weaviate.sh` ya acepta `WEAVIATE_URL` por
+entorno. Las fotos se quedan en S3 sin tocar código. **Si se hace, se lleva puestos el bloqueo de
+acceso de EU-365 y probablemente EU-360.** Sin decidir.
+
+Dato pendiente de verificar: **no se sabe dónde corre MySQL en la EC2**. `setup-ec2.sh` instala Java,
+Docker, Weaviate y nginx, pero MySQL no, y `DATABASE_URL` es un secret que podría apuntar a cualquier
+lado. Hay que entrar a mirar antes de planificar la mudanza.
+
+### Orden propuesto
+
+1. **EU-365 — desbloquea 4, y ahora es barato.** Libera EU-225, EU-226, EU-227 y EU-277, las cuatro
+   stories EN TESTING, y es lo único que separa a **EU-226** de cerrarse. Ya no es escribir un parche:
+   es rehacer la base del ambiente compartido, recargar los datos de prueba y avisarle al equipo que
+   rehaga la suya. Lo único que falta es el acceso a esa máquina.
+2. **EU-360 — desbloquea 0 por vínculos, condiciona todo lo demás.** Los deploys fallan desde el 7/8:
+   nada de lo mergeado llega al ambiente compartido. No sustituye a EU-365 (uno mueve código, el otro
+   rehace la base). Si se decide la mudanza a Railway, conviene no tocarlo hasta entonces: se
+   arreglaría de arrastre.
+3. **EU-364 — desbloquea 0, y ahora es la única red de contención.** Migraciones versionadas. Al
+   caerse el parche intermedio de EU-365, este ítem pasa a ser lo único que impide que el esquema se
+   vuelva a desincronizar. Subió de importancia aunque no desbloquee nada.
+4. **EU-399 — desbloquea 0, espera una decisión, no código.** Los dos juegos de datos de prueba.
+   Barato de cerrar en cuanto se defina cuál queda, y conviene resolverlo *antes* de recargar la base
+   en EU-365: define con qué datos se la repuebla.
+5. **EU-338 — desbloquea 0.** La búsqueda dice "no hay coincidencias" cuando en realidad falló. Único
+   bug suelto que no depende de accesos externos.
+6. **EU-359 — desbloquea 0, bloqueado por acceso.** Cerrar el bucket de fotos de S3 necesita acceso a
+   AWS. Ojo: **la mudanza a Railway no lo resuelve**, porque las fotos se quedan en S3.
+7. **Los 8 epics viejos y los spykes de documentación** (EU-5, EU-6, EU-7, EU-9, EU-10, EU-39, EU-45,
+   EU-53; EU-138, EU-140, EU-141 y sus subtareas EU-143/144/145). No desbloquean nada y su cierre
+   sigue sin decidirse desde agosto. Es cierre administrativo, no trabajo.
+
+### Lo que dice este orden
+
+El grafo casi no discrimina: **una sola arista** contra veintitrés ítems sueltos. La lectura útil no
+es "ordenar veinticuatro cosas" sino que **EU-365 vale por sí solo más que el resto junto** — y desde
+hoy, además, casi no cuesta. Del puesto 2 para abajo el orden es criterio, no dependencias.
+
+Y hay un cambio de forma respecto de la primera versión de esta lista: el cuello de botella dejó de
+ser técnico y pasó a ser **de acceso**. EU-365 y EU-359 esperan credenciales, no código. Por eso la
+decisión sobre Railway pesa más que cualquier reordenamiento.
 
 **El botón de cerrar sesión funciona**, aunque la prueba de interfaz de esta tanda lo reportó como
 roto: se comprobó a mano que saca de la pantalla y lleva al login sin recargar. Fue cosa del entorno
