@@ -21,3 +21,6 @@ poc-reverse-search/
 # Tracker del rework + artefactos de asistentes (no versionar)
 REWORK-FRAUDE-RECLAMOS.md
 CLAUDE.md
+
+# Uso exclusivo de Facundo: carga por API, resube todas las fotos a S3 (EU-325)
+Backend/seed-data/reseed_via_api.sh

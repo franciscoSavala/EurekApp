@@ -12,8 +12,18 @@
 #   De paso no hace falta backend ni CLIP ni OpenAI: la corrida es de segundos y no gasta cuota.
 #
 #   La API se usó UNA vez, en el bootstrap, para que los datos salieran de las reglas de negocio
-#   reales y para subir las fotos. Ver `reseed_via_api.sh` + `dump_seed.sh` (ahí está la receta para
-#   regenerar el snapshot si alguna vez cambian los datos).
+#   reales y para subir las fotos. El script que hace esa carga NO está en el repositorio a
+#   propósito (resubiría las 15 fotos a S3 en cada corrida); para regenerar el snapshot desde un
+#   estado ya cargado, `dump_seed.sh`.
+#
+# MODELO DE ORGANIZACIÓN Y COORDENADAS (quedó fijado en el bootstrap; los datos del snapshot lo
+# respetan, así que conviene respetarlo también al agregar datos nuevos):
+#   - La organización SIEMPRE está en un objeto encontrado: es quién lo recepta y lo custodia.
+#   - Las coordenadas son la SEÑAL de dónde se encontró, no un dato de contacto:
+#       SIN coordenadas = se encontró dentro de la sede, y hereda las de la organización.
+#       CON coordenadas = se encontró en la vía pública, exactamente en ese punto.
+#   - Una búsqueda (objeto perdido) puede NO tener organización; ahí las coordenadas son el punto
+#     donde se perdió.
 #
 #   1. Preflight:  Weaviate arriba y snapshot presente.
 #   2. Limpieza:   reset_weaviate_classes.sh (drop+recreate; NO batch-delete, crashea 1.24.1).
