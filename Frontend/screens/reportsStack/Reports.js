@@ -233,24 +233,33 @@ const Reports = ({ navigation }) => {
                     </View>
                 </View>
 
-                {/* GroupBy selector */}
-                <View style={styles.row}>
-                    {["DAY", "WEEK", "MONTH"].map((g) => (
-                        <Pressable
-                            key={g}
-                            style={[styles.groupBtn, groupBy === g && styles.groupBtnActive]}
-                            onPress={() => setGroupBy(g)}
-                        >
-                            <Text
-                                style={[
-                                    styles.groupBtnText,
-                                    groupBy === g && styles.groupBtnTextActive,
-                                ]}
+                {/* EU-407: estos botones estaban pegados a las fechas y se leían como atajos de
+                    período. No cambian el período consultado: sólo cómo se agrupan los cuadros de
+                    evolución. Acá quedan aparte, rotulados y con la aclaración. Son uno solo para
+                    los tres cuadros que agrupan, así que no se repiten dentro de cada uno. */}
+                <View style={styles.groupingBlock}>
+                    <Text style={styles.label}>Agrupar por:</Text>
+                    <View style={[styles.row, { marginBottom: 8 }]}>
+                        {["DAY", "WEEK", "MONTH"].map((g) => (
+                            <Pressable
+                                key={g}
+                                style={[styles.groupBtn, groupBy === g && styles.groupBtnActive]}
+                                onPress={() => setGroupBy(g)}
                             >
-                                {g === "DAY" ? "Día" : g === "WEEK" ? "Semana" : "Mes"}
-                            </Text>
-                        </Pressable>
-                    ))}
+                                <Text
+                                    style={[
+                                        styles.groupBtnText,
+                                        groupBy === g && styles.groupBtnTextActive,
+                                    ]}
+                                >
+                                    {g === "DAY" ? "Día" : g === "WEEK" ? "Semana" : "Mes"}
+                                </Text>
+                            </Pressable>
+                        ))}
+                    </View>
+                    <Text style={styles.groupingHint}>
+                        Sólo cambia cómo se agrupan los cuadros de evolución. El período lo eligen las fechas.
+                    </Text>
                 </View>
 
                 {loadingMain && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
@@ -555,6 +564,17 @@ const styles = StyleSheet.create({
     dateText: {
         fontSize: 14,
         color: "#111818",
+        fontFamily: "PlusJakartaSans-Regular",
+    },
+    groupingBlock: {
+        backgroundColor: "#f7fafa",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+    },
+    groupingHint: {
+        fontSize: 12,
+        color: "#638888",
         fontFamily: "PlusJakartaSans-Regular",
     },
     groupBtn: {
