@@ -62,7 +62,24 @@ nunca se definió qué pasa cuando el objeto se entrega, ni cuando lo retira una
 la que guardó la búsqueda. EU-361, que introdujo el estado, sólo cubre el camino feliz. Las
 definiciones que faltaban se tomaron en la story nueva **EU-396**: la búsqueda pasa a "Retirado" si
 la retiró su dueño, o a "Retirado por alguien más" si fue otro, sin mostrar datos de terceros y sin
-cerrar nada por su cuenta. EU-382 queda abierto, bloqueado por EU-396.
+cerrar nada por su cuenta. Con EU-396 entregada, EU-382 quedó cerrado.
+
+En la tanda del 2026-09-17 salieron los tres ítems que había dejado anotados la tanda del 16/9:
+**EU-407** (Día/Semana/Mes del reporte de uso salió del bloque de fechas y quedó en su propia
+tarjeta, rotulado "Agrupar por:" y con la aclaración de que sólo cambia cómo se agrupan los cuadros;
+acá son tres los cuadros que agrupa, por eso el selector no se metió adentro de uno solo como en
+EU-358), **EU-408** (la devolución dejó de hacer sus tres pasos en paralelo: ahora van en orden y la
+marca de "devuelto" es el último, así que lo que falle antes deshace el registro y el objeto sigue
+disponible para entregarse) y **EU-409** (el correo de coincidencia dice que el objeto se ve y se
+reclama desde "Notificaciones", con la opción "Este es mi objeto"). Verificados con pruebas unitarias
+y con la app levantada.
+
+De paso se arregló el esquema de pruebas: **EU-388** (de otra persona) agregó una columna al modelo
+de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de seguridad de endpoints.
+
+**El botón de cerrar sesión funciona**, aunque la prueba de interfaz de esta tanda lo reportó como
+roto: se comprobó a mano que saca de la pantalla y lleva al login sin recargar. Fue cosa del entorno
+de prueba, no de la aplicación.
 
 El rework del feedback cerró el 2026-09-04; el de búsqueda, el 2026-08-07. Ninguno tiene trabajo
 pendiente.
