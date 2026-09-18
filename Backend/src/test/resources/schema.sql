@@ -35,5 +35,8 @@ CREATE TABLE users
     provider_type               VARCHAR(20),
     provider_id                 VARCHAR(255),
     password_reset_token        VARCHAR(10),
-    password_reset_token_expiry TIMESTAMP
+    password_reset_token_expiry TIMESTAMP,
+    -- EU-388 sumo esta columna al modelo pero no al esquema de pruebas, y desde entonces los tests
+    -- de seguridad de los endpoints fallaban por una columna inexistente.
+    fraud_alerts_seen_at        TIMESTAMP
 );
