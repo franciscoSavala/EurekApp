@@ -223,6 +223,10 @@ lado. Hay que entrar a mirar antes de planificar la mudanza.
 **Cambió el grafo:** ya no hay una sola arista. **EU-399 pasó a bloquear a EU-410**, así que dejó
 de ser un ítem suelto y se convirtió en el arranque de una cadena.
 
+**Actualización 19/09:** EU-399 se cerró (decidido: queda el juego del rework) y su ejecución se
+absorbió en **EU-410**, que pasó a ser la tarea única de rehacer los datos de prueba. La lista queda
+sin el puesto 2 anterior: ahora es EU-365, EU-410, EU-360, EU-364, EU-338, EU-359, epics.
+
 1. **EU-365 — desbloquea 4, y es barato.** Libera EU-225, EU-226, EU-227 y EU-277, y es lo único que
    separa a **EU-226** de cerrarse. Ya no es escribir código: es rehacer la base del ambiente
    compartido, recargar los datos de prueba y avisarle al equipo. Sólo falta el acceso.
