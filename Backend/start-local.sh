@@ -62,12 +62,12 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$ENV_FILE"
 
 # ─── 3. Validar claves críticas (comparación exacta con los placeholders) ─────
+# S3 en local va contra MinIO (credenciales fijas en application-local.yml), no
+# contra AWS real, así que ya no hace falta pedir acá una Access Key.
 MISSING=()
 
 [[ -z "${OPENAI_SECRET_KEY:-}"     || "${OPENAI_SECRET_KEY}"     == "sk-..."                                ]] && MISSING+=("OPENAI_SECRET_KEY")
 [[ -z "${JWT_SIGN_KEY:-}"          || "${JWT_SIGN_KEY}"          == "cambia-esto-por-un-string-largo-y-random-local" ]] && MISSING+=("JWT_SIGN_KEY")
-[[ -z "${AWS_ACCESS_KEY_ID:-}"     || "${AWS_ACCESS_KEY_ID}"     == "AKIA..."                               ]] && MISSING+=("AWS_ACCESS_KEY_ID")
-[[ -z "${AWS_SECRET_ACCESS_KEY:-}" || "${AWS_SECRET_ACCESS_KEY}" == "tu-secret-key-de-aws"                  ]] && MISSING+=("AWS_SECRET_ACCESS_KEY")
 
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   echo ""
@@ -81,8 +81,16 @@ fi
 
 success "Variables de entorno cargadas"
 
+# S3: por default va contra MinIO local (ver docker-compose.yml). Si en .env.local se descomentó
+# la sección "S3 local vs AWS real" (AWS_ACCESS_KEY_ID seteada), el backend usa el S3 real de AWS.
+if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
+  info "S3: usando AWS real (AWS_ACCESS_KEY_ID seteada en .env.local)"
+else
+  info "S3: usando MinIO local (default — ver .env.local.example para apuntar a AWS real)"
+fi
+
 # ─── 4. Levantar Docker Compose ──────────────────────────────────────────────
-info "Levantando MySQL y Weaviate con Docker Compose..."
+info "Levantando MySQL, Weaviate y MinIO con Docker Compose..."
 docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d
 
 # ─── 5. Esperar MySQL (healthcheck) ──────────────────────────────────────────
@@ -167,6 +175,24 @@ while true; do
 done
 echo ""
 success "Weaviate listo"
+
+# ─── 6-bis. Esperar MinIO (healthcheck) ──────────────────────────────────────
+info "Esperando que MinIO esté saludable..."
+i=0
+while true; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' eurekapp-minio 2>/dev/null || echo "starting")
+  if [[ "$STATUS" == "healthy" ]]; then
+    break
+  fi
+  i=$((i + 1))
+  if [[ $i -ge $MAX ]]; then
+    error "MinIO no alcanzó estado healthy luego de $((MAX * 3))s. Revisá: docker logs eurekapp-minio"
+  fi
+  echo -n "."
+  sleep 3
+done
+echo ""
+success "MinIO listo (bucket eurekapp-temp asegurado por minio-init)"
 
 # ─── 7. Inicializar schema Weaviate (idempotente) ────────────────────────────
 WEAVIATE_URL="http://localhost:8081"
@@ -268,7 +294,7 @@ echo ""
 
 cd "$SCRIPT_DIR"
 
-export OPENAI_SECRET_KEY JWT_SIGN_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+export OPENAI_SECRET_KEY JWT_SIGN_KEY
 export MAIL_USER="${MAIL_USER:-}"
 export MAIL_PASSWORD="${MAIL_PASSWORD:-}"
 
