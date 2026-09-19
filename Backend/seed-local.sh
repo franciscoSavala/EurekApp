@@ -12,12 +12,6 @@ header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
 MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
 WEAVIATE_URL="http://localhost:8081"
 
-# Cargar credenciales AWS desde .env.local si existe y AWS CLI no tiene sesión activa
-ENV_LOCAL="$(dirname "$0")/.env.local"
-if [[ -f "$ENV_LOCAL" ]]; then
-  set -a; source "$ENV_LOCAL"; set +a
-fi
-
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════╗${NC}"
 echo -e "${CYAN}${BOLD}║    EurekApp — Seed Base de Datos     ║${NC}"
@@ -629,11 +623,15 @@ VALUES
 SQL
 success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING + 1 APPROVED + 1 REJECTED + 1 CANCELLED)"
 
-# ─── 20. Upload de imagenes a S3 ─────────────────────────────────────────────
-header "Imagenes S3"
+# ─── 20. Upload de imagenes a S3 (MinIO local, ver docker-compose.yml) ───────
+header "Imagenes S3 (MinIO)"
 
 S3_BUCKET="eurekapp-temp"
-S3_REGION="sa-east-1"
+S3_ENDPOINT="http://localhost:9000"
+# Credenciales fijas de MinIO (application-local.yml), no las de una cuenta AWS real.
+export AWS_ACCESS_KEY_ID="minioadmin"
+export AWS_SECRET_ACCESS_KEY="minioadmin"
+export AWS_DEFAULT_REGION="us-east-1"
 IMG_DIR="$(dirname "$0")/seed-data/images"
 # EU-325: las fotos REALES de cada objeto (found + búsquedas guardadas) viven versionadas acá,
 # nombradas por UUID (= key de S3). Son las mismas que vectorizó generate_seed_vectors.py, así que
@@ -668,10 +666,10 @@ upload_real_photo() {
   if [[ ! -f "$SRC" ]]; then
     warn "  Falta foto real $SRC (no se sube $KEY)"; return
   fi
-  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
+  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --endpoint-url "$S3_ENDPOINT" >/dev/null 2>&1; then
     info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
   fi
-  aws s3 cp "$SRC" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
+  aws s3 cp "$SRC" "s3://${S3_BUCKET}/${KEY}" --endpoint-url "$S3_ENDPOINT" --quiet 2>/dev/null \
     && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
     || warn "  S3 ✗ $KEY"
 }
@@ -681,20 +679,20 @@ upload_placeholder() {
   local KEY="$1" SEED="$2"
   local CACHED="$IMG_DIR/${KEY}.jpg"
 
-  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" >/dev/null 2>&1; then
+  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" --endpoint-url "$S3_ENDPOINT" >/dev/null 2>&1; then
     info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
   fi
   if [[ ! -f "$CACHED" ]]; then
     curl -sL "https://picsum.photos/seed/${SEED}/300/400" -o "$CACHED" 2>/dev/null \
       || { warn "  No se pudo descargar imagen para $KEY"; return; }
   fi
-  aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" --region "$S3_REGION" --quiet 2>/dev/null \
+  aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" --endpoint-url "$S3_ENDPOINT" --quiet 2>/dev/null \
     && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
     || warn "  S3 ✗ $KEY"
 }
 
-if command -v aws &>/dev/null && aws sts get-caller-identity --region "$S3_REGION" >/dev/null 2>&1; then
-  info "AWS CLI detectado — subiendo fotos reales (found + búsquedas) y placeholders de persona..."
+if command -v aws &>/dev/null && aws s3 ls "s3://${S3_BUCKET}" --endpoint-url "$S3_ENDPOINT" >/dev/null 2>&1; then
+  info "MinIO detectado en $S3_ENDPOINT — subiendo fotos reales (found + búsquedas) y placeholders de persona..."
   for KEY in "${FO_KEYS[@]}"; do upload_real_photo "$KEY"; done
   for KEY in "${LO_KEYS[@]}"; do upload_real_photo "$KEY"; done
   i=1
@@ -702,10 +700,10 @@ if command -v aws &>/dev/null && aws sts get-caller-identity --region "$S3_REGIO
     upload_placeholder "$KEY" "pp$(printf '%02d' $i)"
     i=$((i + 1))
   done
-  success "$S3_UPLOADED imagenes OK en S3 (bucket: $S3_BUCKET)"
+  success "$S3_UPLOADED imagenes OK en MinIO (bucket: $S3_BUCKET)"
 else
-  warn "AWS CLI no disponible o sin credenciales — se omite upload de imagenes"
-  warn "Al tener credenciales, correr el script de nuevo para subir las imagenes"
+  warn "MinIO no disponible en $S3_ENDPOINT — ¿corriste start-local.sh? Se omite upload de imagenes"
+  warn "Con los contenedores arriba, correr el script de nuevo para subir las imagenes"
 fi
 
 # ─── 21. Resumen ─────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ package com.eurekapp.backend.service.client;
 import java.util.List;
 
 /**
- * Vectorización de imágenes para la búsqueda reversa (EU-321): una foto se convierte
+ * Vectorización de imágenes para la búsqueda reversa: una foto se convierte
  * directamente en un embedding visual (sin pasar por una descripción textual), para poder
  * comparar objetos por similitud coseno de imagen.
  *

@@ -15,7 +15,7 @@ import java.util.List;
 
 /**
  * Implementación de {@link ImageEmbeddingService} que delega en el microservicio CLIP
- * self-hosted (clip-service, EU-321): sube la imagen como multipart y recibe el vector visual.
+ * self-hosted (clip-service): sube la imagen como multipart y recibe el vector visual.
  *
  * <p>Mismo patrón que {@link OpenAiEmbeddingModelService} (texto): un {@link RestClient}
  * dedicado apuntado por configuración, sin lógica de negocio.</p>

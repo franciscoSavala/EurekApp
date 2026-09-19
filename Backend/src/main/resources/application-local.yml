@@ -16,6 +16,12 @@ application:
   s3:
     bucket:
       name: 'eurekapp-temp'
+    # S3 local vía MinIO (ver servicio "minio" en docker-compose.yml). Credenciales fijas de MinIO,
+    # no son las de AWS real. En prod estas tres properties quedan vacías (application.yml) y el
+    # SDK usa el S3 real con DefaultCredentialsProvider, sin tocar nada acá.
+    endpoint: 'http://localhost:9000'
+    access-key: 'minioadmin'
+    secret-key: 'minioadmin'
   openai:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}           # requerido: setear en .env.local

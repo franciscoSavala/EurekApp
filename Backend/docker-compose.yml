@@ -37,7 +37,42 @@ services:
       retries: 20
       start_period: 15s
 
-  # Vectorización de imágenes con CLIP (EU-321). Se buildea local desde ../clip-service.
+  # S3 local. Reemplaza al S3 real de AWS solo para desarrollo: mismo bucket
+  # "eurekapp-temp", credenciales fijas minioadmin/minioadmin (ver application-local.yml). El
+  # contenedor minio-init crea el bucket y lo deja de lectura pública una sola vez y termina.
+  minio:
+    image: quay.io/minio/minio:latest
+    container_name: eurekapp-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - eurekapp_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    container_name: eurekapp-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb -p local/eurekapp-temp &&
+      mc anonymous set download local/eurekapp-temp
+      "
+
+  # Vectorización de imágenes con CLIP. Se buildea local desde ../clip-service.
   # La primera vez descarga ~600MB de pesos al volumen eurekapp_clip_models (una sola vez).
   clip-service:
     build:
@@ -63,4 +98,5 @@ services:
 volumes:
   eurekapp_mysql_data:
   eurekapp_weaviate_data:
+  eurekapp_minio_data:
   eurekapp_clip_models:

@@ -17,7 +17,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 /**
- * Tests del cliente del microservicio CLIP (EU-321): que arme el POST multipart a /embed/image,
+ * Tests del cliente del microservicio CLIP: que arme el POST multipart a /embed/image,
  * parsee el vector de la respuesta, y falle limpio ante imagen vacía o respuesta sin vector.
  * No levanta el micro real: intercepta el RestClient con MockRestServiceServer.
  */
