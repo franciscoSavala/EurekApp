@@ -80,6 +80,53 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
+## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
+
+**Reemplaza al plan anterior de sembrar sólo las alertas.** Facundo decidió arrancar de cero en vez
+de ir reparando referencias sueltas.
+
+### Por qué se llegó acá
+
+**El juego de datos viejo no debe existir: el del rework de búsqueda es el definitivo.** Eso cierra
+EU-399 por la opción de unificar.
+
+Pero unificar no es sólo borrar. Se comprobó contra la base real: **ninguna de las 5 devoluciones que
+siembra el seed apunta a un objeto del juego nuevo; las 5 referencian identificadores del viejo.** El
+entorno reconstruido el 18/09 tiene esas cinco devoluciones colgando de objetos que no existen en el
+buscador.
+
+**No lo rompió nadie después.** Esos identificadores entraron en el commit original del seed
+(`1eaab1e`, 31/05, de Facundo) y quedaron así cuando en agosto el rework (EU-325) rehizo los objetos
+con identificadores nuevos: se cambió un lado y el otro quedó igual. Evelyn tocó el seed después
+(EU-362 y EU-378) pero sólo para sumar nombre y apellido de quien retira; no tocó identificadores.
+
+### El plan
+
+1. **Borrar todo**: base y buscador. S3 se deja como está.
+2. **Arreglar `reseed_via_api.sh`** (vive sólo en la máquina de Facundo, salió del repo en `29085d0`)
+   para que plante todo lo que tenga endpoint: objetos, devoluciones, y las devoluciones repetidas
+   que disparan las alertas.
+3. **Correrlo.** Las alertas las genera el detector solo, con sus casos, sospechosos y bloqueos bien
+   armados. Nada de alertas fabricadas a mano —ese fue el origen de EU-393.
+4. **Una pasada de UPDATE directo a la base**, sólo para correr fechas hacia atrás. **La regla: no se
+   fabrican filas en la base, sólo se mueven fechas de filas que creó la API.** Así la consistencia
+   se mantiene. Acá se resuelve también lo que no tenga endpoint (experiencia, exclusiones de
+   recompensa, marcas de notificación enviada).
+5. **`dump_seed.sh`** para volcar el resultado al seed.
+6. **Borrar el juego viejo**: los `.ndjson` sueltos en `Backend/seed-data/` y la carpeta `photos/`
+   (15 archivos; el juego nuevo vive en `snapshot/` + `photos-nuevas/`, 5 archivos).
+
+**Primera tarea del chat nuevo:** relevar **qué se puede crear por API y qué no**, antes de tocar
+nada. Si algo no tiene endpoint hay que saberlo de entrada, no a mitad de camino.
+
+**Por qué el paso 4 es inevitable:** EU-227 necesita ver la evolución de los casos a lo largo de
+meses, y la detección mira una ventana de pocos días. Por API todo nace con fecha de hoy.
+
+**Lo que este plan cierra de arrastre:** EU-399 (queda un solo juego), la inconsistencia de las 5
+devoluciones, y EU-410 (las alertas salen del mismo bootstrap). Los reclamos siguen apagados en el
+seed; no bloquean nada hoy —las cuatro stories EN TESTING son todas de fraude— pero es el mismo
+agujero y conviene resolverlo en la misma pasada.
+
 ## Próximo paso pedido (2026-09-18): sembrar datos de fraude consistentes
 
 **Estado: diseño sin empezar.** Se cortó acá para arrancar en un chat limpio.
