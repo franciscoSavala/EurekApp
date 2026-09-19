@@ -9,12 +9,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.async.AsyncResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
+import software.amazon.awssdk.services.s3.S3AsyncClientBuilder;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
@@ -38,6 +43,7 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.StringWriter;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -52,16 +58,39 @@ public class S3Service implements ObjectStorage {
     @Value("${application.s3.bucket.name}")
     String bucketName;
 
+    // Vacío en prod (S3 real de AWS). Solo se completa en application-local.yml,
+    // para apuntar el SDK a MinIO en desarrollo.
+    @Value("${application.s3.endpoint:}")
+    String endpoint;
+
+    @Value("${application.s3.access-key:}")
+    String accessKey;
+
+    @Value("${application.s3.secret-key:}")
+    String secretKey;
+
     S3AsyncClient s3AsyncClient;
 
     Region region = Region.SA_EAST_1;
 
     @PostConstruct
     private void constructClient(){
-        s3AsyncClient = S3AsyncClient.builder()
-                .credentialsProvider(DefaultCredentialsProvider.create())
-                .region(region)
-                .build();
+        S3AsyncClientBuilder builder = S3AsyncClient.builder()
+                .credentialsProvider(credentialsProvider())
+                .region(region);
+        if (!endpoint.isBlank()) {
+            // MinIO: path-style obligatorio (no resuelve buckets por subdominio como el S3 real).
+            builder.endpointOverride(URI.create(endpoint))
+                    .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
+        }
+        s3AsyncClient = builder.build();
+    }
+
+    private AwsCredentialsProvider credentialsProvider() {
+        if (!endpoint.isBlank()) {
+            return StaticCredentialsProvider.create(AwsBasicCredentials.create(accessKey, secretKey));
+        }
+        return DefaultCredentialsProvider.create();
     }
 
     @PreDestroy
@@ -142,15 +171,22 @@ public class S3Service implements ObjectStorage {
 
     @Override
     public String getObjectUrl(String objectKey) {
+        if (!endpoint.isBlank()) {
+            return String.format("%s/%s/%s", endpoint, bucketName, objectKey);
+        }
         return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region.toString(), objectKey);
     }
 
     @Override
     public String generatePresignedUrl(String objectKey, Duration expiry) {
-        try (S3Presigner presigner = S3Presigner.builder()
-                .credentialsProvider(DefaultCredentialsProvider.create())
-                .region(region)
-                .build()) {
+        S3Presigner.Builder presignerBuilder = S3Presigner.builder()
+                .credentialsProvider(credentialsProvider())
+                .region(region);
+        if (!endpoint.isBlank()) {
+            presignerBuilder.endpointOverride(URI.create(endpoint))
+                    .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
+        }
+        try (S3Presigner presigner = presignerBuilder.build()) {
             GetObjectRequest getObjectRequest = GetObjectRequest.builder()
                     .bucket(bucketName)
                     .key(objectKey)

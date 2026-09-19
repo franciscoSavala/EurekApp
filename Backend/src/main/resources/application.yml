@@ -26,11 +26,16 @@ application:
   s3:
     bucket:
       name: 'eurekapp-temp'
+    # Vacío en prod: S3Service usa el S3 real de AWS. Solo se completa en application-local.yml
+    # para apuntar a MinIO en desarrollo.
+    endpoint: ${S3_ENDPOINT:}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
   openai:
     url: 'https://api.openai.com/v1/'
     api-key: ${OPENAI_SECRET_KEY}
   clip:
-    # Microservicio de vectorización de imágenes (clip-service, EU-321). En local corre en
+    # Microservicio de vectorización de imágenes (clip-service). En local corre en
     # Docker publicado en localhost:8000; en prod se apunta con la env CLIP_URL.
     url: ${CLIP_URL:http://localhost:8000}
   pinecone:
