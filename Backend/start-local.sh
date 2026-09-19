@@ -81,6 +81,14 @@ fi
 
 success "Variables de entorno cargadas"
 
+# S3: por default va contra MinIO local (ver docker-compose.yml). Si en .env.local se descomentó
+# la sección "S3 local vs AWS real" (AWS_ACCESS_KEY_ID seteada), el backend usa el S3 real de AWS.
+if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
+  info "S3: usando AWS real (AWS_ACCESS_KEY_ID seteada en .env.local)"
+else
+  info "S3: usando MinIO local (default — ver .env.local.example para apuntar a AWS real)"
+fi
+
 # ─── 4. Levantar Docker Compose ──────────────────────────────────────────────
 info "Levantando MySQL, Weaviate y MinIO con Docker Compose..."
 docker compose -f "$SCRIPT_DIR/docker-compose.yml" up -d
