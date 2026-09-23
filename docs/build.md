@@ -95,15 +95,18 @@ La verificación que había quedado a medias se completó el 22/09. Se probó lo
 3. `bash Backend/seed-local.sh --force` terminó bien y dio todos los números previstos: 31 objetos
    encontrados, 5 búsquedas guardadas, 24 devoluciones, "Las 24 devoluciones apuntan a un objeto que
    existe y figura como devuelto", 7 alertas (4 vigentes, 3 falsas alarmas), 11 casos repartidos
-   entre esas alertas, 4 personas señaladas, 7 bloqueos vigentes y 60 imágenes. **Los únicos dos
+   entre esas alertas, 6 personas señaladas, 9 bloqueos vigentes y 60 imágenes. **Los únicos dos
    avisos son los esperados**, los de reclamos, que ya no existen como entidad.
 4. Contra la aplicación levantada: las siete búsquedas por foto encontraron su objeto **en primer
    lugar**; las devoluciones muestran su objeto y su foto abre; las pantallas de fraude traen las
    7 alertas, el indicador del menú marca 4 sin ver, y los reportes por persona y por documento
    cuadran con el total.
-5. Los bloqueos por fraude funcionan y caen donde tienen que caer: `emp1.patio@eurekapp.com` y
-   `emp1.dino@eurekapp.com` no pueden entrar y la aplicación explica por qué; el responsable de cada
-   una de esas sedes entra sin problema, igual que las tres cuentas de usuario final.
+5. Los bloqueos por fraude funcionan y caen donde tienen que caer: `emp1.patio@eurekapp.com`,
+   `emp1.dino@eurekapp.com` y `micaela@mail.com` no pueden entrar y la aplicación explica por qué;
+   el responsable de cada una de esas sedes entra sin problema, igual que Julia, Pedro y Valeria.
+6. El bloqueo por documento también frena el retiro: al entregar un objeto ingresando un documento
+   bloqueado, la entrega se rechaza con la explicación y la fecha en que se levanta; con un
+   documento limpio se registra normalmente.
 
 **Lo único que queda:** proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba,
 publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
@@ -187,11 +190,25 @@ septiembre:
 | Septiembre | 39456789 | Micaela Ledesma | igual que la de julio, dos meses después | vigente |
 | Septiembre | 28123456 | Ramiro Otero | igual que la de junio | vigente |
 
-**Quiénes quedan señalados y bloqueados:** sólo personal de organizaciones, nunca las tres cuentas
-de usuario final. Una alerta vigente **impide iniciar sesión**, y si cayeran ahí Julia, Pedro o
-Valeria no se podría probar la búsqueda, porque las búsquedas guardadas son de ellos. Quedan
-bloqueadas `emp1.patio@eurekapp.com` (en dos alertas) y `emp1.dino@eurekapp.com`; cada una de esas
-sedes conserva su cuenta de responsable. **Que esas dos no entren es lo esperado, no una falla.**
+**Quiénes quedan señalados y bloqueados (revisado el 2026-09-23).** Una alerta vigente **impide
+iniciar sesión**, así que quién cae bajo una es una decisión del juego de datos, no un accidente.
+
+Quedan bloqueadas tres cuentas: `emp1.patio@eurekapp.com` (en dos alertas), `emp1.dino@eurekapp.com`
+y `micaela@mail.com`. Las dos primeras son personal de organización, y cada una de esas sedes
+conserva su cuenta de responsable. La tercera es **una cuenta de usuario final creada justamente
+para esto**, para poder ver el bloqueo desde el lado de quien usa la aplicación y no sólo desde una
+cuenta de organización. **Que esas tres no entren es lo esperado, no una falla.**
+
+Micaela Ledesma es la persona que retira con el documento 39456789, la de las dos alertas vigentes
+de julio y septiembre. Que la cuenta quede bloqueada no es un agregado artificial: la regla que
+dispara esas alertas señala tanto a quien registró los objetos como a quien los retiró, y ahora
+quien retira tiene cuenta. Por eso aparece primera en el reporte de fraude por persona.
+
+**Julia, Pedro y Valeria nunca se bloquean**, y el motivo es concreto: las cinco búsquedas guardadas
+son de ellos tres (Julia dos, Valeria dos, Pedro una) y sólo su dueño puede abrirlas — las
+organizaciones no ven las búsquedas guardadas de nadie. Bloquear a cualquiera de los tres dejaría
+esas búsquedas fuera de alcance. Por eso el usuario final bloqueado es una cuarta cuenta, sin
+ninguna búsqueda guardada.
 
 ## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
 

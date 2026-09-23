@@ -263,9 +263,13 @@ INSERT INTO users (id, username, password, active, first_name, last_name, role, 
 (13, 'owner.unc@eurekapp.com',      '$HASH_ESCAPED', 1, 'Diego',     'Salinas',   'ORGANIZATION_OWNER',     5,    0,    0),
 (14, 'emp1.unc@eurekapp.com',       '$HASH_ESCAPED', 1, 'Florencia', 'Torres',    'ORGANIZATION_EMPLOYEE',  5,    0,    0),
 (15, 'owner.dino@eurekapp.com',     '$HASH_ESCAPED', 1, 'Sebastián', 'Romero',    'ORGANIZATION_OWNER',     6,    0,    0),
-(16, 'emp1.dino@eurekapp.com',      '$HASH_ESCAPED', 1, 'Natalia',   'Gutiérrez', 'ORGANIZATION_EMPLOYEE',  6,    0,    0);
+(16, 'emp1.dino@eurekapp.com',      '$HASH_ESCAPED', 1, 'Natalia',   'Gutiérrez', 'ORGANIZATION_EMPLOYEE',  6,    0,    0),
+-- EU-410: usuario final con cuenta que queda bloqueado por fraude. No tiene busquedas guardadas
+-- a proposito: bloquear a Julia, Pedro o Valeria dejaria sin poder abrirse las busquedas que son
+-- de ellos. Es la persona que retira con el documento 39456789.
+(17, 'micaela@mail.com',            '$HASH_ESCAPED', 1, 'Micaela',   'Ledesma',   'USER',                   NULL, 0,    0);
 SQL
-success "16 usuarios insertados"
+success "17 usuarios insertados"
 
 # ─── 10. Insertar FoundObjects en Weaviate (desde NDJSON con embeddings reales) ─
 header "Insertando FoundObjects en Weaviate"
@@ -460,13 +464,15 @@ success "search_feedback.star_rating admite nulos (EU-372)"
 #   27998877 Nahuel Ibarra   - mayo               - siempre lo atiende el mismo empleado de la UTN
 #   28123456 Ramiro Otero    - junio y septiembre - reincidente, dos alertas separadas
 #   39456789 Micaela Ledesma - julio a septiembre - siempre retira objetos registrados por la misma
-#                                                   persona del shopping
+#                                                   persona del shopping; tiene cuenta de usuario
+#                                                   final, asi que queda bloqueada ella tambien
 #   31555444 Brenda Sosa     - agosto             - siempre la atiende la misma empleada del shopping
 #   33145892 / 26874159 / 29334857 - devoluciones normales, una sola vez cada una
 #
-# Quienes quedan senalados son personal de las organizaciones, no las tres cuentas de usuario
-# final: una alerta vigente bloquea la cuenta, y si cayeran ahi Julia, Pedro o Valeria no se
-# podria probar ni la busqueda ni las busquedas guardadas, que son de ellos.
+# Quienes quedan senalados son personal de las organizaciones y una cuarta cuenta de usuario final
+# creada para eso (micaela@mail.com), que no tiene busquedas guardadas. Julia, Pedro y Valeria
+# quedan siempre afuera: una alerta vigente bloquea la cuenta, y las cinco busquedas guardadas son
+# de ellos tres, asi que bloquear a cualquiera dejaria sus busquedas sin poder abrirse.
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (found_objectuuid, user_id, organization_id, returned_by_employee_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
@@ -482,18 +488,18 @@ VALUES
 ('$FO_CELULAR', NULL, 3, 10, 'b0000009-0000-4000-8000-000000000009', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-009', '2026-06-10 17:25:00', '2026-06-10 17:30:00', 'pedro@mail.com'),
 ('$FO_CARGADOR', NULL, 3, 10, 'b0000010-0000-4000-8000-000000000010', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-010', '2026-06-18 11:05:00', '2026-06-18 11:10:00', 'julia@mail.com'),
 ('$FO_N06', NULL, 1, 4, 'b0000011-0000-4000-8000-000000000011', 'Hector', 'Quiroga', '26874159', '3514000107', 'person-photo-011', '2026-06-27 09:40:00', NULL, NULL),
-('$FO_N07', NULL, 4, 11, 'b0000012-0000-4000-8000-000000000012', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-012', '2026-07-05 08:50:00', '2026-07-05 08:55:00', 'emp1.patio@eurekapp.com'),
-('$FO_N08', NULL, 4, 12, 'b0000013-0000-4000-8000-000000000013', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-013', '2026-07-14 19:30:00', '2026-07-14 19:35:00', 'emp1.patio@eurekapp.com'),
-('$FO_N09', NULL, 4, 11, 'b0000014-0000-4000-8000-000000000014', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-014', '2026-07-25 15:10:00', '2026-07-25 15:15:00', 'emp1.patio@eurekapp.com'),
+('$FO_N07', 17, 4, 11, 'b0000012-0000-4000-8000-000000000012', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-012', '2026-07-05 08:50:00', '2026-07-05 08:55:00', 'emp1.patio@eurekapp.com'),
+('$FO_N08', 17, 4, 12, 'b0000013-0000-4000-8000-000000000013', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-013', '2026-07-14 19:30:00', '2026-07-14 19:35:00', 'emp1.patio@eurekapp.com'),
+('$FO_N09', 17, 4, 11, 'b0000014-0000-4000-8000-000000000014', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-014', '2026-07-25 15:10:00', '2026-07-25 15:15:00', 'emp1.patio@eurekapp.com'),
 ('$FO_N10', NULL, 5, 13, 'b0000015-0000-4000-8000-000000000015', 'Gaston', 'Peralta', '29334857', '3514000108', 'person-photo-015', '2026-08-07 10:00:00', NULL, NULL),
 ('$FO_N11', NULL, 6, 16, 'b0000016-0000-4000-8000-000000000016', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-016', '2026-08-10 12:20:00', NULL, NULL),
 ('$FO_N12', NULL, 6, 16, 'b0000017-0000-4000-8000-000000000017', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-017', '2026-08-18 14:45:00', NULL, NULL),
 ('$FO_N13', NULL, 6, 16, 'b0000018-0000-4000-8000-000000000018', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-018', '2026-08-25 09:30:00', NULL, NULL),
-('$FO_N14', NULL, 4, 11, 'b0000019-0000-4000-8000-000000000019', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-019', '2026-08-28 10:15:00', '2026-08-28 10:20:00', 'emp1.patio@eurekapp.com'),
+('$FO_N14', 17, 4, 11, 'b0000019-0000-4000-8000-000000000019', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-019', '2026-08-28 10:15:00', '2026-08-28 10:20:00', 'emp1.patio@eurekapp.com'),
 ('$FO_N15', NULL, 1, 5, 'b0000020-0000-4000-8000-000000000020', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-020', '2026-09-02 18:00:00', NULL, NULL),
-('$FO_N16', NULL, 4, 12, 'b0000021-0000-4000-8000-000000000021', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-021', '2026-09-03 17:20:00', '2026-09-03 17:25:00', 'emp1.patio@eurekapp.com'),
+('$FO_N16', 17, 4, 12, 'b0000021-0000-4000-8000-000000000021', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-021', '2026-09-03 17:20:00', '2026-09-03 17:25:00', 'emp1.patio@eurekapp.com'),
 ('$FO_N17', NULL, 2, 3, 'b0000022-0000-4000-8000-000000000022', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-022', '2026-09-09 14:00:00', NULL, NULL),
-('$FO_N18', NULL, 4, 11, 'b0000023-0000-4000-8000-000000000023', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-023', '2026-09-10 08:40:00', '2026-09-10 08:45:00', 'emp1.patio@eurekapp.com'),
+('$FO_N18', 17, 4, 11, 'b0000023-0000-4000-8000-000000000023', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-023', '2026-09-10 08:40:00', '2026-09-10 08:45:00', 'emp1.patio@eurekapp.com'),
 ('$FO_N19', NULL, 4, 11, 'b0000024-0000-4000-8000-000000000024', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-024', '2026-09-15 12:30:00', NULL, NULL);
 SQL
 # Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
@@ -611,6 +617,8 @@ header "Insertando FraudAlerts"
 # Lo que queda para mirar en las pantallas:
 #   - 4 alertas vigentes y 3 falsas alarmas ya resueltas;
 #   - dos documentos con dos alertas cada uno, y dos personas registradas tambien con dos;
+#   - un usuario final bloqueado, para ver el bloqueo desde ese lado y no solo desde una cuenta
+#     de organizacion;
 #   - alertas repartidas de abril a septiembre, una por mes (dos en septiembre);
 #   - bloqueos vigentes, y uno ya vencido, para ver la diferencia.
 #
@@ -679,10 +687,12 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO fraud_alert_suspect_user (fraud_alert_id, user_id) VALUES
 (2, 6),    -- Tomas Ramirez, el empleado de la UTN que atendio las tres veces
 (4, 12),   -- Ignacio Molina, que habia registrado los tres objetos retirados
+(4, 17),   -- Micaela Ledesma, la usuaria que retiro las tres veces
 (5, 16),   -- Natalia Gutierrez, la empleada del shopping que atendio las tres veces
-(6, 12);   -- Ignacio Molina otra vez, dos meses despues
+(6, 12),   -- Ignacio Molina otra vez, dos meses despues
+(6, 17);   -- Micaela Ledesma otra vez, dos meses despues
 SQL
-success "4 personas senaladas (Ignacio Molina figura en dos alertas)"
+success "6 personas senaladas (Ignacio Molina y Micaela Ledesma figuran en dos alertas cada uno)"
 
 # Bloqueos. Al nacer, una alerta bloquea al documento y a cada persona que senala, por 90 dias;
 # marcar la alerta como falsa alarma levanta esos bloqueos, y por eso las tres falsas alarmas no
@@ -691,13 +701,15 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO fraud_block (target_dni, target_user_id, fraud_alert_id, blocked_at, expires_at) VALUES
 ('39456789', NULL, 4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
 (NULL,       12,   4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
+(NULL,       17,   4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
 ('31555444', NULL, 5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
 (NULL,       16,   5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
 ('39456789', NULL, 6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
 (NULL,       12,   6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
+(NULL,       17,   6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
 ('28123456', NULL, 7, '2026-09-15 12:35:00', '2026-12-14 12:35:00');
 SQL
-success "7 bloqueos vigentes sobre 3 documentos y 2 personas de las organizaciones"
+success "9 bloqueos vigentes sobre 3 documentos, 2 personas de las organizaciones y 1 usuario final"
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
@@ -906,7 +918,7 @@ echo -e "${GREEN}${BOLD}║          EurekApp — Seed completado exitosamente  
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 6                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                            ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 17                            ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Devoluciones          : 24 (una por objeto)         ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
@@ -943,5 +955,6 @@ echo -e "${GREEN}${BOLD}║${NC}    emp1.dino@eurekapp.com     → EMPLOYEE (Din
 echo -e "${GREEN}${BOLD}║${NC}    julia@mail.com              → USER  (XP: 30)          ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    pedro@mail.com              → USER  (XP: 20)          ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    valeria@mail.com            → USER  (XP: 0)           ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    micaela@mail.com            → USER  (bloqueada)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""
