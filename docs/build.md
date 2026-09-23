@@ -80,9 +80,9 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
-## Juego de datos rehecho (2026-09-22) — verificado de punta a punta sobre una base recién creada
+## Juego de datos rehecho (2026-09-23) — terminado y verificado sobre una base recién creada
 
-### Estado: hecho. Sólo queda el comentario de Jira y una decisión de entorno.
+### Estado: terminado. Lo único pendiente es el comentario de Jira y el permiso para mergear.
 
 La verificación que había quedado a medias se completó el 22/09. Se probó lo que faltaba: el seed
 **contra una base creada desde cero**, no un resembrado encima de datos que ya estaban.
@@ -111,6 +111,19 @@ La verificación que había quedado a medias se completó el 22/09. Se probó lo
 **Lo único que queda:** proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba,
 publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
 autorización**.
+
+### Qué falta (y nada de esto es código)
+
+1. **Proponerle a Facundo el comentario del ítem de Jira y, si lo aprueba, publicarlo.** Tiene que
+   incluir el usuario final bloqueado y que las fotos van siempre al almacenamiento local.
+2. **Pedir autorización para pushear y mergear.** La rama es `EU-410-rehacer-juego-de-datos` y
+   **no se pushea ni se mergea sin que Facundo lo diga.**
+3. **Decidir qué se hace con el material sin uso** (más abajo tiene su propia sección). Son archivos
+   que ya no lee nadie; borrarlos o dejarlos es decisión de Facundo.
+
+Fuera del ítem, quedan dos cosas apuntadas que no son parte de este trabajo: dejar la demo andando
+sobre la red local (ver más abajo) y subir las 60 fotos a la cuenta real si alguna vez se quiere un
+entorno apuntando allá.
 
 ### La decisión de las credenciales quedó cerrada (2026-09-23)
 
@@ -159,7 +172,11 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
 - **24 devoluciones**, cada una sobre su propio objeto. Siete objetos quedan sin devolver: los cinco
   que forman pareja con una búsqueda guardada y dos de los agregados.
 - **7 alertas de fraude** repartidas de abril a septiembre: 4 vigentes y 3 falsas alarmas, dos
-  documentos y una persona con dos alertas cada uno, y 7 bloqueos vigentes.
+  documentos y dos personas con dos alertas cada uno, 6 personas señaladas y 9 bloqueos vigentes.
+- **17 personas con cuenta**, entre ellas cuatro usuarios finales. El cuarto, `micaela@mail.com`,
+  existe para quedar bloqueado por fraude: ver la sección del juego de fraude más abajo.
+- **Las fotos van siempre al almacenamiento local**, haya credenciales de AWS o no. El seed lo corre
+  cada integrante del equipo en su máquina y el resultado tiene que ser el mismo en todas.
 - **Los parámetros de detección** pasan a "3 retiros en 30 días" con bloqueo de 90 días. Los de
   fábrica ("5 retiros en 1 día", bloqueo de 7 días) hacían que ningún foco fuera detectable y que
   los bloqueos se vencieran a los pocos días de sembrar.
@@ -173,6 +190,9 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
   rastro era un contador más bajo. Ahora van por archivo, y el seed aborta si falta alguno.
 - Sin el cliente de línea de comandos de AWS instalado, el paso de fotos se salteaba con un aviso y
   la aplicación quedaba sin una sola imagen. Contra el almacenamiento local ya no hace falta.
+- El seed decidía a dónde subir las fotos según hubiera o no credenciales de AWS en `.env.local`,
+  así que el mismo comando daba resultados distintos según la máquina. Ahora va siempre al
+  almacenamiento local.
 - El seed avisaba de fallos inexistentes al marcar objetos, porque esperaba una respuesta y el
   buscador devuelve otra igual de correcta.
 
