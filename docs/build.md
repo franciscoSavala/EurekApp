@@ -80,6 +80,58 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
+## Juego de datos rehecho (2026-09-22) — HECHO, en la rama, sin mergear
+
+**Reemplaza al plan del 19/09 en la parte de "cargar por API".** Facundo decidió que nada se carga
+por la aplicación: todo se escribe directamente en el juego de datos, y las alertas de fraude se
+escriben a mano en vez de dejar que las genere la detección. Lo que sí tiene que ser consistente son
+las devoluciones: cada una apunta a un objeto que existe y ninguna comparte objeto con otra.
+
+**Rama:** `EU-410-rehacer-juego-de-datos`. **No pushear ni mergear sin autorización.**
+
+### Qué quedó
+
+- **Un solo juego de objetos.** El seed de la base carga el del rework de búsqueda. Los archivos del
+  juego viejo siguen en el repositorio pero ya no los lee nadie (ver "material sin uso").
+- **31 objetos encontrados** (los 10 del rework + 21 agregados) y las 5 búsquedas guardadas. Los
+  agregados reusan las fotos existentes, cada uno con su propia copia y con fecha, sede y texto
+  propios; el vector de imagen se copia del objeto de origen y el de texto se calcula de nuevo.
+- **24 devoluciones**, cada una sobre su propio objeto. Siete objetos quedan sin devolver: los cinco
+  que forman pareja con una búsqueda guardada y dos de los agregados.
+- **7 alertas de fraude** repartidas de abril a septiembre: 4 vigentes y 3 falsas alarmas, dos
+  documentos y una persona con dos alertas cada uno, y 7 bloqueos vigentes.
+- **Los parámetros de detección** pasan a "3 retiros en 30 días" con bloqueo de 90 días. Los de
+  fábrica ("5 retiros en 1 día", bloqueo de 7 días) hacían que ningún foco fuera detectable y que
+  los bloqueos se vencieran a los pocos días de sembrar.
+- **Quién encontró cada objeto y cuáles se devolvieron viven en el juego de datos**, no se parchean
+  después. El seed ahora sólo comprueba que los dos lados digan lo mismo, y aborta si no.
+
+### Cosas del seed que estaban rotas y se arreglaron de paso
+
+- Los objetos se mandaban al buscador como argumento de línea de comandos. Con dos vectores por
+  objeto, la línea supera lo que el sistema operativo acepta: los objetos no entraban y el único
+  rastro era un contador más bajo. Ahora van por archivo, y el seed aborta si falta alguno.
+- Sin el cliente de línea de comandos de AWS instalado, el paso de fotos se salteaba con un aviso y
+  la aplicación quedaba sin una sola imagen. Contra el almacenamiento local ya no hace falta.
+- El seed avisaba de fallos inexistentes al marcar objetos, porque esperaba una respuesta y el
+  buscador devuelve otra igual de correcta.
+
+### Material que quedó sin uso (nadie lo borró: decide Facundo)
+
+- `Backend/seed-data/FoundObject.ndjson` y `LostObject.ndjson`: el juego viejo.
+- `Backend/seed-data/generate_seed_vectors.py`: genera el juego viejo, con los identificadores
+  viejos. Su reemplazo es `build_dataset.py`.
+- `Backend/seed-data/reseed_via_api.sh`: la carga por la aplicación, que ya no se usa.
+- `Backend/seed-data/photos-nuevas/`: las cuatro fotos de segunda toma que se habían pedido, que
+  nunca se incorporaron.
+- Las 15 fotos de `photos/` con el nombre viejo **sí siguen haciendo falta**: son el material de
+  origen del que salen todas las copias.
+
+### Lo único que quedó afuera
+
+Los reclamos siguen sin sembrarse. No es una omisión de este trabajo: la entidad se extirpó del
+sistema y no hay nada que sembrar.
+
 ## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
 
 **Reemplaza al plan anterior de sembrar sólo las alertas.** Facundo decidió arrancar de cero en vez

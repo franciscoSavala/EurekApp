@@ -142,6 +142,38 @@ NEW_OBJECTS = [
 ]
 
 
+# -- Quien encontro cada uno de los diez objetos originales ---------------------
+# Hasta EU-410 esto vivia solo en seed-local.sh, que lo aplicaba despues de cargar. Eran dos lados
+# que podian desincronizarse, que es exactamente como se rompio el juego de datos anterior. Ahora
+# el archivo ya sale con el dato adentro y hay un solo lugar donde mirarlo. "0" es sin cuenta.
+FINDERS = {
+    "dcfc219a-8142-4a2f-9344-d2521889689d": "5",   # paraguas    -> Lucia Perez (empleada UTN)
+    "2121ffa9-8773-4c23-a5ef-f3d393def659": "8",   # notebook    -> Pedro
+    "96c3a201-7251-45c2-b442-2102a98fb474": "9",   # billetera   -> Valeria
+    "5fe28eaf-8994-44aa-bf2f-15f2e3691cae": "0",   # llave       -> sin cuenta
+    "05e3b579-30c2-47fc-8bd4-e90dab97c498": "9",   # auriculares -> Valeria
+    "b0a4573c-2db6-4858-9ac9-bb314769e445": "6",   # mochila     -> Tomas Ramirez (empleado UTN)
+    "77965d32-7ba3-4497-8471-3d94f7acd5cd": "8",   # celular     -> Pedro
+    "d5937d67-e758-4e53-9ae4-844803027bdb": "7",   # billeteraDNI-> Julia
+    "0412e370-c1a5-442d-b740-4fd9cfda59be": "7",   # cargador    -> Julia
+    "2c817a63-1027-48c3-bb95-c24d73022f33": "4",   # anteojos    -> Carlos Mendoza (encargado UTN)
+}
+
+# -- Objetos que se devolvieron -------------------------------------------------
+# Tiene que coincidir exactamente con las devoluciones que siembra seed-local.sh: un objeto marcado
+# como devuelto sin su devolucion detras, o al reves, es la clase de inconsistencia que este ticket
+# vino a sacar. Un objeto devuelto desaparece de la busqueda, asi que los cinco que forman pareja
+# con una busqueda guardada NO estan en esta lista, ni los dos ultimos agregados.
+RETURNED = (
+    ["5fe28eaf-8994-44aa-bf2f-15f2e3691cae",   # llave
+     "77965d32-7ba3-4497-8471-3d94f7acd5cd",   # celular
+     "d5937d67-e758-4e53-9ae4-844803027bdb",   # billetera con DNI
+     "0412e370-c1a5-442d-b740-4fd9cfda59be",   # cargador
+     "2c817a63-1027-48c3-bb95-c24d73022f33"]   # anteojos
+    + ["c10000%02d-0000-4000-8000-0000000000%02d" % (i, i) for i in range(1, 20)]
+)
+
+
 def openai_key():
     key = os.environ.get("OPENAI_SECRET_KEY", "")
     if key:
@@ -219,6 +251,16 @@ def main():
         })
 
     todos = found + nuevos
+    # Quien encontro el objeto y si ya se devolvio quedan escritos en el archivo, no aplicados
+    # despues por el seed.
+    devueltos = set(RETURNED)
+    for o in todos:
+        if o["id"] in FINDERS:
+            o["properties"]["object_finder_user_id"] = FINDERS[o["id"]]
+        o["properties"]["was_returned"] = o["id"] in devueltos
+    faltan = devueltos - {o["id"] for o in todos}
+    if faltan:
+        sys.exit("[ERROR] Hay devoluciones sobre objetos que no existen: %s" % ", ".join(faltan))
     todos.sort(key=lambda o: o["properties"].get("found_date", ""))
     with open(os.path.join(SNAP, "FoundObject.ndjson"), "w", encoding="utf-8") as fh:
         for o in todos:
@@ -231,7 +273,8 @@ def main():
     copiadas = copy_photos(pairs)
 
     print("")
-    print("FoundObject.ndjson: %d objetos (%d nuevos)" % (len(todos), len(nuevos)))
+    print("FoundObject.ndjson: %d objetos (%d nuevos, %d devueltos, %d a la vista de la busqueda)"
+          % (len(todos), len(nuevos), len(devueltos), len(todos) - len(devueltos)))
     print("LostObject.ndjson:  %d objetos (sin cambios)" % len(lost))
     print("fotos copiadas:     %d" % copiadas)
 

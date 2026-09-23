@@ -338,36 +338,6 @@ FO_N19="c1000019-0000-4000-8000-000000000019"  # Juego de llaves con llavero azu
 FO_N20="c1000020-0000-4000-8000-000000000020"  # Llave con llavero azul de goma     (Dinosaurio)  SIN DEVOLVER
 FO_N21="c1000021-0000-4000-8000-000000000021"  # Cargador USB-C blanco de 20W       (UNC)  SIN DEVOLVER
 
-# ─── 10b. Asignar finders a FoundObjects ─────────────────────────────────────
-header "Asignando finders a FoundObjects (object_finder_user_id)"
-
-# Objetos cuyo finder tiene cuenta en la app. La llave queda con finder "0" (anonimo, sin cuenta:
-# es el caso de uso alternativo). Los objetos agregados por EU-410 ya traen su finder en el
-# snapshot, asi que no hace falta parchearlos.
-declare -A FO_FINDERS=(
-  ["$FO_PARAGUAS"]="5"        # → emp1.utn  (Lucia Perez)   — sin recompensa, es empleada
-  ["$FO_NOTEBOOK"]="8"        # → pedro
-  ["$FO_BILLETERA"]="9"       # → valeria
-  ["$FO_AURICULARES"]="9"     # → valeria
-  ["$FO_MOCHILA"]="6"         # → emp2.utn  (Tomas Ramirez) — sin recompensa, es empleado
-  ["$FO_CELULAR"]="8"         # → pedro
-  ["$FO_BILLETERA_DNI"]="7"   # → julia
-  ["$FO_CARGADOR"]="7"        # → julia
-  ["$FO_ANTEOJOS"]="4"        # → encargado.utn (Carlos Mendoza) — sin recompensa, es encargado
-)
-for UUID in "${!FO_FINDERS[@]}"; do
-  USER_ID="${FO_FINDERS[$UUID]}"
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
-    -H "Content-Type: application/json" \
-    -d "{\"properties\": {\"object_finder_user_id\": \"$USER_ID\"}}")
-  # Weaviate contesta 204 a un PATCH correcto; el script solo aceptaba 200 y avisaba de un fallo
-  # que no existia.
-  [[ "$HTTP" == "200" || "$HTTP" == "204" ]] \
-    && success "  finder=$USER_ID → $UUID" \
-    || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
-done
-
 # ─── 11. Insertar LostObjects en Weaviate (desde NDJSON con embeddings reales) ──
 header "Insertando LostObjects en Weaviate"
 
@@ -529,22 +499,27 @@ SQL
 # Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
 success "24 devoluciones insertadas, cada una sobre su propio objeto, con su token de encuesta"
 
-header "Marcando objetos devueltos en Weaviate (was_returned=true)"
-# Solo los 24 objetos que efectivamente se devolvieron. Los otros siete siguen visibles para la
-# busqueda: los cinco que forman pareja con una busqueda guardada, mas dos de los agregados.
-for UUID in \
-  "$FO_LLAVE" "$FO_CELULAR" "$FO_BILLETERA_DNI" "$FO_CARGADOR" "$FO_ANTEOJOS" \
-  "$FO_N01" "$FO_N02" "$FO_N03" "$FO_N04" "$FO_N05" "$FO_N06" "$FO_N07" "$FO_N08" "$FO_N09" \
-  "$FO_N10" "$FO_N11" "$FO_N12" "$FO_N13" "$FO_N14" "$FO_N15" "$FO_N16" "$FO_N17" "$FO_N18" \
-  "$FO_N19"; do
-  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
-    -H "Content-Type: application/json" \
-    -d '{"properties": {"was_returned": true}}')
-  [[ "$HTTP" == "200" || "$HTTP" == "204" ]] \
-    && success "  was_returned=true → $UUID" \
-    || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
-done
+header "Comprobando que cada devolucion tenga su objeto"
+
+# Quien encontro cada objeto y cuales ya se devolvieron vienen escritos en el juego de datos, no se
+# aplican aca. Antes se parcheaban despues de cargar, y eso dejaba dos lados que podian
+# desincronizarse: fue asi como las devoluciones terminaron colgando de objetos inexistentes.
+# Lo unico que queda es comprobar que los dos lados dicen lo mismo, y avisar fuerte si no.
+FALTANTES=0
+while read -r UUID; do
+  [[ -z "$UUID" ]] && continue
+  MARCADO=$(curl -s "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" | grep -o '"was_returned":[a-z]*' | cut -d: -f2)
+  if [[ "$MARCADO" != "true" ]]; then
+    warn "  La devolucion de $UUID no encuentra su objeto (was_returned=${MARCADO:-no existe})"
+    FALTANTES=$((FALTANTES + 1))
+  fi
+done < <($MYSQL_EXEC -N 2>/dev/null <<'SQL'
+SELECT found_objectuuid FROM return_found_objects;
+SQL
+)
+[[ "$FALTANTES" == "0" ]] \
+  && success "Las 24 devoluciones apuntan a un objeto que existe y figura como devuelto" \
+  || error "$FALTANTES devoluciones apuntan a un objeto que no existe o no figura como devuelto"
 
 # ─── 13. Insertar exclusiones de recompensa ──────────────────────────────────
 header "Insertando exclusiones de recompensa"
