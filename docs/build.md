@@ -80,47 +80,44 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
-## Juego de datos rehecho (2026-09-22) — el trabajo está hecho; falta la última verificación
+## Juego de datos rehecho (2026-09-22) — verificado de punta a punta sobre una base recién creada
 
-### RETOMAR ACÁ (lo primero que hay que hacer)
+### Estado: hecho. Sólo queda el comentario de Jira y una decisión de entorno.
 
-El chat anterior se cortó por tamaño, en el medio de la verificación final. **El código y los datos
-están completos y commiteados**; lo que quedó a medias es dejar el entorno local usable.
+La verificación que había quedado a medias se completó el 22/09. Se probó lo que faltaba: el seed
+**contra una base creada desde cero**, no un resembrado encima de datos que ya estaban.
 
-**Cómo quedó la máquina de Facundo:**
+**Cómo se probó (en este orden):**
 
-1. **La base y el buscador están vacíos.** Se borraron a propósito, para probar el seed contra un
-   entorno recién creado, y el seed no llegó a correr.
-2. **El backend quedó levantado** contra esa base vacía (perfil local, puerto 8080). Si hace falta
-   rearrancarlo, primero hay que bajar el que está corriendo o el puerto va a estar ocupado.
-3. **`Backend/.env.local` está tocado a propósito y hay que devolverlo.** Las dos líneas de
-   credenciales de AWS están comentadas con el prefijo `#EU410-TMP-`, para que las fotos fueran al
-   almacenamiento local en vez de a la cuenta real. **Sacar ese prefijo cuando Facundo lo pida**, y
-   avisarle de la consecuencia que está más abajo.
+1. Se bajó el backend, se borró y recreó la base vacía, y se dejaron el FoundObject y el LostObject
+   del buscador vacíos.
+2. Se levantó el backend en perfil local: creó el esquema completo solo, sin ayuda.
+3. `bash Backend/seed-local.sh --force` terminó bien y dio todos los números previstos: 31 objetos
+   encontrados, 5 búsquedas guardadas, 24 devoluciones, "Las 24 devoluciones apuntan a un objeto que
+   existe y figura como devuelto", 7 alertas (4 vigentes, 3 falsas alarmas), 11 casos repartidos
+   entre esas alertas, 4 personas señaladas, 7 bloqueos vigentes y 60 imágenes. **Los únicos dos
+   avisos son los esperados**, los de reclamos, que ya no existen como entidad.
+4. Contra la aplicación levantada: las siete búsquedas por foto encontraron su objeto **en primer
+   lugar**; las devoluciones muestran su objeto y su foto abre; las pantallas de fraude traen las
+   7 alertas, el indicador del menú marca 4 sin ver, y los reportes por persona y por documento
+   cuadran con el total.
+5. Los bloqueos por fraude funcionan y caen donde tienen que caer: `emp1.patio@eurekapp.com` y
+   `emp1.dino@eurekapp.com` no pueden entrar y la aplicación explica por qué; el responsable de cada
+   una de esas sedes entra sin problema, igual que las tres cuentas de usuario final.
 
-**Los tres pasos que faltan:**
-
-1. `bash Backend/seed-local.sh --force` y mirar que no aparezca ningún aviso ni error. Tiene que
-   decir: 31 objetos encontrados, 5 búsquedas guardadas, 24 devoluciones, "Las 24 devoluciones
-   apuntan a un objeto que existe y figura como devuelto", 7 alertas, 7 bloqueos y 60 imágenes.
-2. Comprobar contra la aplicación levantada: que la búsqueda encuentre su objeto, que las
-   devoluciones muestren el suyo y que las pantallas de fraude tengan datos. **Ojo con el límite de
-   10 intentos de inicio de sesión por minuto**: si se pasa, contesta "demasiados intentos" y es
-   fácil confundirlo con un bloqueo por fraude.
-3. Proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba, publicarlo.
-
-**Todo esto ya se verificó una vez**, con el entorno levantado y el juego de datos nuevo cargado: la
-búsqueda encontró su objeto en las seis pruebas, las devoluciones mostraron su objeto y su foto, y
-las pantallas de fraude mostraron las siete alertas, los reportes por persona y por documento, y el
-indicador del menú. Lo que falta es repetirlo sobre una base recién creada, que es la única parte
-que todavía no se probó.
+**Lo único que queda:** proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba,
+publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
+autorización**.
 
 ### Una decisión pendiente que Facundo tiene que tomar
 
-Con las credenciales de AWS puestas, la aplicación busca las fotos en la cuenta real, donde **las de
-los objetos nuevos no existen**. O se deja el almacenamiento local para trabajar (las líneas
-comentadas), o hay que correr el seed una vez con las credenciales puestas, lo que sube 60 archivos
-a la cuenta real. Es de Facundo la decisión.
+`Backend/.env.local` sigue tocado a propósito: las dos líneas de credenciales de AWS están
+comentadas con el prefijo `#EU410-TMP-`, para que las fotos vayan al almacenamiento local en vez de
+a la cuenta real. **Con las credenciales puestas, la aplicación busca las fotos en la cuenta real,
+donde las de los objetos nuevos no existen.** O se deja el almacenamiento local para trabajar (como
+está ahora, y es lo que se acaba de verificar funcionando), o hay que correr el seed una vez con las
+credenciales puestas, lo que sube 60 archivos a la cuenta real. Es de Facundo la decisión; hasta que
+la tome, no hay que sacar el prefijo.
 
 ### El trabajo en sí
 
