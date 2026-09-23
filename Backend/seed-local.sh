@@ -272,13 +272,19 @@ header "Insertando FoundObjects en Weaviate"
 
 # Cada linea del NDJSON ya es un objeto completo (class, id, properties, vector)
 # listo para POST a /v1/objects. Los vectores son embeddings reales de OpenAI.
+# Cada objeto se manda desde un archivo temporal y no como argumento de curl: una linea trae
+# dos vectores completos y pesa decenas de miles de caracteres, y pasada como argumento la
+# rechaza el sistema operativo por larga. Cuando eso pasaba, el objeto no entraba y el unico
+# rastro era un contador mas bajo al final.
 FO_INSERTED=0
+POST_TMP=$(mktemp)
 while IFS= read -r line; do
   [[ -z "${line// }" ]] && continue
+  printf '%s' "$line" > "$POST_TMP"
   HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "$WEAVIATE_URL/v1/objects" \
     -H "Content-Type: application/json" \
-    --data-binary "$line")
+    --data-binary "@$POST_TMP")
   if [[ "$HTTP" == "200" ]]; then
     FO_INSERTED=$((FO_INSERTED + 1))
   else
@@ -310,27 +316,27 @@ FO_ANTEOJOS="2c817a63-1027-48c3-bb95-c24d73022f33"     # Anteojos de sol negros 
 # EU-410: objetos encontrados agregados para que cada devolucion tenga el suyo. Reusan la foto de
 # alguno de los diez de arriba (cada uno con su propia copia, porque el nombre del archivo en S3 es
 # el uuid del objeto) pero con fecha, sede y texto propios. Los dos ultimos quedan SIN devolver.
-FO_N01="c1000001-0000-4000-8000-000000000001"  # Paraguas negro plegable            (org 1)
-FO_N02="c1000002-0000-4000-8000-000000000002"  # Billetera marron con documentos    (org 2)
-FO_N03="c1000003-0000-4000-8000-000000000003"  # Auriculares over-ear blancos       (org 2)
-FO_N04="c1000004-0000-4000-8000-000000000004"  # Anteojos de sol montura negra      (org 4)
-FO_N05="c1000005-0000-4000-8000-000000000005"  # Mochila azul mediana               (org 6)
-FO_N06="c1000006-0000-4000-8000-000000000006"  # Notebook gris de 15 pulgadas       (org 4)
-FO_N07="c1000007-0000-4000-8000-000000000007"  # Cargador USB-C blanco              (org 5)
-FO_N08="c1000008-0000-4000-8000-000000000008"  # Paraguas negro compacto            (org 6)
-FO_N09="c1000009-0000-4000-8000-000000000009"  # Billetera de cuero marron          (org 5)
-FO_N10="c1000010-0000-4000-8000-000000000010"  # Llave con llavero de goma azul     (org 4)
-FO_N11="c1000011-0000-4000-8000-000000000011"  # Auriculares inalambricos blancos   (org 3)
-FO_N12="c1000012-0000-4000-8000-000000000012"  # Celular Samsung negro              (org 4)
-FO_N13="c1000013-0000-4000-8000-000000000013"  # Notebook Dell gris                 (org 2)
-FO_N14="c1000014-0000-4000-8000-000000000014"  # Mochila azul con apuntes           (org 5)
-FO_N15="c1000015-0000-4000-8000-000000000015"  # Cargador de celular blanco         (org 6)
-FO_N16="c1000016-0000-4000-8000-000000000016"  # Billetera marron con tarjetas      (org 3)
-FO_N17="c1000017-0000-4000-8000-000000000017"  # Billetera de cuero con documentos  (org 3)
-FO_N18="c1000018-0000-4000-8000-000000000018"  # Anteojos de sol negros             (org 5)
-FO_N19="c1000019-0000-4000-8000-000000000019"  # Celular negro con funda gris       (org 1)
-FO_N20="c1000020-0000-4000-8000-000000000020"  # Juego de llaves con llavero azul   (org 6) SIN DEVOLVER
-FO_N21="c1000021-0000-4000-8000-000000000021"  # Cargador USB-C blanco de 20W       (org 5) SIN DEVOLVER
+FO_N01="c1000001-0000-4000-8000-000000000001"  # Auriculares over-ear blancos       (Terminal)
+FO_N02="c1000002-0000-4000-8000-000000000002"  # Anteojos de sol con montura negra  (Patio Olmos)
+FO_N03="c1000003-0000-4000-8000-000000000003"  # Cargador USB-C blanco              (UNC)
+FO_N04="c1000004-0000-4000-8000-000000000004"  # Paraguas negro plegable            (UTN)
+FO_N05="c1000005-0000-4000-8000-000000000005"  # Mochila azul mediana               (Dinosaurio)
+FO_N06="c1000006-0000-4000-8000-000000000006"  # Notebook gris de 15 pulgadas       (UTN)
+FO_N07="c1000007-0000-4000-8000-000000000007"  # Billetera marron con documentos    (Patio Olmos)
+FO_N08="c1000008-0000-4000-8000-000000000008"  # Celular Samsung negro              (Patio Olmos)
+FO_N09="c1000009-0000-4000-8000-000000000009"  # Notebook Dell gris                 (Patio Olmos)
+FO_N10="c1000010-0000-4000-8000-000000000010"  # Anteojos de sol negros             (UNC)
+FO_N11="c1000011-0000-4000-8000-000000000011"  # Celular negro con funda gris       (Dinosaurio)
+FO_N12="c1000012-0000-4000-8000-000000000012"  # Cargador de celular blanco         (Dinosaurio)
+FO_N13="c1000013-0000-4000-8000-000000000013"  # Billetera de cuero con documentos  (Dinosaurio)
+FO_N14="c1000014-0000-4000-8000-000000000014"  # Mochila azul con apuntes           (Patio Olmos)
+FO_N15="c1000015-0000-4000-8000-000000000015"  # Llave con llavero de goma azul     (UTN)
+FO_N16="c1000016-0000-4000-8000-000000000016"  # Auriculares inalambricos blancos   (Patio Olmos)
+FO_N17="c1000017-0000-4000-8000-000000000017"  # Paraguas negro compacto            (Terminal)
+FO_N18="c1000018-0000-4000-8000-000000000018"  # Billetera de cuero marron          (Patio Olmos)
+FO_N19="c1000019-0000-4000-8000-000000000019"  # Juego de llaves con llavero azul   (Patio Olmos)
+FO_N20="c1000020-0000-4000-8000-000000000020"  # Llave con llavero azul de goma     (Dinosaurio)  SIN DEVOLVER
+FO_N21="c1000021-0000-4000-8000-000000000021"  # Cargador USB-C blanco de 20W       (UNC)  SIN DEVOLVER
 
 # ─── 10b. Asignar finders a FoundObjects ─────────────────────────────────────
 header "Asignando finders a FoundObjects (object_finder_user_id)"
@@ -355,7 +361,9 @@ for UUID in "${!FO_FINDERS[@]}"; do
     -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
     -H "Content-Type: application/json" \
     -d "{\"properties\": {\"object_finder_user_id\": \"$USER_ID\"}}")
-  [[ "$HTTP" == "200" ]] \
+  # Weaviate contesta 204 a un PATCH correcto; el script solo aceptaba 200 y avisaba de un fallo
+  # que no existia.
+  [[ "$HTTP" == "200" || "$HTTP" == "204" ]] \
     && success "  finder=$USER_ID → $UUID" \
     || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
 done
@@ -366,10 +374,11 @@ header "Insertando LostObjects en Weaviate"
 LO_INSERTED=0
 while IFS= read -r line; do
   [[ -z "${line// }" ]] && continue
+  printf '%s' "$line" > "$POST_TMP"
   HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X POST "$WEAVIATE_URL/v1/objects" \
     -H "Content-Type: application/json" \
-    --data-binary "$line")
+    --data-binary "@$POST_TMP")
   if [[ "$HTTP" == "200" ]]; then
     LO_INSERTED=$((LO_INSERTED + 1))
   else
@@ -377,6 +386,12 @@ while IFS= read -r line; do
   fi
 done < "$LOST_NDJSON"
 success "  $LO_INSERTED LostObjects insertados"
+rm -f "$POST_TMP"
+
+# Si alguno no entro, la busqueda queda incompleta sin ningun sintoma visible:
+# conviene enterarse aca y no despues, buscando un objeto que nunca se cargo.
+[[ "$FO_INSERTED" == "$FOUND_COUNT" ]] || error "Entraron $FO_INSERTED de $FOUND_COUNT objetos encontrados"
+[[ "$LO_INSERTED" == "$LOST_COUNT" ]]  || error "Entraron $LO_INSERTED de $LOST_COUNT busquedas guardadas"
 
 # ─── 12. Insertar Retornos ───────────────────────────────────────────────────
 header "Insertando Retornos"
@@ -471,40 +486,45 @@ success "search_feedback.star_rating admite nulos (EU-372)"
 # siembran mas abajo se apoyan en estas devoluciones, asi que los documentos, las fechas, las sedes
 # y los empleados que entregan tienen que coincidir con las de alla.
 #
-#   42111222 Julia Morales   - abril             - retira 3 veces, termino siendo falsa alarma
-#   27998877 Nahuel Ibarra   - mayo              - siempre lo atiende el mismo empleado de la UTN
-#   28123456 Ramiro Otero    - junio y septiembre- reincidente, dos alertas separadas
-#   39456789 Valeria Castro  - julio a septiembre- siempre sobre objetos registrados por Pedro
-#   31555444 Brenda Sosa     - agosto            - siempre la atiende la misma empleada del aeropuerto
+#   42111222 Julia Morales   - abril              - retira 3 veces; termino siendo falsa alarma
+#   27998877 Nahuel Ibarra   - mayo               - siempre lo atiende el mismo empleado de la UTN
+#   28123456 Ramiro Otero    - junio y septiembre - reincidente, dos alertas separadas
+#   39456789 Micaela Ledesma - julio a septiembre - siempre retira objetos registrados por la misma
+#                                                   persona del shopping
+#   31555444 Brenda Sosa     - agosto             - siempre la atiende la misma empleada del shopping
 #   33145892 / 26874159 / 29334857 - devoluciones normales, una sola vez cada una
+#
+# Quienes quedan senalados son personal de las organizaciones, no las tres cuentas de usuario
+# final: una alerta vigente bloquea la cuenta, y si cayeran ahi Julia, Pedro o Valeria no se
+# podria probar ni la busqueda ni las busquedas guardadas, que son de ellos.
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (found_objectuuid, user_id, organization_id, returned_by_employee_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-('$FO_N02',           7,    2, 3,  'a0000001-0000-4000-8000-000000000001', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-001', '2026-04-16 10:20:00', '2026-04-16 10:25:00', NULL),
-('$FO_N03',           7,    2, 3,  'a0000002-0000-4000-8000-000000000002', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-002', '2026-04-23 10:00:00', '2026-04-23 10:05:00', NULL),
-('$FO_N04',           7,    4, 12, 'a0000003-0000-4000-8000-000000000003', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-003', '2026-04-29 11:30:00', '2026-04-29 11:35:00', NULL),
-('$FO_LLAVE',         NULL, 1, 6,  'a0000004-0000-4000-8000-000000000004', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-004', '2026-05-06 09:15:00', NULL,                  NULL),
-('$FO_ANTEOJOS',      NULL, 1, 6,  'a0000005-0000-4000-8000-000000000005', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-005', '2026-05-24 16:40:00', '2026-05-24 16:45:00', 'encargado.utn@eurekapp.com'),
-('$FO_N01',           NULL, 1, 6,  'a0000006-0000-4000-8000-000000000006', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-006', '2026-05-30 12:00:00', NULL,                  NULL),
-('$FO_N05',           NULL, 6, 16, 'a0000007-0000-4000-8000-000000000007', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-007', '2026-06-02 18:10:00', NULL,                  NULL),
-('$FO_BILLETERA_DNI', NULL, 2, 3,  'a0000008-0000-4000-8000-000000000008', 'Laura',   'Fernandez',  '33145892', '3514000106', 'person-photo-008', '2026-06-05 13:00:00', '2026-06-05 13:04:00', 'julia@mail.com'),
-('$FO_N06',           NULL, 4, 12, 'a0000009-0000-4000-8000-000000000009', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-009', '2026-06-10 17:25:00', NULL,                  NULL),
-('$FO_N07',           NULL, 5, 14, 'a0000010-0000-4000-8000-000000000010', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-010', '2026-06-18 11:05:00', NULL,                  NULL),
-('$FO_N18',           NULL, 5, 14, 'a0000011-0000-4000-8000-000000000011', 'Hector',  'Quiroga',    '26874159', '3514000107', 'person-photo-011', '2026-06-27 09:40:00', NULL,                  NULL),
-('$FO_N11',           9,    3, 10, 'a0000012-0000-4000-8000-000000000012', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-012', '2026-07-05 08:50:00', '2026-07-05 08:55:00', 'pedro@mail.com'),
-('$FO_N12',           9,    4, 12, 'a0000013-0000-4000-8000-000000000013', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-013', '2026-07-14 19:30:00', '2026-07-14 19:35:00', 'pedro@mail.com'),
-('$FO_N13',           9,    2, 3,  'a0000014-0000-4000-8000-000000000014', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-014', '2026-07-25 15:10:00', '2026-07-25 15:15:00', 'pedro@mail.com'),
-('$FO_N19',           NULL, 1, 5,  'a0000015-0000-4000-8000-000000000015', 'Gaston',  'Peralta',    '29334857', '3514000108', 'person-photo-015', '2026-08-07 10:00:00', NULL,                  NULL),
-('$FO_CELULAR',       NULL, 3, 10, 'a0000016-0000-4000-8000-000000000016', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-016', '2026-08-10 12:20:00', '2026-08-10 12:25:00', 'pedro@mail.com'),
-('$FO_CARGADOR',      NULL, 3, 10, 'a0000017-0000-4000-8000-000000000017', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-017', '2026-08-18 14:45:00', '2026-08-18 14:50:00', 'julia@mail.com'),
-('$FO_N17',           NULL, 3, 10, 'a0000018-0000-4000-8000-000000000018', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-018', '2026-08-25 09:30:00', NULL,                  NULL),
-('$FO_N14',           9,    5, 14, 'a0000019-0000-4000-8000-000000000019', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-019', '2026-08-28 10:15:00', '2026-08-28 10:20:00', 'pedro@mail.com'),
-('$FO_N08',           NULL, 6, 16, 'a0000020-0000-4000-8000-000000000020', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-020', '2026-09-02 18:00:00', NULL,                  NULL),
-('$FO_N15',           9,    6, 16, 'a0000021-0000-4000-8000-000000000021', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-021', '2026-09-03 17:20:00', '2026-09-03 17:25:00', 'pedro@mail.com'),
-('$FO_N09',           NULL, 5, 14, 'a0000022-0000-4000-8000-000000000022', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-022', '2026-09-09 14:00:00', NULL,                  NULL),
-('$FO_N16',           9,    3, 10, 'a0000023-0000-4000-8000-000000000023', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-023', '2026-09-10 08:40:00', '2026-09-10 08:45:00', 'pedro@mail.com'),
-('$FO_N10',           NULL, 4, 12, 'a0000024-0000-4000-8000-000000000024', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-024', '2026-09-15 12:30:00', NULL,                  NULL);
+('$FO_N01', 7, 2, 3, 'b0000001-0000-4000-8000-000000000001', 'Julia', 'Morales', '42111222', '3514000101', 'person-photo-001', '2026-04-16 10:20:00', '2026-04-16 10:25:00', NULL),
+('$FO_N02', 7, 4, 12, 'b0000002-0000-4000-8000-000000000002', 'Julia', 'Morales', '42111222', '3514000101', 'person-photo-002', '2026-04-23 10:00:00', '2026-04-23 10:05:00', NULL),
+('$FO_N03', 7, 5, 14, 'b0000003-0000-4000-8000-000000000003', 'Julia', 'Morales', '42111222', '3514000101', 'person-photo-003', '2026-04-29 11:30:00', '2026-04-29 11:35:00', NULL),
+('$FO_LLAVE', NULL, 1, 6, 'b0000004-0000-4000-8000-000000000004', 'Nahuel', 'Ibarra', '27998877', '3514000102', 'person-photo-004', '2026-05-06 09:15:00', NULL, NULL),
+('$FO_ANTEOJOS', NULL, 1, 6, 'b0000005-0000-4000-8000-000000000005', 'Nahuel', 'Ibarra', '27998877', '3514000102', 'person-photo-005', '2026-05-24 16:40:00', '2026-05-24 16:45:00', 'encargado.utn@eurekapp.com'),
+('$FO_N04', NULL, 1, 6, 'b0000006-0000-4000-8000-000000000006', 'Nahuel', 'Ibarra', '27998877', '3514000102', 'person-photo-006', '2026-05-30 12:00:00', NULL, NULL),
+('$FO_N05', NULL, 6, 16, 'b0000007-0000-4000-8000-000000000007', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-007', '2026-06-02 18:10:00', NULL, NULL),
+('$FO_BILLETERA_DNI', NULL, 2, 3, 'b0000008-0000-4000-8000-000000000008', 'Laura', 'Fernandez', '33145892', '3514000106', 'person-photo-008', '2026-06-05 13:00:00', '2026-06-05 13:04:00', 'julia@mail.com'),
+('$FO_CELULAR', NULL, 3, 10, 'b0000009-0000-4000-8000-000000000009', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-009', '2026-06-10 17:25:00', '2026-06-10 17:30:00', 'pedro@mail.com'),
+('$FO_CARGADOR', NULL, 3, 10, 'b0000010-0000-4000-8000-000000000010', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-010', '2026-06-18 11:05:00', '2026-06-18 11:10:00', 'julia@mail.com'),
+('$FO_N06', NULL, 1, 4, 'b0000011-0000-4000-8000-000000000011', 'Hector', 'Quiroga', '26874159', '3514000107', 'person-photo-011', '2026-06-27 09:40:00', NULL, NULL),
+('$FO_N07', NULL, 4, 11, 'b0000012-0000-4000-8000-000000000012', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-012', '2026-07-05 08:50:00', '2026-07-05 08:55:00', 'emp1.patio@eurekapp.com'),
+('$FO_N08', NULL, 4, 12, 'b0000013-0000-4000-8000-000000000013', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-013', '2026-07-14 19:30:00', '2026-07-14 19:35:00', 'emp1.patio@eurekapp.com'),
+('$FO_N09', NULL, 4, 11, 'b0000014-0000-4000-8000-000000000014', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-014', '2026-07-25 15:10:00', '2026-07-25 15:15:00', 'emp1.patio@eurekapp.com'),
+('$FO_N10', NULL, 5, 13, 'b0000015-0000-4000-8000-000000000015', 'Gaston', 'Peralta', '29334857', '3514000108', 'person-photo-015', '2026-08-07 10:00:00', NULL, NULL),
+('$FO_N11', NULL, 6, 16, 'b0000016-0000-4000-8000-000000000016', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-016', '2026-08-10 12:20:00', NULL, NULL),
+('$FO_N12', NULL, 6, 16, 'b0000017-0000-4000-8000-000000000017', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-017', '2026-08-18 14:45:00', NULL, NULL),
+('$FO_N13', NULL, 6, 16, 'b0000018-0000-4000-8000-000000000018', 'Brenda', 'Sosa', '31555444', '3514000105', 'person-photo-018', '2026-08-25 09:30:00', NULL, NULL),
+('$FO_N14', NULL, 4, 11, 'b0000019-0000-4000-8000-000000000019', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-019', '2026-08-28 10:15:00', '2026-08-28 10:20:00', 'emp1.patio@eurekapp.com'),
+('$FO_N15', NULL, 1, 5, 'b0000020-0000-4000-8000-000000000020', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-020', '2026-09-02 18:00:00', NULL, NULL),
+('$FO_N16', NULL, 4, 12, 'b0000021-0000-4000-8000-000000000021', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-021', '2026-09-03 17:20:00', '2026-09-03 17:25:00', 'emp1.patio@eurekapp.com'),
+('$FO_N17', NULL, 2, 3, 'b0000022-0000-4000-8000-000000000022', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-022', '2026-09-09 14:00:00', NULL, NULL),
+('$FO_N18', NULL, 4, 11, 'b0000023-0000-4000-8000-000000000023', 'Micaela', 'Ledesma', '39456789', '3514000104', 'person-photo-023', '2026-09-10 08:40:00', '2026-09-10 08:45:00', 'emp1.patio@eurekapp.com'),
+('$FO_N19', NULL, 4, 11, 'b0000024-0000-4000-8000-000000000024', 'Ramiro', 'Otero', '28123456', '3514000103', 'person-photo-024', '2026-09-15 12:30:00', NULL, NULL);
 SQL
 # Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
 success "24 devoluciones insertadas, cada una sobre su propio objeto, con su token de encuesta"
@@ -521,7 +541,7 @@ for UUID in \
     -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
     -H "Content-Type: application/json" \
     -d '{"properties": {"was_returned": true}}')
-  [[ "$HTTP" == "200" ]] \
+  [[ "$HTTP" == "200" || "$HTTP" == "204" ]] \
     && success "  was_returned=true → $UUID" \
     || warn    "  PATCH fallido (HTTP $HTTP) → $UUID"
 done
@@ -571,16 +591,16 @@ SELECT r.id, r.organization_id, r.user_id, v.trato, v.espera, v.claridad, v.esta
        v.comentario, v.creado
 FROM return_found_objects r
 JOIN (
-  SELECT '$FO_N02'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
+  SELECT '$FO_N01'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
          'Me atendieron muy bien, todo rapidisimo' AS comentario, '2026-04-17 09:00:00' AS creado
-  UNION ALL SELECT '$FO_N12', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-07-15 10:00:00'
-  UNION ALL SELECT '$FO_N16', 4, 4, 3, 4, 5, NULL, '2026-09-11 19:00:00'
+  UNION ALL SELECT '$FO_N02', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-04-24 10:00:00'
+  
 ) v ON v.uuid = r.found_objectuuid
 WHERE r.user_id IS NOT NULL AND r.organization_id IS NOT NULL;
 SQL
 # Las demas devoluciones con usuario asociado quedan SIN calificar a proposito: son las que
 # permiten probar a mano la encuesta de atencion de punta a punta.
-success "3 calificaciones de atencion insertadas (Terminal, Patio Olmos y Aeropuerto)"
+success "2 calificaciones de atencion insertadas (Terminal y Patio Olmos) + 1 devolucion sin calificar"
 
 # ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
 header "Insertando UsabilityFeedback"
@@ -651,7 +671,7 @@ VALUES
  'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
  'ACTIVE', '2026-07-25 15:16:00', NULL, NULL, 'dni:39456789'),
 (5, NULL, NULL, '31555444', 10, 'CASE_1,CASE_3',
- 'DNI 31555444 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp1.aero@eurekapp.com).',
+ 'DNI 31555444 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp1.dino@eurekapp.com).',
  'ACTIVE', '2026-08-25 09:35:00', NULL, NULL, 'dni:31555444'),
 (6, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
  'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
@@ -682,12 +702,12 @@ success "11 casos detectados distribuidos entre las 7 alertas"
 # tener cuenta: ahi el foco es el documento.
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO fraud_alert_suspect_user (fraud_alert_id, user_id) VALUES
-(2, 6),           -- Tomas Ramirez, el empleado que atendio las tres veces
-(4, 8), (4, 9),   -- Pedro registro los objetos, Valeria los retiro
-(5, 10),          -- Sofia Herrera, la empleada que atendio las tres veces
-(6, 8), (6, 9);   -- reincidencia del mismo par, dos meses despues
+(2, 6),    -- Tomas Ramirez, el empleado de la UTN que atendio las tres veces
+(4, 12),   -- Ignacio Molina, que habia registrado los tres objetos retirados
+(5, 16),   -- Natalia Gutierrez, la empleada del shopping que atendio las tres veces
+(6, 12);   -- Ignacio Molina otra vez, dos meses despues
 SQL
-success "6 personas senaladas (Pedro y Valeria figuran en dos alertas cada uno)"
+success "4 personas senaladas (Ignacio Molina figura en dos alertas)"
 
 # Bloqueos. Al nacer, una alerta bloquea al documento y a cada persona que senala, por 90 dias;
 # marcar la alerta como falsa alarma levanta esos bloqueos, y por eso las tres falsas alarmas no
@@ -695,16 +715,14 @@ success "6 personas senaladas (Pedro y Valeria figuran en dos alertas cada uno)"
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO fraud_block (target_dni, target_user_id, fraud_alert_id, blocked_at, expires_at) VALUES
 ('39456789', NULL, 4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
-(NULL,       8,    4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
-(NULL,       9,    4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
+(NULL,       12,   4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
 ('31555444', NULL, 5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
-(NULL,       10,   5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
+(NULL,       16,   5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
 ('39456789', NULL, 6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
-(NULL,       8,    6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
-(NULL,       9,    6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
+(NULL,       12,   6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
 ('28123456', NULL, 7, '2026-09-15 12:35:00', '2026-12-14 12:35:00');
 SQL
-success "9 bloqueos vigentes sobre 4 documentos y 3 personas registradas"
+success "7 bloqueos vigentes sobre 3 documentos y 2 personas de las organizaciones"
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
@@ -856,53 +874,55 @@ for i in $(seq -w 1 24); do PERSON_KEYS+=("person-photo-0$i"); done
 
 S3_UPLOADED=0
 
-# Sube la foto REAL de un objeto (found/lost), tomada de PHOTOS_DIR/<KEY>.jpg.
-upload_real_photo() {
-  local KEY="$1"
-  local SRC="$PHOTOS_DIR/${KEY}.jpg"
-
-  if [[ ! -f "$SRC" ]]; then
-    warn "  Falta foto real $SRC (no se sube $KEY)"; return
-  fi
-  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" "${S3_ENDPOINT_ARGS[@]}" >/dev/null 2>&1; then
-    info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
-  fi
-  aws s3 cp "$SRC" "s3://${S3_BUCKET}/${KEY}" "${S3_ENDPOINT_ARGS[@]}" --quiet 2>/dev/null \
-    && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
-    || warn "  S3 ✗ $KEY"
-}
-
-# Placeholder para las fotos de PERSONA de las devoluciones (no hay fotos reales): random de picsum.
-upload_placeholder() {
-  local KEY="$1" SEED="$2"
-  local CACHED="$IMG_DIR/${KEY}.jpg"
-
-  if aws s3 ls "s3://${S3_BUCKET}/${KEY}" "${S3_ENDPOINT_ARGS[@]}" >/dev/null 2>&1; then
-    info "  S3 ✓ $KEY (ya existia)"; S3_UPLOADED=$((S3_UPLOADED + 1)); return
-  fi
+# Las fotos de persona no existen como material real: se usa una imagen cualquiera, cacheada en
+# IMG_DIR para no volver a bajarla en cada corrida.
+for i in $(seq 1 ${#PERSON_KEYS[@]}); do
+  KEY="${PERSON_KEYS[$((i-1))]}"
+  CACHED="$IMG_DIR/${KEY}.jpg"
   if [[ ! -f "$CACHED" ]]; then
-    curl -sL "https://picsum.photos/seed/${SEED}/300/400" -o "$CACHED" 2>/dev/null \
-      || { warn "  No se pudo descargar imagen para $KEY"; return; }
+    curl -sL "https://picsum.photos/seed/pp$(printf '%03d' $i)/300/400" -o "$CACHED" 2>/dev/null \
+      || warn "  No se pudo descargar la foto de persona $KEY"
   fi
-  aws s3 cp "$CACHED" "s3://${S3_BUCKET}/${KEY}" "${S3_ENDPOINT_ARGS[@]}" --quiet 2>/dev/null \
-    && { info "  S3 ✓ $KEY (subida)"; S3_UPLOADED=$((S3_UPLOADED + 1)); } \
-    || warn "  S3 ✗ $KEY"
-}
+done
+
+# Lista de todo lo que hay que subir: "<nombre-destino> <archivo-local>".
+MANIFEST=$(mktemp)
+for KEY in "${FO_KEYS[@]}" "${LO_KEYS[@]}"; do
+  if [[ -f "$PHOTOS_DIR/${KEY}.jpg" ]]; then
+    echo "$KEY $PHOTOS_DIR/${KEY}.jpg" >> "$MANIFEST"
+  else
+    warn "  Falta la foto de $KEY"
+  fi
+done
+for KEY in "${PERSON_KEYS[@]}"; do
+  [[ -f "$IMG_DIR/${KEY}.jpg" ]] && echo "$KEY $IMG_DIR/${KEY}.jpg" >> "$MANIFEST"
+done
+TOTAL_FOTOS=$(wc -l < "$MANIFEST")
 
 if command -v aws &>/dev/null && aws s3 ls "s3://${S3_BUCKET}" "${S3_ENDPOINT_ARGS[@]}" >/dev/null 2>&1; then
-  info "$S3_MODE detectado — subiendo fotos reales (found + búsquedas) y placeholders de persona..."
-  for KEY in "${FO_KEYS[@]}"; do upload_real_photo "$KEY"; done
-  for KEY in "${LO_KEYS[@]}"; do upload_real_photo "$KEY"; done
-  i=1
-  for KEY in "${PERSON_KEYS[@]}"; do
-    upload_placeholder "$KEY" "pp$(printf '%02d' $i)"
-    i=$((i + 1))
-  done
-  success "$S3_UPLOADED imagenes OK en $S3_MODE (bucket: $S3_BUCKET)"
+  info "$S3_MODE detectado — subiendo $TOTAL_FOTOS imagenes..."
+  while read -r KEY SRC; do
+    aws s3 cp "$SRC" "s3://${S3_BUCKET}/${KEY}" "${S3_ENDPOINT_ARGS[@]}" --quiet 2>/dev/null \
+      && S3_UPLOADED=$((S3_UPLOADED + 1)) || warn "  no se pudo subir $KEY"
+  done < "$MANIFEST"
+  success "$S3_UPLOADED de $TOTAL_FOTOS imagenes en $S3_MODE (bucket: $S3_BUCKET)"
+elif [[ "$S3_MODE" == "MinIO local" ]]; then
+  # Sin el cliente de linea de comandos de AWS instalado, el paso se saltaba entero y la
+  # aplicacion quedaba sin una sola foto. Contra el almacenamiento local no hace falta: se sube
+  # hablando directo con el, que es lo que hace este script.
+  info "Subiendo $TOTAL_FOTOS imagenes al almacenamiento local..."
+  if S3_ENDPOINT="$S3_ENDPOINT" S3_BUCKET="$S3_BUCKET" \
+     ${PYTHON_CMD} "$SEED_DATA_DIR/upload_photos.py" "$MANIFEST"; then
+    S3_UPLOADED=$TOTAL_FOTOS
+    success "$TOTAL_FOTOS imagenes en $S3_MODE (bucket: $S3_BUCKET)"
+  else
+    warn "Quedaron imagenes sin subir: los objetos se van a ver sin foto."
+  fi
 else
-  warn "$S3_MODE no disponible — ¿corriste start-local.sh (MinIO) o falta la Access Key (AWS real)?"
-  warn "Se omite upload de imagenes. Al resolverlo, correr el script de nuevo para subirlas."
+  warn "$S3_MODE no disponible — hace falta el cliente de AWS para subir a la cuenta real."
+  warn "Se omite el upload de imagenes. Al resolverlo, correr el script de nuevo."
 fi
+rm -f "$MANIFEST"
 
 # ─── 21. Resumen ─────────────────────────────────────────────────────────────
 echo ""
@@ -915,7 +935,7 @@ echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                  
 echo -e "${GREEN}${BOLD}║${NC}    Devoluciones          : 24 (una por objeto)         ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 3  (+3 sin calificar)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 2  (+1 sin calificar)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Alertas de fraude     : 7  (4 vigentes, 3 falsas)   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
@@ -927,7 +947,7 @@ printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  FoundObjects
 printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  LostObjects           : ${LO_INSERTED}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  S3                                                      ${GREEN}${BOLD}║${NC}"
-printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  Imagenes subidas      : 0 (ya existen por UUID)"
+printf "${GREEN}${BOLD}║${NC}  %-54s${GREEN}${BOLD}║${NC}\n" "  Imagenes subidas      : ${S3_UPLOADED}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
 echo -e "${GREEN}${BOLD}║${NC}  Contrasena de todos los usuarios: ${BOLD}${SEED_PASSWORD}${NC}           ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
