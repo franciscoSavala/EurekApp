@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""
+EU-410 - Constructor del juego de datos de prueba definitivo.
+
+Parte del snapshot del rework de busqueda (10 objetos encontrados + 5 busquedas, con sus dos
+vectores nombrados ya congelados) y le agrega los objetos encontrados que hacen falta para que
+cada devolucion del seed apunte a un objeto distinto y propio.
+
+COMO SE FABRICA UN OBJETO NUEVO (y por que no hace falta ni CLIP ni el backend):
+  - La FOTO se reusa: es la misma foto de un objeto que ya esta en el juego, copiada con el nombre
+    del objeto nuevo (el nombre del archivo en S3 ES el uuid del objeto, por eso cada objeto
+    necesita su propia copia).
+  - El VECTOR DE IMAGEN se copia tal cual del objeto de origen: misma foto, mismo vector. Volver a
+    pedirselo a CLIP daria exactamente lo mismo.
+  - La CATEGORIA se copia del objeto de origen, por el mismo motivo: la decide el clasificador
+    sobre la foto, y la foto no cambio.
+  - El VECTOR DE TEXTO si se calcula de nuevo, porque el titulo y la descripcion cambian. Se arma
+    con el mismo texto que arma el backend al dar de alta un objeto encontrado
+    (descripcion + " " + titulo) y con el mismo modelo de embeddings.
+
+Uso:  python Backend/seed-data/build_dataset.py
+Requiere: OPENAI_SECRET_KEY en el entorno (o en Backend/.env.local).
+Salida:   sobrescribe snapshot/FoundObject.ndjson y copia las fotos que falten a photos/.
+          No borra nada. Es idempotente.
+"""
+
+import json
+import os
+import shutil
+import sys
+import urllib.request
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SNAP = os.path.join(HERE, "snapshot")
+PHOTOS = os.path.join(HERE, "photos")
+OPENAI_URL = "https://api.openai.com/v1/embeddings"
+OPENAI_MODEL = "text-embedding-3-small"
+
+# -- De que archivo de foto salio cada objeto del snapshot ---------------------
+# El bootstrap por API subio las fotos de photos/<uuid-viejo>.jpg y Weaviate les dio un uuid nuevo.
+# Esta tabla es ese puente, y es la que permite que cada objeto tenga su copia de la foto.
+PHOTO_OF = {
+    # FoundObject del snapshot -> archivo de foto
+    "dcfc219a-8142-4a2f-9344-d2521889689d": "4b43a1d8-1491-4077-9c1c-463e5906cdeb",  # paraguas
+    "2121ffa9-8773-4c23-a5ef-f3d393def659": "85c55156-216f-4b6c-aa65-782e066567b6",  # notebook
+    "96c3a201-7251-45c2-b442-2102a98fb474": "7ea43eba-7343-4cd8-b5d0-b736e3d575a3",  # billetera cuero
+    "5fe28eaf-8994-44aa-bf2f-15f2e3691cae": "df2aa6a0-d15c-46e8-902a-e5394538a43e",  # llave
+    "05e3b579-30c2-47fc-8bd4-e90dab97c498": "25e71dcb-9d0d-4b75-96f2-df60b7d99261",  # auriculares
+    "b0a4573c-2db6-4858-9ac9-bb314769e445": "494ddbc4-b4d8-4935-a77c-1d3e7363b67d",  # mochila
+    "77965d32-7ba3-4497-8471-3d94f7acd5cd": "18da5796-50dc-4383-8b1f-27e524b04b5d",  # celular
+    "d5937d67-e758-4e53-9ae4-844803027bdb": "ebaa9336-e9fd-4556-a96e-9c1538d165cb",  # billetera DNI
+    "0412e370-c1a5-442d-b740-4fd9cfda59be": "498d742e-49e6-4c88-bf8d-f0313581dfaa",  # cargador
+    "2c817a63-1027-48c3-bb95-c24d73022f33": "a1047f2f-0fcd-41b1-92ad-485dd04cb5d8",  # anteojos
+    # LostObject del snapshot -> archivo de foto
+    "8044d799-77b3-4326-bb3f-f6a0ad195f94": "26f82583-f553-40a1-a1b8-3775c384971f",  # paraguas
+    "9970bf61-92c7-47be-a120-41424bdc1320": "56d511e3-899b-41cf-9f2c-a811437b0b28",  # notebook
+    "aeaac6e1-893c-4f49-af6e-f43f62f6d71f": "ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6",  # billetera
+    "56fcd220-9532-45d9-beee-1253f5846677": "771c2c2b-4dd2-45e4-977b-3a2186e86b6e",  # auriculares
+    "8645d88c-529c-496c-a213-f768892dd2ad": "8ec5ebe1-5b65-412a-9cda-576f42401e35",  # mochila
+}
+
+# Coordenadas de cada organizacion (mismas que siembra seed-local.sh).
+ORG_COORDS = {
+    "1": (-31.4377, -64.1829),   # UTN FRC
+    "2": (-31.4201, -64.1888),   # Terminal de Omnibus
+    "3": (-31.3233, -64.2081),   # Aeropuerto
+    "4": (-31.4163, -64.1885),   # Patio Olmos
+    "5": (-31.4384, -64.1917),   # UNC Ciudad Universitaria
+    "6": (-31.3693, -64.2254),   # Dinosaurio Mall
+}
+
+# -- Objetos encontrados nuevos -----------------------------------------------
+# "src" es el objeto del snapshot cuya foto (y por lo tanto su vector de imagen y su categoria) se
+# reusa. Todo lo demas -fecha, sede, titulo y descripcion- es propio.
+# (id, src, organizacion, fecha, finder, titulo, descripcion)
+NEW_OBJECTS = [
+    ("c1000001-0000-4000-8000-000000000001", "dcfc219a-8142-4a2f-9344-d2521889689d", "1", "2026-05-18T09:00:00Z", "0",
+     "Paraguas negro plegable",
+     "Paraguas negro plegable compacto olvidado en el hall del pabellon central"),
+    ("c1000002-0000-4000-8000-000000000002", "d5937d67-e758-4e53-9ae4-844803027bdb", "2", "2026-04-14T11:00:00Z", "0",
+     "Billetera marron con documentos",
+     "Billetera marron de cuero con documentos y tarjetas, encontrada en el anden 12"),
+    ("c1000003-0000-4000-8000-000000000003", "05e3b579-30c2-47fc-8bd4-e90dab97c498", "2", "2026-04-21T16:00:00Z", "0",
+     "Auriculares over-ear blancos",
+     "Auriculares over-ear blancos sin cables, olvidados en la sala de espera de la terminal"),
+    ("c1000004-0000-4000-8000-000000000004", "2c817a63-1027-48c3-bb95-c24d73022f33", "4", "2026-04-27T18:00:00Z", "0",
+     "Anteojos de sol con montura negra",
+     "Anteojos de sol de montura negra y lentes espejados, encontrados en el patio de comidas"),
+    ("c1000005-0000-4000-8000-000000000005", "b0a4573c-2db6-4858-9ac9-bb314769e445", "6", "2026-05-30T12:00:00Z", "0",
+     "Mochila azul mediana",
+     "Mochila azul mediana con utiles adentro, encontrada en el estacionamiento del shopping"),
+    ("c1000006-0000-4000-8000-000000000006", "2121ffa9-8773-4c23-a5ef-f3d393def659", "4", "2026-06-08T15:00:00Z", "0",
+     "Notebook gris de 15 pulgadas",
+     "Notebook gris de 15 pulgadas con la tapa de aluminio, olvidada en el area de coworking"),
+    ("c1000007-0000-4000-8000-000000000007", "0412e370-c1a5-442d-b740-4fd9cfda59be", "5", "2026-06-16T10:00:00Z", "0",
+     "Cargador USB-C blanco",
+     "Cargador USB-C blanco con su cable, encontrado en un aula del pabellon Argentina"),
+    ("c1000008-0000-4000-8000-000000000008", "dcfc219a-8142-4a2f-9344-d2521889689d", "6", "2026-08-29T17:00:00Z", "0",
+     "Paraguas negro compacto",
+     "Paraguas negro compacto olvidado en la entrada norte del shopping un dia de lluvia"),
+    ("c1000009-0000-4000-8000-000000000009", "96c3a201-7251-45c2-b442-2102a98fb474", "5", "2026-09-05T13:00:00Z", "0",
+     "Billetera de cuero marron",
+     "Billetera de cuero marron con costuras en zigzag, encontrada en la biblioteca"),
+    ("c1000010-0000-4000-8000-000000000010", "5fe28eaf-8994-44aa-bf2f-15f2e3691cae", "4", "2026-09-12T11:00:00Z", "0",
+     "Llave con llavero de goma azul",
+     "Llave tipo Yale con llavero de goma azul, encontrada en los banos del primer piso"),
+    ("c1000011-0000-4000-8000-000000000011", "05e3b579-30c2-47fc-8bd4-e90dab97c498", "3", "2026-07-02T08:00:00Z", "8",
+     "Auriculares inalambricos blancos",
+     "Auriculares inalambricos blancos over-ear, encontrados en la sala de preembarque"),
+    ("c1000012-0000-4000-8000-000000000012", "77965d32-7ba3-4497-8471-3d94f7acd5cd", "4", "2026-07-11T19:00:00Z", "8",
+     "Celular Samsung negro",
+     "Celular Samsung negro con la pantalla rota y funda gris, encontrado en la escalera mecanica"),
+    ("c1000013-0000-4000-8000-000000000013", "2121ffa9-8773-4c23-a5ef-f3d393def659", "2", "2026-07-22T14:00:00Z", "8",
+     "Notebook Dell gris",
+     "Notebook Dell gris con stickers en la tapa, olvidada en la boleteria de la terminal"),
+    ("c1000014-0000-4000-8000-000000000014", "b0a4573c-2db6-4858-9ac9-bb314769e445", "5", "2026-08-25T09:00:00Z", "8",
+     "Mochila azul con apuntes",
+     "Mochila azul mediana con apuntes y un estuche, encontrada en el comedor universitario"),
+    ("c1000015-0000-4000-8000-000000000015", "0412e370-c1a5-442d-b740-4fd9cfda59be", "6", "2026-09-01T16:00:00Z", "8",
+     "Cargador de celular blanco",
+     "Cargador blanco de 20W con cable USB-C, encontrado en la zona de juegos del shopping"),
+    ("c1000016-0000-4000-8000-000000000016", "d5937d67-e758-4e53-9ae4-844803027bdb", "3", "2026-09-08T07:00:00Z", "8",
+     "Billetera marron con tarjetas",
+     "Billetera marron de cuero con tarjetas bancarias, encontrada en el mostrador de check-in"),
+    ("c1000017-0000-4000-8000-000000000017", "d5937d67-e758-4e53-9ae4-844803027bdb", "3", "2026-08-22T12:00:00Z", "0",
+     "Billetera de cuero con documentos",
+     "Billetera de cuero marron con documentos adentro, encontrada en la cinta de equipajes"),
+    ("c1000018-0000-4000-8000-000000000018", "2c817a63-1027-48c3-bb95-c24d73022f33", "5", "2026-06-24T10:00:00Z", "0",
+     "Anteojos de sol negros",
+     "Anteojos de sol con montura negra y lentes espejados, encontrados en el anfiteatro"),
+    ("c1000019-0000-4000-8000-000000000019", "77965d32-7ba3-4497-8471-3d94f7acd5cd", "1", "2026-08-04T18:00:00Z", "0",
+     "Celular negro con funda gris",
+     "Celular negro con funda gris y la pantalla rajada, encontrado en el laboratorio de sistemas"),
+    # Los dos ultimos NO se devuelven: suman volumen a la busqueda sin competir con los pares del rework.
+    ("c1000020-0000-4000-8000-000000000020", "5fe28eaf-8994-44aa-bf2f-15f2e3691cae", "6", "2026-08-30T15:00:00Z", "0",
+     "Juego de llaves con llavero azul",
+     "Llave suelta con llavero de goma azul, encontrada en el estacionamiento del shopping"),
+    ("c1000021-0000-4000-8000-000000000021", "0412e370-c1a5-442d-b740-4fd9cfda59be", "5", "2026-09-05T11:00:00Z", "0",
+     "Cargador USB-C blanco de 20W",
+     "Cargador USB-C blanco de 20W sin cable, encontrado en un aula del pabellon Mecanica"),
+]
+
+
+def openai_key():
+    key = os.environ.get("OPENAI_SECRET_KEY", "")
+    if key:
+        return key
+    env = os.path.join(os.path.dirname(HERE), ".env.local")
+    if os.path.isfile(env):
+        for line in open(env, encoding="utf-8"):
+            if line.startswith("OPENAI_SECRET_KEY="):
+                return line.split("=", 1)[1].strip()
+    sys.exit("[ERROR] Falta OPENAI_SECRET_KEY (entorno o Backend/.env.local)")
+
+
+def text_vector(text, key):
+    body = json.dumps({"model": OPENAI_MODEL, "input": text}).encode()
+    req = urllib.request.Request(OPENAI_URL, data=body, headers={
+        "Authorization": "Bearer " + key, "Content-Type": "application/json"})
+    return json.loads(urllib.request.urlopen(req, timeout=60).read())["data"][0]["embedding"]
+
+
+def read_ndjson(name):
+    with open(os.path.join(SNAP, name), encoding="utf-8") as fh:
+        return [json.loads(l) for l in fh if l.strip()]
+
+
+def copy_photos(pairs):
+    """Cada objeto necesita su propia copia de la foto: el nombre del archivo es su uuid."""
+    copied = 0
+    for obj_id, source_id in pairs:
+        dest = os.path.join(PHOTOS, obj_id + ".jpg")
+        src = os.path.join(PHOTOS, source_id + ".jpg")
+        if os.path.isfile(dest):
+            continue
+        if not os.path.isfile(src):
+            sys.exit("[ERROR] Falta la foto de origen %s" % src)
+        shutil.copyfile(src, dest)
+        copied += 1
+    return copied
+
+
+def main():
+    key = openai_key()
+    found = read_ndjson("FoundObject.ndjson")
+    lost = read_ndjson("LostObject.ndjson")
+    base = {o["id"]: o for o in found}
+
+    # Los objetos que ya existian no se tocan; solo se agregan los que faltan.
+    nuevos = []
+    for obj_id, src_id, org, fecha, finder, titulo, desc in NEW_OBJECTS:
+        if obj_id in base:
+            continue
+        src = base[src_id]
+        lat, lon = ORG_COORDS[org]
+        print("  nuevo: %-36s <- foto de %s" % (titulo, src["properties"]["title"]))
+        nuevos.append({
+            "class": "FoundObject",
+            "id": obj_id,
+            "properties": {
+                "category": src["properties"]["category"],
+                "coordinates": {"latitude": lat, "longitude": lon},
+                "found_date": fecha,
+                "human_description": desc,
+                "object_finder_user_id": finder,
+                "organization_id": org,
+                "title": titulo,
+                "was_returned": False,
+            },
+            "vectors": {
+                "image": src["vectors"]["image"],          # misma foto, mismo vector
+                "text": text_vector(desc + " " + titulo, key),
+            },
+        })
+
+    todos = found + nuevos
+    todos.sort(key=lambda o: o["properties"].get("found_date", ""))
+    with open(os.path.join(SNAP, "FoundObject.ndjson"), "w", encoding="utf-8") as fh:
+        for o in todos:
+            fh.write(json.dumps(o, ensure_ascii=False, sort_keys=True) + "\n")
+
+    # Fotos: las de los objetos del snapshot (que hoy viven bajo el nombre viejo) y las copias de
+    # los objetos nuevos.
+    pairs = list(PHOTO_OF.items())
+    pairs += [(o[0], PHOTO_OF[o[1]]) for o in NEW_OBJECTS]
+    copiadas = copy_photos(pairs)
+
+    print("")
+    print("FoundObject.ndjson: %d objetos (%d nuevos)" % (len(todos), len(nuevos)))
+    print("LostObject.ndjson:  %d objetos (sin cambios)" % len(lost))
+    print("fotos copiadas:     %d" % copiadas)
+
+
+if __name__ == "__main__":
+    main()

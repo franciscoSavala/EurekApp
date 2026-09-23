@@ -2,18 +2,18 @@
 # EU-325 (C) — SEED DEFINITIVO del entorno local de búsqueda.
 #
 # Es el único script que hay que correr para dejar Weaviate con el set de datos de referencia
-# (10 objetos encontrados + 5 búsquedas, 5 de ellos formando pares).
+# (31 objetos encontrados + 5 búsquedas; 5 de los encontrados forman pareja con una búsqueda).
 #
 # CARGA DIRECTA A LA BASE, NO POR API — y esto es a propósito:
 #   El nombre con el que se guarda la foto en S3 es el UUID que Weaviate le da al objeto. Si el seed
-#   volviera a cargar por API, cada corrida generaría UUIDs nuevos: subiría las 15 fotos otra vez y
+#   volviera a cargar por API, cada corrida generaría UUIDs nuevos: subiría todas las fotos otra vez y
 #   dejaría las viejas huérfanas en el bucket, en cada máquina y en cada corrida. Cargando el
 #   snapshot —que tiene los UUIDs congelados— las fotos que ya están en S3 siguen sirviendo.
 #   De paso no hace falta backend ni CLIP ni OpenAI: la corrida es de segundos y no gasta cuota.
 #
 #   La API se usó UNA vez, en el bootstrap, para que los datos salieran de las reglas de negocio
 #   reales y para subir las fotos. El script que hace esa carga NO está en el repositorio a
-#   propósito (resubiría las 15 fotos a S3 en cada corrida); para regenerar el snapshot desde un
+#   propósito (resubiría todas las fotos a S3 en cada corrida); para regenerar el snapshot desde un
 #   estado ya cargado, `dump_seed.sh`.
 #
 # MODELO DE ORGANIZACIÓN Y COORDENADAS (quedó fijado en el bootstrap; los datos del snapshot lo
@@ -28,7 +28,7 @@
 #   1. Preflight:  Weaviate arriba y snapshot presente.
 #   2. Limpieza:   reset_weaviate_classes.sh (drop+recreate; NO batch-delete, crashea 1.24.1).
 #   3. Carga:      POST directo a /v1/objects con id + propiedades + los dos named vectors.
-#   4. Validación: conteos 10/5 y que los 15 objetos tengan categoría.
+#   4. Validación: conteos 31/5 y que los 36 objetos tengan categoría.
 #
 # Uso:  bash Backend/seed-data/seed.sh
 # Requiere: contenedores arriba (bash Backend/start-local.sh). El backend NO hace falta.
@@ -36,7 +36,7 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 SNAP="$HERE/snapshot"
 W=http://localhost:8081
-EXPECTED_FOUND=10
+EXPECTED_FOUND=31
 EXPECTED_LOST=5
 
 fail() { echo; echo "ABORTADO: $*"; exit 1; }
@@ -105,11 +105,11 @@ echo "  FoundObject: ${NF:-?} (esperado $EXPECTED_FOUND) · LostObject: ${NL:-?}
 
 # Sin categoría el objeto queda invisible para la búsqueda (el filtro es por categoría dura).
 cats() { curl -s "$W/v1/graphql" -H 'Content-Type: application/json' \
-  -d "{\"query\":\"{Get{$1(limit:50){category}}}\"}" | grep -o '"category":"[^\"]*"' | grep -vc '"category":""'; }
+  -d "{\"query\":\"{Get{$1(limit:200){category}}}\"}" | grep -o '"category":"[^\"]*"' | grep -vc '"category":""'; }
 CF=$(cats FoundObject); CL=$(cats LostObject)
 [ "${CF:-0}" = "$EXPECTED_FOUND" ] && [ "${CL:-0}" = "$EXPECTED_LOST" ] \
   || fail "faltan categorías (encontrados: ${CF:-0}/$EXPECTED_FOUND · búsquedas: ${CL:-0}/$EXPECTED_LOST)"
-echo "  OK   los 15 objetos tienen categoría"
+echo "  OK   los 36 objetos tienen categoría"
 
 # Los dos vectores tienen que haber viajado: sin ellos la búsqueda no devuelve nada y el síntoma
 # (lista vacía) es idéntico al de un problema de matching.

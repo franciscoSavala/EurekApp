@@ -79,9 +79,14 @@ header "Verificando datos de Weaviate (embeddings reales)"
 # Los objetos de Weaviate (FoundObject / LostObject) ya no usan vectores dummy:
 # fueron cargados via la API real (OpenAI text-embedding-3-small) y exportados a NDJSON.
 # Cada linea de estos archivos es un objeto listo para POST a /v1/objects.
+# EU-410: el juego de datos es UNO SOLO y vive en seed-data/snapshot/. Hasta este ticket convivian
+# dos: el de snapshot/ (el del rework de busqueda, el bueno) y otro suelto en seed-data/, con
+# categorias que ya no existen. Como la busqueda descarta todo lo que no sea de la categoria
+# buscada, con el juego suelto NINGUNA busqueda devolvia nada, y sin ningun aviso de que algo
+# estuviera mal. Los archivos viejos siguen en seed-data/ pero ya no los usa nadie.
 SEED_DATA_DIR="$(dirname "$0")/seed-data"
-FOUND_NDJSON="$SEED_DATA_DIR/FoundObject.ndjson"
-LOST_NDJSON="$SEED_DATA_DIR/LostObject.ndjson"
+FOUND_NDJSON="$SEED_DATA_DIR/snapshot/FoundObject.ndjson"
+LOST_NDJSON="$SEED_DATA_DIR/snapshot/LostObject.ndjson"
 
 [[ -f "$FOUND_NDJSON" ]] || error "No se encontro $FOUND_NDJSON"
 [[ -f "$LOST_NDJSON"  ]] || error "No se encontro $LOST_NDJSON"
@@ -282,38 +287,67 @@ while IFS= read -r line; do
 done < "$FOUND_NDJSON"
 success "  $FO_INSERTED FoundObjects insertados"
 
-# UUID reales de cada FoundObject. Como insertamos directo en Weaviate con un "id"
-# que elegimos nosotros, estos UUID son fijos y conocidos: son los mismos que
-# figuran en el campo "id" de FoundObject.ndjson, y apuntan a las imagenes que ya
-# existen en S3. Las secciones MySQL (retornos, fraud_alerts, feedback, reclamos)
-# referencian estos UUID directamente, sin depender de titulos.
-# (FO_UUID_7 no existe: la "Tarjeta universitaria" fue descartada del dataset.)
-FO_UUID_1="7ea43eba-7343-4cd8-b5d0-b736e3d575a3"   # Billetera negra de cuero      (org 1)
-FO_UUID_2="df2aa6a0-d15c-46e8-902a-e5394538a43e"   # Llave con llavero azul        (org 1)
-FO_UUID_3="25e71dcb-9d0d-4b75-96f2-df60b7d99261"   # Auriculares inalambricos      (org 2)
-FO_UUID_4="494ddbc4-b4d8-4935-a77c-1d3e7363b67d"   # Mochila azul con libros       (org 1)
-FO_UUID_5="18da5796-50dc-4383-8b1f-27e524b04b5d"   # Celular Samsung negro         (org 3)
-FO_UUID_6="4b43a1d8-1491-4077-9c1c-463e5906cdeb"   # Paraguas negro plegable       (org 1)
-FO_UUID_8="85c55156-216f-4b6c-aa65-782e066567b6"   # Notebook Dell gris            (org 2)
-FO_UUID_9="ebaa9336-e9fd-4556-a96e-9c1538d165cb"   # Billetera marron con DNI      (org 2)
-FO_UUID_10="498d742e-49e6-4c88-bf8d-f0313581dfaa"  # Cargador USB-C blanco         (org 3)
-FO_UUID_11="a1047f2f-0fcd-41b1-92ad-485dd04cb5d8"  # Anteojos de sol negros        (org 1)
+# UUID reales de cada FoundObject. Como insertamos directo en Weaviate con un "id" que elegimos
+# nosotros, estos UUID son fijos y conocidos: son los mismos que figuran en el campo "id" del
+# snapshot, y son tambien el nombre de la foto del objeto en S3. Las secciones de MySQL
+# (devoluciones, exclusiones, opiniones) los referencian directamente, sin depender de titulos.
+#
+# Los DIEZ PRIMEROS son los del rework de busqueda y se quedan como estan. Los cinco que forman
+# pareja con una busqueda guardada (paraguas, notebook, billetera de cuero, auriculares y mochila)
+# NO se devuelven nunca: si se marcaran devueltos desaparecerian de la busqueda y el juego dejaria
+# de servir para probarla.
+FO_PARAGUAS="dcfc219a-8142-4a2f-9344-d2521889689d"     # Paraguas negro plegable        (org 1) PAR
+FO_NOTEBOOK="2121ffa9-8773-4c23-a5ef-f3d393def659"     # Notebook Dell gris             (org 2) PAR
+FO_BILLETERA="96c3a201-7251-45c2-b442-2102a98fb474"    # Billetera de cuero marron      (org 1) PAR
+FO_AURICULARES="05e3b579-30c2-47fc-8bd4-e90dab97c498"  # Auriculares inalambricos       (org 2) PAR
+FO_MOCHILA="b0a4573c-2db6-4858-9ac9-bb314769e445"      # Mochila azul con libros        (org 1) PAR
+FO_LLAVE="5fe28eaf-8994-44aa-bf2f-15f2e3691cae"        # Llave con llavero azul         (org 1)
+FO_CELULAR="77965d32-7ba3-4497-8471-3d94f7acd5cd"      # Celular Samsung negro          (org 3)
+FO_BILLETERA_DNI="d5937d67-e758-4e53-9ae4-844803027bdb" # Billetera marron con DNI      (org 2)
+FO_CARGADOR="0412e370-c1a5-442d-b740-4fd9cfda59be"     # Cargador USB-C blanco          (org 3)
+FO_ANTEOJOS="2c817a63-1027-48c3-bb95-c24d73022f33"     # Anteojos de sol negros         (org 1)
+
+# EU-410: objetos encontrados agregados para que cada devolucion tenga el suyo. Reusan la foto de
+# alguno de los diez de arriba (cada uno con su propia copia, porque el nombre del archivo en S3 es
+# el uuid del objeto) pero con fecha, sede y texto propios. Los dos ultimos quedan SIN devolver.
+FO_N01="c1000001-0000-4000-8000-000000000001"  # Paraguas negro plegable            (org 1)
+FO_N02="c1000002-0000-4000-8000-000000000002"  # Billetera marron con documentos    (org 2)
+FO_N03="c1000003-0000-4000-8000-000000000003"  # Auriculares over-ear blancos       (org 2)
+FO_N04="c1000004-0000-4000-8000-000000000004"  # Anteojos de sol montura negra      (org 4)
+FO_N05="c1000005-0000-4000-8000-000000000005"  # Mochila azul mediana               (org 6)
+FO_N06="c1000006-0000-4000-8000-000000000006"  # Notebook gris de 15 pulgadas       (org 4)
+FO_N07="c1000007-0000-4000-8000-000000000007"  # Cargador USB-C blanco              (org 5)
+FO_N08="c1000008-0000-4000-8000-000000000008"  # Paraguas negro compacto            (org 6)
+FO_N09="c1000009-0000-4000-8000-000000000009"  # Billetera de cuero marron          (org 5)
+FO_N10="c1000010-0000-4000-8000-000000000010"  # Llave con llavero de goma azul     (org 4)
+FO_N11="c1000011-0000-4000-8000-000000000011"  # Auriculares inalambricos blancos   (org 3)
+FO_N12="c1000012-0000-4000-8000-000000000012"  # Celular Samsung negro              (org 4)
+FO_N13="c1000013-0000-4000-8000-000000000013"  # Notebook Dell gris                 (org 2)
+FO_N14="c1000014-0000-4000-8000-000000000014"  # Mochila azul con apuntes           (org 5)
+FO_N15="c1000015-0000-4000-8000-000000000015"  # Cargador de celular blanco         (org 6)
+FO_N16="c1000016-0000-4000-8000-000000000016"  # Billetera marron con tarjetas      (org 3)
+FO_N17="c1000017-0000-4000-8000-000000000017"  # Billetera de cuero con documentos  (org 3)
+FO_N18="c1000018-0000-4000-8000-000000000018"  # Anteojos de sol negros             (org 5)
+FO_N19="c1000019-0000-4000-8000-000000000019"  # Celular negro con funda gris       (org 1)
+FO_N20="c1000020-0000-4000-8000-000000000020"  # Juego de llaves con llavero azul   (org 6) SIN DEVOLVER
+FO_N21="c1000021-0000-4000-8000-000000000021"  # Cargador USB-C blanco de 20W       (org 5) SIN DEVOLVER
 
 # ─── 10b. Asignar finders a FoundObjects ─────────────────────────────────────
 header "Asignando finders a FoundObjects (object_finder_user_id)"
 
-# Todos los objetos donde el finder tiene cuenta en la app.
-# FO_UUID_2 (Llave) queda con finder_id="0" (anonimo, sin cuenta — caso de uso alternativo).
+# Objetos cuyo finder tiene cuenta en la app. La llave queda con finder "0" (anonimo, sin cuenta:
+# es el caso de uso alternativo). Los objetos agregados por EU-410 ya traen su finder en el
+# snapshot, asi que no hace falta parchearlos.
 declare -A FO_FINDERS=(
-  ["$FO_UUID_1"]="9"    # Billetera negra de cuero → valeria
-  ["$FO_UUID_3"]="9"    # Auriculares              → valeria
-  ["$FO_UUID_4"]="6"    # Mochila azul             → emp2.utn  (Tomas Ramirez)
-  ["$FO_UUID_5"]="8"    # Celular Samsung          → pedro
-  ["$FO_UUID_6"]="5"    # Paraguas                 → emp1.utn  (Lucia Perez)
-  ["$FO_UUID_8"]="8"    # Notebook Dell            → pedro
-  ["$FO_UUID_9"]="10"   # Billetera marron con DNI → emp1.aero (Sofia Herrera)
-  ["$FO_UUID_10"]="7"   # Cargador USB-C           → julia
-  ["$FO_UUID_11"]="7"   # Anteojos                 → julia
+  ["$FO_PARAGUAS"]="5"        # → emp1.utn  (Lucia Perez)   — sin recompensa, es empleada
+  ["$FO_NOTEBOOK"]="8"        # → pedro
+  ["$FO_BILLETERA"]="9"       # → valeria
+  ["$FO_AURICULARES"]="9"     # → valeria
+  ["$FO_MOCHILA"]="6"         # → emp2.utn  (Tomas Ramirez) — sin recompensa, es empleado
+  ["$FO_CELULAR"]="8"         # → pedro
+  ["$FO_BILLETERA_DNI"]="7"   # → julia
+  ["$FO_CARGADOR"]="7"        # → julia
+  ["$FO_ANTEOJOS"]="4"        # → encargado.utn (Carlos Mendoza) — sin recompensa, es encargado
 )
 for UUID in "${!FO_FINDERS[@]}"; do
   USER_ID="${FO_FINDERS[$UUID]}"
@@ -386,6 +420,24 @@ SQL
   success "'organization_id' agregada"
 fi
 
+# EU-410: el empleado que entrega el objeto es el prerrequisito de la regla de fraude por
+# complicidad de un empleado. El seed lo escribe, asi que la columna tiene que estar aunque el
+# backend todavia no haya arrancado nunca contra esta base.
+EMP_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = 'returned_by_employee_id';
+SQL
+)
+if echo "$EMP_COL_EXISTS" | grep -q "^1$"; then
+  success "'returned_by_employee_id' ya existe en return_found_objects — OK"
+else
+  warn "Falta 'returned_by_employee_id' en return_found_objects. Aplicando ALTER TABLE..."
+  $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE return_found_objects ADD COLUMN returned_by_employee_id BIGINT NULL;
+SQL
+  success "'returned_by_employee_id' agregada"
+fi
+
 # EU-374: token opaco de la encuesta de atencion. El enlace del correo lo lleva en vez del id de la
 # devolucion, que es secuencial y quedaria a la vista en la barra de direcciones.
 TOKEN_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
@@ -410,21 +462,61 @@ ALTER TABLE search_feedback MODIFY star_rating INT NULL;
 SQL
 success "search_feedback.star_rating admite nulos (EU-372)"
 
+# EU-410: 24 devoluciones, cada una sobre un objeto DISTINTO y propio. Antes eran cinco y las cinco
+# apuntaban a objetos que ya no existian: se habian escrito contra el juego de datos viejo y
+# quedaron asi cuando el rework de busqueda rehizo los objetos.
+#
+# Como estan armadas: hay cinco focos de sospecha (cada uno, un mismo documento retirando varias
+# veces en pocas semanas) y tres devoluciones normales y aisladas. Las alertas de fraude que se
+# siembran mas abajo se apoyan en estas devoluciones, asi que los documentos, las fechas, las sedes
+# y los empleados que entregan tienen que coincidir con las de alla.
+#
+#   42111222 Julia Morales   - abril             - retira 3 veces, termino siendo falsa alarma
+#   27998877 Nahuel Ibarra   - mayo              - siempre lo atiende el mismo empleado de la UTN
+#   28123456 Ramiro Otero    - junio y septiembre- reincidente, dos alertas separadas
+#   39456789 Valeria Castro  - julio a septiembre- siempre sobre objetos registrados por Pedro
+#   31555444 Brenda Sosa     - agosto            - siempre la atiende la misma empleada del aeropuerto
+#   33145892 / 26874159 / 29334857 - devoluciones normales, una sola vez cada una
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
-  (found_objectuuid, user_id, organization_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
+  (found_objectuuid, user_id, organization_id, returned_by_employee_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
 VALUES
-('$FO_UUID_6',  7,    1, '11111111-1111-4111-8111-111111111111', 'Lucia',   'Barrientos', '30987654', '3514000001', 'person-photo-001', '2026-04-20 10:00:00', '2026-04-20 10:05:00', 'finder1@mail.com'),
-('$FO_UUID_11', NULL, 1, '22222222-2222-4222-8222-222222222222', 'Julia',   'Ferreyra',   '42111222', '3514000002', 'person-photo-002', '2026-05-02 14:00:00', '2026-05-02 14:05:00', 'julia@mail.com'),
-('$FO_UUID_2',  NULL, 1, '33333333-3333-4333-8333-333333333333', NULL,      NULL,         '35123456', '3514000003', 'person-photo-003', '2026-05-11 09:00:00', '2026-05-11 09:03:00', 'finder2@mail.com'),
-('$FO_UUID_8',  8,    2, '44444444-4444-4444-8444-444444444444', 'Ramiro',  'Otero',      '28123456', '3514000004', 'person-photo-004', '2026-05-06 14:35:00', '2026-05-06 14:40:00', 'finder3@mail.com'),
-('$FO_UUID_9',  7,    2, '55555555-5555-4555-8555-555555555555', 'Ramiro',  'Otero',      '28123456', '3514000005', 'person-photo-005', '2026-05-13 12:00:00', '2026-05-13 12:02:00', 'finder4@mail.com');
+('$FO_N02',           7,    2, 3,  'a0000001-0000-4000-8000-000000000001', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-001', '2026-04-16 10:20:00', '2026-04-16 10:25:00', NULL),
+('$FO_N03',           7,    2, 3,  'a0000002-0000-4000-8000-000000000002', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-002', '2026-04-23 10:00:00', '2026-04-23 10:05:00', NULL),
+('$FO_N04',           7,    4, 12, 'a0000003-0000-4000-8000-000000000003', 'Julia',   'Morales',    '42111222', '3514000101', 'person-photo-003', '2026-04-29 11:30:00', '2026-04-29 11:35:00', NULL),
+('$FO_LLAVE',         NULL, 1, 6,  'a0000004-0000-4000-8000-000000000004', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-004', '2026-05-06 09:15:00', NULL,                  NULL),
+('$FO_ANTEOJOS',      NULL, 1, 6,  'a0000005-0000-4000-8000-000000000005', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-005', '2026-05-24 16:40:00', '2026-05-24 16:45:00', 'encargado.utn@eurekapp.com'),
+('$FO_N01',           NULL, 1, 6,  'a0000006-0000-4000-8000-000000000006', 'Nahuel',  'Ibarra',     '27998877', '3514000102', 'person-photo-006', '2026-05-30 12:00:00', NULL,                  NULL),
+('$FO_N05',           NULL, 6, 16, 'a0000007-0000-4000-8000-000000000007', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-007', '2026-06-02 18:10:00', NULL,                  NULL),
+('$FO_BILLETERA_DNI', NULL, 2, 3,  'a0000008-0000-4000-8000-000000000008', 'Laura',   'Fernandez',  '33145892', '3514000106', 'person-photo-008', '2026-06-05 13:00:00', '2026-06-05 13:04:00', 'julia@mail.com'),
+('$FO_N06',           NULL, 4, 12, 'a0000009-0000-4000-8000-000000000009', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-009', '2026-06-10 17:25:00', NULL,                  NULL),
+('$FO_N07',           NULL, 5, 14, 'a0000010-0000-4000-8000-000000000010', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-010', '2026-06-18 11:05:00', NULL,                  NULL),
+('$FO_N18',           NULL, 5, 14, 'a0000011-0000-4000-8000-000000000011', 'Hector',  'Quiroga',    '26874159', '3514000107', 'person-photo-011', '2026-06-27 09:40:00', NULL,                  NULL),
+('$FO_N11',           9,    3, 10, 'a0000012-0000-4000-8000-000000000012', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-012', '2026-07-05 08:50:00', '2026-07-05 08:55:00', 'pedro@mail.com'),
+('$FO_N12',           9,    4, 12, 'a0000013-0000-4000-8000-000000000013', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-013', '2026-07-14 19:30:00', '2026-07-14 19:35:00', 'pedro@mail.com'),
+('$FO_N13',           9,    2, 3,  'a0000014-0000-4000-8000-000000000014', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-014', '2026-07-25 15:10:00', '2026-07-25 15:15:00', 'pedro@mail.com'),
+('$FO_N19',           NULL, 1, 5,  'a0000015-0000-4000-8000-000000000015', 'Gaston',  'Peralta',    '29334857', '3514000108', 'person-photo-015', '2026-08-07 10:00:00', NULL,                  NULL),
+('$FO_CELULAR',       NULL, 3, 10, 'a0000016-0000-4000-8000-000000000016', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-016', '2026-08-10 12:20:00', '2026-08-10 12:25:00', 'pedro@mail.com'),
+('$FO_CARGADOR',      NULL, 3, 10, 'a0000017-0000-4000-8000-000000000017', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-017', '2026-08-18 14:45:00', '2026-08-18 14:50:00', 'julia@mail.com'),
+('$FO_N17',           NULL, 3, 10, 'a0000018-0000-4000-8000-000000000018', 'Brenda',  'Sosa',       '31555444', '3514000105', 'person-photo-018', '2026-08-25 09:30:00', NULL,                  NULL),
+('$FO_N14',           9,    5, 14, 'a0000019-0000-4000-8000-000000000019', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-019', '2026-08-28 10:15:00', '2026-08-28 10:20:00', 'pedro@mail.com'),
+('$FO_N08',           NULL, 6, 16, 'a0000020-0000-4000-8000-000000000020', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-020', '2026-09-02 18:00:00', NULL,                  NULL),
+('$FO_N15',           9,    6, 16, 'a0000021-0000-4000-8000-000000000021', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-021', '2026-09-03 17:20:00', '2026-09-03 17:25:00', 'pedro@mail.com'),
+('$FO_N09',           NULL, 5, 14, 'a0000022-0000-4000-8000-000000000022', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-022', '2026-09-09 14:00:00', NULL,                  NULL),
+('$FO_N16',           9,    3, 10, 'a0000023-0000-4000-8000-000000000023', 'Valeria', 'Castro',     '39456789', '3514000104', 'person-photo-023', '2026-09-10 08:40:00', '2026-09-10 08:45:00', 'pedro@mail.com'),
+('$FO_N10',           NULL, 4, 12, 'a0000024-0000-4000-8000-000000000024', 'Ramiro',  'Otero',      '28123456', '3514000103', 'person-photo-024', '2026-09-15 12:30:00', NULL,                  NULL);
 SQL
 # Los tokens son fijos en el seed para que el enlace de prueba sea estable entre resembrados.
-success "5 retornos insertados (3 UTN, 2 Terminal), con su token de encuesta"
+success "24 devoluciones insertadas, cada una sobre su propio objeto, con su token de encuesta"
 
 header "Marcando objetos devueltos en Weaviate (was_returned=true)"
-for UUID in "$FO_UUID_6" "$FO_UUID_11" "$FO_UUID_2" "$FO_UUID_8" "$FO_UUID_9"; do
+# Solo los 24 objetos que efectivamente se devolvieron. Los otros siete siguen visibles para la
+# busqueda: los cinco que forman pareja con una busqueda guardada, mas dos de los agregados.
+for UUID in \
+  "$FO_LLAVE" "$FO_CELULAR" "$FO_BILLETERA_DNI" "$FO_CARGADOR" "$FO_ANTEOJOS" \
+  "$FO_N01" "$FO_N02" "$FO_N03" "$FO_N04" "$FO_N05" "$FO_N06" "$FO_N07" "$FO_N08" "$FO_N09" \
+  "$FO_N10" "$FO_N11" "$FO_N12" "$FO_N13" "$FO_N14" "$FO_N15" "$FO_N16" "$FO_N17" "$FO_N18" \
+  "$FO_N19"; do
   HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
     -X PATCH "$WEAVIATE_URL/v1/objects/FoundObject/$UUID" \
     -H "Content-Type: application/json" \
@@ -441,27 +533,27 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reward_exclusions
   (found_objectuuid, user_id, user_role, reason, excluded_at, organization_id)
 VALUES
-('$FO_UUID_4', 6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 09:00:00', '1'),
-('$FO_UUID_6', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 09:00:00', '1'),
-('$FO_UUID_9', 10,'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-12 09:00:00', '3');
+('$FO_MOCHILA',  6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 10:00:00', '1'),
+('$FO_PARAGUAS', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 10:00:00', '1'),
+('$FO_ANTEOJOS', 4, 'ENCARGADO',             'INCOMPATIBLE_ROLE', '2026-05-20 10:00:00', '1');
 SQL
-success "3 exclusiones de recompensa registradas (empleados internos)"
+success "3 exclusiones de recompensa registradas (personal de la organizacion)"
 
 # ─── 14. Insertar SearchFeedback ─────────────────────────────────────────────
 header "Insertando SearchFeedback"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO search_feedback (organization_id, found_object_uuid, was_found, created_at, user_id) VALUES
-('1', '$FO_UUID_1', 1, '2026-04-29 11:00:00', 7),
-('1', NULL,         0, '2026-05-03 09:30:00', 8),
-('2', '$FO_UUID_3', 1, '2026-05-06 15:00:00', 8),
-('1', NULL,         0, '2026-05-07 10:00:00', 9),
-('1', '$FO_UUID_4', 1, '2026-05-08 14:00:00', 9),
-('3', NULL,         0, '2026-05-10 08:00:00', 7),
-('1', '$FO_UUID_2', 1, '2026-05-11 16:00:00', 7),
-('2', NULL,         0, '2026-05-12 12:00:00', 9),
-('2', '$FO_UUID_9', 1, '2026-05-13 10:00:00', 7),
-('1', NULL,         0, '2026-05-15 09:00:00', 8);
+('1', '$FO_BILLETERA',   1, '2026-04-29 11:00:00', 7),
+('1', NULL,              0, '2026-05-03 09:30:00', 8),
+('2', '$FO_AURICULARES', 1, '2026-05-06 15:00:00', 8),
+('1', NULL,              0, '2026-05-07 10:00:00', 9),
+('1', '$FO_MOCHILA',     1, '2026-05-08 14:00:00', 9),
+('3', NULL,              0, '2026-05-10 08:00:00', 7),
+('1', '$FO_PARAGUAS',    1, '2026-05-11 16:00:00', 7),
+('2', NULL,              0, '2026-05-12 12:00:00', 9),
+('2', '$FO_NOTEBOOK',    1, '2026-05-13 10:00:00', 7),
+('1', NULL,              0, '2026-05-15 09:00:00', 8);
 SQL
 success "10 registros de search_feedback insertados"
 
@@ -479,15 +571,16 @@ SELECT r.id, r.organization_id, r.user_id, v.trato, v.espera, v.claridad, v.esta
        v.comentario, v.creado
 FROM return_found_objects r
 JOIN (
-  SELECT '$FO_UUID_6'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
-         'Me atendieron muy bien, todo rapidisimo' AS comentario, '2026-04-21 09:00:00' AS creado
-  UNION ALL SELECT '$FO_UUID_8', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-05-07 10:00:00'
+  SELECT '$FO_N02'  AS uuid, 5 AS trato, 4 AS espera, 5 AS claridad, 5 AS estado, 4 AS seguridad,
+         'Me atendieron muy bien, todo rapidisimo' AS comentario, '2026-04-17 09:00:00' AS creado
+  UNION ALL SELECT '$FO_N12', 3, 2, 4, 5, 4, 'Espere casi media hora para que me lo entreguen', '2026-07-15 10:00:00'
+  UNION ALL SELECT '$FO_N16', 4, 4, 3, 4, 5, NULL, '2026-09-11 19:00:00'
 ) v ON v.uuid = r.found_objectuuid
 WHERE r.user_id IS NOT NULL AND r.organization_id IS NOT NULL;
 SQL
-# La devolucion de $FO_UUID_9 (Julia, Terminal) queda SIN calificar a proposito: es la que
-# permite probar a mano la encuesta de atencion de punta a punta.
-success "2 calificaciones de atencion insertadas (1 UTN, 1 Terminal) + 1 devolucion sin calificar"
+# Las demas devoluciones con usuario asociado quedan SIN calificar a proposito: son las que
+# permiten probar a mano la encuesta de atencion de punta a punta.
+success "3 calificaciones de atencion insertadas (Terminal, Patio Olmos y Aeropuerto)"
 
 # ─── 15. Insertar UsabilityFeedback ──────────────────────────────────────────
 header "Insertando UsabilityFeedback"
@@ -511,21 +604,107 @@ success "7 registros de usability_feedback insertados"
 # ─── 16. Insertar FraudAlerts ────────────────────────────────────────────────
 header "Insertando FraudAlerts"
 
-# DESHABILITADO (EU-282): el modelo de FraudAlert se rediseñó. La columna 'suspect_user_id'
-# ya no existe (los sospechosos viven en la tabla join 'fraud_alert_suspect_user') y los
-# 'reason' de abajo (MULTIPLE_CLAIMERS_SAME_OBJECT, etc.) corresponden a las reglas viejas
-# que se eliminan en EU-253/EU-284. En una DB fresca este INSERT rompía contra el esquema
-# nuevo. Se repuebla con alertas basadas en DNI cuando aterricen las reglas nuevas
-# (EU-284/EU-285). No reactivar tal cual: la data contradiría el modelo de devoluciones.
+# EU-410: las pantallas de fraude arrancaban vacias. El seed no plantaba ninguna alerta desde que
+# se rediseño el modelo, asi que para mirarlas habia que fabricar los casos a mano cada vez.
 #
-# $MYSQL_EXEC 2>/dev/null <<SQL
-# INSERT INTO fraud_alert (organization_id, found_object_uuid, suspect_user_id, reason, details, status, created_at, resolved_at, resolved_by_id) VALUES
-# ('1', '$FO_UUID_1', 7,    'MULTIPLE_CLAIMERS_SAME_OBJECT', 'Tres personas reclamaron la misma billetera en 10 minutos',  'PENDING',          '2026-05-03 12:00:00', NULL,                  NULL),
-# ('1', '$FO_UUID_4', 8,    'HIGH_CLAIM_FREQUENCY',          'El usuario realizo 8 reclamos en 2 dias',                   'CONFIRMED_FRAUD',  '2026-05-09 09:00:00', '2026-05-10 10:00:00', 2),
-# ('2', '$FO_UUID_3', NULL, 'FINDER_CLAIMER_COLLUSION',      'El registrador y reclamante tienen el mismo dispositivo',   'FALSE_POSITIVE',   '2026-05-07 11:00:00', '2026-05-08 15:00:00', 3),
-# ('1', NULL,         9,    'REPEATED_REJECTIONS',           'El usuario tuvo 5 reclamos rechazados seguidos',            'PENDING',          '2026-05-20 08:00:00', NULL,                  NULL);
-# SQL
-warn "FraudAlerts: seed deshabilitado por rediseño del modelo (EU-282). Se repuebla en EU-284/EU-285."
+# Las alertas se escriben acá, pero NO salen de la nada: cada una se apoya en las devoluciones que
+# se sembraron mas arriba. El documento, las fechas, la sede y el empleado que entrega coinciden
+# con los de esas devoluciones, y la cantidad que informa cada caso es la cantidad de devoluciones
+# que efectivamente hay detras. El seed viejo insertaba alertas sueltas, apuntando a personas y
+# objetos que no existian, y por eso quedaban incoherentes.
+#
+# Lo que queda para mirar en las pantallas:
+#   - 4 alertas vigentes y 3 falsas alarmas ya resueltas;
+#   - dos documentos con dos alertas cada uno, y dos personas registradas tambien con dos;
+#   - alertas repartidas de abril a septiembre, una por mes (dos en septiembre);
+#   - bloqueos vigentes, y uno ya vencido, para ver la diferencia.
+#
+# Primero, los parametros de deteccion. Por defecto son "5 retiros en 1 dia" y bloqueo de 7 dias,
+# que sirven para un ambiente real pero no para mirar una pantalla: con esa ventana ninguno de los
+# focos sembrados seria detectable. Se deja "3 retiros en 30 dias" y bloqueo de 90 dias, que es lo
+# que describen las alertas de abajo. El bloqueo largo tambien evita que los bloqueos vigentes se
+# venzan a los pocos dias de sembrar, porque las fechas del juego de datos son fijas.
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_detection_config (id, fraud_threshold, fraud_window_days, block_duration_days)
+VALUES (1, 3, 30, 90)
+ON DUPLICATE KEY UPDATE fraud_threshold=3, fraud_window_days=30, block_duration_days=90;
+SQL
+success "Parametros de deteccion: 3 retiros en 30 dias, bloqueo de 90 dias"
+
+# 'reason' guarda los casos crudos separados por coma; la aplicacion los traduce a lenguaje llano al
+# mostrarlos. 'details' respeta el formato exacto que arma la deteccion.
+# Los ids son fijos para que las tablas hijas (casos, sospechosos y bloqueos) los puedan referenciar.
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_alert
+  (id, organization_id, found_object_uuid, dni, returned_by_employee_id, reason, details, status, created_at, resolved_at, resolved_by_id, dedup_key)
+VALUES
+(1, NULL, NULL, '42111222', NULL, 'CASE_1',
+ 'DNI 42111222 — Caso 1: 3 devoluciones del mismo DNI.',
+ 'FALSE_POSITIVE', '2026-04-29 11:40:00', '2026-05-02 16:00:00', 1, 'dni:42111222'),
+(2, NULL, NULL, '27998877', 6, 'CASE_1,CASE_3',
+ 'DNI 27998877 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp2.utn@eurekapp.com).',
+ 'FALSE_POSITIVE', '2026-05-30 12:05:00', '2026-06-02 10:00:00', 1, 'dni:27998877'),
+(3, NULL, NULL, '28123456', NULL, 'CASE_1',
+ 'DNI 28123456 — Caso 1: 3 devoluciones del mismo DNI.',
+ 'FALSE_POSITIVE', '2026-06-18 11:10:00', '2026-06-21 09:00:00', 1, 'dni:28123456'),
+(4, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
+ 'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
+ 'ACTIVE', '2026-07-25 15:16:00', NULL, NULL, 'dni:39456789'),
+(5, NULL, NULL, '31555444', 10, 'CASE_1,CASE_3',
+ 'DNI 31555444 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp1.aero@eurekapp.com).',
+ 'ACTIVE', '2026-08-25 09:35:00', NULL, NULL, 'dni:31555444'),
+(6, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
+ 'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
+ 'ACTIVE', '2026-09-10 08:46:00', NULL, NULL, 'dni:39456789'),
+(7, NULL, NULL, '28123456', NULL, 'CASE_1',
+ 'DNI 28123456 — Caso 1: 3 devoluciones del mismo DNI.',
+ 'ACTIVE', '2026-09-15 12:35:00', NULL, NULL, 'dni:28123456');
+SQL
+success "7 alertas de fraude insertadas (4 vigentes, 3 falsas alarmas), de abril a septiembre"
+
+# Casos que disparo cada alerta, con la cantidad de devoluciones detectada. Es el dato que la
+# pantalla muestra como "cantidad detectada".
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_alert_case (fraud_alert_id, case_type, matched_count) VALUES
+(1, 'CASE_1', 3),
+(2, 'CASE_1', 3), (2, 'CASE_3', 3),
+(3, 'CASE_1', 3),
+(4, 'CASE_1', 3), (4, 'CASE_2', 3),
+(5, 'CASE_1', 3), (5, 'CASE_3', 3),
+(6, 'CASE_1', 3), (6, 'CASE_2', 3),
+(7, 'CASE_1', 3);
+SQL
+success "11 casos detectados distribuidos entre las 7 alertas"
+
+# Personas senaladas por cada alerta. Solo aparecen cuando la regla involucra a alguien con cuenta:
+# quien registro el objeto, quien lo retiro si tiene cuenta, y el empleado que lo entrego. Las
+# alertas de retiros repetidos a secas no senalan a nadie registrado, porque quien retira puede no
+# tener cuenta: ahi el foco es el documento.
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_alert_suspect_user (fraud_alert_id, user_id) VALUES
+(2, 6),           -- Tomas Ramirez, el empleado que atendio las tres veces
+(4, 8), (4, 9),   -- Pedro registro los objetos, Valeria los retiro
+(5, 10),          -- Sofia Herrera, la empleada que atendio las tres veces
+(6, 8), (6, 9);   -- reincidencia del mismo par, dos meses despues
+SQL
+success "6 personas senaladas (Pedro y Valeria figuran en dos alertas cada uno)"
+
+# Bloqueos. Al nacer, una alerta bloquea al documento y a cada persona que senala, por 90 dias;
+# marcar la alerta como falsa alarma levanta esos bloqueos, y por eso las tres falsas alarmas no
+# tienen ninguno. Las cuatro alertas vigentes si los tienen.
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_block (target_dni, target_user_id, fraud_alert_id, blocked_at, expires_at) VALUES
+('39456789', NULL, 4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
+(NULL,       8,    4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
+(NULL,       9,    4, '2026-07-25 15:16:00', '2026-10-23 15:16:00'),
+('31555444', NULL, 5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
+(NULL,       10,   5, '2026-08-25 09:35:00', '2026-11-23 09:35:00'),
+('39456789', NULL, 6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
+(NULL,       8,    6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
+(NULL,       9,    6, '2026-09-10 08:46:00', '2026-12-09 08:46:00'),
+('28123456', NULL, 7, '2026-09-15 12:35:00', '2026-12-14 12:35:00');
+SQL
+success "9 bloqueos vigentes sobre 4 documentos y 3 personas registradas"
 
 # ─── 17. Insertar Reclamos ───────────────────────────────────────────────────
 header "Insertando Reclamos"
@@ -656,20 +835,24 @@ mkdir -p "$IMG_DIR"
 
 # FoundObjects y LostObjects: la key S3 es el UUID; la foto real está en PHOTOS_DIR/<uuid>.jpg.
 FO_KEYS=(
-  "$FO_UUID_1" "$FO_UUID_2" "$FO_UUID_3" "$FO_UUID_4"
-  "$FO_UUID_5" "$FO_UUID_6" "$FO_UUID_8" "$FO_UUID_9"
-  "$FO_UUID_10" "$FO_UUID_11"
+  "$FO_PARAGUAS" "$FO_NOTEBOOK" "$FO_BILLETERA" "$FO_LLAVE" "$FO_AURICULARES"
+  "$FO_MOCHILA" "$FO_CELULAR" "$FO_BILLETERA_DNI" "$FO_CARGADOR" "$FO_ANTEOJOS"
+  "$FO_N01" "$FO_N02" "$FO_N03" "$FO_N04" "$FO_N05" "$FO_N06" "$FO_N07"
+  "$FO_N08" "$FO_N09" "$FO_N10" "$FO_N11" "$FO_N12" "$FO_N13" "$FO_N14"
+  "$FO_N15" "$FO_N16" "$FO_N17" "$FO_N18" "$FO_N19" "$FO_N20" "$FO_N21"
 )
 # UUID de las 5 búsquedas guardadas (LostObject). Su foto se persiste en S3 al guardar (decisión 8),
 # por eso el seed también las sube (para poder mostrarlas al ver la búsqueda guardada).
 LO_KEYS=(
-  "ea9f4057-4f1d-4daf-aeca-c6162fe9aeb6"  # billetera negra
-  "771c2c2b-4dd2-45e4-977b-3a2186e86b6e"  # auriculares
-  "8ec5ebe1-5b65-412a-9cda-576f42401e35"  # mochila azul
-  "26f82583-f553-40a1-a1b8-3775c384971f"  # paraguas
-  "56d511e3-899b-41cf-9f2c-a811437b0b28"  # notebook Dell
+  "8044d799-77b3-4326-bb3f-f6a0ad195f94"  # paraguas
+  "9970bf61-92c7-47be-a120-41424bdc1320"  # notebook Dell
+  "aeaac6e1-893c-4f49-af6e-f43f62f6d71f"  # billetera de cuero marron
+  "56fcd220-9532-45d9-beee-1253f5846677"  # auriculares
+  "8645d88c-529c-496c-a213-f768892dd2ad"  # mochila azul
 )
-PERSON_KEYS=("person-photo-001" "person-photo-002" "person-photo-003" "person-photo-004" "person-photo-005")
+# Una foto de persona por devolucion. Las cinco primeras son las que ya existian.
+PERSON_KEYS=()
+for i in $(seq -w 1 24); do PERSON_KEYS+=("person-photo-0$i"); done
 
 S3_UPLOADED=0
 
@@ -729,12 +912,12 @@ echo -e "${GREEN}${BOLD}╠═════════════════�
 echo -e "${GREEN}${BOLD}║${NC}  MySQL                                                   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Organizaciones        : 6                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usuarios              : 16                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Retornos              : 5  (3 UTN, 2 Terminal)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Devoluciones          : 24 (una por objeto)         ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Exclusiones reward    : 3                             ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Search Feedback       : 10                            ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 2  (+1 retiro sin calificar)  ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Organization Feedback : 3  (+3 sin calificar)       ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Usability Feedback    : 7                             ${GREEN}${BOLD}║${NC}"
-echo -e "${GREEN}${BOLD}║${NC}    Fraud Alerts          : 0  (seed off — EU-282)       ${GREEN}${BOLD}║${NC}"
+echo -e "${GREEN}${BOLD}║${NC}    Alertas de fraude     : 7  (4 vigentes, 3 falsas)   ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamos              : 0  (seed off — EU-278/292)    ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Reclamo History       : 0  (seed off — EU-278)        ${GREEN}${BOLD}║${NC}"
 echo -e "${GREEN}${BOLD}║${NC}    Org Requests          : 10 (6 APPROVED precargadas + 1P/1A/1R/1C) ${GREEN}${BOLD}║${NC}"
