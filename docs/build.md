@@ -80,7 +80,49 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
-## Juego de datos rehecho (2026-09-22) — HECHO, en la rama, sin mergear
+## Juego de datos rehecho (2026-09-22) — el trabajo está hecho; falta la última verificación
+
+### RETOMAR ACÁ (lo primero que hay que hacer)
+
+El chat anterior se cortó por tamaño, en el medio de la verificación final. **El código y los datos
+están completos y commiteados**; lo que quedó a medias es dejar el entorno local usable.
+
+**Cómo quedó la máquina de Facundo:**
+
+1. **La base y el buscador están vacíos.** Se borraron a propósito, para probar el seed contra un
+   entorno recién creado, y el seed no llegó a correr.
+2. **El backend quedó levantado** contra esa base vacía (perfil local, puerto 8080). Si hace falta
+   rearrancarlo, primero hay que bajar el que está corriendo o el puerto va a estar ocupado.
+3. **`Backend/.env.local` está tocado a propósito y hay que devolverlo.** Las dos líneas de
+   credenciales de AWS están comentadas con el prefijo `#EU410-TMP-`, para que las fotos fueran al
+   almacenamiento local en vez de a la cuenta real. **Sacar ese prefijo cuando Facundo lo pida**, y
+   avisarle de la consecuencia que está más abajo.
+
+**Los tres pasos que faltan:**
+
+1. `bash Backend/seed-local.sh --force` y mirar que no aparezca ningún aviso ni error. Tiene que
+   decir: 31 objetos encontrados, 5 búsquedas guardadas, 24 devoluciones, "Las 24 devoluciones
+   apuntan a un objeto que existe y figura como devuelto", 7 alertas, 7 bloqueos y 60 imágenes.
+2. Comprobar contra la aplicación levantada: que la búsqueda encuentre su objeto, que las
+   devoluciones muestren el suyo y que las pantallas de fraude tengan datos. **Ojo con el límite de
+   10 intentos de inicio de sesión por minuto**: si se pasa, contesta "demasiados intentos" y es
+   fácil confundirlo con un bloqueo por fraude.
+3. Proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba, publicarlo.
+
+**Todo esto ya se verificó una vez**, con el entorno levantado y el juego de datos nuevo cargado: la
+búsqueda encontró su objeto en las seis pruebas, las devoluciones mostraron su objeto y su foto, y
+las pantallas de fraude mostraron las siete alertas, los reportes por persona y por documento, y el
+indicador del menú. Lo que falta es repetirlo sobre una base recién creada, que es la única parte
+que todavía no se probó.
+
+### Una decisión pendiente que Facundo tiene que tomar
+
+Con las credenciales de AWS puestas, la aplicación busca las fotos en la cuenta real, donde **las de
+los objetos nuevos no existen**. O se deja el almacenamiento local para trabajar (las líneas
+comentadas), o hay que correr el seed una vez con las credenciales puestas, lo que sube 60 archivos
+a la cuenta real. Es de Facundo la decisión.
+
+### El trabajo en sí
 
 **Reemplaza al plan del 19/09 en la parte de "cargar por API".** Facundo decidió que nada se carga
 por la aplicación: todo se escribe directamente en el juego de datos, y las alertas de fraude se
@@ -131,6 +173,28 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
 
 Los reclamos siguen sin sembrarse. No es una omisión de este trabajo: la entidad se extirpó del
 sistema y no hay nada que sembrar.
+
+### Cómo está armado el juego de fraude (para no tener que releerlo del seed)
+
+Cinco focos de sospecha, cada uno un mismo documento retirando tres veces en pocas semanas, más tres
+devoluciones normales y aisladas. Sale de ahí una alerta por mes, de abril a septiembre, con dos en
+septiembre:
+
+| Mes | Documento | Persona | Qué la dispara | Estado |
+|---|---|---|---|---|
+| Abril | 42111222 | Julia Morales | retiros repetidos | falsa alarma |
+| Mayo | 27998877 | Nahuel Ibarra | retiros repetidos + siempre el mismo empleado de la UTN | falsa alarma |
+| Junio | 28123456 | Ramiro Otero | retiros repetidos | falsa alarma |
+| Julio | 39456789 | Micaela Ledesma | retiros repetidos + siempre objetos registrados por la misma persona | vigente |
+| Agosto | 31555444 | Brenda Sosa | retiros repetidos + siempre la misma empleada del shopping | vigente |
+| Septiembre | 39456789 | Micaela Ledesma | igual que la de julio, dos meses después | vigente |
+| Septiembre | 28123456 | Ramiro Otero | igual que la de junio | vigente |
+
+**Quiénes quedan señalados y bloqueados:** sólo personal de organizaciones, nunca las tres cuentas
+de usuario final. Una alerta vigente **impide iniciar sesión**, y si cayeran ahí Julia, Pedro o
+Valeria no se podría probar la búsqueda, porque las búsquedas guardadas son de ellos. Quedan
+bloqueadas `emp1.patio@eurekapp.com` (en dos alertas) y `emp1.dino@eurekapp.com`; cada una de esas
+sedes conserva su cuenta de responsable. **Que esas dos no entren es lo esperado, no una falla.**
 
 ## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
 
