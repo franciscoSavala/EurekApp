@@ -12,12 +12,11 @@ header()  { echo -e "\n${BOLD}${CYAN}── $* ──${NC}"; }
 MYSQL_EXEC="docker exec -i eurekapp-mysql mysql --default-character-set=utf8mb4 -u eurekapp -peurekapp eurekapp"
 WEAVIATE_URL="http://localhost:8081"
 
-# Solo para leer la flag de S3 (ver ".env.local.example", sección "S3 local vs AWS real"). Si
-# AWS_ACCESS_KEY_ID viene seteada ahi, el seed sube las fotos al S3 real en vez de a MinIO.
-ENV_LOCAL="$(dirname "$0")/.env.local"
-if [[ -f "$ENV_LOCAL" ]]; then
-  set -a; source "$ENV_LOCAL"; set +a
-fi
+# El seed NO lee .env.local. Antes lo hacia para ver si habia credenciales de AWS y, en ese caso,
+# subir las fotos a la cuenta real. Se saco a proposito: este script lo corre cada integrante del
+# equipo en su maquina, y el juego de datos tiene que quedar igual en todas, sin depender de que
+# alguien tenga credenciales ni de que se le suban archivos a una cuenta compartida sin querer.
+# Las fotos van siempre al almacenamiento local (MinIO, ver docker-compose.yml).
 
 echo ""
 echo -e "${CYAN}${BOLD}╔══════════════════════════════════════╗${NC}"
@@ -818,19 +817,15 @@ success "10 organization_requests insertados (6 APPROVED precargadas + 1 PENDING
 header "Imagenes S3 (MinIO)"
 
 S3_BUCKET="eurekapp-temp"
-if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
-  # Flag activada en .env.local: subir contra el S3 real de AWS con esas credenciales.
-  S3_MODE="AWS real"
-  S3_ENDPOINT_ARGS=()
-else
-  # Default: MinIO local. Credenciales fijas de application-local.yml, no de una cuenta AWS real.
-  S3_MODE="MinIO local"
-  S3_ENDPOINT="http://localhost:9000"
-  export AWS_ACCESS_KEY_ID="minioadmin"
-  export AWS_SECRET_ACCESS_KEY="minioadmin"
-  export AWS_DEFAULT_REGION="us-east-1"
-  S3_ENDPOINT_ARGS=(--endpoint-url "$S3_ENDPOINT")
-fi
+# Siempre almacenamiento local. Las credenciales son las fijas de MinIO (las mismas que trae
+# application-local.yml por default), no las de ninguna cuenta real: se fuerzan acá para que, si
+# quien corre el seed tiene credenciales de AWS en su terminal, el cliente no las use igual.
+S3_MODE="MinIO local"
+S3_ENDPOINT="http://localhost:9000"
+export AWS_ACCESS_KEY_ID="minioadmin"
+export AWS_SECRET_ACCESS_KEY="minioadmin"
+export AWS_DEFAULT_REGION="us-east-1"
+S3_ENDPOINT_ARGS=(--endpoint-url "$S3_ENDPOINT")
 IMG_DIR="$(dirname "$0")/seed-data/images"
 # EU-325: las fotos REALES de cada objeto (found + búsquedas guardadas) viven versionadas acá,
 # nombradas por UUID (= key de S3). Son las mismas que vectorizó generate_seed_vectors.py, así que
@@ -893,7 +888,7 @@ if command -v aws &>/dev/null && aws s3 ls "s3://${S3_BUCKET}" "${S3_ENDPOINT_AR
       && S3_UPLOADED=$((S3_UPLOADED + 1)) || warn "  no se pudo subir $KEY"
   done < "$MANIFEST"
   success "$S3_UPLOADED de $TOTAL_FOTOS imagenes en $S3_MODE (bucket: $S3_BUCKET)"
-elif [[ "$S3_MODE" == "MinIO local" ]]; then
+else
   # Sin el cliente de linea de comandos de AWS instalado, el paso se saltaba entero y la
   # aplicacion quedaba sin una sola foto. Contra el almacenamiento local no hace falta: se sube
   # hablando directo con el, que es lo que hace este script.
@@ -905,9 +900,6 @@ elif [[ "$S3_MODE" == "MinIO local" ]]; then
   else
     warn "Quedaron imagenes sin subir: los objetos se van a ver sin foto."
   fi
-else
-  warn "$S3_MODE no disponible — hace falta el cliente de AWS para subir a la cuenta real."
-  warn "Se omite el upload de imagenes. Al resolverlo, correr el script de nuevo."
 fi
 rm -f "$MANIFEST"
 

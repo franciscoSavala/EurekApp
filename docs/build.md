@@ -112,15 +112,33 @@ La verificación que había quedado a medias se completó el 22/09. Se probó lo
 publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
 autorización**.
 
-### Una decisión pendiente que Facundo tiene que tomar
+### La decisión de las credenciales quedó cerrada (2026-09-23)
 
-`Backend/.env.local` sigue tocado a propósito: las dos líneas de credenciales de AWS están
-comentadas con el prefijo `#EU410-TMP-`, para que las fotos vayan al almacenamiento local en vez de
-a la cuenta real. **Con las credenciales puestas, la aplicación busca las fotos en la cuenta real,
-donde las de los objetos nuevos no existen.** O se deja el almacenamiento local para trabajar (como
-está ahora, y es lo que se acaba de verificar funcionando), o hay que correr el seed una vez con las
-credenciales puestas, lo que sube 60 archivos a la cuenta real. Es de Facundo la decisión; hasta que
-la tome, no hay que sacar el prefijo.
+**El seed sube las fotos siempre al almacenamiento local, haya credenciales de AWS o no.** Antes
+leía `.env.local` para ver si había credenciales y, en ese caso, subía a la cuenta real. Se sacó a
+propósito: este script lo corre cada integrante del equipo en su máquina, y el juego de datos tiene
+que quedar igual en todas, sin depender de que alguien tenga credenciales ni de que se le suban
+archivos a una cuenta compartida sin querer. El seed fuerza las credenciales fijas del
+almacenamiento local, así que tampoco usa las que haya sueltas en la terminal de quien lo corre.
+
+**De paso se descubrió que el prefijo `#EU410-TMP-` nunca hizo falta.** Comentar las credenciales de
+AWS no cambiaba a dónde miraba la aplicación: lo que decide eso es `S3_ENDPOINT`, que no está en
+`.env.local` y por lo tanto toma su valor por defecto, que es el almacenamiento local. Se comprobó
+levantando el backend con las credenciales puestas: las fotos siguen saliendo de ahí.
+`Backend/.env.local` quedó restaurado a como estaba.
+
+**Lo que sí sigue siendo cierto:** en el S3 real están las 15 fotos originales y ninguna de las de
+los objetos agregados. Si alguna vez se quiere un entorno apuntando a la cuenta real, hay que subir
+las 60 una sola vez; los identificadores están fijos en el juego de datos, así que con una vez
+alcanza para siempre.
+
+### Para mostrar la aplicación en un celular
+
+La foto **no la manda el backend**: manda una dirección firmada y el cliente la descarga solo. Hoy
+esa dirección empieza con `http://localhost:9000`, que para un celular es el celular mismo. En la
+misma computadora se ve todo bien; desde otro dispositivo las fotos salen rotas. La salida barata es
+que el almacenamiento local se anuncie con la dirección de la máquina en la red (`S3_ENDPOINT` en
+`.env.local`) y que el dispositivo esté en la misma red. No hace falta subir nada a ninguna cuenta.
 
 ### El trabajo en sí
 
