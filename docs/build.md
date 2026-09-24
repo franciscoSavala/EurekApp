@@ -80,6 +80,228 @@ de usuario y no al esquema de H2, y desde entonces fallaban dos pruebas de segur
 **EU-275 cerrada el 2026-09-18.** Estaba EN TESTING esperando a EU-382, EU-383 y EU-389, y los tres
 ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
+## Juego de datos rehecho (2026-09-23) — terminado y verificado sobre una base recién creada
+
+### Estado: terminado. Lo único pendiente es el comentario de Jira y el permiso para mergear.
+
+La verificación que había quedado a medias se completó el 22/09. Se probó lo que faltaba: el seed
+**contra una base creada desde cero**, no un resembrado encima de datos que ya estaban.
+
+**Cómo se probó (en este orden):**
+
+1. Se bajó el backend, se borró y recreó la base vacía, y se dejaron el FoundObject y el LostObject
+   del buscador vacíos.
+2. Se levantó el backend en perfil local: creó el esquema completo solo, sin ayuda.
+3. `bash Backend/seed-local.sh --force` terminó bien y dio todos los números previstos: 31 objetos
+   encontrados, 5 búsquedas guardadas (hoy son 6: la sexta se agregó el 23/09), 24 devoluciones, "Las 24 devoluciones apuntan a un objeto que
+   existe y figura como devuelto", 7 alertas (4 vigentes, 3 falsas alarmas), 11 casos repartidos
+   entre esas alertas, 6 personas señaladas, 9 bloqueos vigentes y 60 imágenes. **Los únicos dos
+   avisos son los esperados**, los de reclamos, que ya no existen como entidad.
+4. Contra la aplicación levantada: las siete búsquedas por foto encontraron su objeto **en primer
+   lugar**; las devoluciones muestran su objeto y su foto abre; las pantallas de fraude traen las
+   7 alertas, el indicador del menú marca 4 sin ver, y los reportes por persona y por documento
+   cuadran con el total.
+5. Los bloqueos por fraude funcionan y caen donde tienen que caer: `emp1.patio@eurekapp.com`,
+   `emp1.dino@eurekapp.com` y `micaela@mail.com` no pueden entrar y la aplicación explica por qué;
+   el responsable de cada una de esas sedes entra sin problema, igual que Julia, Pedro y Valeria.
+6. El bloqueo por documento también frena el retiro: al entregar un objeto ingresando un documento
+   bloqueado, la entrega se rechaza con la explicación y la fecha en que se levanta; con un
+   documento limpio se registra normalmente.
+
+**Lo único que queda:** proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba,
+publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
+autorización**.
+
+### Qué falta (y nada de esto es código)
+
+1. **Proponerle a Facundo el comentario del ítem de Jira y, si lo aprueba, publicarlo.** Tiene que
+   incluir el usuario final bloqueado y que las fotos van siempre al almacenamiento local.
+2. **Pedir autorización para pushear y mergear.** La rama es `EU-410-rehacer-juego-de-datos` y
+   **no se pushea ni se mergea sin que Facundo lo diga.**
+3. **Decidir qué se hace con el material sin uso** (más abajo tiene su propia sección). Son archivos
+   que ya no lee nadie y están versionados, así que borrarlos es reversible. El único que no lo
+   estaba ya se movió fuera del repositorio.
+
+**Del seed en sí no falta nada.** Está terminado y verificado sobre una base creada desde cero, y
+los problemas que tenía que resolver están todos cubiertos (ver la sección de abajo).
+
+Fuera del ítem, quedan dos cosas apuntadas que no son parte de este trabajo: dejar la demo andando
+sobre la red local (ver más abajo) y subir las 60 fotos a la cuenta real si alguna vez se quiere un
+entorno apuntando allá.
+
+### Los problemas que este juego de datos tenía que resolver, y cómo quedaron
+
+Se verificó uno por uno contra la base sembrada, el 2026-09-23.
+
+- **Las pantallas de fraude arrancaban vacías.** Resuelto: 7 alertas, 6 personas señaladas y
+  9 bloqueos.
+- **Comparar alertas vigentes contra falsas alarmas.** Resuelto: 4 vigentes y 3 falsas alarmas ya
+  resueltas, que es lo que necesita la story de los indicadores de fraude.
+- **Alguien con dos o más alertas.** Resuelto, y por partida doble: dos documentos aparecen en dos
+  alertas cada uno, y dos personas también.
+- **Alertas repartidas en el tiempo.** Resuelto: de abril a septiembre, una por mes, con dos en
+  septiembre. Era la parte difícil, porque la ventana de detección es de días y no hay forma de
+  fabricar meses de historia corriendo el detector. Se resolvió escribiendo las alertas con sus
+  fechas.
+- **Bloqueos vigentes.** Resuelto: 9, y ahora también se ve desde el lado de un usuario final.
+- **Que las alertas no sean inventadas.** Era el criterio que puso Facundo: si una alerta dice que
+  alguien retiró muchas veces, esas devoluciones tienen que existir. **Se comprobó con una consulta:
+  las 7 alertas tienen exactamente 3 devoluciones del mismo documento en los 30 días previos a la
+  alerta, que es justo el umbral configurado.** Ninguna alerta apunta a algo que no está.
+- **Alertas apuntando a personas borradas**, el defecto viejo del seed. No puede volver a pasar: las
+  personas señaladas se insertan junto con las cuentas del mismo juego de datos.
+
+**Lo que se decidió NO hacer:** el plan del 19/09 decía cargar todo una vez por la aplicación y
+volcar el resultado. Facundo lo descartó: nada se carga por la aplicación, todo se escribe directo
+en el juego de datos. Eso no es un pendiente, es una decisión tomada.
+
+**Lo único que no se siembra son los reclamos**, y no es una omisión: esa parte del sistema se
+extirpó y no hay nada que sembrar.
+
+**Un detalle corregido el 23/09:** un comentario del seed prometía dejar un bloqueo ya vencido "para
+ver la diferencia", y no había ninguno. No se agregó uno inventado: los bloqueos se levantan al
+resolver una alerta como falsa alarma, así que las tres falsas alarmas no tienen bloqueos, y las
+cuatro vigentes nacieron dentro de los 90 días. Se corrigió el comentario.
+
+### La decisión de las credenciales quedó cerrada (2026-09-23)
+
+**El seed sube las fotos siempre al almacenamiento local, haya credenciales de AWS o no.** Antes
+leía `.env.local` para ver si había credenciales y, en ese caso, subía a la cuenta real. Se sacó a
+propósito: este script lo corre cada integrante del equipo en su máquina, y el juego de datos tiene
+que quedar igual en todas, sin depender de que alguien tenga credenciales ni de que se le suban
+archivos a una cuenta compartida sin querer. El seed fuerza las credenciales fijas del
+almacenamiento local, así que tampoco usa las que haya sueltas en la terminal de quien lo corre.
+
+**De paso se descubrió que el prefijo `#EU410-TMP-` nunca hizo falta.** Comentar las credenciales de
+AWS no cambiaba a dónde miraba la aplicación: lo que decide eso es `S3_ENDPOINT`, que no está en
+`.env.local` y por lo tanto toma su valor por defecto, que es el almacenamiento local. Se comprobó
+levantando el backend con las credenciales puestas: las fotos siguen saliendo de ahí.
+`Backend/.env.local` quedó restaurado a como estaba.
+
+**Lo que sí sigue siendo cierto:** en el S3 real están las 15 fotos originales y ninguna de las de
+los objetos agregados. Si alguna vez se quiere un entorno apuntando a la cuenta real, hay que subir
+las 60 una sola vez; los identificadores están fijos en el juego de datos, así que con una vez
+alcanza para siempre.
+
+### Para mostrar la aplicación en un celular
+
+La foto **no la manda el backend**: manda una dirección firmada y el cliente la descarga solo. Hoy
+esa dirección empieza con `http://localhost:9000`, que para un celular es el celular mismo. En la
+misma computadora se ve todo bien; desde otro dispositivo las fotos salen rotas. La salida barata es
+que el almacenamiento local se anuncie con la dirección de la máquina en la red (`S3_ENDPOINT` en
+`.env.local`) y que el dispositivo esté en la misma red. No hace falta subir nada a ninguna cuenta.
+
+### El trabajo en sí
+
+**Reemplaza al plan del 19/09 en la parte de "cargar por API".** Facundo decidió que nada se carga
+por la aplicación: todo se escribe directamente en el juego de datos, y las alertas de fraude se
+escriben a mano en vez de dejar que las genere la detección. Lo que sí tiene que ser consistente son
+las devoluciones: cada una apunta a un objeto que existe y ninguna comparte objeto con otra.
+
+**Rama:** `EU-410-rehacer-juego-de-datos`. **No pushear ni mergear sin autorización.**
+
+### Qué quedó
+
+- **Un solo juego de objetos.** El seed de la base carga el del rework de búsqueda. Los archivos del
+  juego viejo se borraron el 2026-09-23 (ver "material sin uso").
+- **31 objetos encontrados** (los 10 del rework + 21 agregados) y **6 búsquedas guardadas** (las 5
+  del rework + la de la cuenta bloqueada). Los agregados reusan las fotos existentes, cada uno con
+  su propia copia y con fecha, sede y texto propios; el vector de imagen se copia del objeto de
+  origen y el de texto se calcula de nuevo.
+- **24 devoluciones**, cada una sobre su propio objeto. Siete objetos quedan sin devolver: los cinco
+  que forman pareja con una búsqueda guardada y dos de los agregados.
+- **7 alertas de fraude** repartidas de abril a septiembre: 4 vigentes y 3 falsas alarmas, dos
+  documentos y dos personas con dos alertas cada uno, 6 personas señaladas y 9 bloqueos vigentes.
+- **17 personas con cuenta**, entre ellas cuatro usuarios finales. El cuarto, `micaela@mail.com`,
+  existe para quedar bloqueado por fraude: ver la sección del juego de fraude más abajo.
+- **Las fotos van siempre al almacenamiento local**, haya credenciales de AWS o no. El seed lo corre
+  cada integrante del equipo en su máquina y el resultado tiene que ser el mismo en todas.
+- **Los parámetros de detección** pasan a "3 retiros en 30 días" con bloqueo de 90 días. Los de
+  fábrica ("5 retiros en 1 día", bloqueo de 7 días) hacían que ningún foco fuera detectable y que
+  los bloqueos se vencieran a los pocos días de sembrar.
+- **Quién encontró cada objeto y cuáles se devolvieron viven en el juego de datos**, no se parchean
+  después. El seed ahora sólo comprueba que los dos lados digan lo mismo, y aborta si no.
+
+### Cosas del seed que estaban rotas y se arreglaron de paso
+
+- Los objetos se mandaban al buscador como argumento de línea de comandos. Con dos vectores por
+  objeto, la línea supera lo que el sistema operativo acepta: los objetos no entraban y el único
+  rastro era un contador más bajo. Ahora van por archivo, y el seed aborta si falta alguno.
+- Sin el cliente de línea de comandos de AWS instalado, el paso de fotos se salteaba con un aviso y
+  la aplicación quedaba sin una sola imagen. Contra el almacenamiento local ya no hace falta.
+- El seed decidía a dónde subir las fotos según hubiera o no credenciales de AWS en `.env.local`,
+  así que el mismo comando daba resultados distintos según la máquina. Ahora va siempre al
+  almacenamiento local.
+- El seed avisaba de fallos inexistentes al marcar objetos, porque esperaba una respuesta y el
+  buscador devuelve otra igual de correcta.
+
+### Material sin uso: borrado el 2026-09-23
+
+Facundo decidió borrarlo. Todo estaba versionado, así que sigue accesible desde cualquier commit
+anterior al borrado: se puede traer un archivo suelto sin mover el resto del proyecto.
+
+- `Backend/seed-data/FoundObject.ndjson` y `LostObject.ndjson`: el juego viejo. **Borrados.** El
+  juego vigente vive en `snapshot/`, que es de donde leen el seed y `build_dataset.py`.
+- `Backend/seed-data/generate_seed_vectors.py`: generaba el juego viejo. **Borrado.** Su reemplazo
+  es `build_dataset.py`. Un comentario de `seed-local.sh` seguía nombrándolo; se corrigió.
+- `Backend/seed-data/photos-nuevas/`: **borrada.** Eran las cuatro fotos de segunda toma que se
+  habían pedido y nunca se incorporaron. Al revisarlas se vio por qué: **son byte a byte idénticas
+  a fotos que ya están en `photos/`.** Lo que se pedía era el mismo objeto fotografiado distinto;
+  con la misma imagen la similitud da 1.0 y no prueba nada, que es justo lo que el LEEME de esa
+  carpeta advertía que no servía.
+- `Backend/seed-data/reseed_via_api.sh`: **ya no está en el repositorio.** Nunca estuvo versionado
+  (el repositorio lo ignora a propósito), así que borrarlo lo habría perdido para siempre. Se movió
+  el 2026-09-23 a `C:\Users\Facundo\Documents\eurekapp-archivo\`.
+- Las 15 fotos de `photos/` con el nombre viejo **sí siguen haciendo falta**: son el material de
+  origen del que salen todas las copias.
+
+### Lo único que quedó afuera
+
+Los reclamos siguen sin sembrarse. No es una omisión de este trabajo: la entidad se extirpó del
+sistema y no hay nada que sembrar.
+
+### Cómo está armado el juego de fraude (para no tener que releerlo del seed)
+
+Cinco focos de sospecha, cada uno un mismo documento retirando tres veces en pocas semanas, más tres
+devoluciones normales y aisladas. Sale de ahí una alerta por mes, de abril a septiembre, con dos en
+septiembre:
+
+| Mes | Documento | Persona | Qué la dispara | Estado |
+|---|---|---|---|---|
+| Abril | 42111222 | Julia Morales | retiros repetidos | falsa alarma |
+| Mayo | 27998877 | Nahuel Ibarra | retiros repetidos + siempre el mismo empleado de la UTN | falsa alarma |
+| Junio | 28123456 | Ramiro Otero | retiros repetidos | falsa alarma |
+| Julio | 39456789 | Micaela Ledesma | retiros repetidos + siempre objetos registrados por la misma persona | vigente |
+| Agosto | 31555444 | Brenda Sosa | retiros repetidos + siempre la misma empleada del shopping | vigente |
+| Septiembre | 39456789 | Micaela Ledesma | igual que la de julio, dos meses después | vigente |
+| Septiembre | 28123456 | Ramiro Otero | igual que la de junio | vigente |
+
+**Quiénes quedan señalados y bloqueados (revisado el 2026-09-23).** Una alerta vigente **impide
+iniciar sesión**, así que quién cae bajo una es una decisión del juego de datos, no un accidente.
+
+Quedan bloqueadas tres cuentas: `emp1.patio@eurekapp.com` (en dos alertas), `emp1.dino@eurekapp.com`
+y `micaela@mail.com`. Las dos primeras son personal de organización, y cada una de esas sedes
+conserva su cuenta de responsable. La tercera es **una cuenta de usuario final creada justamente
+para esto**, para poder ver el bloqueo desde el lado de quien usa la aplicación y no sólo desde una
+cuenta de organización. **Que esas tres no entren es lo esperado, no una falla.**
+
+Micaela Ledesma es la persona que retira con el documento 39456789, la de las dos alertas vigentes
+de julio y septiembre. Que la cuenta quede bloqueada no es un agregado artificial: la regla que
+dispara esas alertas señala tanto a quien registró los objetos como a quien los retiró, y ahora
+quien retira tiene cuenta. Por eso aparece primera en el reporte de fraude por persona.
+
+**Julia, Pedro y Valeria nunca se bloquean**, y el motivo es concreto: cinco de las seis búsquedas
+guardadas son de ellos tres (Julia dos, Valeria dos, Pedro una) y sólo su dueño puede abrirlas — las
+organizaciones no ven las búsquedas guardadas de nadie. Bloquear a cualquiera de los tres dejaría
+esas cinco fuera de alcance y la pantalla de búsquedas guardadas se quedaría sin poder mostrarse.
+
+**La sexta búsqueda es de Micaela, la cuenta bloqueada** (agregada el 2026-09-23). Que una persona
+bloqueada tenga búsquedas abiertas es lo que pasa en la vida real, y el sistema lo soporta: que
+antes no ocurriera en el juego de datos era una comodidad nuestra, no una regla. Ahora el caso está
+representado sin tocar las otras cinco. Es una búsqueda de unos anteojos de sol en Ciudad
+Universitaria; reusa una foto que ya estaba con su vector de imagen, y el vector de texto se calculó
+de nuevo, igual que los objetos encontrados agregados.
+
 ## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
 
 **Reemplaza al plan anterior de sembrar sólo las alertas.** Facundo decidió arrancar de cero en vez
