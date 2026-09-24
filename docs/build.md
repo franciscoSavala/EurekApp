@@ -119,11 +119,49 @@ autorización**.
 2. **Pedir autorización para pushear y mergear.** La rama es `EU-410-rehacer-juego-de-datos` y
    **no se pushea ni se mergea sin que Facundo lo diga.**
 3. **Decidir qué se hace con el material sin uso** (más abajo tiene su propia sección). Son archivos
-   que ya no lee nadie; borrarlos o dejarlos es decisión de Facundo.
+   que ya no lee nadie y están versionados, así que borrarlos es reversible. El único que no lo
+   estaba ya se movió fuera del repositorio.
+
+**Del seed en sí no falta nada.** Está terminado y verificado sobre una base creada desde cero, y
+los problemas que tenía que resolver están todos cubiertos (ver la sección de abajo).
 
 Fuera del ítem, quedan dos cosas apuntadas que no son parte de este trabajo: dejar la demo andando
 sobre la red local (ver más abajo) y subir las 60 fotos a la cuenta real si alguna vez se quiere un
 entorno apuntando allá.
+
+### Los problemas que este juego de datos tenía que resolver, y cómo quedaron
+
+Se verificó uno por uno contra la base sembrada, el 2026-09-23.
+
+- **Las pantallas de fraude arrancaban vacías.** Resuelto: 7 alertas, 6 personas señaladas y
+  9 bloqueos.
+- **Comparar alertas vigentes contra falsas alarmas.** Resuelto: 4 vigentes y 3 falsas alarmas ya
+  resueltas, que es lo que necesita la story de los indicadores de fraude.
+- **Alguien con dos o más alertas.** Resuelto, y por partida doble: dos documentos aparecen en dos
+  alertas cada uno, y dos personas también.
+- **Alertas repartidas en el tiempo.** Resuelto: de abril a septiembre, una por mes, con dos en
+  septiembre. Era la parte difícil, porque la ventana de detección es de días y no hay forma de
+  fabricar meses de historia corriendo el detector. Se resolvió escribiendo las alertas con sus
+  fechas.
+- **Bloqueos vigentes.** Resuelto: 9, y ahora también se ve desde el lado de un usuario final.
+- **Que las alertas no sean inventadas.** Era el criterio que puso Facundo: si una alerta dice que
+  alguien retiró muchas veces, esas devoluciones tienen que existir. **Se comprobó con una consulta:
+  las 7 alertas tienen exactamente 3 devoluciones del mismo documento en los 30 días previos a la
+  alerta, que es justo el umbral configurado.** Ninguna alerta apunta a algo que no está.
+- **Alertas apuntando a personas borradas**, el defecto viejo del seed. No puede volver a pasar: las
+  personas señaladas se insertan junto con las cuentas del mismo juego de datos.
+
+**Lo que se decidió NO hacer:** el plan del 19/09 decía cargar todo una vez por la aplicación y
+volcar el resultado. Facundo lo descartó: nada se carga por la aplicación, todo se escribe directo
+en el juego de datos. Eso no es un pendiente, es una decisión tomada.
+
+**Lo único que no se siembra son los reclamos**, y no es una omisión: esa parte del sistema se
+extirpó y no hay nada que sembrar.
+
+**Un detalle corregido el 23/09:** un comentario del seed prometía dejar un bloqueo ya vencido "para
+ver la diferencia", y no había ninguno. No se agregó uno inventado: los bloqueos se levantan al
+resolver una alerta como falsa alarma, así que las tres falsas alarmas no tienen bloqueos, y las
+cuatro vigentes nacieron dentro de los 90 días. Se corrigió el comentario.
 
 ### La decisión de las credenciales quedó cerrada (2026-09-23)
 
@@ -198,10 +236,15 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
 
 ### Material que quedó sin uso (nadie lo borró: decide Facundo)
 
+**Los que siguen en el repositorio están versionados**, así que borrarlos es reversible: se puede
+traer un archivo suelto desde cualquier commit anterior, sin mover el resto del proyecto.
+
 - `Backend/seed-data/FoundObject.ndjson` y `LostObject.ndjson`: el juego viejo.
 - `Backend/seed-data/generate_seed_vectors.py`: genera el juego viejo, con los identificadores
   viejos. Su reemplazo es `build_dataset.py`.
-- `Backend/seed-data/reseed_via_api.sh`: la carga por la aplicación, que ya no se usa.
+- `Backend/seed-data/reseed_via_api.sh`: **ya no está en el repositorio.** Nunca estuvo versionado
+  (el repositorio lo ignora a propósito), así que borrarlo lo habría perdido para siempre. Se movió
+  el 2026-09-23 a `C:\Users\Facundo\Documents\eurekapp-archivo\`.
 - `Backend/seed-data/photos-nuevas/`: las cuatro fotos de segunda toma que se habían pedido, que
   nunca se incorporaron.
 - Las 15 fotos de `photos/` con el nombre viejo **sí siguen haciendo falta**: son el material de

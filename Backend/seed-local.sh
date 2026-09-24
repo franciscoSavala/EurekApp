@@ -619,7 +619,9 @@ header "Insertando FraudAlerts"
 #   - un usuario final bloqueado, para ver el bloqueo desde ese lado y no solo desde una cuenta
 #     de organizacion;
 #   - alertas repartidas de abril a septiembre, una por mes (dos en septiembre);
-#   - bloqueos vigentes, y uno ya vencido, para ver la diferencia.
+#   - 9 bloqueos, todos vigentes. No hay ninguno vencido a proposito: los bloqueos se levantan
+#     al resolver la alerta como falsa alarma, asi que las tres falsas alarmas no tienen, y las
+#     cuatro vigentes nacieron dentro de los 90 dias de bloqueo.
 #
 # Primero, los parametros de deteccion. Por defecto son "5 retiros en 1 dia" y bloqueo de 7 dias,
 # que sirven para un ambiente real pero no para mirar una pantalla: con esa ventana ninguno de los
