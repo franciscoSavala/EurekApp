@@ -403,6 +403,25 @@ la decisión sobre los objetos. Hay que crear uno nuevo.
 El título de **EU-365** sigue diciendo "propagar el arreglo" cuando ya no hay arreglo que propagar.
 Falta decidir si se le cambia.
 
+## Prioridades vigentes (2026-09-23)
+
+**Esta es la lista que manda. Lo de más abajo queda como registro de cómo se llegó acá.**
+
+Con el juego de datos rehecho y en `main`, las cuatro historias que están en testing ya se pueden
+verificar: existen los datos que necesitan. Rehacer la base del ambiente compartido deja de ser lo
+primero de la lista.
+
+1. **Cerrar las cuatro historias que están en testing.** Es lo que queda entre el proyecto y cerrar
+   el circuito de fraude. Ojo con la de los indicadores, que no tiene errores asociados pero nunca
+   se probó: esa hay que ejercitarla entera.
+2. **Los deploys, caídos desde el 7/8.** Condiciona todo lo demás y se cruza con la decisión de
+   mudar el ambiente compartido, que sigue sin tomarse.
+3. **Migraciones versionadas.** Es lo único que impide que el esquema se vuelva a desincronizar.
+4. **El bug de la búsqueda** que dice "no hay coincidencias" cuando en realidad falló.
+5. **Cerrar el bucket de fotos**, que espera acceso.
+6. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza.
+7. **Los 8 epics viejos y los spykes de documentación.** Cierre administrativo, no trabajo.
+
 ## Prioridad de los ítems abiertos por poder de desbloqueo (2026-09-18)
 
 Hecho. Se leyeron los vínculos "blocks" / "is blocked by" de los **24 ítems abiertos**. Resultado:
