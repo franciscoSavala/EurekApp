@@ -20,7 +20,8 @@ COMO SE FABRICA UN OBJETO NUEVO (y por que no hace falta ni CLIP ni el backend):
 
 Uso:  python Backend/seed-data/build_dataset.py
 Requiere: OPENAI_SECRET_KEY en el entorno (o en Backend/.env.local).
-Salida:   sobrescribe snapshot/FoundObject.ndjson y copia las fotos que falten a photos/.
+Salida:   sobrescribe snapshot/FoundObject.ndjson y snapshot/LostObject.ndjson, y copia las fotos
+          que falten a photos/.
           No borra nada. Es idempotente.
 """
 
@@ -141,6 +142,20 @@ NEW_OBJECTS = [
      "Cargador USB-C blanco de 20W sin cable, encontrado en un aula del pabellon Mecanica"),
 ]
 
+
+# -- Busquedas guardadas nuevas -------------------------------------------------
+# Una busqueda guardada de una cuenta que ademas queda bloqueada por fraude. En la vida real las dos
+# cosas pasan juntas: que no pasara en el juego de datos era una comodidad nuestra, no una regla del
+# sistema. Las cinco busquedas del snapshot son de Julia, Pedro y Valeria, y a ellos tres no se los
+# bloquea nunca -si se los bloqueara, sus busquedas no se podrian abrir y esa pantalla se quedaria
+# sin poder mostrarse-. Esta sexta cubre el caso sin costarle nada a las otras cinco.
+# La foto y el vector de imagen se reusan igual que en los objetos encontrados nuevos.
+# (id, src, organizacion, fecha de perdida, usuario, descripcion)
+NEW_SEARCHES = [
+    ("c2000001-0000-4000-8000-000000000001", "2c817a63-1027-48c3-bb95-c24d73022f33", "5",
+     "2026-07-28T08:00:00Z", "micaela@mail.com",
+     "Perdi mis anteojos de sol de montura negra en Ciudad Universitaria"),
+]
 
 # -- Quien encontro cada uno de los diez objetos originales ---------------------
 # Hasta EU-410 esto vivia solo en seed-local.sh, que lo aplicaba despues de cargar. Eran dos lados
@@ -266,16 +281,52 @@ def main():
         for o in todos:
             fh.write(json.dumps(o, ensure_ascii=False, sort_keys=True) + "\n")
 
+    # Busquedas guardadas: las cinco del snapshot se quedan como estan; se agregan las que falten.
+    base_lost = {o["id"] for o in lost}
+    nuevas_busquedas = []
+    for lo_id, src_id, org, fecha, username, desc in NEW_SEARCHES:
+        if lo_id in base_lost:
+            continue
+        src = base[src_id]
+        lat, lon = ORG_COORDS[org]
+        print("  nueva busqueda: %-28s <- foto de %s" % (username, src["properties"]["title"]))
+        nuevas_busquedas.append({
+            "class": "LostObject",
+            "id": lo_id,
+            "properties": {
+                "category": src["properties"]["category"],   # misma foto, misma categoria
+                "coordinates": {"latitude": lat, "longitude": lon},
+                "description": desc,
+                "has_image": True,
+                "lost_date": fecha,
+                "organization_id": org,
+                "status": "ACTIVE",
+                "username": username,
+            },
+            "vectors": {
+                "image": src["vectors"]["image"],            # misma foto, mismo vector
+                "text": text_vector(desc, key),
+            },
+        })
+
+    todas = lost + nuevas_busquedas
+    todas.sort(key=lambda o: o["properties"].get("lost_date", ""))
+    with open(os.path.join(SNAP, "LostObject.ndjson"), "w", encoding="utf-8") as fh:
+        for o in todas:
+            fh.write(json.dumps(o, ensure_ascii=False, sort_keys=True) + "\n")
+
     # Fotos: las de los objetos del snapshot (que hoy viven bajo el nombre viejo) y las copias de
-    # los objetos nuevos.
+    # los objetos y busquedas nuevos.
     pairs = list(PHOTO_OF.items())
     pairs += [(o[0], PHOTO_OF[o[1]]) for o in NEW_OBJECTS]
+    pairs += [(o[0], PHOTO_OF[o[1]]) for o in NEW_SEARCHES]
     copiadas = copy_photos(pairs)
 
     print("")
     print("FoundObject.ndjson: %d objetos (%d nuevos, %d devueltos, %d a la vista de la busqueda)"
           % (len(todos), len(nuevos), len(devueltos), len(todos) - len(devueltos)))
-    print("LostObject.ndjson:  %d objetos (sin cambios)" % len(lost))
+    print("LostObject.ndjson:  %d busquedas guardadas (%d nuevas)"
+          % (len(todas), len(nuevas_busquedas)))
     print("fotos copiadas:     %d" % copiadas)
 
 

@@ -93,7 +93,7 @@ La verificación que había quedado a medias se completó el 22/09. Se probó lo
    del buscador vacíos.
 2. Se levantó el backend en perfil local: creó el esquema completo solo, sin ayuda.
 3. `bash Backend/seed-local.sh --force` terminó bien y dio todos los números previstos: 31 objetos
-   encontrados, 5 búsquedas guardadas, 24 devoluciones, "Las 24 devoluciones apuntan a un objeto que
+   encontrados, 5 búsquedas guardadas (hoy son 6: la sexta se agregó el 23/09), 24 devoluciones, "Las 24 devoluciones apuntan a un objeto que
    existe y figura como devuelto", 7 alertas (4 vigentes, 3 falsas alarmas), 11 casos repartidos
    entre esas alertas, 6 personas señaladas, 9 bloqueos vigentes y 60 imágenes. **Los únicos dos
    avisos son los esperados**, los de reclamos, que ya no existen como entidad.
@@ -203,10 +203,11 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
 ### Qué quedó
 
 - **Un solo juego de objetos.** El seed de la base carga el del rework de búsqueda. Los archivos del
-  juego viejo siguen en el repositorio pero ya no los lee nadie (ver "material sin uso").
-- **31 objetos encontrados** (los 10 del rework + 21 agregados) y las 5 búsquedas guardadas. Los
-  agregados reusan las fotos existentes, cada uno con su propia copia y con fecha, sede y texto
-  propios; el vector de imagen se copia del objeto de origen y el de texto se calcula de nuevo.
+  juego viejo se borraron el 2026-09-23 (ver "material sin uso").
+- **31 objetos encontrados** (los 10 del rework + 21 agregados) y **6 búsquedas guardadas** (las 5
+  del rework + la de la cuenta bloqueada). Los agregados reusan las fotos existentes, cada uno con
+  su propia copia y con fecha, sede y texto propios; el vector de imagen se copia del objeto de
+  origen y el de texto se calcula de nuevo.
 - **24 devoluciones**, cada una sobre su propio objeto. Siete objetos quedan sin devolver: los cinco
   que forman pareja con una búsqueda guardada y dos de los agregados.
 - **7 alertas de fraude** repartidas de abril a septiembre: 4 vigentes y 3 falsas alarmas, dos
@@ -234,19 +235,23 @@ las devoluciones: cada una apunta a un objeto que existe y ninguna comparte obje
 - El seed avisaba de fallos inexistentes al marcar objetos, porque esperaba una respuesta y el
   buscador devuelve otra igual de correcta.
 
-### Material que quedó sin uso (nadie lo borró: decide Facundo)
+### Material sin uso: borrado el 2026-09-23
 
-**Los que siguen en el repositorio están versionados**, así que borrarlos es reversible: se puede
-traer un archivo suelto desde cualquier commit anterior, sin mover el resto del proyecto.
+Facundo decidió borrarlo. Todo estaba versionado, así que sigue accesible desde cualquier commit
+anterior al borrado: se puede traer un archivo suelto sin mover el resto del proyecto.
 
-- `Backend/seed-data/FoundObject.ndjson` y `LostObject.ndjson`: el juego viejo.
-- `Backend/seed-data/generate_seed_vectors.py`: genera el juego viejo, con los identificadores
-  viejos. Su reemplazo es `build_dataset.py`.
+- `Backend/seed-data/FoundObject.ndjson` y `LostObject.ndjson`: el juego viejo. **Borrados.** El
+  juego vigente vive en `snapshot/`, que es de donde leen el seed y `build_dataset.py`.
+- `Backend/seed-data/generate_seed_vectors.py`: generaba el juego viejo. **Borrado.** Su reemplazo
+  es `build_dataset.py`. Un comentario de `seed-local.sh` seguía nombrándolo; se corrigió.
+- `Backend/seed-data/photos-nuevas/`: **borrada.** Eran las cuatro fotos de segunda toma que se
+  habían pedido y nunca se incorporaron. Al revisarlas se vio por qué: **son byte a byte idénticas
+  a fotos que ya están en `photos/`.** Lo que se pedía era el mismo objeto fotografiado distinto;
+  con la misma imagen la similitud da 1.0 y no prueba nada, que es justo lo que el LEEME de esa
+  carpeta advertía que no servía.
 - `Backend/seed-data/reseed_via_api.sh`: **ya no está en el repositorio.** Nunca estuvo versionado
   (el repositorio lo ignora a propósito), así que borrarlo lo habría perdido para siempre. Se movió
   el 2026-09-23 a `C:\Users\Facundo\Documents\eurekapp-archivo\`.
-- `Backend/seed-data/photos-nuevas/`: las cuatro fotos de segunda toma que se habían pedido, que
-  nunca se incorporaron.
 - Las 15 fotos de `photos/` con el nombre viejo **sí siguen haciendo falta**: son el material de
   origen del que salen todas las copias.
 
@@ -285,11 +290,17 @@ de julio y septiembre. Que la cuenta quede bloqueada no es un agregado artificia
 dispara esas alertas señala tanto a quien registró los objetos como a quien los retiró, y ahora
 quien retira tiene cuenta. Por eso aparece primera en el reporte de fraude por persona.
 
-**Julia, Pedro y Valeria nunca se bloquean**, y el motivo es concreto: las cinco búsquedas guardadas
-son de ellos tres (Julia dos, Valeria dos, Pedro una) y sólo su dueño puede abrirlas — las
+**Julia, Pedro y Valeria nunca se bloquean**, y el motivo es concreto: cinco de las seis búsquedas
+guardadas son de ellos tres (Julia dos, Valeria dos, Pedro una) y sólo su dueño puede abrirlas — las
 organizaciones no ven las búsquedas guardadas de nadie. Bloquear a cualquiera de los tres dejaría
-esas búsquedas fuera de alcance. Por eso el usuario final bloqueado es una cuarta cuenta, sin
-ninguna búsqueda guardada.
+esas cinco fuera de alcance y la pantalla de búsquedas guardadas se quedaría sin poder mostrarse.
+
+**La sexta búsqueda es de Micaela, la cuenta bloqueada** (agregada el 2026-09-23). Que una persona
+bloqueada tenga búsquedas abiertas es lo que pasa en la vida real, y el sistema lo soporta: que
+antes no ocurriera en el juego de datos era una comodidad nuestra, no una regla. Ahora el caso está
+representado sin tocar las otras cinco. Es una búsqueda de unos anteojos de sol en Ciudad
+Universitaria; reusa una foto que ya estaba con su vector de imagen, y el vector de texto se calculó
+de nuevo, igual que los objetos encontrados agregados.
 
 ## Plan acordado (2026-09-19): rehacer el juego de datos entero por bootstrap
 
