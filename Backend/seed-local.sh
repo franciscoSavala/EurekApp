@@ -469,9 +469,11 @@ success "search_feedback.star_rating admite nulos (EU-372)"
 #   33145892 / 26874159 / 29334857 - devoluciones normales, una sola vez cada una
 #
 # Quienes quedan senalados son personal de las organizaciones y una cuarta cuenta de usuario final
-# creada para eso (micaela@mail.com), que no tiene busquedas guardadas. Julia, Pedro y Valeria
-# quedan siempre afuera: una alerta vigente bloquea la cuenta, y las cinco busquedas guardadas son
-# de ellos tres, asi que bloquear a cualquiera dejaria sus busquedas sin poder abrirse.
+# creada para eso (micaela@mail.com), que TIENE una busqueda guardada: en la vida real una persona
+# bloqueada puede tener busquedas abiertas, y el juego de datos lo representa. Julia, Pedro y Valeria
+# quedan siempre afuera: una alerta vigente bloquea la cuenta, y cinco de las seis busquedas
+# guardadas son de ellos tres, asi que bloquear a cualquiera dejaria esas cinco sin poder abrirse y
+# la pantalla de busquedas guardadas se quedaria sin poder mostrarse.
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO return_found_objects
   (found_objectuuid, user_id, organization_id, returned_by_employee_id, feedback_token, first_name, last_name, DNI, phone_number, person_photo_UUID, datetime_of_return, notification_sent_at, notification_recipient)
@@ -830,7 +832,7 @@ export AWS_DEFAULT_REGION="us-east-1"
 S3_ENDPOINT_ARGS=(--endpoint-url "$S3_ENDPOINT")
 IMG_DIR="$(dirname "$0")/seed-data/images"
 # EU-325: las fotos REALES de cada objeto (found + búsquedas guardadas) viven versionadas acá,
-# nombradas por UUID (= key de S3). Son las mismas que vectorizó generate_seed_vectors.py, así que
+# nombradas por UUID (= key de S3). Son las mismas que vectorizó build_dataset.py, así que
 # lo que se ve en la app coincide con lo que se buscó por similitud.
 PHOTOS_DIR="$(dirname "$0")/seed-data/photos"
 mkdir -p "$IMG_DIR"
@@ -843,7 +845,7 @@ FO_KEYS=(
   "$FO_N08" "$FO_N09" "$FO_N10" "$FO_N11" "$FO_N12" "$FO_N13" "$FO_N14"
   "$FO_N15" "$FO_N16" "$FO_N17" "$FO_N18" "$FO_N19" "$FO_N20" "$FO_N21"
 )
-# UUID de las 5 búsquedas guardadas (LostObject). Su foto se persiste en S3 al guardar (decisión 8),
+# UUID de las 6 búsquedas guardadas (LostObject). Su foto se persiste en S3 al guardar (decisión 8),
 # por eso el seed también las sube (para poder mostrarlas al ver la búsqueda guardada).
 LO_KEYS=(
   "8044d799-77b3-4326-bb3f-f6a0ad195f94"  # paraguas
@@ -851,6 +853,7 @@ LO_KEYS=(
   "aeaac6e1-893c-4f49-af6e-f43f62f6d71f"  # billetera de cuero marron
   "56fcd220-9532-45d9-beee-1253f5846677"  # auriculares
   "8645d88c-529c-496c-a213-f768892dd2ad"  # mochila azul
+  "c2000001-0000-4000-8000-000000000001"  # anteojos de sol (la de la cuenta bloqueada)
 )
 # Una foto de persona por devolucion. Las cinco primeras son las que ya existian.
 PERSON_KEYS=()
