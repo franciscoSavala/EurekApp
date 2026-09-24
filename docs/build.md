@@ -82,7 +82,12 @@ ya estaban resueltos. Quedó en Done con el comentario que lo explica.
 
 ## Juego de datos rehecho (2026-09-23) — terminado y verificado sobre una base recién creada
 
-### Estado: terminado. Lo único pendiente es el comentario de Jira y el permiso para mergear.
+### Estado: TERMINADO y en `main` (2026-09-23). El ítem quedó en Done.
+
+Merge `8681ed4`, sin conflictos. El merge no tocó una sola línea de código de la aplicación (sólo el
+seed, el juego de datos y esta documentación); aun así se compiló el backend antes de pushear, y
+compila. La rama `EU-410-rehacer-juego-de-datos` quedó pusheada. El comentario del ítem está
+publicado.
 
 La verificación que había quedado a medias se completó el 22/09. Se probó lo que faltaba: el seed
 **contra una base creada desde cero**, no un resembrado encima de datos que ya estaban.
@@ -108,19 +113,8 @@ La verificación que había quedado a medias se completó el 22/09. Se probó lo
    bloqueado, la entrega se rechaza con la explicación y la fecha en que se levanta; con un
    documento limpio se registra normalmente.
 
-**Lo único que queda:** proponerle a Facundo el comentario para el ítem de Jira y, si lo aprueba,
-publicarlo. La rama sigue siendo `EU-410-rehacer-juego-de-datos` y **no se pushea ni se mergea sin
-autorización**.
-
-### Qué falta (y nada de esto es código)
-
-1. **Proponerle a Facundo el comentario del ítem de Jira y, si lo aprueba, publicarlo.** Tiene que
-   incluir el usuario final bloqueado y que las fotos van siempre al almacenamiento local.
-2. **Pedir autorización para pushear y mergear.** La rama es `EU-410-rehacer-juego-de-datos` y
-   **no se pushea ni se mergea sin que Facundo lo diga.**
-3. **Decidir qué se hace con el material sin uso** (más abajo tiene su propia sección). Son archivos
-   que ya no lee nadie y están versionados, así que borrarlos es reversible. El único que no lo
-   estaba ya se movió fuera del repositorio.
+**No queda nada pendiente.** El comentario está publicado, el material sin uso se borró, la rama se
+pusheó y se mergeó a `main`, y el ítem está en Done.
 
 **Del seed en sí no falta nada.** Está terminado y verificado sobre una base creada desde cero, y
 los problemas que tenía que resolver están todos cubiertos (ver la sección de abajo).
