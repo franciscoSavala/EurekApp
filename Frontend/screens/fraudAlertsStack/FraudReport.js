@@ -186,8 +186,8 @@ const FraudReport = () => {
     const renderEntry = ({ item }) => {
         const key = keyOf(item);
         const isExpanded = expandedKey === key;
-        // El histórico acumulado supera a lo del rango ⇒ tiene antecedentes fuera del período (reincidente).
-        const isRepeat = (item.historicalCount || 0) > (item.fraudCount || 0);
+        // Reincidente = tiene alertas anteriores al período (EU-226). Las posteriores no cuentan.
+        const isRepeat = (item.priorCount || 0) > 0;
         return (
             <TouchableOpacity style={styles.card} onPress={() => toggleExpand(key)}>
                 <View style={styles.cardHeader}>

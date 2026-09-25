@@ -553,6 +553,96 @@ class FraudDetectionServiceTest {
         assertThat(e.getReasons()).containsExactly("CASE_1,CASE_3");
     }
 
+    // ---------- Reincidencia = alertas ANTERIORES al período (EU-226) ----------
+
+    @Test
+    void getFraudUserReport_priorCount_countsOnlyAlertsBeforeThePeriod() {
+        LocalDate from = LocalDate.now().minusDays(30);
+        LocalDate to = LocalDate.now().minusDays(10);
+        UserEurekapp suspect = user(7L, "suspect@test.com", "Sus", "Pect");
+
+        FraudAlert before = alert(1L, "111", FraudAlertStatus.FALSE_POSITIVE, suspect, 60);
+        FraudAlert inRange = alert(2L, "111", FraudAlertStatus.ACTIVE, suspect, 20);
+        FraudAlert after = alert(3L, "111", FraudAlertStatus.ACTIVE, suspect, 2);
+
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(inRange));
+        when(userRepository.findById(7L)).thenReturn(java.util.Optional.of(suspect));
+        when(alertRepository.findBySuspectUsers_Id(7L)).thenReturn(List.of(before, inRange, after));
+
+        FraudUserReportEntryDto e = service.getFraudUserReport(admin(), from, to, null).getEntries().get(0);
+
+        assertThat(e.getHistoricalCount()).isEqualTo(3);
+        assertThat(e.getPriorCount()).isEqualTo(1);   // la posterior no cuenta como antecedente
+    }
+
+    @Test
+    void getFraudUserReport_onlyLaterAlerts_isNotRepeatOffender() {
+        // Caso que antes se marcaba mal: el histórico supera al período sólo por una alerta posterior.
+        LocalDate from = LocalDate.now().minusDays(30);
+        LocalDate to = LocalDate.now().minusDays(10);
+        UserEurekapp suspect = user(7L, "suspect@test.com", "Sus", "Pect");
+
+        FraudAlert inRange = alert(2L, "111", FraudAlertStatus.ACTIVE, suspect, 20);
+        FraudAlert after = alert(3L, "111", FraudAlertStatus.ACTIVE, suspect, 2);
+
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(inRange));
+        when(userRepository.findById(7L)).thenReturn(java.util.Optional.of(suspect));
+        when(alertRepository.findBySuspectUsers_Id(7L)).thenReturn(List.of(inRange, after));
+
+        FraudUserReportEntryDto e = service.getFraudUserReport(admin(), from, to, null).getEntries().get(0);
+
+        assertThat(e.getHistoricalCount()).isEqualTo(2);
+        assertThat(e.getPriorCount()).isZero();
+    }
+
+    @Test
+    void getFraudDniReport_statusFilterLeavesOutSamePeriodAlert_isNotRepeatOffender() {
+        // Filtrando por activas, una falsa alarma del MISMO período queda fuera de la fila pero dentro
+        // del histórico. No es un antecedente: no debe marcar reincidencia.
+        LocalDate from = LocalDate.now().minusDays(30);
+        LocalDate to = LocalDate.now();
+        FraudAlert active = alert(1L, "30111222", FraudAlertStatus.ACTIVE, null, 5);
+        FraudAlert falseAlarmSamePeriod = alert(2L, "30111222", FraudAlertStatus.FALSE_POSITIVE, null, 15);
+
+        when(alertRepository.findByStatusAndCreatedAtBetween(eq(FraudAlertStatus.ACTIVE), any(), any()))
+                .thenReturn(List.of(active));
+        when(alertRepository.findByDni("30111222")).thenReturn(List.of(active, falseAlarmSamePeriod));
+
+        FraudDniReportEntryDto e =
+                service.getFraudDniReport(admin(), from, to, FraudAlertStatus.ACTIVE).getEntries().get(0);
+
+        assertThat(e.getFraudCount()).isEqualTo(1);
+        assertThat(e.getHistoricalCount()).isEqualTo(2);
+        assertThat(e.getPriorCount()).isZero();
+    }
+
+    @Test
+    void getFraudDniReport_alertOnTheDayBeforeFrom_countsAsPrior() {
+        LocalDate from = LocalDate.now().minusDays(10);
+        LocalDate to = LocalDate.now();
+        FraudAlert inRange = alert(1L, "30111222", FraudAlertStatus.ACTIVE, null, 3);
+        FraudAlert dayBefore = FraudAlert.builder()
+                .id(2L).dni("30111222").reason("CASE_1").status(FraudAlertStatus.ACTIVE)
+                .createdAt(from.minusDays(1).atTime(23, 59)).build();
+        FraudAlert firstMoment = FraudAlert.builder()
+                .id(3L).dni("30111222").reason("CASE_1").status(FraudAlertStatus.ACTIVE)
+                .createdAt(from.atStartOfDay()).build();
+
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(inRange, firstMoment));
+        when(alertRepository.findByDni("30111222")).thenReturn(List.of(inRange, dayBefore, firstMoment));
+
+        FraudDniReportEntryDto e = service.getFraudDniReport(admin(), from, to, null).getEntries().get(0);
+
+        assertThat(e.getPriorCount()).isEqualTo(1);   // el primer instante del período ya es del período
+    }
+
+    private static FraudAlert alert(Long id, String dni, FraudAlertStatus status, UserEurekapp suspect, int daysAgo) {
+        return FraudAlert.builder()
+                .id(id).dni(dni).reason("CASE_1").status(status)
+                .suspectUsers(suspect == null ? new LinkedHashSet<>() : new LinkedHashSet<>(Set.of(suspect)))
+                .createdAt(LocalDateTime.now().minusDays(daysAgo)).build();
+    }
+
     @Test
     void getFraudUserReport_nonAdmin_throwsForbidden() {
         Organization org = Organization.builder().id(1L).name("Org").build();
