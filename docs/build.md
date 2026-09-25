@@ -409,13 +409,18 @@ Falta decidir si se le cambia.
 
 ## Verificación de las historias de fraude — una por sesión
 
-**Cómo se usa esta sección:** cada sesión de `/build` toma **la primera prueba que figure como
-PENDIENTE**, la hace completa, anota el resultado acá y termina. Una sola por sesión, para que el
-chat no se llene de contexto. Después se hace `/clear` y se vuelve a empezar.
+**Cómo se usa esta sección:** cada sesión de `/build` toma **la primera historia que figure como
+PENDIENTE** y trabaja sólo esa. Una sola por sesión, para que el chat no se llene de contexto.
+Después se hace `/clear` y se vuelve a empezar con la siguiente.
+
+**El resultado esperado de cada sesión es que Facundo pueda cerrar esa historia.** No es entregar un
+informe de lo que falla: es dejarla funcionando. El ciclo de la sesión es **probar → arreglar lo que
+esté mal → volver a probar**, y se repite hasta que la historia pasa entera. Si no se llega, hay que
+decir con precisión qué falta.
 
 ### Estado
 
-| # | Prueba | Estado |
+| # | Historia | Estado |
 |---|---|---|
 | 1 | Personas con varios fraudes (EU-226) | **PENDIENTE** |
 | 2 | Casos confirmados contra falsas alarmas (EU-225) | PENDIENTE |
@@ -433,10 +438,14 @@ hay que registrar devoluciones de verdad y eso ensucia los datos.
 - **Si Chrome no puede ejecutar algo** —no encuentra la pantalla, no puede iniciar sesión, se queda
   esperando, cualquier cosa— **hay que frenar y pedirle ayuda a Facundo.** No inventar un camino
   alternativo ni dar por buena una prueba que no se pudo correr.
-- **Si aparece un defecto, avisar y esperar.** No arreglarlo ni abrir nada en Jira por cuenta propia.
-- **No transicionar ninguna historia en Jira** sin autorización de Facundo.
-- **No pushear ni mergear nada.**
-- Al terminar, anotar en la tabla de arriba: PASA, NO PASA (con qué se vio) o NO SE PUDO PROBAR.
+- **Si aparece un defecto, hay que arreglarlo** y volver a correr la prueba. No se entrega una lista
+  de fallas: se entrega la historia andando. Repetir hasta que pase entera.
+- **Los arreglos de backend llevan pruebas unitarias** antes de darse por hechos.
+- Trabajar en una rama. Commitear las veces que haga falta. **Al terminar, proponerle a Facundo el
+  merge y el push**, no hacerlos por cuenta propia.
+- **No transicionar la historia en Jira**: la cierra Facundo. Al terminar, proponerle el comentario
+  para el ítem.
+- Anotar en la tabla de arriba cómo quedó: LISTA PARA CERRAR, o qué falta y por qué.
 
 ### Preparación, antes de cada prueba
 
