@@ -5,7 +5,11 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Tanda de bugs sueltos** (vía `/bugs`): se toman de a tres bugs de Jira, se resuelven, se validan
+**Verificar las cuatro historias del circuito de fraude que están EN TESTING**, de a una por sesión.
+El plan completo y el estado de cada una viven más abajo, en **"Verificación de las historias de
+fraude"**. Cada `/build` toma la primera que figure como PENDIENTE y hace sólo esa.
+
+Trabajo anterior, ya cerrado — **tanda de bugs sueltos** (vía `/bugs`): se toman de a tres bugs de Jira, se resuelven, se validan
 con pruebas unitarias + pruebas de interfaz, y recién ahí van a Done. No tiene tracker propio: el
 estado de cada bug vive en su ítem de Jira.
 
@@ -402,6 +406,66 @@ la decisión sobre los objetos. Hay que crear uno nuevo.
 
 El título de **EU-365** sigue diciendo "propagar el arreglo" cuando ya no hay arreglo que propagar.
 Falta decidir si se le cambia.
+
+## Verificación de las historias de fraude — una por sesión
+
+**Cómo se usa esta sección:** cada sesión de `/build` toma **la primera prueba que figure como
+PENDIENTE**, la hace completa, anota el resultado acá y termina. Una sola por sesión, para que el
+chat no se llene de contexto. Después se hace `/clear` y se vuelve a empezar.
+
+### Estado
+
+| # | Prueba | Estado |
+|---|---|---|
+| 1 | Personas con varios fraudes (EU-226) | **PENDIENTE** |
+| 2 | Casos confirmados contra falsas alarmas (EU-225) | PENDIENTE |
+| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | PENDIENTE |
+| 4 | Detección y bloqueo automático, en vivo (EU-277) | PENDIENTE |
+
+El orden no es casual. La primera va primero porque **nunca se probó**: no tiene errores asociados,
+así que es donde más probable es encontrar algo, y es sólo una pantalla. La cuarta va última porque
+hay que registrar devoluciones de verdad y eso ensucia los datos.
+
+### Reglas que valen para las cuatro
+
+- **Las pruebas las corre Claude for Chrome**, manejando la aplicación como una persona. La sesión
+  arma el pedido para Chrome, prueba por prueba.
+- **Si Chrome no puede ejecutar algo** —no encuentra la pantalla, no puede iniciar sesión, se queda
+  esperando, cualquier cosa— **hay que frenar y pedirle ayuda a Facundo.** No inventar un camino
+  alternativo ni dar por buena una prueba que no se pudo correr.
+- **Si aparece un defecto, avisar y esperar.** No arreglarlo ni abrir nada en Jira por cuenta propia.
+- **No transicionar ninguna historia en Jira** sin autorización de Facundo.
+- **No pushear ni mergear nada.**
+- Al terminar, anotar en la tabla de arriba: PASA, NO PASA (con qué se vio) o NO SE PUDO PROBAR.
+
+### Preparación, antes de cada prueba
+
+- Levantar el entorno desde cero y cargar el juego de datos.
+- **Las alertas del juego de datos están escritas a mano.** Sirven para probar las pantallas, pero
+  **no** demuestran que la detección funcione. Eso se prueba únicamente en la cuarta.
+- Hay cuentas bloqueadas por fraude a propósito. No usarlas para otras pruebas.
+
+### Qué cubre cada prueba
+
+**1. Personas con varios fraudes.** Que la pantalla liste a quienes acumulan más de un caso, con el
+conteo correcto. Que los filtros por fecha, por persona y por documento devuelvan lo que
+corresponde. Ejercitarla entera, no alcanza con mirarla: es la que nunca se probó.
+
+**2. Casos confirmados contra falsas alarmas.** Que la comparación muestre las dos categorías con
+los números que corresponden, en pantalla y en el PDF. Que los totales coincidan con las alertas que
+existen.
+
+**3. Evolución de los casos en el tiempo.** Que el gráfico cubra el período consultado y no el
+historial completo, que los períodos sin casos aparezcan en cero, y que la exportación traiga lo
+mismo que la pantalla.
+
+**4. Detección y bloqueo automático, en vivo.** Esta no se prueba mirando: hay que registrar
+devoluciones repetidas con el mismo documento hasta cruzar el umbral configurado, y comprobar que se
+genera la alerta con sus situaciones, sus sospechosos y sus bloqueos; que la siguiente devolución con
+ese documento se rechaza con el mensaje que explica los motivos y la fecha en que se levanta el
+bloqueo; que el dueño de la organización recibe el aviso; y que marcar una alerta como falsa alarma
+levanta los bloqueos y avisa a los involucrados. **Al terminar hay que limpiar los datos generados o
+resembrar.**
 
 ## Prioridades vigentes (2026-09-23)
 
