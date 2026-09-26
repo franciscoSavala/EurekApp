@@ -422,10 +422,18 @@ decir con precisión qué falta.
 
 | # | Historia | Estado |
 |---|---|---|
-| 1 | Personas con varios fraudes (EU-226) | **PENDIENTE** |
-| 2 | Casos confirmados contra falsas alarmas (EU-225) | PENDIENTE |
+| 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
+| 2 | Casos confirmados contra falsas alarmas (EU-225) | **PENDIENTE** ← la próxima |
 | 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | PENDIENTE |
 | 4 | Detección y bloqueo automático, en vivo (EU-277) | PENDIENTE |
+
+**Cómo cerró la primera (2026-09-25).** Se encontró un defecto y se arregló: la marca de reincidente
+se encendía también por alertas posteriores al período, o por alertas del mismo período que el
+filtro de estado dejaba afuera. Ahora se basa sólo en las alertas anteriores al período. Tiene
+pruebas unitarias, y Chrome pasó seis pasos sin diferencias: las dos agrupaciones, tres períodos
+distintos, el historial desplegable y el acceso negado a un dueño de organización. Queda en la rama
+`EU-226-verificar-personas-con-varios-fraudes`, en `main`; la historia quedó en Done. Quedó abierta una sola
+definición: el orden "Reincidencia" ordena por el histórico total, no por los antecedentes.
 
 El orden no es casual. La primera va primero porque **nunca se probó**: no tiene errores asociados,
 así que es donde más probable es encontrar algo, y es sólo una pantalla. La cuarta va última porque

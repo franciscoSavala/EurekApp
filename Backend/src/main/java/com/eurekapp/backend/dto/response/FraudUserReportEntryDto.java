@@ -24,6 +24,8 @@ public class FraudUserReportEntryDto {
     private long activeCount;
     private long falsePositiveCount;
     private long historicalCount;
+    /** Alertas anteriores al período consultado: si hay alguna, la persona es reincidente (EU-226). */
+    private long priorCount;
     private List<String> reasons;
     private List<FraudAlertDto> incidents;
 }

@@ -365,6 +365,7 @@ public class FraudDetectionService {
                     .activeCount(countByStatus(inRange, FraudAlertStatus.ACTIVE))
                     .falsePositiveCount(countByStatus(inRange, FraudAlertStatus.FALSE_POSITIVE))
                     .historicalCount(all.size())
+                    .priorCount(countBefore(all, from))
                     .reasons(distinctReasons(inRange))
                     .incidents(incidentsDesc(all))
                     .build();
@@ -407,6 +408,7 @@ public class FraudDetectionService {
                     .activeCount(countByStatus(inRange, FraudAlertStatus.ACTIVE))
                     .falsePositiveCount(countByStatus(inRange, FraudAlertStatus.FALSE_POSITIVE))
                     .historicalCount(all.size())
+                    .priorCount(countBefore(all, from))
                     .reasons(distinctReasons(inRange))
                     .incidents(incidentsDesc(all))
                     .build();
@@ -444,6 +446,16 @@ public class FraudDetectionService {
         return status != null
                 ? alertRepository.findByStatusAndCreatedAtBetween(status, fromDt, toDt)
                 : alertRepository.findByCreatedAtBetween(fromDt, toDt);
+    }
+
+    // Alertas anteriores al período consultado: es lo que define la reincidencia (EU-226). No alcanza
+    // con comparar el histórico contra lo del rango, porque el histórico también trae alertas
+    // posteriores al período y las que el filtro de estado dejó afuera.
+    private long countBefore(List<FraudAlert> alerts, LocalDate from) {
+        LocalDateTime fromDt = from.atStartOfDay();
+        return alerts.stream()
+                .filter(a -> a.getCreatedAt() != null && a.getCreatedAt().isBefore(fromDt))
+                .count();
     }
 
     private long countByStatus(List<FraudAlert> alerts, FraudAlertStatus st) {
