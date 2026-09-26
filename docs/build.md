@@ -423,8 +423,8 @@ decir con precisión qué falta.
 | # | Historia | Estado |
 |---|---|---|
 | 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
-| 2 | Casos confirmados contra falsas alarmas (EU-225) | **PENDIENTE** ← la próxima |
-| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | PENDIENTE |
+| 2 | Casos confirmados contra falsas alarmas (EU-225) | **LISTA PARA CERRAR** (2026-09-26) |
+| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **PENDIENTE** ← la próxima |
 | 4 | Detección y bloqueo automático, en vivo (EU-277) | PENDIENTE |
 
 **Cómo cerró la primera (2026-09-25).** Se encontró un defecto y se arregló: la marca de reincidente
@@ -434,6 +434,19 @@ pruebas unitarias, y Chrome pasó seis pasos sin diferencias: las dos agrupacion
 distintos, el historial desplegable y el acceso negado a un dueño de organización. Está en
 `main` y la historia quedó en Done. Quedó abierta una sola
 definición: el orden "Reincidencia" ordena por el histórico total, no por los antecedentes.
+
+**Cómo quedó la segunda (2026-09-26).** Se encontró un defecto y se arregló. Si se agrupaba por
+usuario y el período sólo tenía alertas de retiros repetidos, la pantalla ocultaba la torta y decía
+que no había registros de fraude. Esas alertas no señalan a ninguna persona con cuenta, así que la
+lista quedaba vacía aunque las alertas existieran. Ahora la torta y la exportación dependen de las
+alertas del período, y el mensaje sugiere agrupar por DNI. Tiene pruebas del PDF, y Chrome pasó
+todos los pasos: los totales en pantalla y en el PDF, las dos agrupaciones, cuatro períodos
+distintos y el acceso negado a un dueño de organización. Falta que Facundo apruebe el merge a `main`.
+Quedó anotada aparte una observación de diseño: el bloque de filtros del reporte tiene scroll propio
+y en ventanas chicas esconde el botón "Generar reporte".
+
+**Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
+el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
 
 El orden no es casual. La primera va primero porque **nunca se probó**: no tiene errores asociados,
 así que es donde más probable es encontrar algo, y es sólo una pantalla. La cuarta va última porque
