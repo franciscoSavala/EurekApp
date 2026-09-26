@@ -431,8 +431,8 @@ decir con precisión qué falta.
 se encendía también por alertas posteriores al período, o por alertas del mismo período que el
 filtro de estado dejaba afuera. Ahora se basa sólo en las alertas anteriores al período. Tiene
 pruebas unitarias, y Chrome pasó seis pasos sin diferencias: las dos agrupaciones, tres períodos
-distintos, el historial desplegable y el acceso negado a un dueño de organización. Queda en la rama
-`EU-226-verificar-personas-con-varios-fraudes`, en `main`; la historia quedó en Done. Quedó abierta una sola
+distintos, el historial desplegable y el acceso negado a un dueño de organización. Está en
+`main` y la historia quedó en Done. Quedó abierta una sola
 definición: el orden "Reincidencia" ordena por el histórico total, no por los antecedentes.
 
 El orden no es casual. La primera va primero porque **nunca se probó**: no tiene errores asociados,
