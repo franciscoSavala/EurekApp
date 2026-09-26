@@ -82,3 +82,21 @@ describe('gráfico de evolución en el PDF del reporte de fraude', () => {
         expect(buildFraudReportHtml(entries, filters, summary)).toContain('Evolución de casos (por mes)');
     });
 });
+
+// EU-225: agrupando por usuario, un período cuyas alertas no señalan a nadie deja la lista vacía,
+// pero la torta de activas vs. falsas alarmas sale del resumen y las tiene que contar igual.
+describe('torta de activas vs. falsas alarmas en el PDF', () => {
+    test('cuenta las alertas del período aunque ninguna señale a una persona', () => {
+        const html = buildFraudReportHtml([], { ...filters, groupBy: 'USER' },
+            { totalAlerts: 1, activeCount: 0, falsePositiveCount: 1 });
+        expect(html).toContain('Falsas alarmas: <b>1</b> (100%)');
+        expect(html).toContain('Activas: <b>0</b> (0%)');
+    });
+
+    test('muestra cantidad y porcentaje de cada categoría', () => {
+        const html = buildFraudReportHtml([], filters,
+            { totalAlerts: 7, activeCount: 4, falsePositiveCount: 3 });
+        expect(html).toContain('Activas: <b>4</b> (57%)');
+        expect(html).toContain('Falsas alarmas: <b>3</b> (43%)');
+    });
+});

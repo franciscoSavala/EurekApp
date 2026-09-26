@@ -277,7 +277,10 @@ const FraudReport = () => {
                 </View>
             )}
 
-            {entries.length > 0 && totalAlerts > 0 && (
+            {/* EU-225: depende de las alertas del período, no de las filas. Agrupando por usuario, las
+                alertas de retiros repetidos a secas no señalan a nadie y dejan la lista vacía, pero
+                siguen siendo alertas que la torta tiene que contar. */}
+            {totalAlerts > 0 && (
                 <View style={styles.chartBlock}>
                     <Text style={styles.filterLabel}>Activas vs. falsas alarmas</Text>
                     <DonutChart
@@ -400,7 +403,7 @@ const FraudReport = () => {
                 </TouchableOpacity>
             </ScrollView>
 
-            {entries.length > 0 && (
+            {(entries.length > 0 || totalAlerts > 0) && (
                 <View style={styles.exportRow}>
                     <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
                         {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
@@ -420,7 +423,11 @@ const FraudReport = () => {
                 ListEmptyComponent={
                     !loading ? (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No hay registros de fraude en el período seleccionado</Text>
+                            <Text style={styles.emptyText}>
+                                {totalAlerts > 0
+                                    ? 'Las alertas de este período no señalan a ninguna persona con cuenta. Agrupá por DNI para verlas.'
+                                    : 'No hay registros de fraude en el período seleccionado'}
+                            </Text>
                         </View>
                     ) : null
                 }
