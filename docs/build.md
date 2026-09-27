@@ -457,6 +457,11 @@ hay que registrar devoluciones de verdad y eso ensucia los datos.
 
 - **Las pruebas las corre Claude for Chrome**, manejando la aplicación como una persona. La sesión
   arma el pedido para Chrome, prueba por prueba.
+- **Todo pedido para Chrome incluye esta aclaración, textual:** "Si aparece un diálogo nativo del
+  navegador o del sistema con el que no podés interactuar, o cualquier otra cosa que no puedas
+  resolver por tu cuenta, frená y pedime a mí, Facundo, que haga esa parte por vos. Decime
+  exactamente qué necesitás que haga. Cuando te avise que ya está, seguí ejecutando las pruebas
+  desde donde quedaste, hasta que vuelvas a necesitar algo de mí o termines."
 - **Si Chrome no puede ejecutar algo** —no encuentra la pantalla, no puede iniciar sesión, se queda
   esperando, cualquier cosa— **hay que frenar y pedirle ayuda a Facundo.** No inventar un camino
   alternativo ni dar por buena una prueba que no se pudo correr.

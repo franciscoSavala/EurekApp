@@ -11,7 +11,8 @@ const alert = (id, y, m, d, status = 'ACTIVE') => ({
     createdAt: new Date(y, m - 1, d, 12, 0, 0).toISOString(),
 });
 
-// Una persona del reporte con su historial completo de alertas.
+// Una persona del reporte con su historial completo de alertas (sólo para filterIncidentsInRange; el
+// gráfico recibe directamente las alertas del período, EU-227).
 const person = (...incidents) => ({ incidents });
 
 // ─── filterIncidentsInRange (EU-391) ──────────────────────────────────────────
@@ -53,34 +54,34 @@ describe('filterIncidentsInRange', () => {
 
 describe('buildEvolutionGroups — sólo las alertas del período', () => {
     test('el caso del reporte: rango de dos días, una sola alerta dibujada', () => {
-        // Historial de la persona: tres alertas del 4/9 y una del 8/9. El reporte se pidió del 8 al
+        // Tres alertas del 4/9 y una del 8/9. El reporte se pidió del 8 al
         // 9, así que el gráfico tiene que dibujar una sola.
-        const entries = [person(
+        const periodAlerts = [
             alert(13, 2026, 9, 4),
             alert(17, 2026, 9, 4),
             alert(18, 2026, 9, 4),
             alert(19, 2026, 9, 8),
-        )];
-        const groups = buildEvolutionGroups(entries, 'day', '2026-09-08', '2026-09-09');
+        ];
+        const groups = buildEvolutionGroups(periodAlerts, 'day', '2026-09-08', '2026-09-09');
         const total = groups.reduce((sum, g) => sum + g.active + g.falseAlarm, 0);
         expect(total).toBe(1);
         expect(groups.find(g => g.key === '2026-09-04')).toBeUndefined();
     });
 
     test('agrupado por mes tampoco entran los meses de afuera', () => {
-        const entries = [person(alert(1, 2026, 1, 15), alert(2, 2026, 8, 10))];
-        const groups = buildEvolutionGroups(entries, 'month', '2026-08-01', '2026-08-31');
+        const periodAlerts = [alert(1, 2026, 1, 15), alert(2, 2026, 8, 10)];
+        const groups = buildEvolutionGroups(periodAlerts, 'month', '2026-08-01', '2026-08-31');
         expect(groups.map(g => g.key)).toEqual(['2026-08']);
         expect(groups[0].active).toBe(1);
     });
 
     test('separa activas de falsas alarmas', () => {
-        const entries = [person(
+        const periodAlerts = [
             alert(1, 2026, 9, 8, 'ACTIVE'),
             alert(2, 2026, 9, 8, 'FALSE_POSITIVE'),
             alert(3, 2026, 9, 8, 'FALSE_POSITIVE'),
-        )];
-        const [group] = buildEvolutionGroups(entries, 'day', '2026-09-08', '2026-09-08');
+        ];
+        const [group] = buildEvolutionGroups(periodAlerts, 'day', '2026-09-08', '2026-09-08');
         expect(group.active).toBe(1);
         expect(group.falseAlarm).toBe(2);
     });
@@ -90,15 +91,15 @@ describe('buildEvolutionGroups — sólo las alertas del período', () => {
 
 describe('buildEvolutionGroups — los períodos sin casos van en cero', () => {
     test('el caso del reporte: enero y marzo con casos, febrero en cero y presente', () => {
-        const entries = [person(alert(1, 2026, 1, 10), alert(2, 2026, 3, 20))];
-        const groups = buildEvolutionGroups(entries, 'month', '2026-01-01', '2026-03-31');
+        const periodAlerts = [alert(1, 2026, 1, 10), alert(2, 2026, 3, 20)];
+        const groups = buildEvolutionGroups(periodAlerts, 'month', '2026-01-01', '2026-03-31');
         expect(groups.map(g => g.key)).toEqual(['2026-01', '2026-02', '2026-03']);
         expect(groups[1]).toMatchObject({ active: 0, falseAlarm: 0 });
     });
 
     test('agrupado por día se completan todos los días del rango', () => {
-        const entries = [person(alert(1, 2026, 9, 8))];
-        const groups = buildEvolutionGroups(entries, 'day', '2026-09-06', '2026-09-09');
+        const periodAlerts = [alert(1, 2026, 9, 8)];
+        const groups = buildEvolutionGroups(periodAlerts, 'day', '2026-09-06', '2026-09-09');
         expect(groups.map(g => g.key)).toEqual([
             '2026-09-06', '2026-09-07', '2026-09-08', '2026-09-09',
         ]);
@@ -122,8 +123,8 @@ describe('buildEvolutionGroups — los períodos sin casos van en cero', () => {
     });
 
     test('sin rango no inventa períodos: sólo dibuja lo que hay', () => {
-        const entries = [person(alert(1, 2026, 9, 8))];
-        const groups = buildEvolutionGroups(entries, 'day', undefined, undefined);
+        const periodAlerts = [alert(1, 2026, 9, 8)];
+        const groups = buildEvolutionGroups(periodAlerts, 'day', undefined, undefined);
         expect(groups.map(g => g.key)).toEqual(['2026-09-08']);
     });
 });

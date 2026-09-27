@@ -1,7 +1,12 @@
 package com.eurekapp.backend.dto.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Totales del reporte de fraude para el rango consultado (EU-392).
@@ -21,4 +26,20 @@ public class FraudReportSummaryDto {
     private long totalAlerts;
     private long activeCount;
     private long falsePositiveCount;
+
+    /**
+     * Las alertas del período, una vez cada una, con lo justo para dibujar el gráfico de evolución
+     * (EU-227). El gráfico se armaba sumando el historial de cada fila y tenía los mismos dos
+     * desvíos que los totales, además de ignorar el filtro de estado.
+     */
+    private List<PeriodAlert> periodAlerts;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class PeriodAlert {
+        private LocalDateTime createdAt;
+        private String status;
+    }
 }

@@ -78,10 +78,14 @@ function buildEmptySeries(granularity, fromDate, toDate) {
     return map;
 }
 
-export function buildEvolutionGroups(entries, granularity, fromDate, toDate) {
+// EU-227: la serie sale de las alertas del período que manda el backend (`summary.periodAlerts`),
+// una vez cada una. Antes se sumaba el historial de cada fila del reporte, y eso contaba una alerta
+// una vez por cada persona que señala, perdía las que no señalan a nadie con cuenta e ignoraba el
+// filtro de estado. El filtro por rango queda como resguardo.
+export function buildEvolutionGroups(periodAlerts, granularity, fromDate, toDate) {
     const map = buildEmptySeries(granularity, fromDate, toDate);
 
-    for (const inc of filterIncidentsInRange(entries, fromDate, toDate)) {
+    for (const inc of filterIncidentsInRange([{ incidents: periodAlerts }], fromDate, toDate)) {
         // Las barras apilan los dos estados del modelo (EU-288); cualquier otro no tiene lugar.
         if (inc.status !== 'ACTIVE' && inc.status !== 'FALSE_POSITIVE') continue;
         const key = getPeriodKey(new Date(inc.createdAt), granularity);
