@@ -4,7 +4,6 @@ import {
     ActivityIndicator,
     FlatList,
     Platform,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -15,6 +14,7 @@ import { STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import DonutChart from '../components/DonutChart';
 import WebDateInput from '../components/WebDateInput';
+import BaseModal from '../components/BaseModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
@@ -87,6 +87,7 @@ const FraudReport = () => {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedKey, setExpandedKey] = useState(null);
     const [sortBy, setSortBy] = useState('activeCount');
+    const [showConfig, setShowConfig] = useState(true);
 
     // EU-394: las filas se dibujan según el agrupamiento con el que se TRAJERON los datos, no según
     // el del control. Si no, al cambiar a "Por DNI" sin regenerar la lista pasa a modo DNI con la
@@ -116,6 +117,7 @@ const FraudReport = () => {
             setEntries(data?.entries ?? []);
             setSummary(data?.summary ?? null);
             setGeneratedFilters(filters);
+            setShowConfig(false);
         } catch (error) {
             console.log(error);
         } finally {
@@ -277,7 +279,10 @@ const FraudReport = () => {
                 </View>
             )}
 
-            {entries.length > 0 && totalAlerts > 0 && (
+            {/* EU-225: depende de las alertas del período, no de las filas. Agrupando por usuario, las
+                alertas de retiros repetidos a secas no señalan a nadie y dejan la lista vacía, pero
+                siguen siendo alertas que la torta tiene que contar. */}
+            {totalAlerts > 0 && (
                 <View style={styles.chartBlock}>
                     <Text style={styles.filterLabel}>Activas vs. falsas alarmas</Text>
                     <DonutChart
@@ -315,7 +320,37 @@ const FraudReport = () => {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.filtersContainer}>
+            {/* La configuración vive en un modal: con scroll propio dentro de la pantalla, en ventanas
+                chicas el botón de generar quedaba fuera de la vista. Arranca abierto porque sin
+                generar no hay nada que mostrar. */}
+            <View style={styles.configBar}>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.exportBtn} onPress={() => setShowConfig(true)}>
+                        <Text style={styles.exportBtnText}>Configurar reporte</Text>
+                    </TouchableOpacity>
+                    {(entries.length > 0 || totalAlerts > 0) && (
+                        <>
+                            <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
+                                {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
+                                {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+                {generatedFilters && (
+                    <Text style={styles.configSummary}>
+                        {`${generatedFilters.fromDate} a ${generatedFilters.toDate} · `
+                            + `${GROUP_OPTIONS.find(o => o.value === generatedFilters.groupBy)?.label ?? ''} · `
+                            + `${STATUS_OPTIONS.find(o => o.value === generatedFilters.statusFilter)?.label ?? ''}`}
+                    </Text>
+                )}
+            </View>
+
+            <BaseModal visible={showConfig} onClose={() => setShowConfig(false)}>
+              <View style={styles.filtersContainer}>
+                <Text style={styles.configTitle}>Configurar reporte</Text>
                 <View style={styles.dateRow}>
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Desde</Text>
@@ -398,18 +433,13 @@ const FraudReport = () => {
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
-            </ScrollView>
-
-            {entries.length > 0 && (
-                <View style={styles.exportRow}>
-                    <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
-                        {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                {generatedFilters && (
+                    <TouchableOpacity style={styles.closeConfigBtn} onPress={() => setShowConfig(false)}>
+                        <Text style={styles.closeConfigBtnText}>Cerrar</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
-                        {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
-                    </TouchableOpacity>
-                </View>
-            )}
+                )}
+              </View>
+            </BaseModal>
 
             <FlatList
                 data={sortedEntries}
@@ -420,7 +450,11 @@ const FraudReport = () => {
                 ListEmptyComponent={
                     !loading ? (
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>No hay registros de fraude en el período seleccionado</Text>
+                            <Text style={styles.emptyText}>
+                                {totalAlerts > 0
+                                    ? 'Las alertas de este período no señalan a ninguna persona con cuenta. Agrupá por DNI para verlas.'
+                                    : 'No hay registros de fraude en el período seleccionado'}
+                            </Text>
                         </View>
                     ) : null
                 }
@@ -435,8 +469,38 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background,
     },
     filtersContainer: {
-        padding: 16,
-        paddingBottom: 8,
+        width: '100%',
+    },
+    configBar: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 4,
+        gap: 6,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    configSummary: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: colors.textMuted,
+    },
+    configTitle: {
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: colors.text,
+        marginBottom: 16,
+    },
+    closeConfigBtn: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        marginTop: 4,
+    },
+    closeConfigBtnText: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: colors.textMuted,
     },
     dateRow: {
         flexDirection: 'row',
@@ -499,12 +563,6 @@ const styles = StyleSheet.create({
         color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-    },
-    exportRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginHorizontal: 16,
-        marginBottom: 8,
     },
     chartBlock: {
         marginBottom: 12,
