@@ -454,8 +454,8 @@ junio salían vacíos y julio marcaba 2. Ahora el backend manda las alertas del 
 totales, y la pantalla y el PDF arman el gráfico con eso. Tiene pruebas unitarias en el backend y en
 el front. Chrome pasó las diez pruebas sin diferencias: las dos agrupaciones, el cambio de rango,
 los períodos en cero, día, semana y mes, el filtro de estado, el PDF con la agrupación elegida y el
-acceso negado a un dueño de organización. Está en la rama `EU-227-evolucion-cuenta-alertas`,
-esperando el visto bueno para mergear.
+acceso negado a un dueño de organización. Está en `main` y el comentario quedó publicado en el
+ítem; falta que Facundo pase la historia a Done.
 
 **Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
 el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
