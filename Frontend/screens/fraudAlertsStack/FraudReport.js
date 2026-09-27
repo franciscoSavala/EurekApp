@@ -324,9 +324,21 @@ const FraudReport = () => {
                 chicas el botón de generar quedaba fuera de la vista. Arranca abierto porque sin
                 generar no hay nada que mostrar. */}
             <View style={styles.configBar}>
-                <TouchableOpacity style={styles.configBtn} onPress={() => setShowConfig(true)}>
-                    <Text style={styles.configBtnText}>Configurar reporte</Text>
-                </TouchableOpacity>
+                <View style={styles.actionRow}>
+                    <TouchableOpacity style={styles.exportBtn} onPress={() => setShowConfig(true)}>
+                        <Text style={styles.exportBtnText}>Configurar reporte</Text>
+                    </TouchableOpacity>
+                    {(entries.length > 0 || totalAlerts > 0) && (
+                        <>
+                            <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
+                                {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
+                                {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
                 {generatedFilters && (
                     <Text style={styles.configSummary}>
                         {`${generatedFilters.fromDate} a ${generatedFilters.toDate} · `
@@ -429,17 +441,6 @@ const FraudReport = () => {
               </View>
             </BaseModal>
 
-            {(entries.length > 0 || totalAlerts > 0) && (
-                <View style={styles.exportRow}>
-                    <TouchableOpacity style={styles.exportBtn} onPress={exportCsv} disabled={exporting}>
-                        {exporting ? <ActivityIndicator color={colors.text} /> : <Text style={styles.exportBtnText}>Exportar CSV</Text>}
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
-                        {exportingPdf ? <ActivityIndicator color="white" /> : <Text style={[styles.exportBtnText, { color: 'white' }]}>Exportar PDF</Text>}
-                    </TouchableOpacity>
-                </View>
-            )}
-
             <FlatList
                 data={sortedEntries}
                 keyExtractor={keyOf}
@@ -476,18 +477,9 @@ const styles = StyleSheet.create({
         paddingBottom: 4,
         gap: 6,
     },
-    configBtn: {
-        alignSelf: 'flex-start',
-        borderWidth: 1,
-        borderColor: colors.text,
-        borderRadius: 24,
-        paddingHorizontal: 18,
-        paddingVertical: 8,
-    },
-    configBtnText: {
-        fontSize: 14,
-        fontFamily: 'PlusJakartaSans-Bold',
-        color: colors.text,
+    actionRow: {
+        flexDirection: 'row',
+        gap: 10,
     },
     configSummary: {
         fontSize: 13,
@@ -571,12 +563,6 @@ const styles = StyleSheet.create({
         color: colors.background,
         fontFamily: 'PlusJakartaSans-Bold',
         fontSize: 14,
-    },
-    exportRow: {
-        flexDirection: 'row',
-        gap: 10,
-        marginHorizontal: 16,
-        marginBottom: 8,
     },
     chartBlock: {
         marginBottom: 12,
