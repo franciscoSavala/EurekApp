@@ -297,11 +297,12 @@ const FraudReport = () => {
                 </View>
             )}
 
-            {entries.length > 0 && (
+            {/* EU-227: igual que la torta, depende de las alertas del período y no de las filas. */}
+            {totalAlerts > 0 && (
                 <View style={styles.chartBlock}>
                     <Text style={styles.filterLabel}>Evolución de casos</Text>
                     <FraudEvolutionChart
-                        entries={entries}
+                        periodAlerts={summary?.periodAlerts}
                         fromDate={generatedFilters?.fromDate}
                         toDate={generatedFilters?.toDate}
                         granularity={evolutionGranularity}

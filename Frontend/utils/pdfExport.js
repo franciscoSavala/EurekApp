@@ -322,7 +322,7 @@ export function buildFraudReportHtml(entries, filters, summary, evolutionGranula
     // EU-395: se arma con la misma función que la pantalla, así ambos muestran exactamente las
     // mismas barras.
     const evolutionChart = makeEvolutionChart(
-        buildEvolutionGroups(entries, evolutionGranularity, fromDate, toDate));
+        buildEvolutionGroups(summary?.periodAlerts, evolutionGranularity, fromDate, toDate));
 
     const topRows = [...entries]
         .sort((a, b) => b.fraudCount - a.fraudCount)

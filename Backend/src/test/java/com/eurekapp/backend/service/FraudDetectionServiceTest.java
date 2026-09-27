@@ -719,6 +719,41 @@ class FraudDetectionServiceTest {
         assertThat(byUser).isEqualTo(byDni);
     }
 
+    // ---------- Alertas del período para el gráfico de evolución (EU-227) ----------
+
+    @Test
+    void summary_periodAlerts_listsEachAlertOnce_oldestFirst() {
+        List<FraudAlert> alerts = alertsThatBreakRowSums();
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(alerts);
+        when(userRepository.findById(any())).thenAnswer(inv -> alerts.get(0).getSuspectUsers().stream()
+                .filter(u -> u.getId().equals(inv.getArgument(0))).findFirst());
+
+        List<FraudReportSummaryDto.PeriodAlert> periodAlerts = service
+                .getFraudUserReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null)
+                .getSummary().getPeriodAlerts();
+
+        // La de tres sospechosos va una sola vez, y la que no señala a nadie también está.
+        assertThat(periodAlerts).extracting(FraudReportSummaryDto.PeriodAlert::getStatus)
+                .containsExactly("ACTIVE", "FALSE_POSITIVE");
+        assertThat(periodAlerts).extracting(FraudReportSummaryDto.PeriodAlert::getCreatedAt)
+                .containsExactly(alerts.get(1).getCreatedAt(), alerts.get(0).getCreatedAt());
+    }
+
+    @Test
+    void summary_periodAlerts_respectsStatusFilter() {
+        FraudAlert activa = alertsThatBreakRowSums().get(1);
+        when(alertRepository.findByStatusAndCreatedAtBetween(eq(FraudAlertStatus.ACTIVE), any(), any()))
+                .thenReturn(List.of(activa));
+
+        List<FraudReportSummaryDto.PeriodAlert> periodAlerts = service
+                .getFraudDniReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(),
+                        FraudAlertStatus.ACTIVE)
+                .getSummary().getPeriodAlerts();
+
+        assertThat(periodAlerts).extracting(FraudReportSummaryDto.PeriodAlert::getStatus)
+                .containsExactly("ACTIVE");
+    }
+
     // ---------- EU-353: aviso por correo al dueño de Eurekapp ----------
 
     @Test

@@ -433,6 +433,13 @@ public class FraudDetectionService {
                 .totalAlerts(filtered.size())
                 .activeCount(countByStatus(filtered, FraudAlertStatus.ACTIVE))
                 .falsePositiveCount(countByStatus(filtered, FraudAlertStatus.FALSE_POSITIVE))
+                .periodAlerts(filtered.stream()
+                        .sorted(Comparator.comparing(FraudAlert::getCreatedAt))
+                        .map(a -> FraudReportSummaryDto.PeriodAlert.builder()
+                                .createdAt(a.getCreatedAt())
+                                .status(a.getStatus() != null ? a.getStatus().name() : null)
+                                .build())
+                        .collect(Collectors.toList()))
                 .build();
     }
 
