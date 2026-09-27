@@ -423,7 +423,7 @@ decir con precisión qué falta.
 | # | Historia | Estado |
 |---|---|---|
 | 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
-| 2 | Casos confirmados contra falsas alarmas (EU-225) | **LISTA PARA CERRAR** (2026-09-26) |
+| 2 | Casos confirmados contra falsas alarmas (EU-225) | **CERRADA** (2026-09-27) |
 | 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **PENDIENTE** ← la próxima |
 | 4 | Detección y bloqueo automático, en vivo (EU-277) | PENDIENTE |
 
@@ -441,7 +441,7 @@ que no había registros de fraude. Esas alertas no señalan a ninguna persona co
 lista quedaba vacía aunque las alertas existieran. Ahora la torta y la exportación dependen de las
 alertas del período, y el mensaje sugiere agrupar por DNI. Tiene pruebas del PDF, y Chrome pasó
 todos los pasos: los totales en pantalla y en el PDF, las dos agrupaciones, cuatro períodos
-distintos y el acceso negado a un dueño de organización. Falta que Facundo apruebe el merge a `main`.
+distintos y el acceso negado a un dueño de organización. Está en `main` y la historia quedó en Done.
 De paso, la configuración del reporte pasó a un modal que se abre con un botón. Antes tenía scroll
 propio y en ventanas chicas escondía el botón "Generar reporte". Chrome lo probó en tamaño normal,
 pero no pudo achicar la ventana: eso lo tiene que mirar Facundo a mano.
