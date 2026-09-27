@@ -4,7 +4,6 @@ import {
     ActivityIndicator,
     FlatList,
     Platform,
-    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -15,6 +14,7 @@ import { STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import DonutChart from '../components/DonutChart';
 import WebDateInput from '../components/WebDateInput';
+import BaseModal from '../components/BaseModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
@@ -87,6 +87,7 @@ const FraudReport = () => {
     const [exportingPdf, setExportingPdf] = useState(false);
     const [expandedKey, setExpandedKey] = useState(null);
     const [sortBy, setSortBy] = useState('activeCount');
+    const [showConfig, setShowConfig] = useState(true);
 
     // EU-394: las filas se dibujan según el agrupamiento con el que se TRAJERON los datos, no según
     // el del control. Si no, al cambiar a "Por DNI" sin regenerar la lista pasa a modo DNI con la
@@ -116,6 +117,7 @@ const FraudReport = () => {
             setEntries(data?.entries ?? []);
             setSummary(data?.summary ?? null);
             setGeneratedFilters(filters);
+            setShowConfig(false);
         } catch (error) {
             console.log(error);
         } finally {
@@ -318,7 +320,25 @@ const FraudReport = () => {
 
     return (
         <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.filtersContainer}>
+            {/* La configuración vive en un modal: con scroll propio dentro de la pantalla, en ventanas
+                chicas el botón de generar quedaba fuera de la vista. Arranca abierto porque sin
+                generar no hay nada que mostrar. */}
+            <View style={styles.configBar}>
+                <TouchableOpacity style={styles.configBtn} onPress={() => setShowConfig(true)}>
+                    <Text style={styles.configBtnText}>Configurar reporte</Text>
+                </TouchableOpacity>
+                {generatedFilters && (
+                    <Text style={styles.configSummary}>
+                        {`${generatedFilters.fromDate} a ${generatedFilters.toDate} · `
+                            + `${GROUP_OPTIONS.find(o => o.value === generatedFilters.groupBy)?.label ?? ''} · `
+                            + `${STATUS_OPTIONS.find(o => o.value === generatedFilters.statusFilter)?.label ?? ''}`}
+                    </Text>
+                )}
+            </View>
+
+            <BaseModal visible={showConfig} onClose={() => setShowConfig(false)}>
+              <View style={styles.filtersContainer}>
+                <Text style={styles.configTitle}>Configurar reporte</Text>
                 <View style={styles.dateRow}>
                     <View style={styles.dateBlock}>
                         <Text style={styles.filterLabel}>Desde</Text>
@@ -401,7 +421,13 @@ const FraudReport = () => {
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
-            </ScrollView>
+                {generatedFilters && (
+                    <TouchableOpacity style={styles.closeConfigBtn} onPress={() => setShowConfig(false)}>
+                        <Text style={styles.closeConfigBtnText}>Cerrar</Text>
+                    </TouchableOpacity>
+                )}
+              </View>
+            </BaseModal>
 
             {(entries.length > 0 || totalAlerts > 0) && (
                 <View style={styles.exportRow}>
@@ -442,8 +468,47 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background,
     },
     filtersContainer: {
-        padding: 16,
-        paddingBottom: 8,
+        width: '100%',
+    },
+    configBar: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 4,
+        gap: 6,
+    },
+    configBtn: {
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: colors.text,
+        borderRadius: 24,
+        paddingHorizontal: 18,
+        paddingVertical: 8,
+    },
+    configBtnText: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: colors.text,
+    },
+    configSummary: {
+        fontSize: 13,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: colors.textMuted,
+    },
+    configTitle: {
+        fontSize: 18,
+        fontFamily: 'PlusJakartaSans-Bold',
+        color: colors.text,
+        marginBottom: 16,
+    },
+    closeConfigBtn: {
+        alignItems: 'center',
+        paddingVertical: 10,
+        marginTop: 4,
+    },
+    closeConfigBtnText: {
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+        color: colors.textMuted,
     },
     dateRow: {
         flexDirection: 'row',
