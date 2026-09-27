@@ -442,8 +442,9 @@ lista quedaba vacía aunque las alertas existieran. Ahora la torta y la exportac
 alertas del período, y el mensaje sugiere agrupar por DNI. Tiene pruebas del PDF, y Chrome pasó
 todos los pasos: los totales en pantalla y en el PDF, las dos agrupaciones, cuatro períodos
 distintos y el acceso negado a un dueño de organización. Falta que Facundo apruebe el merge a `main`.
-Quedó anotada aparte una observación de diseño: el bloque de filtros del reporte tiene scroll propio
-y en ventanas chicas esconde el botón "Generar reporte".
+De paso, la configuración del reporte pasó a un modal que se abre con un botón. Antes tenía scroll
+propio y en ventanas chicas escondía el botón "Generar reporte". Chrome lo probó en tamaño normal,
+pero no pudo achicar la ventana: eso lo tiene que mirar Facundo a mano.
 
 **Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
 el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
