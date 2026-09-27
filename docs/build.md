@@ -424,8 +424,8 @@ decir con precisión qué falta.
 |---|---|---|
 | 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
 | 2 | Casos confirmados contra falsas alarmas (EU-225) | **CERRADA** (2026-09-27) |
-| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **PENDIENTE** ← la próxima |
-| 4 | Detección y bloqueo automático, en vivo (EU-277) | PENDIENTE |
+| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **LISTA PARA CERRAR** (2026-09-27) |
+| 4 | Detección y bloqueo automático, en vivo (EU-277) | **PENDIENTE** ← la próxima |
 
 **Cómo cerró la primera (2026-09-25).** Se encontró un defecto y se arregló: la marca de reincidente
 se encendía también por alertas posteriores al período, o por alertas del mismo período que el
@@ -446,6 +446,17 @@ De paso, la configuración del reporte pasó a un modal que se abre con un botó
 propio y en ventanas chicas escondía el botón "Generar reporte". Chrome lo probó en tamaño normal,
 pero no pudo achicar la ventana: eso lo tiene que mirar Facundo a mano.
 
+**Cómo quedó la tercera (2026-09-27).** Se encontró un defecto y se arregló. El gráfico sumaba el
+historial de cada fila del reporte en vez de contar las alertas del período. Por eso, agrupando por
+usuario, una alerta que señala a dos personas contaba doble, las que no señalan a nadie con cuenta
+no aparecían, y el filtro de estado no se aplicaba al gráfico. Con los datos de prueba, abril y
+junio salían vacíos y julio marcaba 2. Ahora el backend manda las alertas del período junto con los
+totales, y la pantalla y el PDF arman el gráfico con eso. Tiene pruebas unitarias en el backend y en
+el front. Chrome pasó las diez pruebas sin diferencias: las dos agrupaciones, el cambio de rango,
+los períodos en cero, día, semana y mes, el filtro de estado, el PDF con la agrupación elegida y el
+acceso negado a un dueño de organización. Está en la rama `EU-227-evolucion-cuenta-alertas`,
+esperando el visto bueno para mergear.
+
 **Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
 el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
 
@@ -462,6 +473,9 @@ hay que registrar devoluciones de verdad y eso ensucia los datos.
   resolver por tu cuenta, frená y pedime a mí, Facundo, que haga esa parte por vos. Decime
   exactamente qué necesitás que haga. Cuando te avise que ya está, seguí ejecutando las pruebas
   desde donde quedaste, hasta que vuelvas a necesitar algo de mí o termines."
+- **Todo pedido para Chrome incluye también esta otra aclaración, textual:** "El reporte final
+  escribilo en texto plano: sin tablas, sin capturas de pantalla, sin archivos adjuntos ni
+  formato enriquecido. Lo voy a copiar y pegar en otra herramienta que solo recibe texto."
 - **Si Chrome no puede ejecutar algo** —no encuentra la pantalla, no puede iniciar sesión, se queda
   esperando, cualquier cosa— **hay que frenar y pedirle ayuda a Facundo.** No inventar un camino
   alternativo ni dar por buena una prueba que no se pudo correr.
