@@ -192,6 +192,19 @@ public class EmailTemplateService {
     }
 
     /**
+     * EU-277: aviso a la persona con cuenta que una alerta de fraude acaba de bloquear. Va por
+     * correo porque el bloqueo le impide entrar a la aplicación, así que un aviso adentro no lo
+     * podría leer hasta que el bloqueo se levante.
+     */
+    public String buildFraudBlockEmail(String firstName, String reason, String expiresAt) {
+        Context ctx = new Context();
+        ctx.setVariable("firstName", firstName);
+        ctx.setVariable("reason", reason);
+        ctx.setVariable("expiresAt", expiresAt);
+        return templateEngine.process("email/fraud-block", ctx);
+    }
+
+    /**
      * EU-373: el correo que ya le avisaba a la persona que recupero su objeto suma la invitacion a
      * calificar la atencion recibida. Se aprovecha el envio que ya existe en vez de mandar un correo
      * aparte: es el mismo momento y el mismo destinatario.

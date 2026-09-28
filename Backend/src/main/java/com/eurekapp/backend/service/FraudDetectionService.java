@@ -156,7 +156,13 @@ public class FraudDetectionService {
 
         // Bloqueo automático (EU-286): al persistir la alerta se crean los bloqueos del DNI y de cada
         // usuario sospechoso, vigentes durante la duración de bloqueo configurada (≠ ventana T).
-        fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
+        LocalDateTime blockExpiresAt =
+                fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
+
+        // EU-277: cada persona con cuenta que quedó bloqueada se entera por correo del motivo y de
+        // hasta cuándo dura. El DNI sin cuenta no tiene a quién avisarle: lo ve en pantalla al
+        // intentar la próxima devolución.
+        notifyBlockedUsers(alert, blockExpiresAt);
 
         // Si hay un empleado involucrado (Caso 3), se avisa al dueño de su organización (EU-288). La
         // gestión del fraude sigue siendo del dueño de Eurekapp; el responsable de la org solo se entera.
@@ -196,6 +202,28 @@ public class FraudDetectionService {
                 // deshacerlos ni hacer fallar la devolución que disparó la detección.
                 log.warn("No se pudo enviar el correo de alerta de fraude a {}: {}",
                         admin.getUsername(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * EU-277: correo a cada sospechoso con cuenta. No puede ser un aviso dentro de la aplicación:
+     * el bloqueo le impide entrar, así que no lo leería hasta que se levante.
+     */
+    private void notifyBlockedUsers(FraudAlert alert, LocalDateTime expiresAt) {
+        String reason = FraudCaseType.humanizeReason(alert.getReason());
+        for (UserEurekapp suspect : alert.getSuspectUsers()) {
+            if (suspect == null || suspect.getUsername() == null) continue;
+            try {
+                String body = emailTemplateService.buildFraudBlockEmail(
+                        suspect.getFirstName(), reason, expiresAt.format(FraudBlockService.DATE_FMT));
+                notificationService.sendNotification(suspect.getUsername(),
+                        "EurekApp — Tu cuenta fue bloqueada temporalmente", body);
+            } catch (Exception e) {
+                // Igual que el correo al dueño de Eurekapp: el bloqueo ya está hecho y un correo
+                // que no sale no puede deshacerlo ni tirar abajo la devolución.
+                log.warn("No se pudo enviar el aviso de bloqueo a {}: {}",
+                        suspect.getUsername(), e.getMessage());
             }
         }
     }

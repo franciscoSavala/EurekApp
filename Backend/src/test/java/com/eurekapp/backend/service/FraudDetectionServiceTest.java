@@ -817,6 +817,67 @@ class FraudDetectionServiceTest {
                 .isEqualTo(FraudCaseType.CASE_1.getDisplayLabel());
     }
 
+    // ---------- EU-277: aviso por correo a quien queda bloqueado ----------
+
+    /**
+     * Tres devoluciones del mismo DNI entregadas por el mismo empleado: dispara los Casos 1 y 3, y
+     * el empleado queda como sospechoso con cuenta.
+     */
+    private List<ReturnFoundObject> returnsTriggeringCase3(String dni, UserEurekapp employee) {
+        configWith(3, 1);
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, employee),
+                ret("u2", dni, null, employee),
+                ret("u3", dni, null, employee));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+        when(fraudBlockService.createBlocksForAlert(any(FraudAlert.class), eq(7)))
+                .thenReturn(LocalDateTime.of(2026, 10, 5, 14, 30));
+        return returns;
+    }
+
+    @Test
+    void bloqueo_mandaCorreoAlSospechosoConMotivoYFechaDeFin() {
+        String dni = "66666666";
+        UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
+        List<ReturnFoundObject> returns = returnsTriggeringCase3(dni, employee);
+        when(emailTemplateService.buildFraudBlockEmail(any(), any(), any())).thenReturn("<html>bloqueo</html>");
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(emailTemplateService).buildFraudBlockEmail(
+                "Emilia",
+                FraudCaseType.CASE_1.getDisplayLabel() + "; " + FraudCaseType.CASE_3.getDisplayLabel(),
+                "05/10/2026");
+        verify(notificationService).sendNotification(
+                eq("emp@test.com"), anyString(), eq("<html>bloqueo</html>"));
+    }
+
+    @Test
+    void bloqueoSoloDelDni_noMandaCorreoDeBloqueo() {
+        // Caso 1 solo: el bloqueo cae sobre un documento sin cuenta, no hay a quién escribirle.
+        String dni = "77777770";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(emailTemplateService, never()).buildFraudBlockEmail(any(), any(), any());
+    }
+
+    @Test
+    void correoDeBloqueoCaido_noAfectaNiLaAlertaNiElBloqueo() {
+        String dni = "88888880";
+        UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
+        List<ReturnFoundObject> returns = returnsTriggeringCase3(dni, employee);
+        doThrow(new RuntimeException("smtp caído")).when(notificationService)
+                .sendNotification(eq("emp@test.com"), anyString(), any());
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(alertRepository).save(any(FraudAlert.class));
+        verify(fraudBlockService).createBlocksForAlert(any(FraudAlert.class), eq(7));
+    }
+
     // ---------- EU-388: el numerito del menú cuenta las alertas sin ver ----------
 
     @Test

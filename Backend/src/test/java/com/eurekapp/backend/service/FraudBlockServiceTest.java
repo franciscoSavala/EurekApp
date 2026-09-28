@@ -77,6 +77,22 @@ class FraudBlockServiceTest {
                 assertThat(b.getExpiresAt()).isEqualTo(b.getBlockedAt().plusDays(7)));
     }
 
+    // EU-277: la fecha de fin se devuelve para avisarle a quien quedó bloqueado hasta cuándo dura,
+    // y tiene que ser la misma que quedó guardada en los bloqueos.
+    @Test
+    void createBlocksForAlert_returnsTheSavedExpiryDate() {
+        FraudBlockService svc = new FraudBlockService(blockRepository);
+        Set<UserEurekapp> suspects = new LinkedHashSet<>();
+        suspects.add(user(10L));
+
+        java.time.LocalDateTime expiresAt = svc.createBlocksForAlert(alert("12345678", suspects), 7);
+
+        ArgumentCaptor<FraudBlock> captor = ArgumentCaptor.forClass(FraudBlock.class);
+        verify(blockRepository, org.mockito.Mockito.times(2)).save(captor.capture());
+        assertThat(captor.getAllValues()).allSatisfy(b -> assertThat(b.getExpiresAt()).isEqualTo(expiresAt));
+        assertThat(expiresAt.toLocalDate()).isEqualTo(java.time.LocalDate.now().plusDays(7));
+    }
+
     // Alerta de Caso 1 (DNI sin usuarios sospechosos) → un único bloqueo sobre el DNI.
     @Test
     void createBlocksForAlert_case1Only_createsOnlyDniBlock() {

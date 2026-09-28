@@ -130,6 +130,18 @@ class EmailTemplateServiceTest {
     }
 
     @Test
+    void fraudBlock_diceElMotivoHastaCuandoYADondeEscribir() {
+        String html = service.buildFraudBlockEmail(
+                "Emilia", "Retiros repetidos del mismo DNI", "05/10/2026");
+
+        assertThat(html)
+                .contains("Emilia")
+                .contains("Retiros repetidos del mismo DNI")
+                .contains("05/10/2026")
+                .contains("soporte.eurekapp@gmail.com");
+    }
+
+    @Test
     void fraudAlert_renderizaElCasoYNoNombraUnaOrganizacion() {
         // DNI de prueba, inventado.
         String html = service.buildFraudAlertEmail(
