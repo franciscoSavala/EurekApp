@@ -107,6 +107,30 @@ const FraudAlertDetail = ({ route }) => {
                 </>
             ) : null}
 
+            {/* EU-277: las devoluciones que contó la detección, como evidencia para decidir si es
+                una falsa alarma. Las alertas anteriores al cambio no las tienen y no muestran nada. */}
+            {alert.triggeringReturns && alert.triggeringReturns.length > 0 ? (
+                <>
+                    <Text style={styles.sectionLabel}>
+                        {`Devoluciones que dispararon la alerta (${alert.triggeringReturns.length})`}
+                    </Text>
+                    {alert.triggeringReturns.map((r, i) => (
+                        <View key={i} style={styles.suspectRow}>
+                            <Text style={styles.value}>{r.objectTitle || 'Objeto sin título'}</Text>
+                            <Text style={styles.metaText}>
+                                {[
+                                    r.organizationName,
+                                    r.returnedAt ? new Date(r.returnedAt).toLocaleString('es-AR') : null,
+                                ].filter(Boolean).join(' · ')}
+                            </Text>
+                            {r.deliveredByFullName ? (
+                                <Text style={styles.metaText}>{`Entregó: ${r.deliveredByFullName}`}</Text>
+                            ) : null}
+                        </View>
+                    ))}
+                </>
+            ) : null}
+
             {alert.foundObjectTitle ? (
                 <>
                     <Text style={styles.sectionLabel}>Objeto asociado</Text>

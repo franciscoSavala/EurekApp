@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudAlertReturnDto;
 import com.eurekapp.backend.dto.response.FraudCaseMatchDto;
 import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
 import com.eurekapp.backend.dto.response.FraudReportResponseDto;
@@ -13,6 +14,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -49,6 +51,7 @@ public class FraudDetectionService {
     private final InAppNotificationService inAppNotificationService;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
+    private final IOrganizationRepository organizationRepository;
 
     private static final DateTimeFormatter DISPLAY_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -144,6 +147,7 @@ public class FraudDetectionService {
                 .organizationId(null)            // alerta global / dueño de Eurekapp (detección cross-org)
                 .dni(dni)
                 .suspectUsers(new LinkedHashSet<>(suspects))
+                .triggeringReturns(new LinkedHashSet<>(returns))
                 .returnedByEmployee(employeeForAlert)
                 .caseMatches(matches)
                 .reason(reason)
@@ -172,6 +176,19 @@ public class FraudDetectionService {
         // Hasta ahora la alerta se creaba, bloqueaba y quedaba esperando a que alguien entrara al
         // panel: fuera de la aplicación no se enteraba nadie.
         notifyAdminsNewFraudAlert(alert);
+    }
+
+    /**
+     * EU-277: suelta una devolución de las alertas que la cuentan. Lo usa la devolución cuando se
+     * deshace a mitad de camino (EU-408): la alerta queda, igual que antes, pero sin apuntar a un
+     * registro que está por borrarse.
+     */
+    public void releaseReturn(ReturnFoundObject rfo) {
+        if (rfo == null || rfo.getId() == null) return;
+        for (FraudAlert alert : alertRepository.findByTriggeringReturns_Id(rfo.getId())) {
+            alert.getTriggeringReturns().removeIf(r -> rfo.getId().equals(r.getId()));
+            alertRepository.save(alert);
+        }
     }
 
     /**
@@ -321,7 +338,39 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        return toDto(alert);
+        FraudAlertDto dto = toDto(alert);
+        dto.setTriggeringReturns(toReturnDtos(alert));
+        return dto;
+    }
+
+    /**
+     * EU-277: las devoluciones que disparó la alerta, de la más vieja a la más nueva. El título del
+     * objeto vive en la base vectorial, así que se consulta uno por uno: por eso va sólo en el detalle.
+     */
+    private List<FraudAlertReturnDto> toReturnDtos(FraudAlert alert) {
+        Map<Long, String> orgNames = new HashMap<>();
+        return alert.getTriggeringReturns().stream()
+                .sorted(Comparator.comparing(ReturnFoundObject::getDatetimeOfReturn))
+                .map(r -> {
+                    String title = null;
+                    try {
+                        FoundObject fo = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
+                        if (fo != null) title = fo.getTitle();
+                    } catch (Exception ignored) {}
+                    String orgName = r.getOrganizationId() == null ? null
+                            : orgNames.computeIfAbsent(r.getOrganizationId(), id ->
+                                    organizationRepository.findById(id).map(Organization::getName).orElse(null));
+                    UserEurekapp employee = r.getReturnedByEmployee();
+                    return FraudAlertReturnDto.builder()
+                            .objectTitle(title)
+                            .organizationName(orgName)
+                            .returnedAt(r.getDatetimeOfReturn())
+                            .deliveredByFullName(employee != null
+                                    ? employee.getFirstName() + " " + employee.getLastName()
+                                    : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     /**
