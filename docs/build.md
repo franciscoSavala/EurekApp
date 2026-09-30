@@ -425,7 +425,7 @@ decir con precisión qué falta.
 | 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
 | 2 | Casos confirmados contra falsas alarmas (EU-225) | **CERRADA** (2026-09-27) |
 | 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **LISTA PARA CERRAR** (2026-09-27) |
-| 4 | Detección y bloqueo automático, en vivo (EU-277) | **PENDIENTE** ← la próxima |
+| 4 | Detección y bloqueo automático, en vivo (EU-277) | **LISTA PARA CERRAR** (2026-09-30) |
 
 **Cómo cerró la primera (2026-09-25).** Se encontró un defecto y se arregló: la marca de reincidente
 se encendía también por alertas posteriores al período, o por alertas del mismo período que el
@@ -456,6 +456,23 @@ el front. Chrome pasó las diez pruebas sin diferencias: las dos agrupaciones, e
 los períodos en cero, día, semana y mes, el filtro de estado, el PDF con la agrupación elegida y el
 acceso negado a un dueño de organización. Está en `main` y el comentario quedó publicado en el
 ítem; falta que Facundo pase la historia a Done.
+
+**Cómo quedó la cuarta (2026-09-30).** Se encontraron dos huecos y se arreglaron. El primero: quien
+quedaba bloqueado con cuenta no recibía ningún aviso. Facundo eligió el correo, porque el bloqueo le
+impide entrar a leer un aviso dentro de la aplicación. El segundo: la alerta no guardaba qué
+devoluciones la habían disparado. El dueño de EurekApp no tiene ninguna pantalla de devoluciones, así
+que decidía la falsa alarma sin ver un solo objeto. Ahora la alerta guarda esas devoluciones al
+nacer, congeladas aunque después cambie la configuración. El detalle las lista con el objeto, la
+organización, la fecha y quién entregó. El seed vincula las 7 alertas con sus devoluciones y aborta
+si alguna no coincide. Si una devolución se deshace a mitad de camino, primero se suelta de la alerta.
+Tiene pruebas unitarias. Chrome registró devoluciones reales con el umbral en 2 y pasó todo: los dos
+tipos de alerta, los bloqueos con motivo y fecha, el rechazo del documento bloqueado, el aviso a la
+dueña de la organización, la falsa alarma con su aviso de desbloqueo y la ausencia de duplicados. Los
+dos correos de bloqueo llegaron. De paso se corrigió el seed, que cargaba la alerta del Dinosaurio con
+la empleada del aeropuerto, y el detalle de una falsa alarma, que seguía invitando a levantar el
+bloqueo. Rama `EU-277-verificar-deteccion-en-vivo`, sin mergear. En el texto de la historia en Jira
+sólo falta aclarar que el aviso de bloqueo llega por correo.
+Quedó abierta una definición: marcar una falsa alarma no pide confirmación y no se puede deshacer.
 
 **Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
 el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
