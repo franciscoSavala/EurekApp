@@ -668,7 +668,7 @@ VALUES
 (4, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
  'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
  'ACTIVE', '2026-07-25 15:16:00', NULL, NULL, 'dni:39456789'),
-(5, NULL, NULL, '31555444', 10, 'CASE_1,CASE_3',
+(5, NULL, NULL, '31555444', 16, 'CASE_1,CASE_3',
  'DNI 31555444 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp1.dino@eurekapp.com).',
  'ACTIVE', '2026-08-25 09:35:00', NULL, NULL, 'dni:31555444'),
 (6, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',

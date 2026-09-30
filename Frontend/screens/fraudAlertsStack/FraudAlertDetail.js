@@ -158,9 +158,13 @@ const FraudAlertDetail = ({ route }) => {
             )}
 
             <View style={styles.infoBox}>
+                {/* EU-277: en una falsa alarma los bloqueos ya se levantaron; invitar a marcarla
+                    otra vez contradecía el estado que se muestra arriba. */}
                 <Text style={styles.infoText}>
-                    El DNI y los usuarios involucrados fueron bloqueados automáticamente al detectarse la alerta.
-                    Si se trató de un error, marcá la alerta como falsa alarma para levantar el bloqueo.
+                    {alert.status === 'ACTIVE'
+                        ? 'El DNI y los usuarios involucrados fueron bloqueados automáticamente al detectarse la alerta. '
+                            + 'Si se trató de un error, marcá la alerta como falsa alarma para levantar el bloqueo.'
+                        : 'La alerta se marcó como falsa alarma: los bloqueos que había generado se levantaron.'}
                 </Text>
             </View>
 
