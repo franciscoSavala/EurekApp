@@ -11,6 +11,8 @@ import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
+import { formatDateTimeAR } from '../../utils/dateFormatter';
+import InfoModal from '../components/InfoModal';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -20,6 +22,8 @@ const FraudAlertDetail = ({ route }) => {
     const [alert, setAlert] = useState(null);
     const [loading, setLoading] = useState(true);
     const [resolving, setResolving] = useState(false);
+    // EU-277: marcar una falsa alarma no tiene vuelta atrás y levanta bloqueos, así que se confirma antes.
+    const [confirmFalseAlarm, setConfirmFalseAlarm] = useState(false);
 
     useEffect(() => {
         fetchDetail();
@@ -120,7 +124,7 @@ const FraudAlertDetail = ({ route }) => {
                             <Text style={styles.metaText}>
                                 {[
                                     r.organizationName,
-                                    r.returnedAt ? new Date(r.returnedAt).toLocaleString('es-AR') : null,
+                                    r.returnedAt ? formatDateTimeAR(r.returnedAt) : null,
                                 ].filter(Boolean).join(' · ')}
                             </Text>
                             {r.deliveredByFullName ? (
@@ -143,7 +147,7 @@ const FraudAlertDetail = ({ route }) => {
 
             <Text style={styles.sectionLabel}>Fecha de detección</Text>
             <Text style={styles.value}>
-                {alert.createdAt ? new Date(alert.createdAt).toLocaleString('es-AR') : '-'}
+                {alert.createdAt ? formatDateTimeAR(alert.createdAt) : '-'}
             </Text>
 
             {alert.status !== 'ACTIVE' && (
@@ -152,7 +156,7 @@ const FraudAlertDetail = ({ route }) => {
                     <Text style={styles.value}>{alert.resolvedByEmail || '-'}</Text>
                     <Text style={styles.sectionLabel}>Fecha de resolución</Text>
                     <Text style={styles.value}>
-                        {alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString('es-AR') : '-'}
+                        {alert.resolvedAt ? formatDateTimeAR(alert.resolvedAt) : '-'}
                     </Text>
                 </>
             )}
@@ -175,12 +179,23 @@ const FraudAlertDetail = ({ route }) => {
                     ) : (
                         <TouchableOpacity
                             style={[styles.btn, { backgroundColor: '#008000' }]}
-                            onPress={markFalseAlarm}>
+                            onPress={() => setConfirmFalseAlarm(true)}>
                             <Text style={styles.btnText}>Marcar falsa alarma</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             )}
+
+            <InfoModal
+                visible={confirmFalseAlarm}
+                onClose={() => setConfirmFalseAlarm(false)}
+                type="warning"
+                title="¿Marcar como falsa alarma?"
+                message="Se van a levantar los bloqueos de esta alerta y se va a avisar a las personas liberadas. Esta acción no se puede deshacer."
+                cancelLabel="Cancelar"
+                confirmLabel="Marcar falsa alarma"
+                onConfirm={markFalseAlarm}
+            />
         </ScrollView>
     );
 };

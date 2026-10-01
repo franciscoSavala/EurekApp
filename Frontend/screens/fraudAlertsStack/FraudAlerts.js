@@ -14,6 +14,7 @@ import { colors } from '../../styles/globalStyles';
 import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import { useFocusEffect } from '@react-navigation/native';
 import EmptyState from '../components/EmptyState';
+import { formatDateTimeAR } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -62,7 +63,7 @@ const FraudAlerts = ({ navigation }) => {
                         </Text>
                     ) : null}
                     <Text style={styles.metaText}>
-                        {item.createdAt ? new Date(item.createdAt).toLocaleString('es-AR') : ''}
+                        {item.createdAt ? formatDateTimeAR(item.createdAt) : ''}
                     </Text>
                 </View>
             </TouchableOpacity>

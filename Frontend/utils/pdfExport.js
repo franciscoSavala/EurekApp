@@ -2,6 +2,7 @@ import { Platform, Alert } from 'react-native';
 import { STATUS_LABELS, humanizeReason } from './fraudLabels';
 import { buildPieSlices, PIE_VIEWBOX, EMPTY_COLOR } from './pieChart';
 import { buildEvolutionGroups, filterIncidentsInRange } from './fraudEvolution';
+import { formatDateTimeAR } from './dateFormatter';
 
 // Modelo de 2 estados de una alerta (EU-288). Los dos gráficos de fraude del PDF comparten los
 // colores para que el lector no tenga que releer la referencia al pasar de uno al otro.
@@ -162,7 +163,7 @@ const ASPECT_LABELS = [
 
 export function buildUsageReportHtml(data, feedbackData, records, filters) {
     const { fromDate, toDate, groupBy, wasFoundFilter } = filters;
-    const generatedAt = new Date().toLocaleString('es-AR');
+    const generatedAt = formatDateTimeAR();
     const groupByLabel = { DAY: 'Día', WEEK: 'Semana', MONTH: 'Mes' }[groupBy] || groupBy;
     const wasFoundLabel = wasFoundFilter === true ? 'Solo encontrados' : wasFoundFilter === false ? 'Solo no encontrados' : 'Todos';
 
@@ -220,7 +221,7 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
             <td>${r.organizationId || '-'}</td>
             <td>${r.foundObjectTitle || r.foundObjectDescription || 'Objeto no especificado'}</td>
             <td>${r.wasFound ? 'Sí' : 'No'}</td>
-            <td>${r.createdAt ? new Date(r.createdAt).toLocaleString('es-AR') : '-'}</td>
+            <td>${r.createdAt ? formatDateTimeAR(r.createdAt) : '-'}</td>
         </tr>`
     ).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">Sin registros en el período</td></tr>';
 
@@ -300,7 +301,7 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 
 export function buildFraudReportHtml(entries, filters, summary, evolutionGranularity = 'month') {
     const { fromDate, toDate, statusFilter, groupBy } = filters;
-    const generatedAt = new Date().toLocaleString('es-AR');
+    const generatedAt = formatDateTimeAR();
     const statusLabel = { '': 'Todos', ACTIVE: 'Activa', FALSE_POSITIVE: 'Falsa alarma' }[statusFilter] || statusFilter || 'Todos';
     const isDni = groupBy === 'DNI';
     const groupLabel = isDni ? 'DNI' : 'Usuario';
@@ -367,7 +368,7 @@ export function buildFraudReportHtml(entries, filters, summary, evolutionGranula
             <td>${inc.id}</td>
             <td>${humanizeReason(inc.reason)}</td>
             <td>${STATUS_LABELS[inc.status] || inc.status}</td>
-            <td>${inc.createdAt ? new Date(inc.createdAt).toLocaleString('es-AR') : '-'}</td>
+            <td>${inc.createdAt ? formatDateTimeAR(inc.createdAt) : '-'}</td>
         </tr>`).join('');
         return `<h3>${header}</h3>
         <table>
@@ -430,7 +431,7 @@ const ASPECT_ORDER_PDF = ['FACILIDAD_USO', 'CLARIDAD', 'TIEMPO_RESPUESTA', 'NAVE
 
 export function buildUsabilityFeedbackReportHtml(reportData, records, filters) {
     const { fromDate, toDate, groupBy } = filters;
-    const generatedAt = new Date().toLocaleString('es-AR');
+    const generatedAt = formatDateTimeAR();
     const groupByLabel = { DAY: 'Día', WEEK: 'Semana', MONTH: 'Mes' }[groupBy] || groupBy;
 
     const starBars = reportData && reportData.star_distribution

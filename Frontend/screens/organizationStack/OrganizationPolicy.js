@@ -15,6 +15,7 @@ import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import { useFocusEffect } from '@react-navigation/native';
+import { formatDateTimeAR } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -227,7 +228,7 @@ const OrganizationPolicy = () => {
                     {historyExpanded && history.map(h => (
                         <View key={h.id} style={styles.historyItem}>
                             <Text style={styles.historyDate}>
-                                {h.changedAt ? new Date(h.changedAt).toLocaleString('es-AR') : '-'}
+                                {h.changedAt ? formatDateTimeAR(h.changedAt) : '-'}
                             </Text>
                             <Text style={styles.historyUser}>Por: {h.changedByEmail || '-'}</Text>
                         </View>
