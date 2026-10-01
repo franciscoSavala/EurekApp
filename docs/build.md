@@ -5,9 +5,18 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Verificar las cuatro historias del circuito de fraude que están EN TESTING**, de a una por sesión.
-El plan completo y el estado de cada una viven más abajo, en **"Verificación de las historias de
-fraude"**. Cada `/build` toma la primera que figure como PENDIENTE y hace sólo esa.
+**Los deploys, caídos desde el 7/8 (EU-360).** Es el segundo punto de "Prioridades vigentes" y
+pasa a ser el primero: el anterior, verificar las cuatro historias de fraude, quedó cerrado el
+2026-09-30.
+
+Se cruza con una decisión que sigue sin tomarse: mudar el ambiente compartido a Railway. Si se muda,
+el arreglo de los deploys sale de arrastre y conviene no tocarlos. Por eso el primer paso del próximo
+`/build` es diagnosticar por qué fallan y plantearle a Facundo esa decisión antes de arreglar nada.
+Todavía no se investigó: no hay hallazgos previos.
+
+Trabajo anterior, ya cerrado — **verificación de las cuatro historias de fraude**, de a una por
+sesión. Las cuatro están en Done; el detalle vive más abajo, en **"Verificación de las historias de
+fraude"**.
 
 Trabajo anterior, ya cerrado — **tanda de bugs sueltos** (vía `/bugs`): se toman de a tres bugs de Jira, se resuelven, se validan
 con pruebas unitarias + pruebas de interfaz, y recién ahí van a Done. No tiene tracker propio: el
@@ -546,8 +555,8 @@ Con el juego de datos rehecho y en `main`, las cuatro historias que están en te
 verificar: existen los datos que necesitan. Rehacer la base del ambiente compartido deja de ser lo
 primero de la lista.
 
-1. **Cerrar las cuatro historias que están en testing.** Es lo que queda entre el proyecto y cerrar
-   el circuito de fraude. Ojo con la de los indicadores, que no tiene errores asociados pero nunca
+1. ~~**Cerrar las cuatro historias que están en testing.**~~ **Hecho el 2026-09-30.** Es lo que
+   quedaba entre el proyecto y cerrar el circuito de fraude. Ojo con la de los indicadores, que no tiene errores asociados pero nunca
    se probó: esa hay que ejercitarla entera.
 2. **Los deploys, caídos desde el 7/8.** Condiciona todo lo demás y se cruza con la decisión de
    mudar el ambiente compartido, que sigue sin tomarse.
