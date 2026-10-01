@@ -325,6 +325,9 @@ public class ReturnFoundObjectService {
         log.error("EU-408: falló {} de la devolución del objeto {}; se deshace el registro. {}",
                 failedStep, rfo.getFoundObjectUUID(), cause.toString());
         try {
+            // EU-277: si la detección ya había creado una alerta que cuenta esta devolución, primero
+            // se la suelta: la alerta la referencia y el borrado fallaría, dejando el objeto trabado.
+            fraudDetectionService.releaseReturn(rfo);
             returnFoundObjectRepository.delete(rfo);
         } catch (Exception e) {
             log.error("EU-408: no se pudo deshacer el registro de la devolución del objeto {}. {}",

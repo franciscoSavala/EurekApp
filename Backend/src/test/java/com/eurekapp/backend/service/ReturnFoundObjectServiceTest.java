@@ -606,6 +606,23 @@ class ReturnFoundObjectServiceTest {
     }
 
     @Test
+    void siFallaLaMarcaDeDevuelto_primeroSeSueltaLaDevolucionDeLaAlertaYDespuesSeBorra() {
+        // EU-277: la detección ya pudo haber creado una alerta que cuenta esta devolución. Si se
+        // borrara sin soltarla, el borrado fallaría y el objeto quedaría trabado sin poder entregarse.
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        devolucionEnCurso(org);
+        doThrow(new RuntimeException("Weaviate no responde"))
+                .when(foundObjectRepository).markAsReturned("uuid-123");
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoDeDevolucion(), empleadoDeLaOrganizacion(org)))
+                .isInstanceOf(ApiException.class);
+
+        InOrder orden = inOrder(fraudDetectionService, returnFoundObjectRepository);
+        orden.verify(fraudDetectionService).releaseReturn(any(ReturnFoundObject.class));
+        orden.verify(returnFoundObjectRepository).delete(any(ReturnFoundObject.class));
+    }
+
+    @Test
     void laMarcaDeDevueltoEsElUltimoPaso() throws Exception {
         Organization org = Organization.builder().id(1L).name("TestOrg").build();
         devolucionEnCurso(org);

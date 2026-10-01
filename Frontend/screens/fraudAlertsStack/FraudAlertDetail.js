@@ -11,6 +11,8 @@ import Constants from 'expo-constants';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
+import { formatDateTimeAR } from '../../utils/dateFormatter';
+import InfoModal from '../components/InfoModal';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -20,6 +22,8 @@ const FraudAlertDetail = ({ route }) => {
     const [alert, setAlert] = useState(null);
     const [loading, setLoading] = useState(true);
     const [resolving, setResolving] = useState(false);
+    // EU-277: marcar una falsa alarma no tiene vuelta atrás y levanta bloqueos, así que se confirma antes.
+    const [confirmFalseAlarm, setConfirmFalseAlarm] = useState(false);
 
     useEffect(() => {
         fetchDetail();
@@ -107,6 +111,30 @@ const FraudAlertDetail = ({ route }) => {
                 </>
             ) : null}
 
+            {/* EU-277: las devoluciones que contó la detección, como evidencia para decidir si es
+                una falsa alarma. Las alertas anteriores al cambio no las tienen y no muestran nada. */}
+            {alert.triggeringReturns && alert.triggeringReturns.length > 0 ? (
+                <>
+                    <Text style={styles.sectionLabel}>
+                        {`Devoluciones que dispararon la alerta (${alert.triggeringReturns.length})`}
+                    </Text>
+                    {alert.triggeringReturns.map((r, i) => (
+                        <View key={i} style={styles.suspectRow}>
+                            <Text style={styles.value}>{r.objectTitle || 'Objeto sin título'}</Text>
+                            <Text style={styles.metaText}>
+                                {[
+                                    r.organizationName,
+                                    r.returnedAt ? formatDateTimeAR(r.returnedAt) : null,
+                                ].filter(Boolean).join(' · ')}
+                            </Text>
+                            {r.deliveredByFullName ? (
+                                <Text style={styles.metaText}>{`Entregó: ${r.deliveredByFullName}`}</Text>
+                            ) : null}
+                        </View>
+                    ))}
+                </>
+            ) : null}
+
             {alert.foundObjectTitle ? (
                 <>
                     <Text style={styles.sectionLabel}>Objeto asociado</Text>
@@ -119,7 +147,7 @@ const FraudAlertDetail = ({ route }) => {
 
             <Text style={styles.sectionLabel}>Fecha de detección</Text>
             <Text style={styles.value}>
-                {alert.createdAt ? new Date(alert.createdAt).toLocaleString('es-AR') : '-'}
+                {alert.createdAt ? formatDateTimeAR(alert.createdAt) : '-'}
             </Text>
 
             {alert.status !== 'ACTIVE' && (
@@ -128,15 +156,19 @@ const FraudAlertDetail = ({ route }) => {
                     <Text style={styles.value}>{alert.resolvedByEmail || '-'}</Text>
                     <Text style={styles.sectionLabel}>Fecha de resolución</Text>
                     <Text style={styles.value}>
-                        {alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString('es-AR') : '-'}
+                        {alert.resolvedAt ? formatDateTimeAR(alert.resolvedAt) : '-'}
                     </Text>
                 </>
             )}
 
             <View style={styles.infoBox}>
+                {/* EU-277: en una falsa alarma los bloqueos ya se levantaron; invitar a marcarla
+                    otra vez contradecía el estado que se muestra arriba. */}
                 <Text style={styles.infoText}>
-                    El DNI y los usuarios involucrados fueron bloqueados automáticamente al detectarse la alerta.
-                    Si se trató de un error, marcá la alerta como falsa alarma para levantar el bloqueo.
+                    {alert.status === 'ACTIVE'
+                        ? 'El DNI y los usuarios involucrados fueron bloqueados automáticamente al detectarse la alerta. '
+                            + 'Si se trató de un error, marcá la alerta como falsa alarma para levantar el bloqueo.'
+                        : 'La alerta se marcó como falsa alarma: los bloqueos que había generado se levantaron.'}
                 </Text>
             </View>
 
@@ -147,12 +179,23 @@ const FraudAlertDetail = ({ route }) => {
                     ) : (
                         <TouchableOpacity
                             style={[styles.btn, { backgroundColor: '#008000' }]}
-                            onPress={markFalseAlarm}>
+                            onPress={() => setConfirmFalseAlarm(true)}>
                             <Text style={styles.btnText}>Marcar falsa alarma</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             )}
+
+            <InfoModal
+                visible={confirmFalseAlarm}
+                onClose={() => setConfirmFalseAlarm(false)}
+                type="warning"
+                title="¿Marcar como falsa alarma?"
+                message="Se van a levantar los bloqueos de esta alerta y se va a avisar a las personas liberadas. Esta acción no se puede deshacer."
+                cancelLabel="Cancelar"
+                confirmLabel="Marcar falsa alarma"
+                onConfirm={markFalseAlarm}
+            />
         </ScrollView>
     );
 };

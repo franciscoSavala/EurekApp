@@ -28,15 +28,16 @@ public class FraudBlockService {
     private final IFraudBlockRepository blockRepository;
 
     private static final String SUPPORT_EMAIL = "soporte.eurekapp@gmail.com";
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     /**
      * Crea los bloqueos derivados de una alerta de fraude ya persistida:
      *  - una fila para el DNI de quien retira (si la alerta tiene DNI);
      *  - una fila por cada usuario sospechoso (finder, retirador y/o empleado, según los casos).
-     * Todas expiran en {@code now + blockDurationDays}.
+     * Todas expiran en {@code now + blockDurationDays}, fecha que se devuelve para avisarle a quien
+     * quedó bloqueado hasta cuándo dura (EU-277).
      */
-    public void createBlocksForAlert(FraudAlert alert, int blockDurationDays) {
+    public LocalDateTime createBlocksForAlert(FraudAlert alert, int blockDurationDays) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plusDays(blockDurationDays);
 
@@ -61,6 +62,7 @@ public class FraudBlockService {
                         .build());
             }
         }
+        return expiresAt;
     }
 
     /**

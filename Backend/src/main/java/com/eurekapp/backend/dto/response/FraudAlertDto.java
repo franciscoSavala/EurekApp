@@ -19,6 +19,9 @@ public class FraudAlertDto {
     private String returnedByEmployeeEmail;
     private String returnedByEmployeeFullName;
     private List<FraudCaseMatchDto> caseMatches;
+    // EU-277: sólo viene en el detalle. En el listado queda nulo, para no consultar el título de
+    // cada objeto de cada alerta.
+    private List<FraudAlertReturnDto> triggeringReturns;
     private String reason;
     private String details;
     private String status;

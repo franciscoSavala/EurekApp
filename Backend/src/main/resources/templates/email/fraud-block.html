@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<body>
+<div th:replace="~{email/layout :: email-wrapper(~{::content})}">
+  <th:block th:ref="content">
+    <h2 style="color: #c62828; margin-top: 0;">Tu cuenta fue bloqueada temporalmente</h2>
+    <p style="color: #333; line-height: 1.6;">
+      Hola, <strong th:text="${firstName}">Usuario</strong>.
+    </p>
+    <p style="color: #333; line-height: 1.6;">
+      Tu cuenta en EurekApp quedó <strong style="color: #c62828;">bloqueada por sospecha de fraude</strong>
+      en las devoluciones de objetos.
+    </p>
+    <div style="background-color: #fff8e1; border-left: 4px solid #f9a825; padding: 16px; border-radius: 4px; margin: 20px 0;">
+      <p style="margin: 0 0 8px; color: #555; line-height: 1.6;" th:if="${reason}">
+        <strong>Motivo:</strong> <span th:text="${reason}">Motivo</span>
+      </p>
+      <p style="margin: 0; color: #555; line-height: 1.6;">
+        <strong>El bloqueo se levanta el:</strong> <span th:text="${expiresAt}">01/01/2026</span>
+      </p>
+    </div>
+    <p style="color: #333; line-height: 1.6;">
+      Mientras dure el bloqueo no vas a poder ingresar a EurekApp. Si considerás que se trata de un error,
+      escribí a soporte para que lo revisemos:
+      <a href="mailto:soporte.eurekapp@gmail.com" style="color: #4A9999;">soporte.eurekapp@gmail.com</a>
+    </p>
+  </th:block>
+</div>
+</body>
+</html>

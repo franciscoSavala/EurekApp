@@ -37,5 +37,9 @@ public interface IFraudAlertRepository extends JpaRepository<FraudAlert, Long> {
     // de reincidencia (acumulado histórico) y el drill-down del reporte (EU-288).
     List<FraudAlert> findBySuspectUsers_Id(Long userId);
 
+    // EU-277: alertas que cuentan una devolución dada. Se usa al deshacer una devolución que falló a
+    // mitad de camino, para soltarla de la alerta antes de borrarla.
+    List<FraudAlert> findByTriggeringReturns_Id(Long returnId);
+
     List<FraudAlert> findByDni(String dni);
 }

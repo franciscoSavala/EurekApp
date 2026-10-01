@@ -5,6 +5,7 @@ import "react-datepicker/dist/react-datepicker.css"; // Estilos para el selector
 import "./EurekappDateComponent.css"; // Ancla del calendario sobre su botón
 import React, {useState, useRef} from "react";
 import Icon from "react-native-vector-icons/FontAwesome6";
+import { formatTimeAR } from '../../utils/dateFormatter';
 
 const EurekappDateComponent = ({labelText, date, setDate}) => {
     const [openCalendar, setOpenCalendar] = useState(false);
@@ -82,7 +83,7 @@ const EurekappDateComponent = ({labelText, date, setDate}) => {
                         <View style={styles.calendarButtonContainer}>
                             <Icon style={{marginRight: 10}} name={'clock'} size={20} color={'#000000'}/>
                             <Text style={styles.calendarButtonText}>
-                                {date.toLocaleTimeString()}
+                                {formatTimeAR(date)}
                             </Text>
                         </View>
                     </Pressable>

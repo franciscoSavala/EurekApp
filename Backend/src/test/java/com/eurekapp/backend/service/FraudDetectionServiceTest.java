@@ -17,6 +17,7 @@ import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -66,6 +67,7 @@ class FraudDetectionServiceTest {
     @Mock InAppNotificationService inAppNotificationService;
     @Mock NotificationService notificationService;
     @Mock EmailTemplateService emailTemplateService;
+    @Mock IOrganizationRepository organizationRepository;
 
     FraudDetectionService service;
 
@@ -74,7 +76,8 @@ class FraudDetectionServiceTest {
         service = new FraudDetectionService(
                 alertRepository, userRepository, foundObjectRepository,
                 returnFoundObjectRepository, fraudDetectionConfigService, fraudBlockService,
-                inAppNotificationService, notificationService, emailTemplateService);
+                inAppNotificationService, notificationService, emailTemplateService,
+                organizationRepository);
         // Por defecto: sin alerta previa (dedup no bloquea).
         when(alertRepository.existsByDedupKeyAndCreatedAtAfter(anyString(), any())).thenReturn(false);
     }
@@ -815,6 +818,140 @@ class FraudDetectionServiceTest {
         assertThat(reason.getValue())
                 .doesNotContain("CASE_1")
                 .isEqualTo(FraudCaseType.CASE_1.getDisplayLabel());
+    }
+
+    // ---------- EU-277: aviso por correo a quien queda bloqueado ----------
+
+    /**
+     * Tres devoluciones del mismo DNI entregadas por el mismo empleado: dispara los Casos 1 y 3, y
+     * el empleado queda como sospechoso con cuenta.
+     */
+    private List<ReturnFoundObject> returnsTriggeringCase3(String dni, UserEurekapp employee) {
+        configWith(3, 1);
+        List<ReturnFoundObject> returns = List.of(
+                ret("u1", dni, null, employee),
+                ret("u2", dni, null, employee),
+                ret("u3", dni, null, employee));
+        stubFinders(new HashMap<>());
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+        when(fraudBlockService.createBlocksForAlert(any(FraudAlert.class), eq(7)))
+                .thenReturn(LocalDateTime.of(2026, 10, 5, 14, 30));
+        return returns;
+    }
+
+    @Test
+    void bloqueo_mandaCorreoAlSospechosoConMotivoYFechaDeFin() {
+        String dni = "66666666";
+        UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
+        List<ReturnFoundObject> returns = returnsTriggeringCase3(dni, employee);
+        when(emailTemplateService.buildFraudBlockEmail(any(), any(), any())).thenReturn("<html>bloqueo</html>");
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(emailTemplateService).buildFraudBlockEmail(
+                "Emilia",
+                FraudCaseType.CASE_1.getDisplayLabel() + "; " + FraudCaseType.CASE_3.getDisplayLabel(),
+                "05/10/2026");
+        verify(notificationService).sendNotification(
+                eq("emp@test.com"), anyString(), eq("<html>bloqueo</html>"));
+    }
+
+    @Test
+    void bloqueoSoloDelDni_noMandaCorreoDeBloqueo() {
+        // Caso 1 solo: el bloqueo cae sobre un documento sin cuenta, no hay a quién escribirle.
+        String dni = "77777770";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(emailTemplateService, never()).buildFraudBlockEmail(any(), any(), any());
+    }
+
+    @Test
+    void correoDeBloqueoCaido_noAfectaNiLaAlertaNiElBloqueo() {
+        String dni = "88888880";
+        UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
+        List<ReturnFoundObject> returns = returnsTriggeringCase3(dni, employee);
+        doThrow(new RuntimeException("smtp caído")).when(notificationService)
+                .sendNotification(eq("emp@test.com"), anyString(), any());
+
+        service.detectFraudForReturn(returns.get(2));
+
+        verify(alertRepository).save(any(FraudAlert.class));
+        verify(fraudBlockService).createBlocksForAlert(any(FraudAlert.class), eq(7));
+    }
+
+    // ---------- EU-277: la alerta guarda las devoluciones que la dispararon ----------
+
+    @Test
+    void alertaNueva_guardaLasDevolucionesQueContoLaDeteccion() {
+        String dni = "12121212";
+        List<ReturnFoundObject> returns = returnsTriggeringCase1(dni);
+
+        service.detectFraudForReturn(returns.get(2));
+
+        assertThat(captureSavedAlert().getTriggeringReturns()).containsExactlyInAnyOrderElementsOf(returns);
+    }
+
+    @Test
+    void detalle_listaCadaDevolucionConObjetoOrganizacionFechaYQuienEntrego() {
+        UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
+        ReturnFoundObject nueva = ret("u2", "13131313", null, employee);
+        nueva.setId(2L);
+        nueva.setOrganizationId(20L);
+        nueva.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 42));
+        ReturnFoundObject vieja = ret("u1", "13131313", null, null);
+        vieja.setId(1L);
+        vieja.setOrganizationId(10L);
+        vieja.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 30));
+        FraudAlert alert = FraudAlert.builder().id(5L).dni("13131313").reason("CASE_1")
+                .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now())
+                .triggeringReturns(new java.util.LinkedHashSet<>(List.of(nueva, vieja))).build();
+        when(alertRepository.findById(5L)).thenReturn(java.util.Optional.of(alert));
+        when(foundObjectRepository.getByUuid("u1")).thenReturn(FoundObject.builder().uuid("u1").title("Billetera").build());
+        when(foundObjectRepository.getByUuid("u2")).thenReturn(FoundObject.builder().uuid("u2").title("Auriculares").build());
+        when(organizationRepository.findById(10L)).thenReturn(java.util.Optional.of(Organization.builder().id(10L).name("UTN FRC").build()));
+        when(organizationRepository.findById(20L)).thenReturn(java.util.Optional.of(Organization.builder().id(20L).name("Terminal").build()));
+
+        FraudAlertDto dto = service.getAlertDetail(5L, admin());
+
+        // De la más vieja a la más nueva, aunque la alerta las tenga en otro orden.
+        assertThat(dto.getTriggeringReturns()).extracting(
+                        com.eurekapp.backend.dto.response.FraudAlertReturnDto::getObjectTitle,
+                        com.eurekapp.backend.dto.response.FraudAlertReturnDto::getOrganizationName,
+                        com.eurekapp.backend.dto.response.FraudAlertReturnDto::getDeliveredByFullName)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("Billetera", "UTN FRC", null),
+                        org.assertj.core.groups.Tuple.tuple("Auriculares", "Terminal", "Emilia Pérez"));
+        assertThat(dto.getTriggeringReturns().get(0).getReturnedAt())
+                .isEqualTo(LocalDateTime.of(2026, 9, 28, 17, 30));
+    }
+
+    @Test
+    void listado_noTraeLasDevoluciones() {
+        // En el listado se evita consultar el título de cada objeto de cada alerta.
+        FraudAlert alert = FraudAlert.builder().id(5L).dni("13131313").reason("CASE_1")
+                .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now()).build();
+        when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(alert));
+
+        assertThat(service.getAlerts(admin())).allSatisfy(a -> assertThat(a.getTriggeringReturns()).isNull());
+    }
+
+    @Test
+    void soltarUnaDevolucion_laSacaDeLasAlertasQueLaCuentan() {
+        ReturnFoundObject deshecha = ret("u1", "14141414", null, null);
+        deshecha.setId(1L);
+        ReturnFoundObject otra = ret("u2", "14141414", null, null);
+        otra.setId(2L);
+        FraudAlert alert = FraudAlert.builder().id(5L).dni("14141414").reason("CASE_1")
+                .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now())
+                .triggeringReturns(new java.util.LinkedHashSet<>(List.of(deshecha, otra))).build();
+        when(alertRepository.findByTriggeringReturns_Id(1L)).thenReturn(List.of(alert));
+
+        service.releaseReturn(deshecha);
+
+        assertThat(alert.getTriggeringReturns()).containsExactly(otra);
+        verify(alertRepository).save(alert);
     }
 
     // ---------- EU-388: el numerito del menú cuenta las alertas sin ver ----------

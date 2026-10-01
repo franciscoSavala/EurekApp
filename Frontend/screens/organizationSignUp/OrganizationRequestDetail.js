@@ -14,6 +14,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import Toast from "react-native-toast-message";
+import { formatDateTimeAR } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -111,7 +112,7 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
             <Text style={styles.sectionTitle}>Solicitante</Text>
             <Field label="Nombre" value={`${request?.requestingUserFirstName} ${request?.requestingUserLastName}`} />
             <Field label="Email" value={request?.requestingUserEmail} />
-            <Field label="Fecha de solicitud" value={request?.createdAt && new Date(request.createdAt).toLocaleString("es-AR")} />
+            <Field label="Fecha de solicitud" value={request?.createdAt && formatDateTimeAR(request.createdAt)} />
 
             <Text style={styles.sectionTitle}>Organización</Text>
             <Field label="Nombre" value={request?.organizationName} />
@@ -139,7 +140,7 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
                     <Text style={styles.sectionTitle}>Resolución</Text>
                     <Field
                         label="Fecha de resolución"
-                        value={request?.resolvedAt && new Date(request.resolvedAt).toLocaleString("es-AR")}
+                        value={request?.resolvedAt && formatDateTimeAR(request.resolvedAt)}
                     />
                     <Field label="Revisado por" value={request?.resolvedByEmail} />
                     {request?.adminNote ? (

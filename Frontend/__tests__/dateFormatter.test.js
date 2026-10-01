@@ -4,6 +4,8 @@ import {
     formatDateISO,
     formatDateTimeLocaleES,
     formatDateLocaleES,
+    formatDateTimeAR,
+    formatTimeAR,
 } from '../utils/dateFormatter';
 
 // ─── formatDateES ─────────────────────────────────────────────────────────────
@@ -107,5 +109,38 @@ describe('formatDateLocaleES', () => {
         [null, undefined, ''].forEach(vacio => {
             expect(formatDateLocaleES(vacio)).toBe('—');
         });
+    });
+});
+
+// ─── EU-277: horas de 0 a 23 ──────────────────────────────────────────────────
+
+describe('horas de 0 a 23', () => {
+    const tarde = new Date(2026, 6, 25, 15, 10, 0);      // 25 jul 2026, 15:10
+    const medianoche = new Date(2026, 6, 25, 0, 5, 0);   // 25 jul 2026, 00:05
+
+    test('formatDateTimeAR muestra la tarde como 15, no como 03', () => {
+        expect(formatDateTimeAR(tarde)).toBe('25/7/2026, 15:10:00');
+    });
+
+    test('formatDateTimeAR muestra la medianoche como 00', () => {
+        expect(formatDateTimeAR(medianoche)).toBe('25/7/2026, 00:05:00');
+    });
+
+    test('formatDateTimeAR sin fecha usa el momento actual', () => {
+        expect(formatDateTimeAR()).toMatch(/^\d{1,2}\/\d{1,2}\/\d{4}, \d{2}:\d{2}:\d{2}$/);
+    });
+
+    test('formatTimeAR muestra sólo la hora, de 0 a 23', () => {
+        expect(formatTimeAR(tarde)).toBe('15:10:00');
+    });
+
+    test('formatDateTimeES dice la hora de 0 a 23', () => {
+        expect(formatDateTimeES(tarde)).toBe('25/7/2026 a las 15:10:00');
+    });
+
+    test('formatDateTimeLocaleES dice la hora de 0 a 23 y sin a. m. ni p. m.', () => {
+        const texto = formatDateTimeLocaleES(tarde.toISOString());
+        expect(texto).toContain('15:10');
+        expect(texto).not.toMatch(/[ap]\.\s?m\./);
     });
 });

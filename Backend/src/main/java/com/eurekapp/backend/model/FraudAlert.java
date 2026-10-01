@@ -6,6 +6,7 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -41,6 +42,18 @@ public class FraudAlert {
             inverseJoinColumns = @JoinColumn(name = "user_id"))
     @Builder.Default
     private Set<UserEurekapp> suspectUsers = new HashSet<>();
+
+    // EU-277: las devoluciones que la detección contó al disparar la alerta. Quedan congeladas: si
+    // después cambia la ventana de detección, la alerta sigue mostrando la evidencia que la originó.
+    // Es un Set y no una List porque 'caseMatches' ya es una List cargada de entrada, y Hibernate no
+    // puede traer dos a la vez.
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "fraud_alert_return",
+            joinColumns = @JoinColumn(name = "fraud_alert_id"),
+            inverseJoinColumns = @JoinColumn(name = "return_found_object_id"))
+    @OrderBy("datetimeOfReturn ASC")
+    @Builder.Default
+    private Set<ReturnFoundObject> triggeringReturns = new LinkedHashSet<>();
 
     // Empleado de la org que registró la devolución que disparó la alerta (contexto / Caso 3).
     @ManyToOne

@@ -125,6 +125,17 @@ fi
 # ─── 6. Limpiar MySQL ────────────────────────────────────────────────────────
 header "Limpiando MySQL"
 
+# EU-277: la tabla que vincula cada alerta con las devoluciones que la dispararon la crea el backend
+# al arrancar. En una base que nunca vio esa version todavia no existe, y el TRUNCATE de abajo
+# cortaria la limpieza entera. Se crea aca con la misma forma que le da el backend.
+$MYSQL_EXEC 2>/dev/null <<'SQL'
+CREATE TABLE IF NOT EXISTS fraud_alert_return (
+  fraud_alert_id BIGINT NOT NULL,
+  return_found_object_id BIGINT NOT NULL,
+  PRIMARY KEY (fraud_alert_id, return_found_object_id)
+);
+SQL
+
 $MYSQL_EXEC 2>/dev/null <<'SQL'
 SET FOREIGN_KEY_CHECKS = 0;
 -- (rework fraude/reclamos) Reclamo deshabilitado en el seed:
@@ -141,6 +152,7 @@ TRUNCATE TABLE organization_feedback;
 -- y como el TRUNCATE de 'users' reinicia el contador, esos ids se reasignan a otras personas.
 -- Van antes que 'users': los hijos primero (sospechosos, casos y bloqueos), después la alerta.
 TRUNCATE TABLE fraud_alert_suspect_user;
+TRUNCATE TABLE fraud_alert_return;
 TRUNCATE TABLE fraud_alert_case;
 TRUNCATE TABLE fraud_block;
 TRUNCATE TABLE fraud_alert;
@@ -656,7 +668,7 @@ VALUES
 (4, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
  'DNI 39456789 — Caso 1: 3 devoluciones del mismo DNI; Caso 2: 3 devoluciones del par finder+DNI.',
  'ACTIVE', '2026-07-25 15:16:00', NULL, NULL, 'dni:39456789'),
-(5, NULL, NULL, '31555444', 10, 'CASE_1,CASE_3',
+(5, NULL, NULL, '31555444', 16, 'CASE_1,CASE_3',
  'DNI 31555444 — Caso 1: 3 devoluciones del mismo DNI; Caso 3: 3 devoluciones del par empleado+DNI (emp1.dino@eurekapp.com).',
  'ACTIVE', '2026-08-25 09:35:00', NULL, NULL, 'dni:31555444'),
 (6, NULL, NULL, '39456789', NULL, 'CASE_1,CASE_2',
@@ -696,6 +708,32 @@ INSERT INTO fraud_alert_suspect_user (fraud_alert_id, user_id) VALUES
 (6, 17);   -- Micaela Ledesma otra vez, dos meses despues
 SQL
 success "6 personas senaladas (Ignacio Molina y Micaela Ledesma figuran en dos alertas cada uno)"
+
+# EU-277: cada alerta guarda las devoluciones que la dispararon, que es lo que el detalle muestra
+# como evidencia. No se escriben a mano: son las del mismo documento dentro de los 30 dias previos
+# a la alerta, exactamente las que habria contado la deteccion con la ventana de este juego de datos.
+$MYSQL_EXEC 2>/dev/null <<SQL
+INSERT INTO fraud_alert_return (fraud_alert_id, return_found_object_id)
+SELECT a.id, r.id
+FROM fraud_alert a
+JOIN return_found_objects r
+  ON r.dni = a.dni
+ AND r.datetime_of_return <= a.created_at
+ AND r.datetime_of_return > DATE_SUB(a.created_at, INTERVAL 30 DAY);
+SQL
+# Cada alerta tiene que quedar con tantas devoluciones como informa su caso de retiros repetidos.
+# Si no coincide, la alerta y sus devoluciones se desalinearon y el juego de datos esta mal.
+DESALINEADAS=$($MYSQL_EXEC -N 2>/dev/null <<'SQL'
+SELECT COUNT(*) FROM fraud_alert_case c
+WHERE c.case_type = 'CASE_1'
+  AND c.matched_count <> (SELECT COUNT(*) FROM fraud_alert_return ar WHERE ar.fraud_alert_id = c.fraud_alert_id);
+SQL
+)
+if [[ "$DESALINEADAS" != "0" ]]; then
+  error "$DESALINEADAS alertas no coinciden con sus devoluciones (ver fraud_alert_return)"
+  exit 1
+fi
+success "Cada alerta quedo vinculada a las devoluciones que la dispararon"
 
 # Bloqueos. Al nacer, una alerta bloquea al documento y a cada persona que senala, por 90 dias;
 # marcar la alerta como falsa alarma levanta esos bloqueos, y por eso las tres falsas alarmas no

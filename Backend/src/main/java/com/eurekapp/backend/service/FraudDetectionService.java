@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.FraudAlertDto;
+import com.eurekapp.backend.dto.response.FraudAlertReturnDto;
 import com.eurekapp.backend.dto.response.FraudCaseMatchDto;
 import com.eurekapp.backend.dto.response.FraudDniReportEntryDto;
 import com.eurekapp.backend.dto.response.FraudReportResponseDto;
@@ -13,6 +14,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IFraudAlertRepository;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IReturnFoundObjectRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.notification.NotificationService;
@@ -49,6 +51,7 @@ public class FraudDetectionService {
     private final InAppNotificationService inAppNotificationService;
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
+    private final IOrganizationRepository organizationRepository;
 
     private static final DateTimeFormatter DISPLAY_FORMATTER =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
@@ -144,6 +147,7 @@ public class FraudDetectionService {
                 .organizationId(null)            // alerta global / dueño de Eurekapp (detección cross-org)
                 .dni(dni)
                 .suspectUsers(new LinkedHashSet<>(suspects))
+                .triggeringReturns(new LinkedHashSet<>(returns))
                 .returnedByEmployee(employeeForAlert)
                 .caseMatches(matches)
                 .reason(reason)
@@ -156,7 +160,13 @@ public class FraudDetectionService {
 
         // Bloqueo automático (EU-286): al persistir la alerta se crean los bloqueos del DNI y de cada
         // usuario sospechoso, vigentes durante la duración de bloqueo configurada (≠ ventana T).
-        fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
+        LocalDateTime blockExpiresAt =
+                fraudBlockService.createBlocksForAlert(alert, config.getBlockDurationDays());
+
+        // EU-277: cada persona con cuenta que quedó bloqueada se entera por correo del motivo y de
+        // hasta cuándo dura. El DNI sin cuenta no tiene a quién avisarle: lo ve en pantalla al
+        // intentar la próxima devolución.
+        notifyBlockedUsers(alert, blockExpiresAt);
 
         // Si hay un empleado involucrado (Caso 3), se avisa al dueño de su organización (EU-288). La
         // gestión del fraude sigue siendo del dueño de Eurekapp; el responsable de la org solo se entera.
@@ -166,6 +176,19 @@ public class FraudDetectionService {
         // Hasta ahora la alerta se creaba, bloqueaba y quedaba esperando a que alguien entrara al
         // panel: fuera de la aplicación no se enteraba nadie.
         notifyAdminsNewFraudAlert(alert);
+    }
+
+    /**
+     * EU-277: suelta una devolución de las alertas que la cuentan. Lo usa la devolución cuando se
+     * deshace a mitad de camino (EU-408): la alerta queda, igual que antes, pero sin apuntar a un
+     * registro que está por borrarse.
+     */
+    public void releaseReturn(ReturnFoundObject rfo) {
+        if (rfo == null || rfo.getId() == null) return;
+        for (FraudAlert alert : alertRepository.findByTriggeringReturns_Id(rfo.getId())) {
+            alert.getTriggeringReturns().removeIf(r -> rfo.getId().equals(r.getId()));
+            alertRepository.save(alert);
+        }
     }
 
     /**
@@ -196,6 +219,28 @@ public class FraudDetectionService {
                 // deshacerlos ni hacer fallar la devolución que disparó la detección.
                 log.warn("No se pudo enviar el correo de alerta de fraude a {}: {}",
                         admin.getUsername(), e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * EU-277: correo a cada sospechoso con cuenta. No puede ser un aviso dentro de la aplicación:
+     * el bloqueo le impide entrar, así que no lo leería hasta que se levante.
+     */
+    private void notifyBlockedUsers(FraudAlert alert, LocalDateTime expiresAt) {
+        String reason = FraudCaseType.humanizeReason(alert.getReason());
+        for (UserEurekapp suspect : alert.getSuspectUsers()) {
+            if (suspect == null || suspect.getUsername() == null) continue;
+            try {
+                String body = emailTemplateService.buildFraudBlockEmail(
+                        suspect.getFirstName(), reason, expiresAt.format(FraudBlockService.DATE_FMT));
+                notificationService.sendNotification(suspect.getUsername(),
+                        "EurekApp — Tu cuenta fue bloqueada temporalmente", body);
+            } catch (Exception e) {
+                // Igual que el correo al dueño de Eurekapp: el bloqueo ya está hecho y un correo
+                // que no sale no puede deshacerlo ni tirar abajo la devolución.
+                log.warn("No se pudo enviar el aviso de bloqueo a {}: {}",
+                        suspect.getUsername(), e.getMessage());
             }
         }
     }
@@ -293,7 +338,39 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        return toDto(alert);
+        FraudAlertDto dto = toDto(alert);
+        dto.setTriggeringReturns(toReturnDtos(alert));
+        return dto;
+    }
+
+    /**
+     * EU-277: las devoluciones que disparó la alerta, de la más vieja a la más nueva. El título del
+     * objeto vive en la base vectorial, así que se consulta uno por uno: por eso va sólo en el detalle.
+     */
+    private List<FraudAlertReturnDto> toReturnDtos(FraudAlert alert) {
+        Map<Long, String> orgNames = new HashMap<>();
+        return alert.getTriggeringReturns().stream()
+                .sorted(Comparator.comparing(ReturnFoundObject::getDatetimeOfReturn))
+                .map(r -> {
+                    String title = null;
+                    try {
+                        FoundObject fo = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
+                        if (fo != null) title = fo.getTitle();
+                    } catch (Exception ignored) {}
+                    String orgName = r.getOrganizationId() == null ? null
+                            : orgNames.computeIfAbsent(r.getOrganizationId(), id ->
+                                    organizationRepository.findById(id).map(Organization::getName).orElse(null));
+                    UserEurekapp employee = r.getReturnedByEmployee();
+                    return FraudAlertReturnDto.builder()
+                            .objectTitle(title)
+                            .organizationName(orgName)
+                            .returnedAt(r.getDatetimeOfReturn())
+                            .deliveredByFullName(employee != null
+                                    ? employee.getFirstName() + " " + employee.getLastName()
+                                    : null)
+                            .build();
+                })
+                .collect(Collectors.toList());
     }
 
     /**
