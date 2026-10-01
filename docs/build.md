@@ -424,8 +424,8 @@ decir con precisión qué falta.
 |---|---|---|
 | 1 | Personas con varios fraudes (EU-226) | **CERRADA** (2026-09-25) |
 | 2 | Casos confirmados contra falsas alarmas (EU-225) | **CERRADA** (2026-09-27) |
-| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **LISTA PARA CERRAR** (2026-09-27) |
-| 4 | Detección y bloqueo automático, en vivo (EU-277) | **LISTA PARA CERRAR** (2026-09-30) |
+| 3 | Evolución de los casos en el tiempo, con exportación (EU-227) | **CERRADA** (2026-09-30) |
+| 4 | Detección y bloqueo automático, en vivo (EU-277) | **CERRADA** (2026-09-30) |
 
 **Cómo cerró la primera (2026-09-25).** Se encontró un defecto y se arregló: la marca de reincidente
 se encendía también por alertas posteriores al período, o por alertas del mismo período que el
@@ -454,8 +454,8 @@ junio salían vacíos y julio marcaba 2. Ahora el backend manda las alertas del 
 totales, y la pantalla y el PDF arman el gráfico con eso. Tiene pruebas unitarias en el backend y en
 el front. Chrome pasó las diez pruebas sin diferencias: las dos agrupaciones, el cambio de rango,
 los períodos en cero, día, semana y mes, el filtro de estado, el PDF con la agrupación elegida y el
-acceso negado a un dueño de organización. Está en `main` y el comentario quedó publicado en el
-ítem; falta que Facundo pase la historia a Done.
+acceso negado a un dueño de organización. Está en `main`, el comentario quedó publicado en el
+ítem y la historia pasó a Done el 2026-09-30.
 
 **Cómo quedó la cuarta (2026-09-30).** Se encontraron dos huecos y se arreglaron. El primero: quien
 quedaba bloqueado con cuenta no recibía ningún aviso. Facundo eligió el correo, porque el bloqueo le
@@ -470,8 +470,8 @@ tipos de alerta, los bloqueos con motivo y fecha, el rechazo del documento bloqu
 dueña de la organización, la falsa alarma con su aviso de desbloqueo y la ausencia de duplicados. Los
 dos correos de bloqueo llegaron. De paso se corrigió el seed, que cargaba la alerta del Dinosaurio con
 la empleada del aeropuerto, y el detalle de una falsa alarma, que seguía invitando a levantar el
-bloqueo. Está en `main` desde el 2026-09-30, con el texto de la historia y el comentario publicados; falta
-que Facundo pase la historia a Done. En el texto de la historia en Jira
+bloqueo. Está en `main` desde el 2026-09-30, con el texto de la historia y el comentario publicados, y la
+historia pasó a Done el 2026-09-30. En el texto de la historia en Jira
 sólo falta aclarar que el aviso de bloqueo llega por correo.
 Marcar una falsa alarma ahora pide confirmación, porque no se puede deshacer. También se corrigieron
 las horas de toda la aplicación: con el formato argentino, el navegador mostraba el reloj de 12 horas
