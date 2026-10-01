@@ -472,7 +472,11 @@ dos correos de bloqueo llegaron. De paso se corrigió el seed, que cargaba la al
 la empleada del aeropuerto, y el detalle de una falsa alarma, que seguía invitando a levantar el
 bloqueo. Rama `EU-277-verificar-deteccion-en-vivo`, sin mergear. En el texto de la historia en Jira
 sólo falta aclarar que el aviso de bloqueo llega por correo.
-Quedó abierta una definición: marcar una falsa alarma no pide confirmación y no se puede deshacer.
+Marcar una falsa alarma ahora pide confirmación, porque no se puede deshacer. También se corrigieron
+las horas de toda la aplicación: con el formato argentino, el navegador mostraba el reloj de 12 horas
+sin "a. m." ni "p. m.", así que las 15:10 salían como "03:10:00". Ahora se muestran de 0 a 23, en
+pantalla y en los PDF. Chrome verificó las dos cosas sin diferencias. El texto de la historia y el
+comentario ya están publicados en Jira.
 
 **Ojo al probar:** el servidor del front no tomó el cambio solo, y la primera ronda de Chrome probó
 el código viejo. Si un arreglo de pantalla no aparece, reiniciar el front con `--clear`.
