@@ -5,14 +5,15 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Los deploys, caídos desde el 7/8 (EU-360).** Es el segundo punto de "Prioridades vigentes" y
-pasa a ser el primero: el anterior, verificar las cuatro historias de fraude, quedó cerrado el
-2026-09-30.
+**Migraciones versionadas (EU-364).** Es el tercer punto de "Prioridades vigentes" y pasa a ser el
+primero. Es lo único que impide que el esquema de la base se vuelva a desincronizar. Todavía no se
+investigó.
 
-Se cruza con una decisión que sigue sin tomarse: mudar el ambiente compartido a Railway. Si se muda,
-el arreglo de los deploys sale de arrastre y conviene no tocarlos. Por eso el primer paso del próximo
-`/build` es diagnosticar por qué fallan y plantearle a Facundo esa decisión antes de arreglar nada.
-Todavía no se investigó: no hay hallazgos previos.
+Los deploys quedaron **postergados el 2026-10-02**, por decisión de Facundo: se retoman cerca de la
+presentación, porque no frenan el avance del proyecto. Todo lo investigado (la falla del build de
+Railway, el plan de mudanza, los costos medidos y la comparación con EC2) quedó en un comentario de
+EU-360. Lo que depende de esa decisión, cerrar el bucket de fotos y rehacer la base compartida, se
+posterga con ellos.
 
 Trabajo anterior, ya cerrado — **verificación de las cuatro historias de fraude**, de a una por
 sesión. Las cuatro están en Done; el detalle vive más abajo, en **"Verificación de las historias de
@@ -558,12 +559,13 @@ primero de la lista.
 1. ~~**Cerrar las cuatro historias que están en testing.**~~ **Hecho el 2026-09-30.** Es lo que
    quedaba entre el proyecto y cerrar el circuito de fraude. Ojo con la de los indicadores, que no tiene errores asociados pero nunca
    se probó: esa hay que ejercitarla entera.
-2. **Los deploys, caídos desde el 7/8.** Condiciona todo lo demás y se cruza con la decisión de
-   mudar el ambiente compartido, que sigue sin tomarse.
+2. **Los deploys, caídos desde el 7/8.** **Postergado el 2026-10-02** hasta cerca de la presentación.
+   La recomendación es mudar todo a Railway y prenderlo solo para probar y para presentar. El
+   detalle está en EU-360.
 3. **Migraciones versionadas.** Es lo único que impide que el esquema se vuelva a desincronizar.
 4. **El bug de la búsqueda** que dice "no hay coincidencias" cuando en realidad falló.
-5. **Cerrar el bucket de fotos**, que espera acceso.
-6. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza.
+5. **Cerrar el bucket de fotos**, que espera acceso. Postergado junto con los deploys: si las fotos se mudan a Railway, deja de hacer falta.
+6. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza. Postergado junto con los deploys.
 7. **Los 8 epics viejos y los spykes de documentación.** Cierre administrativo, no trabajo.
 
 ## Prioridad de los ítems abiertos por poder de desbloqueo (2026-09-18)
