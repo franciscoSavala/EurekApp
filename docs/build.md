@@ -559,17 +559,23 @@ Con el juego de datos rehecho y en `main`, las cuatro historias que están en te
 verificar: existen los datos que necesitan. Rehacer la base del ambiente compartido deja de ser lo
 primero de la lista.
 
-1. ~~**Cerrar las cuatro historias que están en testing.**~~ **Hecho el 2026-09-30.** Es lo que
-   quedaba entre el proyecto y cerrar el circuito de fraude. Ojo con la de los indicadores, que no tiene errores asociados pero nunca
-   se probó: esa hay que ejercitarla entera.
-2. **Los deploys, caídos desde el 7/8.** **Postergado el 2026-10-02** hasta cerca de la presentación.
+1. **El bug de la búsqueda (EU-338)** que dice "no hay coincidencias" cuando en realidad falló.
+   Asignado a Facundo el 2026-10-02.
+2. **Los 8 epics viejos y los spykes de documentación.** Cierre administrativo, no trabajo.
+3. **Los deploys, caídos desde el 7/8.** **Postergado el 2026-10-02** hasta cerca de la presentación.
    La recomendación es mudar todo a Railway y prenderlo solo para probar y para presentar. El
    detalle está en EU-360.
-3. ~~**Migraciones versionadas.**~~ **Descartado el 2026-10-02.** No hay datos que conservar en ningún ambiente: ante un esquema desincronizado se pisa la base y se recarga el juego de datos.
-4. **El bug de la búsqueda** que dice "no hay coincidencias" cuando en realidad falló.
-5. **Cerrar el bucket de fotos**, que espera acceso. Postergado junto con los deploys: si las fotos se mudan a Railway, deja de hacer falta.
-6. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza. Postergado junto con los deploys.
-7. **Los 8 epics viejos y los spykes de documentación.** Cierre administrativo, no trabajo.
+4. **Cerrar el bucket de fotos**, que espera acceso. Postergado junto con los deploys: si las fotos
+   se mudan a Railway, deja de hacer falta.
+5. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza.
+   Postergado junto con los deploys.
+
+Cerrado o descartado:
+
+- ~~**Cerrar las cuatro historias que están en testing.**~~ **Hecho el 2026-09-30.** Era lo que
+  quedaba entre el proyecto y cerrar el circuito de fraude.
+- ~~**Migraciones versionadas.**~~ **Descartado el 2026-10-02.** No hay datos que conservar en
+  ningún ambiente: ante un esquema desincronizado se pisa la base y se recarga el juego de datos.
 
 ## Prioridad de los ítems abiertos por poder de desbloqueo (2026-09-18)
 
