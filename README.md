@@ -18,7 +18,7 @@ Permite a organizaciones (facultades, terminales, aeropuertos) registrar objetos
 8. [Levantar el frontend](#levantar-el-frontend)
 9. [Comandos útiles](#comandos-útiles)
 10. [Estructura del proyecto](#estructura-del-proyecto)
-11. [Notas para producción](#notas-para-producción)
+11. [Despliegue](#despliegue)
 
 ---
 
@@ -26,23 +26,26 @@ Permite a organizaciones (facultades, terminales, aeropuertos) registrar objetos
 
 ```
 ┌─────────────────┐     HTTP      ┌──────────────────────┐
-│  React Native   │ ──────────── │  Spring Boot 3 API   │
-│  (Expo)         │              │  :8080               │
-└─────────────────┘              └──────────┬───────────┘
-                                            │
-                    ┌───────────────────────┼────────────────────────┐
-                    │                       │                        │
-             ┌──────▼──────┐      ┌─────────▼──────┐     ┌─────────▼──────┐
-             │  MySQL 8.0  │      │  Weaviate 1.24 │     │   AWS S3       │
-             │  :3306      │      │  :8081         │     │  (imágenes)    │
-             └─────────────┘      └────────────────┘     └────────────────┘
-                                            │
-                                   ┌────────▼────────┐
-                                   │   OpenAI API    │
-                                   │ (embeddings +   │
-                                   │  vision)        │
-                                   └─────────────────┘
+│  React Native   │ ────────────▶ │  Spring Boot 3 API   │
+│  (Expo, web y   │               │  :8080               │
+│   móvil)        │               └──────────┬───────────┘
+└─────────────────┘                          │
+        ┌──────────────┬─────────────────────┼──────────────┬──────────────┐
+        │              │                     │              │              │
+ ┌──────▼──────┐ ┌─────▼──────────┐ ┌────────▼───────┐ ┌────▼─────────┐ ┌──▼──────────┐
+ │  MySQL 8.0  │ │ Weaviate 1.24  │ │  clip-service  │ │ S3 / MinIO   │ │ OpenAI API  │
+ │  :3306      │ │ :8081          │ │  :8000         │ │ :9000 (local)│ │ (embeddings │
+ │  datos del  │ │ vectores de    │ │ vector de la   │ │ fotos de los │ │  de texto + │
+ │  negocio    │ │ texto e imagen │ │ foto (CLIP)    │ │ objetos      │ │  GPT-4o)    │
+ └─────────────┘ └────────────────┘ └────────────────┘ └──────────────┘ └─────────────┘
 ```
+
+- **MySQL** guarda usuarios, organizaciones, devoluciones, feedback, alertas de fraude y reclamos.
+- **Weaviate** guarda los objetos encontrados (`FoundObject`) y las búsquedas abiertas (`LostObject`). Cada objeto tiene dos vectores: uno de la foto y otro del texto.
+- **clip-service** es un microservicio propio en Python que corre el modelo CLIP. Genera el vector de cada foto y la categoría sugerida. No llama a ningún servicio externo.
+- **OpenAI** genera los vectores de texto (`text-embedding-3-small`) y analiza los objetos con GPT-4o.
+- **S3** guarda las fotos. En local se usa **MinIO**, que imita a S3 dentro de Docker, así que no hace falta una cuenta de AWS.
+- Los correos (invitaciones, alertas de fraude, bloqueos, recuperación de contraseña) salen por **Gmail SMTP**.
 
 ---
 
@@ -53,7 +56,7 @@ Instalá todo esto antes de comenzar:
 | Herramienta | Versión mínima | Para qué | Descarga |
 |-------------|---------------|----------|----------|
 | **Java (JDK)** | 21 | Correr el backend | [adoptium.net](https://adoptium.net) |
-| **Docker Desktop** | Cualquiera reciente | MySQL + Weaviate | [docker.com](https://www.docker.com/products/docker-desktop) |
+| **Docker Desktop** | Cualquiera reciente | MySQL, Weaviate, MinIO y clip-service | [docker.com](https://www.docker.com/products/docker-desktop) |
 | **Git Bash** o **WSL** | — | Ejecutar los scripts `.sh` | Incluido con Git para Windows |
 | **Python 3** | 3.8+ | Script de seed (genera hashes BCrypt y vectores) | [python.org](https://www.python.org/downloads) |
 | **Node.js** | 18+ | Frontend con Expo | [nodejs.org](https://nodejs.org) |
@@ -83,28 +86,24 @@ pip install bcrypt
 
 ## Servicios externos necesarios
 
-Necesitás cuentas en estos tres servicios. Todos tienen **tier gratuito** suficiente para desarrollo:
+Para desarrollo local alcanza con OpenAI y Gmail. AWS es opcional.
 
 ### 1. OpenAI
 - Crear cuenta en [platform.openai.com](https://platform.openai.com)
 - Ir a **API Keys** → **Create new secret key**
 - Guardar la clave (empieza con `sk-`)
-- Se usa para: analizar imágenes de objetos (Vision) y generar embeddings para búsqueda semántica
+- Se usa para generar los vectores de texto de la búsqueda semántica y para el análisis con GPT-4o
 
-### 2. AWS (S3)
-- Crear cuenta en [aws.amazon.com](https://aws.amazon.com)
-- Ir a **IAM** → **Users** → **Create user**
-- Asignar política: `AmazonS3FullAccess`
-- Ir a **Security credentials** → **Create access key** → elegir *Application running outside AWS*
-- Guardar `Access key ID` y `Secret access key`
-- Crear el bucket `eurekapp-temp` en la región `sa-east-1` (São Paulo)
-
-### 3. Gmail SMTP
+### 2. Gmail SMTP
 - Necesitás una cuenta de Google
 - Ir a [myaccount.google.com](https://myaccount.google.com) → **Seguridad** → **Contraseñas de aplicaciones**
 - Generar una contraseña de aplicación para "Correo"
 - Guardar el código de 16 caracteres (sin espacios)
-- Se usa para envío de notificaciones por email (invitaciones, cambios de rol, etc.)
+- Se usa para envío de notificaciones por email (invitaciones, alertas de fraude, bloqueos, etc.)
+
+### 3. AWS S3 (opcional)
+- En local las fotos van a **MinIO**, que se levanta solo con Docker y ya crea el bucket `eurekapp-temp`.
+- Solo hace falta una cuenta de AWS para apuntar el backend local al S3 real. En ese caso se completan `S3_ENDPOINT`, `AWS_ACCESS_KEY_ID` y `AWS_SECRET_ACCESS_KEY` en `.env.local` (ver `.env.local.example`).
 
 ---
 
@@ -135,11 +134,9 @@ JWT_SIGN_KEY=un-string-muy-largo-y-aleatorio-de-al-menos-32-chars
 # Gmail SMTP — contraseña de aplicación (myaccount.google.com → Seguridad → Contraseñas de aplicaciones)
 MAIL_USER=tu-cuenta@gmail.com
 MAIL_PASSWORD=xxxx-xxxx-xxxx-xxxx
-
-# AWS
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
 ```
+
+> Las variables de AWS quedan comentadas: sin ellas, el backend local usa MinIO.
 
 > `.env.local` está en `.gitignore` — nunca se sube al repositorio.
 
@@ -158,9 +155,9 @@ El script hace esto en orden:
 1. Verifica que Docker, Java y curl estén instalados
 2. Verifica que Docker Desktop esté corriendo
 3. Carga y valida las variables de `.env.local`
-4. Levanta **MySQL** y **Weaviate** con `docker compose up -d`
-5. Espera a que ambos estén saludables (healthcheck)
-6. Crea las clases `FoundObject` y `LostObject` en Weaviate (idempotente — si ya existen, las saltea)
+4. Levanta **MySQL**, **Weaviate**, **MinIO** y **clip-service** con `docker compose up -d`
+5. Espera a que MySQL, Weaviate y MinIO estén saludables (healthcheck)
+6. Crea las clases `FoundObject` y `LostObject` en Weaviate, cada una con dos vectores con nombre: `image` y `text` (idempotente — si ya existen, las saltea)
 7. Inicia el backend Spring Boot en el puerto `8080`
 
 ```
@@ -170,13 +167,18 @@ El script hace esto en orden:
 
 [OK]    Prerequisitos OK
 [OK]    Variables de entorno cargadas
-[INFO]  Levantando MySQL y Weaviate con Docker Compose...
+[INFO]  Levantando MySQL, Weaviate y MinIO con Docker Compose...
 [OK]    MySQL listo
 [OK]    Weaviate listo
+[OK]    MinIO listo (bucket eurekapp-temp asegurado por minio-init)
 [OK]    Clase 'FoundObject' creada
 [OK]    Clase 'LostObject' creada
 [INFO]  Iniciando backend Spring Boot (perfil: local)...
 ```
+
+> La primera vez, **clip-service** descarga el modelo CLIP y tarda unos minutos en responder. Después queda guardado en un volumen de Docker.
+
+> El esquema de Weaviate se crea a mano desde este script. Si una clase ya existe con un esquema viejo, hay que borrarla y volver a correr el script.
 
 Para detener el backend: `Ctrl+C`
 
@@ -204,37 +206,52 @@ bash seed-local.sh --force
 
 ### Qué inserta el seed
 
+El juego de datos vive en `Backend/seed-data/snapshot/`. Los objetos ya traen sus vectores reales, así que el seed no llama a OpenAI ni a CLIP.
+
 **MySQL:**
 
-| Tabla | Registros |
+| Datos | Registros |
 |-------|-----------|
-| `organizations` | 3 (UTN FRC · Terminal de Ómnibus · Aeropuerto Córdoba) |
-| `users` | 8 (ver tabla abajo) |
-| `return_found_objects` | 2 retornos de ejemplo |
+| Organizaciones | 6 (UTN FRC · Terminal de Ómnibus · Aeropuerto · Patio Olmos · UNC · Dinosaurio Mall) |
+| Usuarios | 17 (ver tabla abajo) |
+| Devoluciones | Devoluciones de ejemplo, consistentes con los objetos de Weaviate |
+| Feedback | De búsquedas, de organizaciones y de usabilidad |
+| Fraude | Configuración, alertas, casos y un bloqueo activo |
+| Reclamos | Reclamos con su historial |
+| Solicitudes de alta | Pedidos de alta de organización |
 
 **Weaviate:**
 
 | Clase | Registros |
 |-------|-----------|
-| `FoundObject` | 5 objetos con vectores de embedding |
-| `LostObject` | 3 búsquedas abiertas |
+| `FoundObject` | 31 objetos encontrados, con foto y vectores |
+| `LostObject` | 6 búsquedas abiertas |
 
 ### Usuarios disponibles tras el seed
 
 Todos usan la misma contraseña: **`Eurekapp1!`**
 
-| Email | Rol | Organización | XP |
-|-------|-----|-------------|-----|
-| `soporte.eurekapp@gmail.com` | ADMIN | — | 500 |
-| `owner.utn@eurekapp.com` | ORGANIZATION_OWNER | UTN FRC | 150 |
-| `owner.term@eurekapp.com` | ORGANIZATION_OWNER | Terminal de Ómnibus | 80 |
-| `emp1.utn@eurekapp.com` | ORGANIZATION_EMPLOYEE | UTN FRC | 30 |
-| `emp2.utn@eurekapp.com` | ORGANIZATION_EMPLOYEE | UTN FRC | 20 |
-| `julia@mail.com` | USER | — | 20 |
-| `pedro@mail.com` | USER | — | 10 |
-| `valeria@mail.com` | USER | — | 0 |
+| Email | Rol | Organización |
+|-------|-----|-------------|
+| `soporte.eurekapp@gmail.com` | ADMIN | — |
+| `owner.utn@eurekapp.com` | ORGANIZATION_OWNER | UTN FRC |
+| `encargado.utn@eurekapp.com` | ENCARGADO | UTN FRC |
+| `emp1.utn@eurekapp.com` | ORGANIZATION_EMPLOYEE | UTN FRC |
+| `emp2.utn@eurekapp.com` | ORGANIZATION_EMPLOYEE | UTN FRC |
+| `owner.term@eurekapp.com` | ORGANIZATION_OWNER | Terminal de Ómnibus |
+| `emp1.aero@eurekapp.com` | ORGANIZATION_EMPLOYEE | Aeropuerto |
+| `owner.patio@eurekapp.com` | ORGANIZATION_OWNER | Patio Olmos |
+| `emp1.patio@eurekapp.com` | ORGANIZATION_EMPLOYEE | Patio Olmos |
+| `owner.unc@eurekapp.com` | ORGANIZATION_OWNER | UNC |
+| `emp1.unc@eurekapp.com` | ORGANIZATION_EMPLOYEE | UNC |
+| `owner.dino@eurekapp.com` | ORGANIZATION_OWNER | Dinosaurio Mall |
+| `emp1.dino@eurekapp.com` | ORGANIZATION_EMPLOYEE | Dinosaurio Mall |
+| `julia@mail.com` | USER | — |
+| `pedro@mail.com` | USER | — |
+| `valeria@mail.com` | USER | — |
+| `micaela@mail.com` | USER (bloqueada por fraude) | — |
 
-> Si `python3` no está disponible, el script lo avisa y usa un hash de fallback. La contraseña en ese caso será `password`.
+> Si Python o `bcrypt` no están disponibles, el script lo avisa y usa un hash precalculado. La contraseña sigue siendo `Eurekapp1!`.
 
 ---
 
@@ -264,6 +281,21 @@ http://localhost:8080/swagger-ui/index.html
 
 | Tag | Endpoints |
 |-----|-----------|
+| **Autenticación** | Login, registro y recuperación de contraseña — públicos |
+| **Objetos Encontrados** | Cargar, buscar por texto o por foto, devolver, ver inventario |
+| **Objetos Perdidos** | Reportar y gestionar búsquedas abiertas |
+| **Organizaciones** | CRUD de orgs, solicitudes de alta, invitar/desvincular empleados |
+| **Usuario** | Perfil, logros y XP del usuario autenticado |
+| **Administración** | Gestión global del administrador |
+| **Estadísticas** | Métricas generales |
+| **Reportes** | Reportes de uso y de fraude |
+| **Fraud Alerts** | Alertas de fraude, bloqueos y su revisión |
+| **Notifications** | Notificaciones del usuario |
+| **Feedback** | Opinión sobre los resultados de búsqueda |
+| **Organization Feedback** | Opinión sobre la atención de la organización |
+| **Usability Feedback** | Opinión sobre la app |
+
+-----|-----------|
 | **Autenticación** | `POST /login`, `POST /signup` — públicos |
 | **Objetos Encontrados** | Cargar, buscar por org/coordenadas, devolver, ver inventario |
 | **Objetos Perdidos** | Reportar búsqueda abierta |
@@ -285,7 +317,10 @@ La URL del backend se configura en `Frontend/.env.development`:
 
 ```bash
 BACK_URL=http://localhost:8080
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...   # login con Google, ver Frontend/SOCIAL_AUTH_SETUP.md
 ```
+
+> En local la versión web de Expo corre en el puerto `8082`, porque Weaviate ocupa el `8081`.
 
 > Para probar en un dispositivo físico en la misma red WiFi, reemplazá `localhost` por la IP local de tu máquina (ej: `192.168.1.100`).
 
@@ -305,6 +340,9 @@ docker logs eurekapp-mysql
 
 # Ver logs de Weaviate
 docker logs eurekapp-weaviate
+
+# Ver logs de clip-service (útil la primera vez, mientras baja el modelo)
+docker logs eurekapp-clip
 
 # Conectarse a MySQL desde la terminal
 docker exec -it eurekapp-mysql mysql -u eurekapp -peurekapp eurekapp
@@ -330,38 +368,50 @@ openssl rand -base64 32
 EurekApp/
 ├── Backend/                        # Spring Boot 3 — Java 21
 │   ├── src/main/java/.../
-│   │   ├── controller/             # REST controllers (6)
+│   │   ├── controller/             # REST controllers (15)
 │   │   ├── service/                # Lógica de negocio
 │   │   ├── repository/             # JPA + Weaviate + S3
 │   │   ├── model/                  # Entidades JPA y POJOs
 │   │   ├── dto/                    # DTOs de request/response
+│   │   ├── exception/              # Excepciones y su manejo
+│   │   ├── util/                   # Utilidades
 │   │   └── configuration/          # Security, Swagger, beans
 │   ├── src/main/resources/
 │   │   ├── application.yml         # Config base (usa env vars)
-│   │   ├── application-local.yml   # Config local (DB hardcodeada)
-│   │   └── application-test.yml    # Config tests (H2 en memoria)
-│   ├── docker-compose.yml          # MySQL 8 + Weaviate 1.24.1
+│   │   ├── application-local.yml   # Config local (DB y MinIO)
+│   │   ├── application-prod.yml    # Config del despliegue en AWS
+│   │   ├── application-test.yml    # Config tests (H2 en memoria)
+│   │   └── templates/              # Plantillas de los correos
+│   ├── seed-data/                  # Juego de datos de prueba (snapshot/) y sus fotos
+│   ├── docker-compose.yml          # MySQL 8 + Weaviate 1.24.1 + MinIO + clip-service
+│   ├── docker-compose.prod.yml     # Servicios del despliegue en AWS
 │   ├── start-local.sh              # Levanta todo el entorno local
 │   ├── seed-local.sh               # Pobla la BD con datos de prueba
+│   ├── setup-ec2.sh                # Prepara la instancia EC2
 │   ├── .env.local                  # Secrets locales (NO commitear)
 │   └── .env.local.example          # Plantilla de secrets
+│
+├── clip-service/                   # Microservicio Python con CLIP (vector y categoría de la foto)
 │
 ├── Frontend/                       # React Native — Expo SDK 51
 │   ├── screens/                    # Pantallas de la app
 │   ├── services/                   # Llamadas a la API
 │   ├── hooks/                      # Custom hooks
+│   ├── styles/                     # Estilos compartidos
+│   ├── utils/                      # Utilidades
+│   ├── __tests__/                  # Tests
 │   └── .env.development            # URL del backend
+│
+└── .github/workflows/              # Despliegue automático del backend y del frontend
 ```
 
 ---
 
-## Notas para producción
+## Despliegue
 
-> Esta sección aplica cuando se quiera desplegar en la nube. Por ahora el foco es desarrollo local.
+El despliegue en AWS es automático con GitHub Actions:
 
-- Reemplazar **Mailtrap** por AWS SES o Resend para envío real de emails
-- Usar **AWS RDS** (MySQL 8.0) en lugar del contenedor Docker
-- Usar **Weaviate Cloud** o una instancia EC2 dedicada para Weaviate
-- Migrar el esquema de `ddl-auto: update` a **Flyway** para migraciones controladas
-- Configurar HTTPS con un load balancer (ALB) o Nginx reverse proxy
-- El workflow de GitHub Actions para deploy automático a AWS se agregará próximamente
+- **Backend** (`deploy-backend.yml`): compila el JAR, lo copia a una instancia EC2 y reinicia el servicio.
+- **Frontend** (`deploy-frontend.yml`): compila la versión web y la sube a S3.
+
+Las credenciales se cargan como secrets del repositorio en GitHub. La instancia se prepara una sola vez con `Backend/setup-ec2.sh`.
