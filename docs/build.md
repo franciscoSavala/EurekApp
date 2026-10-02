@@ -5,9 +5,12 @@ No lleva contenido propio — el estado vive en los trackers.
 
 ## Trabajo activo
 
-**Migraciones versionadas (EU-364).** Es el tercer punto de "Prioridades vigentes" y pasa a ser el
-primero. Es lo único que impide que el esquema de la base se vuelva a desincronizar. Todavía no se
-investigó.
+**El bug de la búsqueda (EU-338)**, que dice "no hay coincidencias" cuando en realidad falló. Es el
+cuarto punto de "Prioridades vigentes" y pasa a ser el primero.
+
+Las migraciones versionadas (EU-364) **se descartaron el 2026-10-02**. En ningún ambiente hay datos
+que valga la pena conservar: si el esquema se desincroniza, se pisa la base y se vuelve a cargar el
+juego de datos.
 
 Los deploys quedaron **postergados el 2026-10-02**, por decisión de Facundo: se retoman cerca de la
 presentación, porque no frenan el avance del proyecto. Todo lo investigado (la falla del build de
@@ -562,7 +565,7 @@ primero de la lista.
 2. **Los deploys, caídos desde el 7/8.** **Postergado el 2026-10-02** hasta cerca de la presentación.
    La recomendación es mudar todo a Railway y prenderlo solo para probar y para presentar. El
    detalle está en EU-360.
-3. **Migraciones versionadas.** Es lo único que impide que el esquema se vuelva a desincronizar.
+3. ~~**Migraciones versionadas.**~~ **Descartado el 2026-10-02.** No hay datos que conservar en ningún ambiente: ante un esquema desincronizado se pisa la base y se recarga el juego de datos.
 4. **El bug de la búsqueda** que dice "no hay coincidencias" cuando en realidad falló.
 5. **Cerrar el bucket de fotos**, que espera acceso. Postergado junto con los deploys: si las fotos se mudan a Railway, deja de hacer falta.
 6. **Rehacer la base del ambiente compartido**, cuando haya acceso o cuando se decida la mudanza. Postergado junto con los deploys.
