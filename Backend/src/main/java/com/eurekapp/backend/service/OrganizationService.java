@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -209,8 +210,11 @@ public class OrganizationService {
 
     // ── Admin: resolución ─────────────────────────────────────────────────────
 
-    /** Mail que se arma dentro de la transacción y se envía recién cuando ésta terminó. */
-    private record PendingEmail(String to, String subject, String body, String warnMessage) {}
+    /**
+     * Mail que se registra dentro de la transacción y se arma y envía recién cuando ésta terminó:
+     * una plantilla que falla no puede deshacer lo resuelto.
+     */
+    private record PendingEmail(String to, String subject, Supplier<String> body, String warnMessage) {}
 
     public void resolveOrganizationRequest(UserEurekapp admin, Long requestId,
                                             ResolveOrganizationRequestDto dto) {
@@ -219,7 +223,7 @@ public class OrganizationService {
         }
 
         // Todas las escrituras van juntas: si un paso falla no queda la organización creada,
-        // el responsable promovido ni la solicitud a medias. Los mails se arman acá adentro
+        // el responsable promovido ni la solicitud a medias. Los mails se registran acá adentro
         // pero se mandan recién después, para no avisar de algo que se terminó deshaciendo.
         List<PendingEmail> pendingEmails = transactionTemplate.execute(status -> {
             List<PendingEmail> emails = new ArrayList<>();
@@ -265,14 +269,14 @@ public class OrganizationService {
                             "ROLE_CHANGED", null);
                     emails.add(new PendingEmail(owner.getUsername(),
                             "EurekApp — Sos el responsable de una organización",
-                            emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()),
+                            () -> emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()),
                             "No se pudo enviar email al owner " + owner.getUsername()));
                 } else {
                     // El responsable designado aún no tiene cuenta en EurekApp: se le invita por email
                     // a registrarse usando el mismo correo para quedar vinculado automáticamente.
                     emails.add(new PendingEmail(request.getOwnerEmail(),
                             "EurekApp — Sos el responsable de una organización",
-                            emailTemplateService.buildOrgOwnerInvitedEmail(
+                            () -> emailTemplateService.buildOrgOwnerInvitedEmail(
                                     request.getOwnerFirstName(), org.getName(), request.getOwnerEmail()),
                             "No se pudo enviar email al owner designado " + request.getOwnerEmail()));
                 }
@@ -296,10 +300,12 @@ public class OrganizationService {
             inAppNotificationService.createNotification(request.getRequestingUser(),
                     notifTitle, notifDesc, notifType, null);
 
+            // El solicitante puede ser un proxy: su nombre se lee mientras la sesión sigue abierta.
+            String requesterFirstName = request.getRequestingUser().getFirstName();
             emails.add(new PendingEmail(request.getRequestingUser().getUsername(),
                     "EurekApp — Resolución de tu solicitud de organización",
-                    emailTemplateService.buildOrgRequestResolvedEmail(
-                            request.getRequestingUser().getFirstName(),
+                    () -> emailTemplateService.buildOrgRequestResolvedEmail(
+                            requesterFirstName,
                             request.getOrganizationName(),
                             approved, dto.getAdminNote()),
                     "No se pudo enviar email de resolución a " + request.getRequestingUser().getUsername()));
@@ -308,7 +314,7 @@ public class OrganizationService {
 
         for (PendingEmail email : pendingEmails) {
             try {
-                notificationService.sendNotification(email.to(), email.subject(), email.body());
+                notificationService.sendNotification(email.to(), email.subject(), email.body().get());
             } catch (Exception e) {
                 log.warn("{}: {}", email.warnMessage(), e.getMessage());
             }

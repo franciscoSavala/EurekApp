@@ -11,7 +11,6 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,7 +25,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-@Slf4j
 @Service
 public class ReturnFoundObjectService {
 

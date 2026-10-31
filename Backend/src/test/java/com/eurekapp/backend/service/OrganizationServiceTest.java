@@ -265,6 +265,25 @@ class OrganizationServiceTest {
         assertThat(owner.getRole()).isEqualTo(Role.ORGANIZATION_OWNER);
     }
 
+    @Test
+    void plantillaDeMailQueFalla_noDeshaceLaAprobacionYSigueConElOtroMail() {
+        UserEurekapp admin = user(Role.ADMIN, "admin");
+        UserEurekapp requester = user(Role.USER, "solicitante@mail.com");
+        UserEurekapp owner = user(Role.USER, "owner@mail.com");
+        OrganizationRequest request = pendingRequest(requester);
+        when(requestRepository.findById(7L)).thenReturn(Optional.of(request));
+        when(userRepository.findByUsername("owner@mail.com")).thenReturn(Optional.of(owner));
+        when(emailTemplateService.buildOrgOwnerApprovedEmail(any(), any()))
+                .thenThrow(new RuntimeException("plantilla rota"));
+
+        service.resolveOrganizationRequest(admin, 7L, dto(OrganizationRequestStatus.APPROVED, null));
+
+        // Antes de la transacción esto solo dejaba una advertencia: debe seguir igual.
+        assertThat(request.getStatus()).isEqualTo(OrganizationRequestStatus.APPROVED);
+        assertThat(owner.getRole()).isEqualTo(Role.ORGANIZATION_OWNER);
+        verify(notificationService, times(1)).sendNotification(any(), any(), any());
+    }
+
     // ── updatePolicy ──────────────────────────────────────────────────────────
 
     private OrganizationPolicyDto policyDto() {
