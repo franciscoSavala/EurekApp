@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.request.SubmitFeedbackRequestDto;
+import com.eurekapp.backend.dto.response.FeedbackRecordDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.Organization;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,7 +35,7 @@ import static org.mockito.Mockito.*;
 /* EU-372 y EU-375, que salen juntas: una corta la fuente vieja del reporte del responsable de
  * organizacion (las estrellas de la pantalla de resultados) y la otra le da la nueva (las
  * calificaciones posteriores a la devolucion). Separadas, el reporte quedaria vacio en el medio. */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 class FeedbackServiceTest {
 
     @Mock ISearchFeedbackRepository feedbackRepository;
@@ -234,5 +237,23 @@ class FeedbackServiceTest {
         assertThatThrownBy(() -> service.getReport(usuarioFinal(), FROM, TO, "DAY", null))
                 .isInstanceOf(BadRequestException.class);
         verifyNoInteractions(organizationFeedbackRepository);
+    }
+
+    // Si el objeto no se puede traer de la base vectorial, el listado responde igual con el texto que la
+    // persona escribio al buscar, y deja una advertencia con el identificador del objeto.
+    @Test
+    void getRecords_siFallaLaBusquedaDelObjeto_respondeConElTextoDeLaBusquedaYDejaAdvertencia(CapturedOutput output) {
+        SearchFeedback fb = SearchFeedback.builder()
+                .id(1L).organizationId(String.valueOf(ORG_ID)).foundObjectUUID("uuid-objeto-555")
+                .wasFound(true).lostObjectText("billetera negra").createdAt(FROM.atStartOfDay()).build();
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(fb));
+        when(foundObjectRepository.getByUuid("uuid-objeto-555")).thenThrow(new RuntimeException("Weaviate caido"));
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros).hasSize(1);
+        assertThat(registros.get(0).getFoundObjectTitle()).isEqualTo("billetera negra");
+        assertThat(registros.get(0).getFoundObjectDescription()).isNull();
+        assertThat(output).contains("WARN").contains("uuid-objeto-555");
     }
 }

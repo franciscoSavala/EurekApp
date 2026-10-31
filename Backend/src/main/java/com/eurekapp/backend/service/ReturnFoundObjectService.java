@@ -11,6 +11,7 @@ import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
 import com.eurekapp.backend.service.notification.NotificationService;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class ReturnFoundObjectService {
 
@@ -398,7 +400,10 @@ public class ReturnFoundObjectService {
             if (imageBytes != null) {
                 photoB64 = Base64.getEncoder().encodeToString(imageBytes);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("No se pudo obtener la foto {} de la persona que retiró el objeto {}: {}",
+                    rfo.getPersonPhotoUUID(), foundObjectUUID, e.getMessage());
+        }
 
         // Como es posible que el usuario sea null, hacemos esta validación.
         String rfoUsername = null;
