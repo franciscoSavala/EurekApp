@@ -398,7 +398,10 @@ public class ReturnFoundObjectService {
             if (imageBytes != null) {
                 photoB64 = Base64.getEncoder().encodeToString(imageBytes);
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            log.warn("No se pudo obtener la foto {} de la persona que retiró el objeto {}: {}",
+                    rfo.getPersonPhotoUUID(), foundObjectUUID, e.getMessage());
+        }
 
         // Como es posible que el usuario sea null, hacemos esta validación.
         String rfoUsername = null;

@@ -271,6 +271,8 @@ public class FraudDetectionService {
             FoundObject fo = foundObjectRepository.getByUuid(foundObjectUUID);
             return fo != null ? fo.getObjectFinderUser() : null;
         } catch (Exception e) {
+            log.warn("No se pudo obtener el objeto {} para resolver quién lo encontró: {}",
+                    foundObjectUUID, e.getMessage());
             return null;
         }
     }
@@ -356,7 +358,10 @@ public class FraudDetectionService {
                     try {
                         FoundObject fo = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
                         if (fo != null) title = fo.getTitle();
-                    } catch (Exception ignored) {}
+                    } catch (Exception e) {
+                        log.warn("No se pudo obtener el objeto {} para el título de la devolución: {}",
+                                r.getFoundObjectUUID(), e.getMessage());
+                    }
                     String orgName = r.getOrganizationId() == null ? null
                             : orgNames.computeIfAbsent(r.getOrganizationId(), id ->
                                     organizationRepository.findById(id).map(Organization::getName).orElse(null));
@@ -624,7 +629,10 @@ public class FraudDetectionService {
                     objectTitle = fo.getTitle();
                     objectDescription = fo.getHumanDescription();
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.warn("No se pudo obtener el objeto {} para el título y la descripción de la alerta: {}",
+                        a.getFoundObjectUUID(), e.getMessage());
+            }
         }
 
         List<FraudUserDto> suspectUsers = a.getSuspectUsers().stream()
