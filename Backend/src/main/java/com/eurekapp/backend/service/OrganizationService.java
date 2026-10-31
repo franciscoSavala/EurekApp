@@ -12,12 +12,15 @@ import com.eurekapp.backend.service.notification.NotificationService;
 import com.eurekapp.backend.util.OrganizationAddress;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +40,7 @@ public class OrganizationService {
     private NotificationService notificationService;
     private InAppNotificationService inAppNotificationService;
     private EmailTemplateService emailTemplateService;
+    private TransactionTemplate transactionTemplate;
 
     public OrganizationListResponseDto getAllOrganizations() {
         List<PublicOrganizationDto> organizationDtos = organizationRepository.findAll().stream()
@@ -205,102 +209,109 @@ public class OrganizationService {
 
     // ── Admin: resolución ─────────────────────────────────────────────────────
 
+    /** Mail que se arma dentro de la transacción y se envía recién cuando ésta terminó. */
+    private record PendingEmail(String to, String subject, String body, String warnMessage) {}
+
     public void resolveOrganizationRequest(UserEurekapp admin, Long requestId,
                                             ResolveOrganizationRequestDto dto) {
         if (admin.getRole() != Role.ADMIN) {
             throw new ForbiddenException("forbidden", "Solo el administrador puede resolver solicitudes.");
         }
 
-        OrganizationRequest request = requestRepository.findById(requestId)
-                .orElseThrow(() -> new NotFoundException("request_not_found", "Solicitud no encontrada."));
+        // Todas las escrituras van juntas: si un paso falla no queda la organización creada,
+        // el responsable promovido ni la solicitud a medias. Los mails se arman acá adentro
+        // pero se mandan recién después, para no avisar de algo que se terminó deshaciendo.
+        List<PendingEmail> pendingEmails = transactionTemplate.execute(status -> {
+            List<PendingEmail> emails = new ArrayList<>();
 
-        if (request.getStatus() != OrganizationRequestStatus.PENDING_APPROVAL) {
-            throw new BadRequestException("already_resolved", "La solicitud ya fue procesada.");
-        }
+            OrganizationRequest request = requestRepository.findById(requestId)
+                    .orElseThrow(() -> new NotFoundException("request_not_found", "Solicitud no encontrada."));
 
-        if (dto.getResolution() == OrganizationRequestStatus.REJECTED
-                && (dto.getAdminNote() == null || dto.getAdminNote().isBlank())) {
-            throw new BadRequestException("admin_note_required",
-                    "Debés ingresar un motivo al rechazar una solicitud.");
-        }
+            if (request.getStatus() != OrganizationRequestStatus.PENDING_APPROVAL) {
+                throw new BadRequestException("already_resolved", "La solicitud ya fue procesada.");
+            }
 
-        if (dto.getResolution() == OrganizationRequestStatus.APPROVED) {
-            Organization org = Organization.builder()
-                    .name(request.getOrganizationName())
-                    .contactData(request.getOwnerEmail())
-                    .street(request.getStreet())
-                    .streetNumber(request.getStreetNumber())
-                    .city(request.getCity())
-                    .province(request.getProvince())
-                    .country(request.getCountry())
-                    .organizationType(request.getOrganizationType())
-                    .coordinates(request.getCoordinates())
-                    .build();
-            organizationRepository.save(org);
-            request.setOrganization(org);
+            if (dto.getResolution() == OrganizationRequestStatus.REJECTED
+                    && (dto.getAdminNote() == null || dto.getAdminNote().isBlank())) {
+                throw new BadRequestException("admin_note_required",
+                        "Debés ingresar un motivo al rechazar una solicitud.");
+            }
 
-            Optional<UserEurekapp> ownerOpt = userRepository.findByUsername(request.getOwnerEmail());
-            if (ownerOpt.isPresent()) {
-                UserEurekapp owner = ownerOpt.get();
-                owner.setRole(Role.ORGANIZATION_OWNER);
-                owner.setOrganization(org);
-                userRepository.save(owner);
+            if (dto.getResolution() == OrganizationRequestStatus.APPROVED) {
+                Organization org = Organization.builder()
+                        .name(request.getOrganizationName())
+                        .contactData(request.getOwnerEmail())
+                        .street(request.getStreet())
+                        .streetNumber(request.getStreetNumber())
+                        .city(request.getCity())
+                        .province(request.getProvince())
+                        .country(request.getCountry())
+                        .organizationType(request.getOrganizationType())
+                        .coordinates(request.getCoordinates())
+                        .build();
+                organizationRepository.save(org);
+                request.setOrganization(org);
 
-                inAppNotificationService.createNotification(owner,
-                        "Sos responsable de una nueva organización",
-                        "Tu cuenta fue asignada como responsable de \"" + org.getName() + "\" en EurekApp.",
-                        "ROLE_CHANGED", null);
-                try {
-                    notificationService.sendNotification(owner.getUsername(),
+                Optional<UserEurekapp> ownerOpt = userRepository.findByUsername(request.getOwnerEmail());
+                if (ownerOpt.isPresent()) {
+                    UserEurekapp owner = ownerOpt.get();
+                    owner.setRole(Role.ORGANIZATION_OWNER);
+                    owner.setOrganization(org);
+                    userRepository.save(owner);
+
+                    inAppNotificationService.createNotification(owner,
+                            "Sos responsable de una nueva organización",
+                            "Tu cuenta fue asignada como responsable de \"" + org.getName() + "\" en EurekApp.",
+                            "ROLE_CHANGED", null);
+                    emails.add(new PendingEmail(owner.getUsername(),
                             "EurekApp — Sos el responsable de una organización",
-                            emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()));
-                } catch (Exception e) {
-                    log.warn("No se pudo enviar email al owner {}: {}", owner.getUsername(), e.getMessage());
-                }
-            } else {
-                // El responsable designado aún no tiene cuenta en EurekApp: se le invita por email
-                // a registrarse usando el mismo correo para quedar vinculado automáticamente.
-                try {
-                    notificationService.sendNotification(
-                            request.getOwnerEmail(),
+                            emailTemplateService.buildOrgOwnerApprovedEmail(owner.getFirstName(), org.getName()),
+                            "No se pudo enviar email al owner " + owner.getUsername()));
+                } else {
+                    // El responsable designado aún no tiene cuenta en EurekApp: se le invita por email
+                    // a registrarse usando el mismo correo para quedar vinculado automáticamente.
+                    emails.add(new PendingEmail(request.getOwnerEmail(),
                             "EurekApp — Sos el responsable de una organización",
                             emailTemplateService.buildOrgOwnerInvitedEmail(
-                                    request.getOwnerFirstName(), org.getName(), request.getOwnerEmail()));
-                } catch (Exception e) {
-                    log.warn("No se pudo enviar email al owner designado {}: {}", request.getOwnerEmail(), e.getMessage());
+                                    request.getOwnerFirstName(), org.getName(), request.getOwnerEmail()),
+                            "No se pudo enviar email al owner designado " + request.getOwnerEmail()));
                 }
             }
-        }
 
-        request.setStatus(dto.getResolution());
-        request.setResolvedAt(LocalDateTime.now());
-        request.setResolvedBy(admin);
-        request.setAdminNote(dto.getAdminNote());
-        requestRepository.save(request);
+            request.setStatus(dto.getResolution());
+            request.setResolvedAt(LocalDateTime.now());
+            request.setResolvedBy(admin);
+            request.setAdminNote(dto.getAdminNote());
+            requestRepository.save(request);
 
-        boolean approved = dto.getResolution() == OrganizationRequestStatus.APPROVED;
-        String notifType = approved ? "ORG_REQUEST_APPROVED" : "ORG_REQUEST_REJECTED";
-        String notifTitle = approved ? "Tu solicitud fue aprobada" : "Tu solicitud fue rechazada";
-        String noteText = (dto.getAdminNote() != null && !dto.getAdminNote().isBlank())
-                ? " Nota: " + dto.getAdminNote() : "";
-        String notifDesc = approved
-                ? "Tu solicitud para \"" + request.getOrganizationName() + "\" fue aprobada." + noteText
-                : "Tu solicitud para \"" + request.getOrganizationName() + "\" fue rechazada." + noteText;
+            boolean approved = dto.getResolution() == OrganizationRequestStatus.APPROVED;
+            String notifType = approved ? "ORG_REQUEST_APPROVED" : "ORG_REQUEST_REJECTED";
+            String notifTitle = approved ? "Tu solicitud fue aprobada" : "Tu solicitud fue rechazada";
+            String noteText = (dto.getAdminNote() != null && !dto.getAdminNote().isBlank())
+                    ? " Nota: " + dto.getAdminNote() : "";
+            String notifDesc = approved
+                    ? "Tu solicitud para \"" + request.getOrganizationName() + "\" fue aprobada." + noteText
+                    : "Tu solicitud para \"" + request.getOrganizationName() + "\" fue rechazada." + noteText;
 
-        inAppNotificationService.createNotification(request.getRequestingUser(),
-                notifTitle, notifDesc, notifType, null);
+            inAppNotificationService.createNotification(request.getRequestingUser(),
+                    notifTitle, notifDesc, notifType, null);
 
-        try {
-            notificationService.sendNotification(
-                    request.getRequestingUser().getUsername(),
+            emails.add(new PendingEmail(request.getRequestingUser().getUsername(),
                     "EurekApp — Resolución de tu solicitud de organización",
                     emailTemplateService.buildOrgRequestResolvedEmail(
                             request.getRequestingUser().getFirstName(),
                             request.getOrganizationName(),
-                            approved, dto.getAdminNote()));
-        } catch (Exception e) {
-            log.warn("No se pudo enviar email de resolución a {}: {}",
-                    request.getRequestingUser().getUsername(), e.getMessage());
+                            approved, dto.getAdminNote()),
+                    "No se pudo enviar email de resolución a " + request.getRequestingUser().getUsername()));
+            return emails;
+        });
+
+        for (PendingEmail email : pendingEmails) {
+            try {
+                notificationService.sendNotification(email.to(), email.subject(), email.body());
+            } catch (Exception e) {
+                log.warn("{}: {}", email.warnMessage(), e.getMessage());
+            }
         }
     }
 
@@ -401,6 +412,7 @@ public class OrganizationService {
                 .build();
     }
 
+    @Transactional
     public void updatePolicy(UserEurekapp user, OrganizationPolicyDto dto) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new ForbiddenException("forbidden", "Solo el responsable puede modificar las políticas");
