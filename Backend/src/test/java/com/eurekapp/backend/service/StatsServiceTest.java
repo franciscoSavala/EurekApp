@@ -2,15 +2,13 @@ package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.StatsResponseDto;
 import com.eurekapp.backend.model.FoundObject;
-import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.Role;
-import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IUserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -26,29 +24,24 @@ class StatsServiceTest {
     @Mock IOrganizationRepository organizationRepository;
     @Mock IUserRepository userRepository;
 
-    @InjectMocks StatsService statsService;
+    StatsService statsService;
 
-    private UserEurekapp buildUser(Role role) {
-        return UserEurekapp.builder()
-                .role(role)
-                .username("user_" + role.name())
-                .password("password")
-                .firstName("Test")
-                .lastName("User")
-                .active(true)
-                .XP(0L)
-                .returnedObjects(0L)
-                .build();
+    @BeforeEach
+    void setUp() {
+        statsService = new StatsService(new PlatformCountsService(foundObjectRepository, organizationRepository, userRepository));
+    }
+
+    private void stubCounts(long owners, long employees, long regular, long organizations) {
+        when(userRepository.count()).thenReturn(owners + employees + regular);
+        when(userRepository.countByRole(Role.ORGANIZATION_OWNER)).thenReturn(owners);
+        when(userRepository.countByRole(Role.ORGANIZATION_EMPLOYEE)).thenReturn(employees);
+        when(userRepository.countByRole(Role.USER)).thenReturn(regular);
+        when(organizationRepository.count()).thenReturn(organizations);
     }
 
     @Test
     void getStats_returnsCorrectUserCountsByRole() {
-        when(userRepository.findAll()).thenReturn(List.of(
-                buildUser(Role.USER),
-                buildUser(Role.ORGANIZATION_OWNER),
-                buildUser(Role.ORGANIZATION_EMPLOYEE)
-        ));
-        when(organizationRepository.findAll()).thenReturn(List.of(new Organization(), new Organization()));
+        stubCounts(1, 1, 1, 2);
         when(foundObjectRepository.query(null, null, null, null, null, true, null)).thenReturn(List.of());
         when(foundObjectRepository.query(null, null, null, null, null, false, null)).thenReturn(List.of());
 
@@ -63,8 +56,7 @@ class StatsServiceTest {
 
     @Test
     void getStats_returnsCorrectFoundObjectCounts() {
-        when(userRepository.findAll()).thenReturn(List.of());
-        when(organizationRepository.findAll()).thenReturn(List.of());
+        stubCounts(0, 0, 0, 0);
         when(foundObjectRepository.query(null, null, null, null, null, true, null)).thenReturn(List.of(
                 FoundObject.builder().uuid("a").wasReturned(true).build(),
                 FoundObject.builder().uuid("b").wasReturned(true).build()
@@ -81,12 +73,7 @@ class StatsServiceTest {
 
     @Test
     void getStats_multipleUsersWithSameRole_countsAll() {
-        when(userRepository.findAll()).thenReturn(List.of(
-                buildUser(Role.USER),
-                buildUser(Role.USER),
-                buildUser(Role.USER)
-        ));
-        when(organizationRepository.findAll()).thenReturn(List.of());
+        stubCounts(0, 0, 3, 0);
         when(foundObjectRepository.query(null, null, null, null, null, true, null)).thenReturn(List.of());
         when(foundObjectRepository.query(null, null, null, null, null, false, null)).thenReturn(List.of());
 
@@ -99,8 +86,7 @@ class StatsServiceTest {
 
     @Test
     void getStats_emptyDatabase_returnsAllZeros() {
-        when(userRepository.findAll()).thenReturn(List.of());
-        when(organizationRepository.findAll()).thenReturn(List.of());
+        stubCounts(0, 0, 0, 0);
         when(foundObjectRepository.query(null, null, null, null, null, true, null)).thenReturn(List.of());
         when(foundObjectRepository.query(null, null, null, null, null, false, null)).thenReturn(List.of());
 
