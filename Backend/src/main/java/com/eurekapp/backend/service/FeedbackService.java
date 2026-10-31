@@ -17,6 +17,7 @@ import com.eurekapp.backend.repository.IOrganizationFeedbackRepository;
 import com.eurekapp.backend.repository.ISearchFeedbackRepository;
 import com.eurekapp.backend.repository.IUsabilityFeedbackRepository;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -28,6 +29,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @AllArgsConstructor
+@Slf4j
 @Service
 public class FeedbackService {
 
@@ -169,7 +171,10 @@ public class FeedbackService {
                         foTitle = fo.getTitle();
                         foDescription = fo.getHumanDescription();
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception e) {
+                    log.warn("No se pudo obtener el objeto {} para completar el feedback: {}",
+                            f.getFoundObjectUUID(), e.getMessage());
+                }
             }
             if (foTitle == null) foTitle = f.getLostObjectText();
             return FeedbackRecordDto.builder()
