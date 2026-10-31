@@ -29,6 +29,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -54,7 +56,7 @@ import static org.mockito.Mockito.when;
  * umbral N global, conteo acotado al DNI, una sola alerta por DNI con todos los casos, y dedup.
  * Se conservan los tests de mapeo entidad → DTO del refactor de FraudAlert (EU-282).
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 class FraudDetectionServiceTest {
 
@@ -1048,5 +1050,62 @@ class FraudDetectionServiceTest {
         assertThatThrownBy(() -> service.markAlertsSeen(owner(org)))
                 .isInstanceOf(ForbiddenException.class);
         verify(userRepository, never()).save(any());
+    }
+
+    // Si no se puede traer el objeto para saber quien lo encontro, la deteccion sigue sin ese dato
+    // (se crea igual la alerta del caso 1) y deja una advertencia con el identificador del objeto.
+    @Test
+    void detect_siFallaLaBusquedaDelFinder_siguePorLosOtrosCasosYDejaAdvertencia(CapturedOutput output) {
+        configWith(3, 1);
+        String dni = "11111111";
+        List<ReturnFoundObject> returns = List.of(
+                ret("uuid-finder-1", dni, null, user(1, "e1@x", "E", "1")),
+                ret("uuid-finder-2", dni, null, user(2, "e2@x", "E", "2")),
+                ret("uuid-finder-3", dni, null, user(3, "e3@x", "E", "3")));
+        when(foundObjectRepository.getByUuid(anyString())).thenThrow(new RuntimeException("Weaviate caido"));
+        when(returnFoundObjectRepository.findByDniInWindow(eq(dni), any())).thenReturn(returns);
+
+        service.detectFraudForReturn(returns.get(2));
+
+        assertThat(captureSavedAlert().getReason()).isEqualTo("CASE_1");
+        assertThat(output).contains("WARN").contains("uuid-finder-1");
+    }
+
+    // Si el titulo de un objeto de una devolucion no se puede traer, el detalle responde igual, con ese
+    // titulo vacio, y deja una advertencia con el identificador del objeto.
+    @Test
+    void detalle_siFallaLaBusquedaDelObjeto_respondeSinTituloYDejaAdvertencia(CapturedOutput output) {
+        ReturnFoundObject devolucion = ret("uuid-detalle-1", "13131313", null, null);
+        devolucion.setId(1L);
+        devolucion.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 30));
+        FraudAlert alert = FraudAlert.builder().id(5L).dni("13131313").reason("CASE_1")
+                .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now())
+                .triggeringReturns(new java.util.LinkedHashSet<>(List.of(devolucion))).build();
+        when(alertRepository.findById(5L)).thenReturn(java.util.Optional.of(alert));
+        when(foundObjectRepository.getByUuid("uuid-detalle-1")).thenThrow(new RuntimeException("Weaviate caido"));
+
+        FraudAlertDto dto = service.getAlertDetail(5L, admin());
+
+        assertThat(dto.getTriggeringReturns()).hasSize(1);
+        assertThat(dto.getTriggeringReturns().get(0).getObjectTitle()).isNull();
+        assertThat(output).contains("WARN").contains("uuid-detalle-1");
+    }
+
+    // Si el objeto de la alerta no se puede traer, el listado responde igual, sin titulo ni descripcion,
+    // y deja una advertencia con el identificador del objeto.
+    @Test
+    void getAlerts_siFallaLaBusquedaDelObjeto_respondeSinTituloNiDescripcionYDejaAdvertencia(CapturedOutput output) {
+        FraudAlert alert = FraudAlert.builder().id(5L).dni("13131313").reason("CASE_1")
+                .foundObjectUUID("uuid-alerta-9")
+                .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now()).build();
+        when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(alert));
+        when(foundObjectRepository.getByUuid("uuid-alerta-9")).thenThrow(new RuntimeException("Weaviate caido"));
+
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
+
+        assertThat(dtos).hasSize(1);
+        assertThat(dtos.get(0).getFoundObjectTitle()).isNull();
+        assertThat(dtos.get(0).getFoundObjectDescription()).isNull();
+        assertThat(output).contains("WARN").contains("uuid-alerta-9");
     }
 }

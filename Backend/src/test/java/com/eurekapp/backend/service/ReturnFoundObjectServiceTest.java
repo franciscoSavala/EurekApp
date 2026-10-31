@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.*;
@@ -14,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Optional;
@@ -23,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, OutputCaptureExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ReturnFoundObjectServiceTest {
 
@@ -650,5 +653,29 @@ class ReturnFoundObjectServiceTest {
 
         verify(foundObjectRepository).markAsReturned("uuid-123");
         verify(returnFoundObjectRepository, never()).delete(any(ReturnFoundObject.class));
+    }
+
+    // Si la foto de quien retiro el objeto no se puede traer de S3, la consulta responde igual, sin la foto,
+    // y deja una advertencia con el identificador de la foto.
+    @Test
+    void getReturnFoundObject_siFallaLaFoto_respondeSinFotoYDejaAdvertencia(CapturedOutput output) throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("owner@test.com").role(Role.ORGANIZATION_OWNER).organization(org).build();
+        FoundObject fo = FoundObject.builder().uuid("uuid-123").organizationId("1").build();
+        ReturnFoundObject rfo = ReturnFoundObject.builder()
+                .id(5L).foundObjectUUID("uuid-123").personPhotoUUID("foto-persona-777")
+                .DNI("12345678").firstName("Marina").lastName("Quiroga").build();
+
+        when(returnFoundObjectRepository.findByFoundObjectUUID("uuid-123")).thenReturn(rfo);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(rewardExclusionRepository.findByFoundObjectUUID("uuid-123")).thenReturn(Optional.empty());
+        when(s3Service.getObjectBytes("foto-persona-777")).thenThrow(new RuntimeException("S3 caido"));
+
+        ReturnFoundObjectDto dto = service.getReturnFoundObject(caller, "uuid-123");
+
+        assertThat(dto.getPersonPhoto_b64Json()).isNull();
+        assertThat(dto.getFirstName()).isEqualTo("Marina");
+        assertThat(output).contains("WARN").contains("foto-persona-777");
     }
 }
