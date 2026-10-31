@@ -18,5 +18,7 @@ public interface IUserRepository extends JpaRepository<UserEurekapp, Long> {
     List<UserEurekapp> findByOrganizationAndRoleIn(Organization organization, List<Role> roles);
     List<UserEurekapp> findAllByRole(Role role);
     Optional<UserEurekapp> findByUsernameAndRole(String username, Role role);
+    long countByRole(Role role);
+    long countByActiveTrue();
 
 }

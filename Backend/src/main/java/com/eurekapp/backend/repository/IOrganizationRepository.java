@@ -10,4 +10,6 @@ import java.util.List;
 public interface IOrganizationRepository extends JpaRepository<Organization, Long> {
     @Query(value = "SELECT org.id FROM organizations org", nativeQuery = true)
     List<Long> findAllId();
+
+    long countByActiveTrue();
 }

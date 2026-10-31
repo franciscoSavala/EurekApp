@@ -1,52 +1,32 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.StatsResponseDto;
-import com.eurekapp.backend.model.FoundObject;
-import com.eurekapp.backend.model.Organization;
-import com.eurekapp.backend.model.UserEurekapp;
-import com.eurekapp.backend.repository.FoundObjectRepository;
-import com.eurekapp.backend.repository.IOrganizationRepository;
-import com.eurekapp.backend.repository.IUserRepository;
+import com.eurekapp.backend.model.Role;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @AllArgsConstructor
 @Service
 public class StatsService {
 
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
-    private FoundObjectRepository foundObjectRepository;
-    private IOrganizationRepository organizationRepository;
-    private IUserRepository userRepository;
+    private PlatformCountsService platformCountsService;
 
     /*
     *  Método usado para obtener las estadísticas de la aplicación.
     * */
     public StatsResponseDto getStats(){
 
-        List<Organization> organizationsList = organizationRepository.findAll();
-        Long organizations = ((Integer) organizationsList.size()).longValue();
+        Long organizations = platformCountsService.countOrganizations();
+        Long users = platformCountsService.countUsers();
+        Long orgOwnerUsers = platformCountsService.countUsers(Role.ORGANIZATION_OWNER);
+        Long orgEmployeesUsers = platformCountsService.countUsers(Role.ORGANIZATION_EMPLOYEE);
+        Long regularUsers = platformCountsService.countUsers(Role.USER);
 
-        List<UserEurekapp> usersList = userRepository.findAll();
-        Long users = ((Integer) usersList.size()).longValue();
-        Long orgOwnerUsers = 0L;
-        Long orgEmployeesUsers = 0L;
-        Long regularUsers = 0L;
-        for(UserEurekapp userEurekapp : usersList){
-            if(userEurekapp.getRole().name().equals("ORGANIZATION_OWNER")){ orgOwnerUsers++; }
-            if(userEurekapp.getRole().name().equals("ORGANIZATION_EMPLOYEE")){ orgEmployeesUsers++; }
-            if(userEurekapp.getRole().name().equals("USER")){ regularUsers++; }
-        }
-
-
-        List<FoundObject> returnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, true, null);
-        List<FoundObject> unreturnedFoundObjectsList = foundObjectRepository.query(null, null, null, null, null, false, null);
-        Long unreturnedFoundObjects = ((Integer) unreturnedFoundObjectsList.size()).longValue();
-        Long returnedFoundObjects = ((Integer) returnedFoundObjectsList.size()).longValue();
+        Long unreturnedFoundObjects = platformCountsService.countUnreturnedFoundObjects();
+        Long returnedFoundObjects = platformCountsService.countReturnedFoundObjects();
         Long foundObjects = unreturnedFoundObjects + returnedFoundObjects;
 
         return StatsResponseDto.builder()
