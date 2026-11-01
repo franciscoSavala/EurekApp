@@ -44,6 +44,14 @@ test.describe('Recepción de un objeto encontrado', () => {
         await expect(page.getByText(MENSAJE_EXITO)).toHaveCount(0);
     });
 
+    test('caso 089 (rechazo): sin imagen no registra el objeto y pide subir una', async ({ page }) => {
+        await page.getByPlaceholder('Escribe un título').fill(nombreUnico('Objeto sin foto e2e'));
+        await page.getByText('Receptar objeto encontrado', { exact: true }).click();
+
+        await expect(page.getByText('Por favor sube una imagen', { exact: true })).toBeVisible();
+        await expect(page.getByText(MENSAJE_EXITO)).toHaveCount(0);
+    });
+
     test('caso 092: rechaza una imagen en formato no permitido', async ({ page }) => {
         await page.locator('input[type="file"]').first().setInputFiles(foto('formato_invalido.gif'));
 
