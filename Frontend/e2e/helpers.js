@@ -76,7 +76,7 @@ async function elegirArchivo(page, accion, archivo) {
 
 /** Abre el menú lateral con el botón de hamburguesa del encabezado (no tiene texto ni etiqueta). */
 async function abrirMenu(page) {
-    await page.locator('button:has(img[src*="toggle-drawer-icon"])').click();
+    await page.locator('button:has(img[src*="toggle-drawer-icon"])').last().click();
     await expect(page.getByText('Logout')).toBeInViewport();
 }
 
