@@ -161,19 +161,26 @@ public class FeedbackService {
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
+        // Los objetos de todas las filas se piden juntos, en una sola consulta; si falla, el listado sale
+        // igual y las filas quedan con el texto de respaldo.
+        List<String> uuids = feedbacks.stream().map(SearchFeedback::getFoundObjectUUID)
+                .filter(Objects::nonNull).distinct().collect(Collectors.toList());
+        Map<String, FoundObject> objects = Map.of();
+        try {
+            objects = foundObjectRepository.getByUuids(uuids);
+        } catch (Exception e) {
+            log.warn("No se pudieron obtener los objetos {} para completar el feedback: {}",
+                    uuids, e.getMessage());
+        }
+        final Map<String, FoundObject> objectsByUuid = objects;
         return feedbacks.stream().map(f -> {
             String foTitle = null;
             String foDescription = null;
             if (f.getFoundObjectUUID() != null) {
-                try {
-                    FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
-                    if (fo != null) {
-                        foTitle = fo.getTitle();
-                        foDescription = fo.getHumanDescription();
-                    }
-                } catch (Exception e) {
-                    log.warn("No se pudo obtener el objeto {} para completar el feedback: {}",
-                            f.getFoundObjectUUID(), e.getMessage());
+                FoundObject fo = objectsByUuid.get(f.getFoundObjectUUID());
+                if (fo != null) {
+                    foTitle = fo.getTitle();
+                    foDescription = fo.getHumanDescription();
                 }
             }
             if (foTitle == null) foTitle = f.getLostObjectText();
@@ -206,10 +213,14 @@ public class FeedbackService {
         }
 
         StringBuilder sb = new StringBuilder("ID;Organización;Objeto encontrado;¿Encontró el objeto?;Fecha\n");
+        // Los objetos de todas las filas se piden juntos; un objeto con datos rotos hace fallar la exportación.
+        Map<String, FoundObject> objectsByUuid = foundObjectRepository.getByUuidsOrFail(
+                feedbacks.stream().map(SearchFeedback::getFoundObjectUUID)
+                        .filter(Objects::nonNull).distinct().collect(Collectors.toList()));
         for (SearchFeedback f : feedbacks) {
             String objTitle = "";
             if (f.getFoundObjectUUID() != null) {
-                FoundObject fo = foundObjectRepository.getByUuid(f.getFoundObjectUUID());
+                FoundObject fo = objectsByUuid.get(f.getFoundObjectUUID());
                 objTitle = fo != null && fo.getTitle() != null ? fo.getTitle() : "";
             }
             if (objTitle.isEmpty() && f.getLostObjectText() != null) {

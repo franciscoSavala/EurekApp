@@ -1,9 +1,15 @@
 package com.eurekapp.backend.service.client;
 
+import io.weaviate.client.WeaviateClient;
 import org.junit.jupiter.api.Test;
+
+import java.util.Arrays;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 /**
  * EU-320: sobre named vectors, Weaviate 1.24.1 rompe si se pide el campo {@code certainty}, así que
@@ -33,5 +39,20 @@ class WeaviateServiceTest {
         // A menor distancia, mayor certeza (mismo orden que usa el ranking del scoring).
         assertThat(WeaviateService.cosineCertaintyFromDistance(0.226))
                 .isGreaterThan(WeaviateService.cosineCertaintyFromDistance(0.251));
+    }
+
+    // Sin UUID validos que pedir (vacio, nulos, o textos que no son UUID y por lo tanto no pueden existir)
+    // no se consulta a Weaviate.
+    @Test
+    void getObjectsByUuids_sinUuidsValidos_noConsultaWeaviate() {
+        WeaviateClient client = mock(WeaviateClient.class);
+        WeaviateService service = new WeaviateService(client);
+
+        assertThat(service.getObjectsByUuids("FoundObject", List.of(), List.of("title"))).isEmpty();
+        assertThat(service.getObjectsByUuids("FoundObject", null, List.of("title"))).isEmpty();
+        assertThat(service.getObjectsByUuids("FoundObject", Arrays.asList(null, "no-es-un-uuid", "\" } }"),
+                List.of("title"))).isEmpty();
+
+        verifyNoInteractions(client);
     }
 }

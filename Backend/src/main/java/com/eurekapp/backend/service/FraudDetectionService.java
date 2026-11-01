@@ -296,8 +296,9 @@ public class FraudDetectionService {
 
     public List<FraudAlertDto> getAlerts(UserEurekapp user) {
         validateAccess(user);
-        return alertRepository.findAllByOrderByCreatedAtDesc()
-                .stream().map(this::toDto).collect(Collectors.toList());
+        List<FraudAlert> alerts = alertRepository.findAllByOrderByCreatedAtDesc();
+        Map<String, FoundObject> objects = loadObjects(alertUuids(alerts));
+        return alerts.stream().map(a -> toDto(a, objects)).collect(Collectors.toList());
     }
 
     /**
@@ -340,28 +341,28 @@ public class FraudDetectionService {
         validateAccess(user);
         FraudAlert alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new NotFoundException("fraud_alert_not_found", "Alerta no encontrada"));
-        FraudAlertDto dto = toDto(alert);
-        dto.setTriggeringReturns(toReturnDtos(alert));
+        // El objeto de la alerta y el de cada devolución se piden juntos, en una sola consulta.
+        java.util.Set<String> uuids = new LinkedHashSet<>(alertUuids(List.of(alert)));
+        alert.getTriggeringReturns().forEach(r -> uuids.add(r.getFoundObjectUUID()));
+        uuids.remove(null);
+        Map<String, FoundObject> objects = loadObjects(new ArrayList<>(uuids));
+        FraudAlertDto dto = toDto(alert, objects);
+        dto.setTriggeringReturns(toReturnDtos(alert, objects));
         return dto;
     }
 
     /**
      * EU-277: las devoluciones que disparó la alerta, de la más vieja a la más nueva. El título del
-     * objeto vive en la base vectorial, así que se consulta uno por uno: por eso va sólo en el detalle.
+     * objeto vive en la base vectorial: los objetos de todas las devoluciones se piden juntos, en una sola
+     * consulta (ya resueltos en {@code objects}), y por eso va sólo en el detalle.
      */
-    private List<FraudAlertReturnDto> toReturnDtos(FraudAlert alert) {
+    private List<FraudAlertReturnDto> toReturnDtos(FraudAlert alert, Map<String, FoundObject> objects) {
         Map<Long, String> orgNames = new HashMap<>();
         return alert.getTriggeringReturns().stream()
                 .sorted(Comparator.comparing(ReturnFoundObject::getDatetimeOfReturn))
                 .map(r -> {
-                    String title = null;
-                    try {
-                        FoundObject fo = foundObjectRepository.getByUuid(r.getFoundObjectUUID());
-                        if (fo != null) title = fo.getTitle();
-                    } catch (Exception e) {
-                        log.warn("No se pudo obtener el objeto {} para el título de la devolución: {}",
-                                r.getFoundObjectUUID(), e.getMessage());
-                    }
+                    FoundObject fo = r.getFoundObjectUUID() == null ? null : objects.get(r.getFoundObjectUUID());
+                    String title = fo != null ? fo.getTitle() : null;
                     String orgName = r.getOrganizationId() == null ? null
                             : orgNames.computeIfAbsent(r.getOrganizationId(), id ->
                                     organizationRepository.findById(id).map(Organization::getName).orElse(null));
@@ -433,13 +434,15 @@ public class FraudDetectionService {
             }
         }
 
+        // Historial completo de cada fila: los objetos de todos los incidentes se piden juntos al final.
+        Map<FraudUserReportEntryDto, List<FraudAlert>> historyByEntry = new java.util.IdentityHashMap<>();
         List<FraudUserReportEntryDto> entries = inRangeByUser.entrySet().stream().map(e -> {
             UserEurekapp suspect = userRepository.findById(e.getKey()).orElse(null);
             if (suspect == null) return null;
             List<FraudAlert> inRange = e.getValue();
             List<FraudAlert> all = alertRepository.findBySuspectUsers_Id(e.getKey()); // histórico completo
 
-            return FraudUserReportEntryDto.builder()
+            FraudUserReportEntryDto entry = FraudUserReportEntryDto.builder()
                     .userId(suspect.getId())
                     .email(suspect.getUsername())
                     .fullName(suspect.getFirstName() + " " + suspect.getLastName())
@@ -449,13 +452,16 @@ public class FraudDetectionService {
                     .historicalCount(all.size())
                     .priorCount(countBefore(all, from))
                     .reasons(distinctReasons(inRange))
-                    .incidents(incidentsDesc(all))
                     .build();
+            historyByEntry.put(entry, all);
+            return entry;
         }).filter(java.util.Objects::nonNull)
           .sorted(Comparator.comparingLong(FraudUserReportEntryDto::getActiveCount)
                 .thenComparingLong(FraudUserReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
+        Map<String, FoundObject> userObjects = loadObjects(alertUuidsOfGroups(historyByEntry.values()));
+        entries.forEach(entry -> entry.setIncidents(incidentsDesc(historyByEntry.get(entry), userObjects)));
 
         return FraudReportResponseDto.<FraudUserReportEntryDto>builder()
                 .summary(summarize(filtered))
@@ -479,12 +485,13 @@ public class FraudDetectionService {
                 .filter(a -> a.getDni() != null)
                 .collect(Collectors.groupingBy(FraudAlert::getDni));
 
+        Map<FraudDniReportEntryDto, List<FraudAlert>> historyByEntry = new java.util.IdentityHashMap<>();
         List<FraudDniReportEntryDto> entries = inRangeByDni.entrySet().stream().map(e -> {
             String dni = e.getKey();
             List<FraudAlert> inRange = e.getValue();
             List<FraudAlert> all = alertRepository.findByDni(dni); // histórico completo del DNI
 
-            return FraudDniReportEntryDto.builder()
+            FraudDniReportEntryDto entry = FraudDniReportEntryDto.builder()
                     .dni(dni)
                     .fraudCount(inRange.size())
                     .activeCount(countByStatus(inRange, FraudAlertStatus.ACTIVE))
@@ -492,12 +499,15 @@ public class FraudDetectionService {
                     .historicalCount(all.size())
                     .priorCount(countBefore(all, from))
                     .reasons(distinctReasons(inRange))
-                    .incidents(incidentsDesc(all))
                     .build();
+            historyByEntry.put(entry, all);
+            return entry;
         }).sorted(Comparator.comparingLong(FraudDniReportEntryDto::getActiveCount)
                 .thenComparingLong(FraudDniReportEntryDto::getFraudCount)
                 .reversed())
           .collect(Collectors.toList());
+        Map<String, FoundObject> dniObjects = loadObjects(alertUuidsOfGroups(historyByEntry.values()));
+        entries.forEach(entry -> entry.setIncidents(incidentsDesc(historyByEntry.get(entry), dniObjects)));
 
         return FraudReportResponseDto.<FraudDniReportEntryDto>builder()
                 .summary(summarize(filtered))
@@ -556,10 +566,10 @@ public class FraudDetectionService {
                 .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
     }
 
-    private List<FraudAlertDto> incidentsDesc(List<FraudAlert> alerts) {
+    private List<FraudAlertDto> incidentsDesc(List<FraudAlert> alerts, Map<String, FoundObject> objects) {
         return alerts.stream()
                 .sorted(Comparator.comparing(FraudAlert::getCreatedAt).reversed())
-                .map(this::toDto).collect(Collectors.toList());
+                .map(a -> toDto(a, objects)).collect(Collectors.toList());
     }
 
     // El motivo crudo ("CASE_1,CASE_3") se pasa a lenguaje llano para CSV/PDF (las pantallas hacen lo
@@ -619,20 +629,36 @@ public class FraudDetectionService {
         }
     }
 
-    private FraudAlertDto toDto(FraudAlert a) {
+    // UUID de los objetos de las alertas (sin nulos ni repetidos), listos para pedirlos juntos.
+    private static List<String> alertUuids(List<FraudAlert> alerts) {
+        return alertUuidsOfGroups(List.of(alerts));
+    }
+
+    private static List<String> alertUuidsOfGroups(java.util.Collection<List<FraudAlert>> groups) {
+        return groups.stream().flatMap(List::stream)
+                .map(FraudAlert::getFoundObjectUUID).filter(java.util.Objects::nonNull).distinct()
+                .collect(Collectors.toList());
+    }
+
+    // Pide en una sola consulta los objetos que necesita un listado. Si la base vectorial falla, el
+    // listado sale igual, sin título ni descripción, y queda una advertencia con los identificadores.
+    private Map<String, FoundObject> loadObjects(List<String> uuids) {
+        try {
+            return foundObjectRepository.getByUuids(uuids);
+        } catch (Exception e) {
+            log.warn("No se pudieron obtener los objetos {} para el título y la descripción: {}",
+                    uuids, e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private FraudAlertDto toDto(FraudAlert a, Map<String, FoundObject> objects) {
         String objectTitle = null;
         String objectDescription = null;
-        if (a.getFoundObjectUUID() != null) {
-            try {
-                FoundObject fo = foundObjectRepository.getByUuid(a.getFoundObjectUUID());
-                if (fo != null) {
-                    objectTitle = fo.getTitle();
-                    objectDescription = fo.getHumanDescription();
-                }
-            } catch (Exception e) {
-                log.warn("No se pudo obtener el objeto {} para el título y la descripción de la alerta: {}",
-                        a.getFoundObjectUUID(), e.getMessage());
-            }
+        FoundObject fo = a.getFoundObjectUUID() == null ? null : objects.get(a.getFoundObjectUUID());
+        if (fo != null) {
+            objectTitle = fo.getTitle();
+            objectDescription = fo.getHumanDescription();
         }
 
         List<FraudUserDto> suspectUsers = a.getSuspectUsers().stream()
