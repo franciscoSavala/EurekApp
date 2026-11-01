@@ -98,7 +98,64 @@ async function receptarObjeto(page, titulo) {
     return titulo;
 }
 
+/**
+ * Lleva el listado visible hasta el final una vez (como una persona que baja con el dedo o la rueda).
+ * Devuelve la altura total del listado después de bajar, para saber si cargó más páginas.
+ */
+async function bajarListado(page) {
+    return page.evaluate(() => {
+        const visible = (e) => {
+            const r = e.getBoundingClientRect();
+            return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden';
+        };
+        const candidatos = [...document.querySelectorAll('div')].filter((e) => {
+            const o = getComputedStyle(e).overflowY;
+            return (o === 'auto' || o === 'scroll') && e.scrollHeight > e.clientHeight && visible(e);
+        });
+        if (candidatos.length === 0) return 0;
+        // El listado del inventario es el desplazable visible más grande.
+        const lista = candidatos.sort((a, b) => b.scrollHeight - a.scrollHeight)[0];
+        lista.scrollTop = lista.scrollHeight;
+        return lista.scrollHeight;
+    });
+}
+
+const MAX_BAJADAS = 40;
+
+/**
+ * Baja por el listado del inventario, cargando páginas, hasta que el título se vea.
+ * Falla si llega al tope de bajadas o al final del listado sin encontrarlo.
+ */
+async function bajarHastaVer(page, titulo) {
+    const objetivo = page.getByText(titulo, { exact: true }).filter({ visible: true });
+    let alturaPrevia = -1;
+    let sinCambios = 0;
+    for (let i = 0; i < MAX_BAJADAS; i++) {
+        if (await objetivo.count() > 0) return;
+        const altura = await bajarListado(page);
+        await page.waitForTimeout(700);
+        sinCambios = altura === alturaPrevia ? sinCambios + 1 : 0;
+        alturaPrevia = altura;
+        if (sinCambios >= 3) break;
+    }
+    await expect(objetivo, `el objeto "${titulo}" no apareció al recorrer el listado completo`).toHaveCount(1, { timeout: 2000 });
+}
+
+/** Baja por el listado hasta que ya no carga más páginas (el listado queda completo). */
+async function cargarListadoCompleto(page) {
+    let alturaPrevia = -1;
+    let sinCambios = 0;
+    for (let i = 0; i < MAX_BAJADAS && sinCambios < 3; i++) {
+        const altura = await bajarListado(page);
+        await page.waitForTimeout(700);
+        sinCambios = altura === alturaPrevia ? sinCambios + 1 : 0;
+        alturaPrevia = altura;
+    }
+    expect(sinCambios, 'el listado siguió creciendo al llegar al tope de bajadas').toBeGreaterThanOrEqual(3);
+}
+
 module.exports = {
     CLAVE, USUARIOS, foto, nombreUnico, fotoPesada,
     irAlLogin, completarYEnviarLogin, iniciarSesion, abrirComoUsuario, elegirArchivo, abrirMenu, irAlMenu, receptarObjeto,
+    bajarHastaVer, cargarListadoCompleto,
 };
