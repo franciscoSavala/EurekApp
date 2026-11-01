@@ -1,0 +1,57 @@
+flowchart LR
+    subgraph ACC["Acceso (sin sesión)"]
+        direction TB
+        L0["Bienvenida"] --> L1["Iniciar sesión"]
+        L0 --> L2["Regístrate"]
+        L1 --> L3["Recuperar contraseña"] --> L4["Nueva contraseña"]
+    end
+    subgraph USR["Usuario regular · USER"]
+        direction TB
+        U0(["Menú lateral"])
+        U0 --> U1["Buscar un objeto"] --> U1a["Resultados de búsqueda"] --> U1b["Ver objeto"]
+        U1 --> U1c["Sin coincidencias → guardar búsqueda"]
+        U0 --> U2["Mis búsquedas"] --> U2a["Detalle de búsqueda"]
+        U0 --> U3["Solicitar alta de organización"]
+        U0 --> U4["Mi solicitud de organización"]
+        U0 --> U5["Logros"]
+        U0 --> U6["Notificaciones"] --> U6a["Coincidencia encontrada"]
+        U0 --> U7["Mi perfil"]
+    end
+    subgraph EMP["Empleado y Encargado · ORGANIZATION_EMPLOYEE / ENCARGADO"]
+        direction TB
+        E0(["Menú lateral"])
+        E0 --> E1["Receptar un objeto"]
+        E0 --> E2["Ver inventario"] --> E2a["Ver objeto"]
+        E2 --> E2b["Devolver objeto"]
+        E0 --> E3["Ver objetos devueltos"] --> E3a["Ver devolución"]
+        E0 --> E4["Notificaciones"]
+        E0 --> E5["Mi perfil"]
+    end
+    subgraph OWN["Responsable de organización · ORGANIZATION_OWNER"]
+        direction TB
+        O0(["Menú lateral: todo lo del empleado, y además"])
+        O0 --> O1["Mi organización"] --> O1a["Políticas de la organización"]
+        O0 --> O2["Reportes"]
+        O0 --> O3["Exclusiones de recompensa"]
+        O0 --> O4["Mi solicitud de organización"]
+    end
+    subgraph ADM["Administrador · ADMIN"]
+        direction TB
+        A0(["Menú lateral"])
+        A0 --> A1["Dashboard"]
+        A0 --> A2["Solicitudes de alta"] --> A2a["Detalle de solicitud"]
+        A0 --> A3["Usuarios"]
+        A0 --> A4["Organizaciones"]
+        A0 --> A5["Alertas de fraude"] --> A5a["Detalle de alerta"]
+        A5 --> A5b["Reporte de fraude"]
+        A0 --> A6["Configuración de fraude"]
+        A0 --> A7["Opiniones sobre la app"]
+        A0 --> A8["Notificaciones y Mi perfil"]
+    end
+    ACC --> USR
+    ACC --> EMP
+    ACC --> OWN
+    ACC --> ADM
+    SURV["Calificar la atención (encuesta): solo desde el enlace del correo de devolución"]
+    classDef note fill:#fff7e0,stroke:#c9a227,color:#333;
+    class SURV note;
