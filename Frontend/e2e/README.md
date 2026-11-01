@@ -36,6 +36,7 @@ Las fotos de prueba están en `fixtures/`.
 
 ## Cosas a tener en cuenta
 
-- La devolución usa un DNI distinto en cada corrida. Con el mismo DNI repetido tres veces el sistema detecta fraude y bloquea al empleado, y los tests siguientes ya no pueden iniciar sesión con ese usuario. Si pasa, hay que quitar esa alerta y esos bloqueos de la base.
+- Todas las devoluciones usan un DNI distinto en cada corrida (incluso las que deberían fallar: si una validación se rompe, la devolución se registra de verdad). Con el mismo DNI repetido tres veces el sistema detecta fraude y bloquea al empleado, y los tests siguientes ya no pueden iniciar sesión con ese usuario. Si pasa, hay que quitar esa alerta y esos bloqueos de la base.
 - Quedan fuera de la tanda el ingreso con Google o Facebook y todo lo que dependa de mails.
+- El inventario carga de a 20 objetos y la base de pruebas acumula objetos en cada corrida, por eso los tests bajan por el listado hasta ver el objeto (`bajarHastaVer`) en vez de suponer que está en la primera página.
 - Los tests no usan identificadores propios en la interfaz: buscan por texto y por el menú lateral.

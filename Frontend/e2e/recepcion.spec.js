@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { USUARIOS, foto, nombreUnico, fotoPesada, abrirComoUsuario, irAlMenu } = require('./helpers');
+const { USUARIOS, foto, nombreUnico, fotoPesada, abrirComoUsuario, irAlMenu, bajarHastaVer } = require('./helpers');
 
 const MENSAJE_EXITO = 'El objeto fue cargado al inventario con éxito.';
 
@@ -41,7 +41,7 @@ test.describe('Recepción de un objeto encontrado', () => {
         await expect(page.getByText(MENSAJE_EXITO)).toHaveCount(0);
 
         await irAlMenu(page, 'Ver inventario');
-        await expect(page.getByText(titulo)).toBeVisible();
+        await bajarHastaVer(page, titulo);
     });
 
     test('caso 079: sin título no registra el objeto y pide escribirlo', async () => {

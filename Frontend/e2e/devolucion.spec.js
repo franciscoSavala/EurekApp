@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { USUARIOS, foto, nombreUnico, abrirComoUsuario, elegirArchivo, irAlMenu, receptarObjeto } = require('./helpers');
+const { USUARIOS, foto, nombreUnico, abrirComoUsuario, elegirArchivo, irAlMenu, receptarObjeto, bajarHastaVer, cargarListadoCompleto } = require('./helpers');
 
 /** En el inventario, la tarjeta del objeto con ese título (la más cercana que tiene el botón Devolver). */
 const tarjeta = (page, titulo) =>
@@ -39,7 +39,7 @@ test.describe('Devolución de un objeto', () => {
         await page.getByText('Devolver', { exact: true }).first().click();
         await page.getByPlaceholder('Ingresa el nombre').fill('Ana');
         await page.getByPlaceholder('Ingresa el apellido').fill('Prueba');
-        await page.getByPlaceholder('Ingresa el número de documento').fill('30123456');
+        await page.getByPlaceholder('Ingresa el número de documento').fill(dniUnico());
         await page.getByPlaceholder('Ingresa un teléfono de contacto').fill('3514000000');
         await page.getByText('Registrar devolución', { exact: true }).click();
         await expect(page.getByText('La foto es obligatoria.')).toBeVisible();
@@ -69,6 +69,7 @@ test.describe('Devolución de un objeto', () => {
         const titulo = await receptarObjeto(page, nombreUnico('Billetera devolver e2e'));
 
         await irAlMenu(page, 'Ver inventario');
+        await bajarHastaVer(page, titulo);
         await tarjeta(page, titulo).getByText('Devolver', { exact: true }).click();
         await cargarFotoDeQuienRetira(page, 'persona_retiro.jpg');
         await page.getByPlaceholder('Ingresa el nombre').fill('Ana');
@@ -82,6 +83,8 @@ test.describe('Devolución de un objeto', () => {
         await page.goBack();
         // La app deja apiladas pantallas anteriores ocultas: solo importa lo que se ve.
         await expect(page.getByText('Devolver', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+        // Con el listado completo cargado, para que la ausencia no se deba a una página sin cargar.
+        await cargarListadoCompleto(page);
         await expect(page.getByText(titulo, { exact: true }).filter({ visible: true })).toHaveCount(0);
 
         await irAlMenu(page, 'Ver objetos devueltos');
