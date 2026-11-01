@@ -1108,4 +1108,119 @@ class FraudDetectionServiceTest {
         assertThat(dtos.get(0).getFoundObjectDescription()).isNull();
         assertThat(output).contains("WARN").contains("uuid-alerta-9");
     }
+
+    private FraudAlert alertaDe(long id, String uuidObjeto, LocalDateTime creada) {
+        return FraudAlert.builder().id(id).dni("13131313").reason("CASE_1")
+                .foundObjectUUID(uuidObjeto)
+                .status(FraudAlertStatus.ACTIVE).createdAt(creada).build();
+    }
+
+    // Simula la base vectorial: los UUID de "rotos" fallan, los del mapa devuelven su objeto y el resto
+    // no existe.
+    private void stubObjetos(Map<String, FoundObject> objetos, String... rotos) {
+        for (String roto : rotos) {
+            when(foundObjectRepository.getByUuid(roto)).thenThrow(new RuntimeException("objeto roto"));
+        }
+        objetos.forEach((uuid, fo) -> when(foundObjectRepository.getByUuid(uuid)).thenReturn(fo));
+    }
+
+    private FoundObject objeto(String uuid, String titulo, String descripcion) {
+        return FoundObject.builder().uuid(uuid).title(titulo).humanDescription(descripcion).build();
+    }
+
+    // El listado sale en el orden del repositorio; cada alerta lleva los datos de SU objeto y una alerta
+    // cuyo objeto ya no existe (o no tiene objeto) sale igual, sin titulo ni descripcion.
+    @Test
+    void getAlerts_cadaAlertaLlevaLosDatosDeSuObjetoYConservaElOrden() {
+        LocalDateTime ahora = LocalDateTime.now();
+        when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
+                alertaDe(1L, "uuid-a", ahora),
+                alertaDe(2L, "uuid-borrado", ahora),
+                alertaDe(3L, null, ahora),
+                alertaDe(4L, "uuid-d", ahora)));
+        stubObjetos(Map.of(
+                "uuid-a", objeto("uuid-a", "Billetera", "Cuero negro"),
+                "uuid-d", objeto("uuid-d", "Mochila", "Roja")));
+
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
+
+        assertThat(dtos).extracting(FraudAlertDto::getId).containsExactly(1L, 2L, 3L, 4L);
+        assertThat(dtos).extracting(FraudAlertDto::getFoundObjectTitle)
+                .containsExactly("Billetera", null, null, "Mochila");
+        assertThat(dtos).extracting(FraudAlertDto::getFoundObjectDescription)
+                .containsExactly("Cuero negro", null, null, "Roja");
+    }
+
+    // Si varias alertas son del mismo objeto, todas salen con su titulo.
+    @Test
+    void getAlerts_siElMismoObjetoApareceEnVariasAlertas_todasSalenConTitulo() {
+        LocalDateTime ahora = LocalDateTime.now();
+        when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
+                alertaDe(1L, "uuid-a", ahora), alertaDe(2L, "uuid-a", ahora)));
+        stubObjetos(Map.of("uuid-a", objeto("uuid-a", "Billetera", "Cuero negro")));
+
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
+
+        assertThat(dtos).extracting(FraudAlertDto::getFoundObjectTitle).containsExactly("Billetera", "Billetera");
+    }
+
+    // El objeto que falla deja sin titulo solo SU alerta, no las demas.
+    @Test
+    void getAlerts_siFallaUnSoloObjeto_lasDemasAlertasSiguenConSuTitulo() {
+        LocalDateTime ahora = LocalDateTime.now();
+        when(alertRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(
+                alertaDe(1L, "uuid-a", ahora), alertaDe(2L, "uuid-roto", ahora)));
+        stubObjetos(Map.of("uuid-a", objeto("uuid-a", "Billetera", "Cuero negro")), "uuid-roto");
+
+        List<FraudAlertDto> dtos = service.getAlerts(admin());
+
+        assertThat(dtos).extracting(FraudAlertDto::getFoundObjectTitle).containsExactly("Billetera", null);
+    }
+
+    // El detalle de una alerta trae el titulo del objeto de la alerta y el de cada devolucion; si un
+    // objeto de las devoluciones no existe, esa devolucion sale sin titulo.
+    @Test
+    void detalle_traeElTituloDelObjetoDeLaAlertaYElDeCadaDevolucion() {
+        ReturnFoundObject primera = ret("u1", "13131313", null, null);
+        primera.setId(1L);
+        primera.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 30));
+        ReturnFoundObject segunda = ret("u-borrado", "13131313", null, null);
+        segunda.setId(2L);
+        segunda.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 40));
+        ReturnFoundObject tercera = ret("u1", "13131313", null, null);
+        tercera.setId(3L);
+        tercera.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 50));
+        FraudAlert alert = alertaDe(5L, "u1", LocalDateTime.now());
+        alert.setTriggeringReturns(new java.util.LinkedHashSet<>(List.of(primera, segunda, tercera)));
+        when(alertRepository.findById(5L)).thenReturn(java.util.Optional.of(alert));
+        stubObjetos(Map.of("u1", objeto("u1", "Billetera", "Cuero negro")));
+
+        FraudAlertDto dto = service.getAlertDetail(5L, admin());
+
+        assertThat(dto.getFoundObjectTitle()).isEqualTo("Billetera");
+        assertThat(dto.getFoundObjectDescription()).isEqualTo("Cuero negro");
+        assertThat(dto.getTriggeringReturns())
+                .extracting(com.eurekapp.backend.dto.response.FraudAlertReturnDto::getObjectTitle)
+                .containsExactly("Billetera", null, "Billetera");
+    }
+
+    // En el reporte por DNI, cada incidente del historial lleva el titulo de su objeto.
+    @Test
+    void reportePorDni_cadaIncidenteLlevaElTituloDeSuObjeto() {
+        LocalDateTime ahora = LocalDateTime.now();
+        FraudAlert a1 = alertaDe(1L, "uuid-a", ahora.minusDays(1));
+        FraudAlert a2 = alertaDe(2L, "uuid-b", ahora.minusDays(2));
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(a1, a2));
+        when(alertRepository.findByDni("13131313")).thenReturn(List.of(a2, a1));
+        stubObjetos(Map.of("uuid-a", objeto("uuid-a", "Billetera", null),
+                "uuid-b", objeto("uuid-b", "Mochila", null)));
+
+        List<FraudDniReportEntryDto> entries = service.getFraudDniReport(admin(),
+                LocalDate.now().minusDays(30), LocalDate.now(), null).getEntries();
+
+        assertThat(entries).hasSize(1);
+        // Los incidentes salen del mas nuevo al mas viejo.
+        assertThat(entries.get(0).getIncidents()).extracting(FraudAlertDto::getFoundObjectTitle)
+                .containsExactly("Billetera", "Mochila");
+    }
 }
