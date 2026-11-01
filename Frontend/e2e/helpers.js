@@ -44,6 +44,30 @@ async function iniciarSesion(page, email, clave = CLAVE) {
     await expect(page.getByText('Logout')).toBeVisible();
 }
 
+/*
+ * Para no repetir el ingreso por pantalla en cada test, la primera vez que se pide un usuario se
+ * inicia sesión por la interfaz y se guarda el estado del navegador; los tests siguientes abren
+ * una pestaña nueva con ese estado. El cierre de sesión de la app es local, así que no lo invalida.
+ */
+const estadosDeSesion = new Map();
+
+/** Abre una pestaña nueva con la sesión de `email` ya iniciada y el menú disponible. */
+async function abrirComoUsuario(browser, email) {
+    const opciones = { baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082', viewport: { width: 1280, height: 900 } };
+    if (!estadosDeSesion.has(email)) {
+        const contextoInicial = await browser.newContext(opciones);
+        const paginaInicial = await contextoInicial.newPage();
+        await iniciarSesion(paginaInicial, email);
+        estadosDeSesion.set(email, await contextoInicial.storageState());
+        await contextoInicial.close();
+    }
+    const context = await browser.newContext({ ...opciones, storageState: estadosDeSesion.get(email) });
+    const page = await context.newPage();
+    await page.goto('/');
+    await expect(page.getByText('Logout')).toBeVisible();
+    return { context, page };
+}
+
 /** Elige un archivo en el selector de archivos que abre `accion`. */
 async function elegirArchivo(page, accion, archivo) {
     const [selector] = await Promise.all([page.waitForEvent('filechooser'), accion()]);
@@ -59,7 +83,7 @@ async function abrirMenu(page) {
 /** Va a una opción del menú lateral. */
 async function irAlMenu(page, opcion) {
     await abrirMenu(page);
-    await page.getByRole('button', { name: opcion, exact: true }).click();
+    await page.locator('a', { has: page.getByText(opcion, { exact: true }) }).click();
 }
 
 /** Recepta un objeto con foto y título como empleado de la organización. Devuelve el título. */
@@ -76,5 +100,5 @@ async function receptarObjeto(page, titulo) {
 
 module.exports = {
     CLAVE, USUARIOS, foto, nombreUnico, fotoPesada,
-    irAlLogin, completarYEnviarLogin, iniciarSesion, elegirArchivo, abrirMenu, irAlMenu, receptarObjeto,
+    irAlLogin, completarYEnviarLogin, iniciarSesion, abrirComoUsuario, elegirArchivo, abrirMenu, irAlMenu, receptarObjeto,
 };
