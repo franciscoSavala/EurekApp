@@ -41,7 +41,7 @@ services:
   # "eurekapp-temp", credenciales fijas minioadmin/minioadmin (ver application-local.yml). El
   # contenedor minio-init crea el bucket y lo deja de lectura pública una sola vez y termina.
   minio:
-    image: quay.io/minio/minio:latest
+    image: pgsty/minio:latest
     container_name: eurekapp-minio
     command: server /data --console-address ":9001"
     environment:
@@ -60,7 +60,7 @@ services:
       start_period: 10s
 
   minio-init:
-    image: quay.io/minio/mc:latest
+    image: pgsty/mc:latest
     container_name: eurekapp-minio-init
     depends_on:
       minio:
