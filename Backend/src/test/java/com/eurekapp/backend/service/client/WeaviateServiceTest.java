@@ -1,8 +1,22 @@
 package com.eurekapp.backend.service.client;
 
+import com.eurekapp.backend.exception.ApiException;
+import io.weaviate.client.WeaviateClient;
+import io.weaviate.client.base.Result;
+import io.weaviate.client.v1.data.model.WeaviateObject;
+import io.weaviate.client.v1.graphql.model.GraphQLError;
+import io.weaviate.client.v1.graphql.model.GraphQLResponse;
 import org.junit.jupiter.api.Test;
+import org.mockito.Answers;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.assertj.core.api.Assertions.within;
 
 /**
@@ -33,5 +47,72 @@ class WeaviateServiceTest {
         // A menor distancia, mayor certeza (mismo orden que usa el ranking del scoring).
         assertThat(WeaviateService.cosineCertaintyFromDistance(0.226))
                 .isGreaterThan(WeaviateService.cosineCertaintyFromDistance(0.251));
+    }
+
+    // Cuando Weaviate rechaza la consulta, los errores vienen dentro del resultado y no como error de conexión.
+
+    private WeaviateService servicioQueResponde(GraphQLResponse respuesta) {
+        WeaviateClient cliente = mock(WeaviateClient.class, Answers.RETURNS_DEEP_STUBS);
+        when(cliente.graphQL().raw().withQuery(anyString()).run())
+                .thenReturn(new Result<>(200, respuesta, null));
+        return new WeaviateService(cliente);
+    }
+
+    private GraphQLResponse respuestaRechazada() {
+        Map<String, Object> clase = new java.util.HashMap<>();
+        clase.put("FoundObject", null);
+        Map<String, Object> data = Map.of("Get", clase);
+        return GraphQLResponse.builder()
+                .data(data)
+                .errors(new GraphQLError[]{GraphQLError.builder().message("no such prop").build()})
+                .build();
+    }
+
+    private GraphQLResponse respuestaConUnObjeto() {
+        Map<String, Object> objeto = new java.util.HashMap<>();
+        objeto.put("title", "Mochila");
+        objeto.put("_additional", new java.util.HashMap<>(Map.of("id", "abc-123", "distance", 0.0)));
+        Map<String, Object> data = Map.of("Get", Map.of("FoundObject", List.of(objeto)));
+        return GraphQLResponse.builder().data(data).build();
+    }
+
+    @Test
+    void queryObjects_weaviateRechazaLaConsulta_lanzaApiException() {
+        WeaviateService servicio = servicioQueResponde(respuestaRechazada());
+
+        assertThatThrownBy(() -> servicio.queryObjects("FoundObject", null, null, null, List.of("title")))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("no such prop");
+    }
+
+    @Test
+    void hybridQuery_weaviateRechazaLaConsulta_lanzaApiException() {
+        WeaviateService servicio = servicioQueResponde(respuestaRechazada());
+
+        assertThatThrownBy(() -> servicio.hybridQuery("FoundObject", "mochila", null, null, null, 0.5,
+                null, null, List.of("title"), 10))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("no such prop");
+    }
+
+    @Test
+    void queryObjects_respuestaValida_devuelveElObjeto() {
+        WeaviateService servicio = servicioQueResponde(respuestaConUnObjeto());
+
+        List<WeaviateObject> resultado = servicio.queryObjects("FoundObject", null, null, null, List.of("title"));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).getId()).isEqualTo("abc-123");
+    }
+
+    @Test
+    void hybridQuery_respuestaValida_devuelveElObjeto() {
+        WeaviateService servicio = servicioQueResponde(respuestaConUnObjeto());
+
+        List<WeaviateObject> resultado = servicio.hybridQuery("FoundObject", "mochila", null, null, null, 0.5,
+                null, null, List.of("title"), 10);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).getId()).isEqualTo("abc-123");
     }
 }

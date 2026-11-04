@@ -181,6 +181,7 @@ public class WeaviateService {
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         // Extraemos los datos de la respuesta
         GraphQLResponse graphQLResponse = response.getResult();
+        lanzarSiWeaviateRechazoLaConsulta(graphQLResponse);
         // Nos aseguramos de que los datos sean un Map
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData(); // Hacer cast seguro
@@ -282,6 +283,7 @@ public class WeaviateService {
 
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         GraphQLResponse graphQLResponse = response.getResult();
+        lanzarSiWeaviateRechazoLaConsulta(graphQLResponse);
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData();
             Map<String, Object> objectsMap = (Map<String, Object>) dataMap.get("Get");
@@ -297,6 +299,22 @@ public class WeaviateService {
         }
 
         return weaviateObjects;
+    }
+
+    /***
+     *      Cuando Weaviate rechaza una consulta GraphQL (por ejemplo, una propiedad que no existe), no es un error
+     *      de conexión: los errores vienen DENTRO del resultado y "data" trae la clase en null. Sin este chequeo
+     *      la consulta parecería devolver una lista vacía.
+     * ***/
+    private static void lanzarSiWeaviateRechazoLaConsulta(GraphQLResponse graphQLResponse) {
+        if (graphQLResponse.getErrors() == null || graphQLResponse.getErrors().length == 0) {
+            return;
+        }
+        String mensajes = java.util.Arrays.stream(graphQLResponse.getErrors())
+                .map(io.weaviate.client.v1.graphql.model.GraphQLError::getMessage)
+                .collect(Collectors.joining(", "));
+        log.error("Weaviate rechazó la consulta GraphQL: {}", mensajes);
+        throw new ApiException("database_error", mensajes, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     /***
