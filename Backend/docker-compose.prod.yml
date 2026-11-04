@@ -1,6 +1,6 @@
 services:
   weaviate:
-    image: semitechnologies/weaviate:1.24.1
+    image: semitechnologies/weaviate:1.36.24
     container_name: eurekapp-weaviate-prod
     restart: unless-stopped
     ports:
