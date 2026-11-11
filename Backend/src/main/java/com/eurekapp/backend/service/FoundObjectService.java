@@ -398,19 +398,8 @@ public class FoundObjectService implements IFoundObjectService {
             fo.setDistance(distance.floatValue());
         }
 
-        // Se FILTRA por el umbral crudo del modo sólo-texto y recién después se remapea el puntaje a
-        // la escala que ve el usuario. La curva es monótona, así que el orden no cambia.
-        List<FoundObjectDto> result = foundObjects.stream()
-                .filter(fo -> fo.getScore() != null
-                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.TEXT_ONLY))
-                .map(this::foundObjectToDto)
-                .map(dto -> {
-                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
-                            SearchScoringService.SearchMode.TEXT_ONLY));
-                    return dto;
-                })
-                .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
+        // La categoría deducida del texto se devuelve más abajo para mostrarla read-only, igual que con foto.
+        List<FoundObjectDto> result = filterAndRemapByScore(foundObjects, SearchScoringService.SearchMode.TEXT_ONLY);
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
@@ -478,6 +467,25 @@ public class FoundObjectService implements IFoundObjectService {
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUuid);
         if(fo == null){ throw new BadRequestException("found_object_detail", String.format("Found object with uuid '%s' not found", foundObjectUuid)); }
         return foundObjectToDto(fo);
+    }
+
+    /**
+     * Paso final común de las búsquedas: se FILTRA por el umbral crudo del modo y recién después se remapea
+     * el puntaje a la escala que ve el usuario (displayScore, EU-327). La curva es monótona, así que el
+     * orden es el mismo de una u otra forma; filtrar antes deja el corte expresado en la escala en la que
+     * fue calibrado. Devuelve los DTO ordenados de mayor a menor puntaje.
+     */
+    private List<FoundObjectDto> filterAndRemapByScore(List<FoundObject> foundObjects,
+                                                       SearchScoringService.SearchMode mode) {
+        return foundObjects.stream()
+                .filter(fo -> fo.getScore() != null && searchScoringService.isCombinedMatch(fo.getScore(), mode))
+                .map(this::foundObjectToDto)
+                .map(dto -> {
+                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(), mode));
+                    return dto;
+                })
+                .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
+                .toList();
     }
 
     private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
@@ -602,20 +610,7 @@ public class FoundObjectService implements IFoundObjectService {
             fo.setDistance(distance.floatValue());
         }
 
-        // EU-327: se FILTRA por el umbral crudo y recién después se remapea el puntaje a la escala que
-        // ve el usuario (displayScore). La curva es monótona, así que el orden es el mismo de una u otra
-        // forma; filtrar antes deja el corte expresado en la escala en la que fue calibrado.
-        List<FoundObjectDto> result = foundObjects.stream()
-                .filter(fo -> fo.getScore() != null
-                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.WITH_PHOTO))
-                .map(this::foundObjectToDto)
-                .map(dto -> {
-                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
-                            SearchScoringService.SearchMode.WITH_PHOTO));
-                    return dto;
-                })
-                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
-                .toList();
+        List<FoundObjectDto> result = filterAndRemapByScore(foundObjects, SearchScoringService.SearchMode.WITH_PHOTO);
 
         return FoundObjectsListDto.builder()
                 .foundObjects(result)
