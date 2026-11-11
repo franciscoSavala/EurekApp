@@ -356,6 +356,10 @@ docker compose -f Backend/docker-compose.yml down
 # Bajar los contenedores Y borrar los volúmenes (reset total de BD)
 docker compose -f Backend/docker-compose.yml down -v
 
+# Si el volumen de Weaviate se creó con la 1.24 (antes de pasar a la 1.36), no se migra solo:
+# borrarlo, levantar de nuevo con start-local.sh y volver a correr seed-local.sh y seed-data/seed.sh
+docker volume rm backend_eurekapp_weaviate_data
+
 # Generar un JWT_SIGN_KEY random
 openssl rand -base64 32
 ```
@@ -383,7 +387,7 @@ EurekApp/
 │   │   ├── application-test.yml    # Config tests (H2 en memoria)
 │   │   └── templates/              # Plantillas de los correos
 │   ├── seed-data/                  # Juego de datos de prueba (snapshot/) y sus fotos
-│   ├── docker-compose.yml          # MySQL 8 + Weaviate 1.24.1 + MinIO + clip-service
+│   ├── docker-compose.yml          # MySQL 8 + Weaviate 1.36.24 + MinIO + clip-service
 │   ├── docker-compose.prod.yml     # Servicios del despliegue en AWS
 │   ├── start-local.sh              # Levanta todo el entorno local
 │   ├── seed-local.sh               # Pobla la BD con datos de prueba
