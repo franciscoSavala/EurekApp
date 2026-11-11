@@ -340,4 +340,111 @@ class FoundObjectServiceTest {
         assertThat(result.getFoundObjects().get(1).getReturnDate()).isNull();
     }
 
+    // ---- Puntaje de las búsquedas: se filtra por el umbral CRUDO y recién después se remapea ----
+
+    private static final GeoCoordinates CARLOS_PAZ =
+            GeoCoordinates.builder().latitude(-31.4241).longitude(-64.4978).build();
+
+    /**
+     * Simula el scoring: el puntaje crudo de cada candidato es su certeza de texto; el umbral crudo es 0.5 en
+     * la búsqueda sólo texto y 0.6 en la búsqueda con foto; el puntaje para mostrar es la mitad del crudo en
+     * sólo texto y la cuarta parte en foto (así se nota si se usó el modo equivocado).
+     */
+    private void stubScoringPorModo() {
+        when(searchScoringService.combinedScore(any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> ((Float) inv.getArgument(1)).doubleValue());
+        when(searchScoringService.isCombinedMatch(anyDouble(), any())).thenAnswer(inv ->
+                (double) inv.getArgument(0) >= (inv.getArgument(1) == SearchScoringService.SearchMode.TEXT_ONLY ? 0.5 : 0.6));
+        when(searchScoringService.displayScore(anyDouble(), any())).thenAnswer(inv ->
+                (double) inv.getArgument(0) * (inv.getArgument(1) == SearchScoringService.SearchMode.TEXT_ONLY ? 0.5 : 0.25));
+        when(s3Service.generatePresignedUrl(anyString(), any())).thenReturn("http://img/x.jpg");
+    }
+
+    private FoundObject candidato(String uuid, float certezaTexto, GeoCoordinates coords) {
+        return FoundObject.builder()
+                .uuid(uuid).title(uuid).humanDescription("d").organizationId("1")
+                .coordinates(coords).foundDate(LocalDateTime.now())
+                .imageCertainty(0.9f).textCertainty(certezaTexto).score(certezaTexto)
+                .category(ObjectCategory.BILLETERA.name())
+                .build();
+    }
+
+    private void stubOrganizacionYBusqueda() {
+        Organization org = mock(Organization.class);
+        when(org.getCoordinates()).thenReturn(CORDOBA);
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+    }
+
+    @Test
+    void busquedaSoloTexto_descartaLoQueNoLlegaAlUmbralCrudo_ordenaDescendenteYDevuelvePuntajeParaMostrar() {
+        stubOrganizacionYBusqueda();
+        stubScoringPorModo();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        // Crudo 0.55 y 0.9 superan 0.5; 0.4 no. Se entregan desordenados a propósito.
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any()))
+                .thenReturn(List.of(candidato("bajo", 0.55f, CORDOBA), candidato("descartado", 0.4f, CORDOBA),
+                        candidato("alto", 0.9f, CARLOS_PAZ)));
+
+        SimilarObjectsCommand cmd = SimilarObjectsCommand.builder().organizationId(1L).query("billetera").build();
+        FoundObjectsListDto result = service.getFoundObjectByTextDescription(cmd);
+
+        assertThat(result.getFoundObjects()).extracting(o -> o.getId()).containsExactly("alto", "bajo");
+        // El puntaje mostrado es el remapeado del modo sólo texto (mitad del crudo), no el crudo.
+        assertThat(result.getFoundObjects().get(0).getScore()).isEqualTo(0.45f);
+        assertThat(result.getFoundObjects().get(1).getScore()).isEqualTo(0.275f);
+        // Se mide con el umbral del modo sólo texto y nunca con el de foto.
+        verify(searchScoringService, never()).isCombinedMatch(anyDouble(), eq(SearchScoringService.SearchMode.WITH_PHOTO));
+        // La distancia al punto de búsqueda se completa para cada resultado.
+        assertThat(result.getFoundObjects().get(0).getDistance())
+                .isEqualTo(CommonFunctions.calculateGeoDistance(CARLOS_PAZ, CORDOBA).floatValue());
+        assertThat(result.getFoundObjects().get(1).getDistance())
+                .isEqualTo(CommonFunctions.calculateGeoDistance(CORDOBA, CORDOBA).floatValue());
+    }
+
+    @Test
+    void busquedaConFoto_descartaLoQueNoLlegaAlUmbralCrudo_ordenaDescendenteYDevuelvePuntajeParaMostrar() {
+        stubOrganizacionYBusqueda();
+        stubScoringPorModo();
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        // 0.55 supera el umbral de sólo texto (0.5) pero NO el de foto (0.6): con foto se descarta.
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of(candidato("medio", 0.7f, CORDOBA), candidato("descartado", 0.55f, CORDOBA),
+                        candidato("alto", 0.95f, CARLOS_PAZ)));
+
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        FoundObjectsListDto result = service.searchByPhoto(photo, "billetera",
+                SimilarObjectsCommand.builder().organizationId(1L).build());
+
+        assertThat(result.getFoundObjects()).extracting(o -> o.getId()).containsExactly("alto", "medio");
+        // Puntaje remapeado del modo con foto (cuarta parte del crudo).
+        assertThat(result.getFoundObjects().get(0).getScore()).isEqualTo(0.2375f);
+        assertThat(result.getFoundObjects().get(1).getScore()).isEqualTo(0.175f);
+        verify(searchScoringService, never()).isCombinedMatch(anyDouble(), eq(SearchScoringService.SearchMode.TEXT_ONLY));
+        assertThat(result.getFoundObjects().get(0).getDistance())
+                .isEqualTo(CommonFunctions.calculateGeoDistance(CARLOS_PAZ, CORDOBA).floatValue());
+        assertThat(result.getFoundObjects().get(1).getDistance())
+                .isEqualTo(CommonFunctions.calculateGeoDistance(CORDOBA, CORDOBA).floatValue());
+    }
+
+    @Test
+    void busquedas_elUmbralSeAplicaAlPuntajeCrudoNoAlRemapeado() {
+        stubOrganizacionYBusqueda();
+        stubScoringPorModo();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any()))
+                .thenReturn(List.of(candidato("justo", 0.5f, CORDOBA)));
+
+        FoundObjectsListDto result = service.getFoundObjectByTextDescription(
+                SimilarObjectsCommand.builder().organizationId(1L).query("billetera").build());
+
+        // 0.5 crudo llega justo al umbral; su valor remapeado (0.25) quedaría por debajo y no debe importar.
+        assertThat(result.getFoundObjects()).hasSize(1);
+        verify(searchScoringService, never()).isCombinedMatch(eq(0.25), any());
+    }
+
 }
