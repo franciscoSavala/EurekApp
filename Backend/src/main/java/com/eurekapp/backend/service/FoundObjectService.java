@@ -398,7 +398,6 @@ public class FoundObjectService implements IFoundObjectService {
             fo.setDistance(distance.floatValue());
         }
 
-        // La categoría deducida del texto se devuelve más abajo para mostrarla read-only, igual que con foto.
         List<FoundObjectDto> result = filterAndRemapByScore(foundObjects, SearchScoringService.SearchMode.TEXT_ONLY);
 
         return FoundObjectsListDto.builder()
