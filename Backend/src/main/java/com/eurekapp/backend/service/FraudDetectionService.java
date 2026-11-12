@@ -198,7 +198,7 @@ public class FraudDetectionService {
      * no hay nada que avisar.</p>
      *
      * <p>El destinatario se resuelve por ROL y no con la dirección escrita en el código. Es el mismo
-     * criterio de {@code OrganizationService.notifyAdminsNewRequest}, y el motivo es EU-357: una
+     * criterio de {@code OrganizationRequestService.notifyAdminsNewRequest}, y el motivo es EU-357: una
      * dirección fija en el código termina desincronizada de la configuración real y nadie se entera
      * hasta que hace falta.</p>
      */
