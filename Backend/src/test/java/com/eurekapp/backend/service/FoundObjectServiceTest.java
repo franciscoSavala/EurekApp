@@ -447,4 +447,113 @@ class FoundObjectServiceTest {
         verify(searchScoringService, never()).isCombinedMatch(eq(0.25), any());
     }
 
+    // ---- Filtros y validaciones de las búsquedas (categoría, organización, fechas, ubicación) ----
+
+    @Test
+    void busquedaSoloTexto_sinOrganizacionNiCoordenadas_esRechazada() {
+        SimilarObjectsCommand cmd = SimilarObjectsCommand.builder().query("billetera").build();
+
+        assertThatThrownBy(() -> service.getFoundObjectByTextDescription(cmd))
+                .isInstanceOf(com.eurekapp.backend.exception.ApiException.class);
+
+        verify(foundObjectRepository, never()).query(any(), any(), any(), any(), any(), anyBoolean(), any());
+    }
+
+    @Test
+    void busquedaSoloTexto_conOrganizacion_filtraPorOrganizacionFechasYCategoriaDeducidaDelTexto() {
+        stubOrganizacionYBusqueda();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.LLAVES);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any())).thenReturn(List.of());
+        LocalDateTime desde = LocalDateTime.of(2026, 8, 1, 0, 0);
+        LocalDateTime hasta = LocalDateTime.of(2026, 8, 31, 0, 0);
+
+        FoundObjectsListDto result = service.getFoundObjectByTextDescription(SimilarObjectsCommand.builder()
+                .organizationId(1L).query("llaves").lostDate(desde).lostDateTo(hasta).build());
+
+        // Pide solo objetos no devueltos de esa organización, con las coordenadas de la organización,
+        // el rango de fechas y la categoría que dedujo la IA del texto.
+        verify(foundObjectRepository).query(eq(List.of(0.1f)), eq("1"), eq(CORDOBA), eq(desde), eq(hasta),
+                eq(false), eq(ObjectCategory.LLAVES.name()));
+        assertThat(result.getCategory()).isEqualTo(ObjectCategory.LLAVES.name());
+    }
+
+    @Test
+    void busquedaSoloTexto_porCoordenadas_usaLasCoordenadasDelPedidoYNoFiltraCategoriaSiLaIaSeAbstiene() {
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(null);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any())).thenReturn(List.of());
+
+        FoundObjectsListDto result = service.getFoundObjectByTextDescription(SimilarObjectsCommand.builder()
+                .latitude(CORDOBA.getLatitude()).longitude(CORDOBA.getLongitude()).query("algo raro").build());
+
+        // Sin organización el filtro de organización va nulo, la ubicación es la del pedido y,
+        // si la IA no reconoce el objeto, no se filtra por categoría.
+        verify(foundObjectRepository).query(any(), eq((String) null), eq(CORDOBA), any(), any(),
+                eq(false), eq((String) null));
+        assertThat(result.getCategory()).isNull();
+        assertThat(result.getFoundObjects()).isEmpty();
+    }
+
+    @Test
+    void busquedaSoloTexto_conTextoVacio_noVectorizaYBuscaSinVector() {
+        stubOrganizacionYBusqueda();
+        when(textClassificationService.classify(any())).thenReturn(null);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any())).thenReturn(List.of());
+
+        service.getFoundObjectByTextDescription(SimilarObjectsCommand.builder().organizationId(1L).query("  ").build());
+
+        verify(embeddingService, never()).getTextVectorRepresentation(anyString());
+        verify(foundObjectRepository).query(eq((List<Float>) null), eq("1"), any(), any(), any(),
+                eq(false), eq((String) null));
+    }
+
+    @Test
+    void busquedaConFoto_sinFoto_esRechazada() {
+        SimilarObjectsCommand filters = SimilarObjectsCommand.builder().organizationId(1L).build();
+
+        assertThatThrownBy(() -> service.searchByPhoto(null, "billetera", filters))
+                .isInstanceOf(BadRequestException.class);
+        assertThatThrownBy(() -> service.searchByPhoto(new MockMultipartFile("file", new byte[0]), "billetera", filters))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void busquedaConFoto_siElTextoNombraElObjeto_laCategoriaLaDecideElTextoYNoLaFoto() {
+        stubOrganizacionYBusqueda();
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.LLAVES);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of());
+        LocalDateTime desde = LocalDateTime.of(2026, 8, 1, 0, 0);
+        LocalDateTime hasta = LocalDateTime.of(2026, 8, 31, 0, 0);
+
+        FoundObjectsListDto result = service.searchByPhoto(new MockMultipartFile("file", new byte[]{1, 2, 3}), "llaves",
+                SimilarObjectsCommand.builder().organizationId(1L).lostDate(desde).lostDateTo(hasta).build());
+
+        assertThat(result.getCategory()).isEqualTo(ObjectCategory.LLAVES.name());
+        verify(foundObjectRepository).queryDual(eq(List.of(0.4f)), eq(List.of(0.1f)), eq("1"), eq(CORDOBA),
+                eq(desde), eq(hasta), eq(false), eq(ObjectCategory.LLAVES.name()), anyInt(), any());
+    }
+
+    @Test
+    void busquedaConFoto_siElTextoNoNombraElObjeto_laCategoriaLaDecideLaFoto() {
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(textClassificationService.classify(any())).thenReturn(null);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of());
+
+        FoundObjectsListDto result = service.searchByPhoto(new MockMultipartFile("file", new byte[]{1, 2, 3}), "cosa marron",
+                SimilarObjectsCommand.builder().latitude(CORDOBA.getLatitude()).longitude(CORDOBA.getLongitude()).build());
+
+        // Búsqueda por coordenadas: sin organización y con la ubicación del pedido.
+        assertThat(result.getCategory()).isEqualTo(ObjectCategory.BILLETERA.name());
+        verify(foundObjectRepository).queryDual(any(), any(), eq((String) null), eq(CORDOBA), any(), any(),
+                eq(false), eq(ObjectCategory.BILLETERA.name()), anyInt(), any());
+    }
+
 }
