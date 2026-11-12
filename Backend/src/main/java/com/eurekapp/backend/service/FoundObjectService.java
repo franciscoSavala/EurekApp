@@ -5,7 +5,6 @@ import com.eurekapp.backend.dto.FoundObjectDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.command.FoundObjectDetailCommand;
 import com.eurekapp.backend.dto.response.FoundObjectUploadedResponseDto;
-import com.eurekapp.backend.dto.response.PublicOrganizationDto;
 import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.NotFoundException;
@@ -30,7 +29,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 
-import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -42,13 +40,6 @@ import java.util.stream.Collectors;
 @Service
 public class FoundObjectService implements IFoundObjectService {
     private static final int GRACE_HOURS = 6;
-
-    /**
-     * EU-324: límite altísimo para la recuperación de candidatos ({@code queryDual}). NO es una poda
-     * (eso descartaría buenos candidatos antes de ponderar): es un fusible defensivo que a la escala
-     * real del producto nunca se alcanza (el universo ya viene acotado por categoría + org/zona).
-     */
-    private static final int SEARCH_CANDIDATE_LIMIT = 5000;
 
     private static final Set<Role> INCOMPATIBLE_ROLES = Set.of(
             Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER);
@@ -62,7 +53,6 @@ public class FoundObjectService implements IFoundObjectService {
     private final ImageClassificationService imageClassificationService;
     /** EU-337: clasificador de categoría por TEXTO, que tiene PRECEDENCIA sobre el de la foto. */
     private final TextClassificationService textClassificationService;
-    private final OrganizationService organizationService;
     private final LostObjectService lostObjectService;
     private final ExecutorService executorService;
 
@@ -75,7 +65,7 @@ public class FoundObjectService implements IFoundObjectService {
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
     private final FraudBlockService fraudBlockService;
-    private final SearchScoringService searchScoringService;
+    private final FoundObjectDtoMapper dtoMapper;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -84,7 +74,6 @@ public class FoundObjectService implements IFoundObjectService {
                               ImageClassificationService imageClassificationService,
                               TextClassificationService textClassificationService,
                               IOrganizationRepository organizationRepository,
-                              OrganizationService organizationService,
                               LostObjectService lostObjectService,
                               ExecutorService executorService,
                               FoundObjectRepository foundObjectRepository,
@@ -94,7 +83,7 @@ public class FoundObjectService implements IFoundObjectService {
                               NotificationService notificationService,
                               EmailTemplateService emailTemplateService,
                               FraudBlockService fraudBlockService,
-                              SearchScoringService searchScoringService) {
+                              FoundObjectDtoMapper dtoMapper) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -102,7 +91,6 @@ public class FoundObjectService implements IFoundObjectService {
         this.imageClassificationService = imageClassificationService;
         this.textClassificationService = textClassificationService;
         this.organizationRepository = organizationRepository;
-        this.organizationService = organizationService;
         this.lostObjectService = lostObjectService;
         this.executorService = executorService;
         this.foundObjectRepository = foundObjectRepository;
@@ -112,7 +100,7 @@ public class FoundObjectService implements IFoundObjectService {
         this.notificationService = notificationService;
         this.emailTemplateService = emailTemplateService;
         this.fraudBlockService = fraudBlockService;
-        this.searchScoringService = searchScoringService;
+        this.dtoMapper = dtoMapper;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -301,124 +289,6 @@ public class FoundObjectService implements IFoundObjectService {
                 .build();
     }
 
-    /**
-     *  Ese método es llamado cuando el usuario desea buscar su objeto perdido entre los objetos que están en custodia
-     *  de las organizaciones. Es la búsqueda SÓLO TEXTO (sin foto) de la pantalla unificada (EU-326).
-     *
-     *  <p><b>EU-337</b> la emparejó con la búsqueda con foto en las tres cosas que las separaban:
-     *  la categoría se deduce del TEXTO (antes no había ninguna y no se podía acotar nada), la
-     *  geografía MULTIPLICA en vez de sumar, y el puntaje se filtra con el umbral calibrado de este
-     *  modo y se muestra remapeado, para que un mismo porcentaje signifique lo mismo con foto y sin
-     *  foto.</p>
-     *
-     * @param command Objeto que tiene todos los parámetros para que el método haga algo...
-     * @return Lista que contiene los objetos encontrados, ordenados por el grado de coincidencia con la búsqueda.
-     */
-    @SneakyThrows
-    public FoundObjectsListDto getFoundObjectByTextDescription(SimilarObjectsCommand command){
-
-        /*
-        *  En base a la descripción provista por el usuario, generamos un vector que la represente.
-        * */
-        List<Float> embeddings = (command.getQuery() != null && !command.getQuery().isBlank())
-                ? embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(command.getQuery()))
-                : null;
-
-        /*
-        *   La intención detrás de inicializar la organización y las coordenadas como null es que siempre le hagamos el
-        *   mismo pedido a foundObjectRepository, independientemente de si la búsqueda es en una organización o por
-        *   coordenadas.
-        *
-        *   Si el user está haciendo una búsqueda dentro de una organización, el command tendrá valores null para
-        *   la latitud y para la longitud, y tendrá un valor válido para el id de la organización.
-        *
-        *   Si el user está haciendo una búsqueda por coordenadas, el command tendrá un valor null para el id de
-        *   organización, y valores válidos de latitud y de longitud.
-        * */
-
-        // Validamos que o se haya provisto una organización, o se hayan provisto coordenadas.
-        if(command.getOrganizationId() == null && (command.getLatitude() == null || command.getLongitude() == null))
-            throw new ApiException("Api error:", "Invalid parameters", HttpStatus.BAD_REQUEST);
-
-        // Inicializamos la organización como null, y si el usuario proveyó una, usaremos el valor que viene en el
-        // command.
-        String orgId = null;
-        if(command.getOrganizationId() != null){ orgId = command.getOrganizationId().toString();}
-
-        /*
-        *   Inicializamos las coordenadas como null. Serán usadas para calcular el score geográfico.
-        *   -Si el usuario proveyó coordenadas, usaremos la latitud y longitud que vienen en el command.
-        *   -Si el usuario proveyó una organización, usaremos la latitud y longitud de la organización.
-        */
-        GeoCoordinates queryCoordinates = null;
-        if(orgId != null && organizationRepository.existsById(command.getOrganizationId()) ){
-            queryCoordinates = organizationRepository.findById(command.getOrganizationId())
-                .get()
-                .getCoordinates();
-        }else{
-            queryCoordinates = GeoCoordinates.builder()
-                    .latitude(command.getLatitude())
-                    .longitude(command.getLongitude())
-                    .build();
-        }
-
-
-        /* Le pedimos a FoundObjectRepository que nos devuelva los objetos FoundObject similares al vector, con fecha
-        *  posterior a la provista, y que no hayan sido devueltos.
-        *  Dependiendo de si la búsqueda es por organización o por coordenadas, u "orgId" o "coordinates" valdrán null.
-        * */
-        /* EU-337: la categoría la deduce la IA del TEXTO de la búsqueda, no la elige el usuario (el
-         * selector manual se eliminó en EU-326). Si el texto no nombra el objeto, el clasificador se
-         * ABSTIENE y devuelve null: entonces no se filtra por categoría —igual que antes— en vez de
-         * inventar una, porque el filtro es duro y una categoría errada esconde el objeto en silencio. */
-        ObjectCategory category = textClassificationService.classify(command.getQuery());
-        log.debug("getFoundObjectByTextDescription: categoria deducida del texto={}", category);
-
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
-                                                                    orgId,
-                                                                    queryCoordinates,
-                                                                    command.getLostDate(),
-                                                                    command.getLostDateTo(),
-                                                                    false,
-                                                                    category != null ? category.name() : null);
-
-        /*
-        *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
-        *  y tiempo, y conocemos la distancia coseno entre cada uno de estos objetos y la búsqueda.
-        *  Para obtener el puntaje total en base al cual ordenaremos los resultados, calcularemos un puntaje
-        *  geográfico en base a las coordenadas, y lo combinaremos con la distancia coseno usando MOORA.
-        */
-        for(FoundObject fo: foundObjects){
-            /* Mismo puntaje que la búsqueda con foto, con la certeza de imagen ausente: la geografía
-             * MULTIPLICA. Antes sumaba un 5%, así que estar cerca compensaba no parecerse. */
-            double totalScore = searchScoringService.combinedScore(null, fo.getScore(), category,
-                    fo.getCoordinates(), queryCoordinates);
-            Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), queryCoordinates);
-            fo.setScore((float) totalScore);
-            fo.setDistance(distance.floatValue());
-        }
-
-        // Se FILTRA por el umbral crudo del modo sólo-texto y recién después se remapea el puntaje a
-        // la escala que ve el usuario. La curva es monótona, así que el orden no cambia.
-        List<FoundObjectDto> result = foundObjects.stream()
-                .filter(fo -> fo.getScore() != null
-                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.TEXT_ONLY))
-                .map(this::foundObjectToDto)
-                .map(dto -> {
-                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
-                            SearchScoringService.SearchMode.TEXT_ONLY));
-                    return dto;
-                })
-                .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
-                .toList();
-
-        return FoundObjectsListDto.builder()
-                .foundObjects(result)
-                // La categoría deducida del texto se devuelve para mostrarla read-only, igual que con foto.
-                .category(category != null ? category.name() : null)
-                .build();
-    }
-
     /*
     * Método usado para que un usuario organizacional pueda ver una lista de todos los objetos que su organización
     * ya ha devuelto.
@@ -444,7 +314,7 @@ public class FoundObjectService implements IFoundObjectService {
          * este mismo ticket —algo que se fue del inventario y no aparece en ninguna parte—. */
         List<FoundObjectDto> dtos = foundObjects.stream()
                 .map(foundObject -> {
-                    FoundObjectDto dto = foundObjectToDto(foundObject);
+                    FoundObjectDto dto = dtoMapper.toDto(foundObject);
                     dto.setReturnDate(returnDates.get(foundObject.getUuid()));
                     return dto;
                 })
@@ -477,151 +347,7 @@ public class FoundObjectService implements IFoundObjectService {
         String foundObjectUuid = command.getFoundObjectUUID();
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUuid);
         if(fo == null){ throw new BadRequestException("found_object_detail", String.format("Found object with uuid '%s' not found", foundObjectUuid)); }
-        return foundObjectToDto(fo);
-    }
-
-    private FoundObjectDto foundObjectToDto(FoundObject foundObject) {
-        String imageUrl = s3Service.generatePresignedUrl(foundObject.getUuid(), java.time.Duration.ofHours(1));
-
-        Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
-        Organization organization = organizationRepository.findById(objectOrganizationId)
-                .orElse(null);
-        PublicOrganizationDto organizationDto = organization != null ?
-                organizationService.organizationToPublicDto(organization) :
-                null;
-
-        GeoCoordinates coordinates = foundObject.getCoordinates();
-
-        FoundObjectDto dto = FoundObjectDto.builder()
-                .id(foundObject.getUuid())
-                .title(foundObject.getTitle())
-                .humanDescription(foundObject.getHumanDescription())
-                .imageUrl(imageUrl)
-                .score(foundObject.getScore())
-                .distance(foundObject.getDistance())
-                .organization(organizationDto)
-                .foundDate(foundObject.getFoundDate())
-                /* EU-348: las coordenadas pueden faltar —convertToFoundObject las deja en null si el
-                 * objeto no las tiene guardadas— y desreferenciarlas de una tiraba un NPE que se
-                 * llevaba puesto el LISTADO ENTERO, no sólo ese objeto. Es el mismo síntoma que
-                 * reporta este ticket: objetos que dejan de aparecer. Un dato de ubicación ausente
-                 * viaja como null y ya. */
-                .latitude(coordinates != null && coordinates.getLatitude() != null
-                        ? coordinates.getLatitude().floatValue() : null)
-                .longitude(coordinates != null && coordinates.getLongitude() != null
-                        ? coordinates.getLongitude().floatValue() : null)
-                .category(foundObject.getCategory())
-                .build();
-        UserEurekapp finder = foundObject.getObjectFinderUser();
-        if (finder != null) {
-            dto.setFinderEmail(finder.getUsername());
-            dto.setFinderFullName(finder.getFirstName() + " " + finder.getLastName());
-            dto.setFinderRole(finder.getRole() != null ? finder.getRole().name() : null);
-        }
-        return dto;
-    }
-
-    /**
-     * Búsqueda en vivo del rework (EU-324): unifica FOTO + TEXTO, ambos obligatorios. La foto se
-     * vectoriza en memoria con CLIP (NO se sube a S3 —eso ocurre sólo al guardar la búsqueda,
-     * decisión 8) y se clasifica en una categoría dura por IA (filtro previo + define α/β); el texto
-     * se vectoriza con OpenAI. Se recuperan las dos similitudes por candidato ({@code queryDual}) y
-     * se puntúa con {@link SearchScoringService#combinedScore} (α·sim_img + β·sim_txt, modulado por
-     * geografía). La ubicación (organización o coordenadas) es OBLIGATORIA: sin ella no se puede
-     * circunscribir el radio.
-     */
-    @SneakyThrows
-    public FoundObjectsListDto searchByPhoto(MultipartFile image, String query, SimilarObjectsCommand filters) {
-        // Foto + texto, ambos obligatorios (ver REWORK-ALGORITMO-BUSQUEDA, decisiones 3 y 324-D).
-        if (image == null || image.isEmpty()) {
-            throw new BadRequestException("image_required", "La foto es obligatoria para buscar.");
-        }
-        if (query == null || query.isBlank()) {
-            throw new BadRequestException("description_required", "La descripción es obligatoria para buscar.");
-        }
-        // Ubicación obligatoria: organización o coordenadas (sin ella no hay radio geográfico).
-        String orgIdStr = filters.getOrganizationId() != null ? filters.getOrganizationId().toString() : null;
-        if (orgIdStr == null && (filters.getLatitude() == null || filters.getLongitude() == null)) {
-            throw new BadRequestException("location_required",
-                    "Debés indicar una organización o unas coordenadas para buscar.");
-        }
-
-        byte[] imageBytes = image.getBytes();
-        // Vector VISUAL (CLIP) en memoria y vector TEXTUAL (OpenAI).
-        List<Float> imageEmbedding = imageEmbeddingService.getImageVectorRepresentation(imageBytes);
-        List<Float> textEmbedding = embeddingService.getTextVectorRepresentation(TextNormalizer.normalize(query));
-
-        /* EU-337: la categoría se decide por PRECEDENCIA, no por votación. Si el texto nombra el
-         * objeto, decide el texto, diga lo que diga la foto; si no lo nombra, el clasificador de texto
-         * se abstiene y decide la foto (que nunca viene vacía).
-         *
-         * Por qué precedencia y no "gana el más confiado": las dos confianzas NO son comparables. La
-         * de la foto es un softmax sobre cosenos imagen-texto, que viven en una franja angosta por el
-         * modality gap; los cosenos texto-texto viven en otro rango. Compararlas es comparar dos
-         * termómetros en unidades distintas, y en silencio ganaría siempre uno. Con precedencia cada
-         * señal se mide contra su propio umbral, en su propia escala, y los dos números nunca se
-         * comparan entre sí.
-         *
-         * Y el orden es ese porque la foto es la señal FRÁGIL: está medido que parte pares (la
-         * notebook caía en dos categorías distintas) y que sus márgenes son de centésimas. El texto,
-         * cuando nombra el objeto, no deja lugar a la duda: el sustantivo ES la categoría. */
-        ObjectCategory textCategory = textClassificationService.classify(query);
-        ObjectCategory category = textCategory != null ? textCategory : imageClassificationService.classify(imageBytes);
-        log.debug("searchByPhoto: categoria={} (por {})", category, textCategory != null ? "TEXTO" : "FOTO");
-
-        GeoCoordinates queryCoordinates = null;
-        if (orgIdStr != null && organizationRepository.existsById(filters.getOrganizationId())) {
-            queryCoordinates = organizationRepository.findById(filters.getOrganizationId())
-                    .get()
-                    .getCoordinates();
-        } else {
-            queryCoordinates = GeoCoordinates.builder()
-                    .latitude(filters.getLatitude())
-                    .longitude(filters.getLongitude())
-                    .build();
-        }
-
-        // Filtro DURO por categoría: la decide la IA desde la foto (no la elige el usuario). Sin poda
-        // por límite ni umbral en la recuperación (limit alto, ver "Poda del universo" en EU-324).
-        List<FoundObject> foundObjects = foundObjectRepository.queryDual(imageEmbedding, textEmbedding,
-                orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
-                category.name(), SEARCH_CANDIDATE_LIMIT, null);
-
-        log.debug("searchByPhoto: categoria={} candidatos recuperados={}", category, foundObjects.size());
-
-        final GeoCoordinates finalCoords = queryCoordinates;
-        for (FoundObject fo : foundObjects) {
-            // Puntaje combinado imagen+texto modulado por geografía (SearchScoringService.combinedScore).
-            double score = searchScoringService.combinedScore(fo.getImageCertainty(), fo.getTextCertainty(),
-                    category, fo.getCoordinates(), finalCoords);
-            fo.setScore((float) score);
-            log.debug("searchByPhoto: candidato '{}' simImg={} simTxt={} score={} (umbral={})",
-                    fo.getTitle(), fo.getImageCertainty(), fo.getTextCertainty(), score,
-                    searchScoringService.matchThreshold(SearchScoringService.SearchMode.WITH_PHOTO));
-            Double distance = CommonFunctions.calculateGeoDistance(fo.getCoordinates(), finalCoords);
-            fo.setDistance(distance.floatValue());
-        }
-
-        // EU-327: se FILTRA por el umbral crudo y recién después se remapea el puntaje a la escala que
-        // ve el usuario (displayScore). La curva es monótona, así que el orden es el mismo de una u otra
-        // forma; filtrar antes deja el corte expresado en la escala en la que fue calibrado.
-        List<FoundObjectDto> result = foundObjects.stream()
-                .filter(fo -> fo.getScore() != null
-                        && searchScoringService.isCombinedMatch(fo.getScore(), SearchScoringService.SearchMode.WITH_PHOTO))
-                .map(this::foundObjectToDto)
-                .map(dto -> {
-                    dto.setScore((float) searchScoringService.displayScore(dto.getScore(),
-                            SearchScoringService.SearchMode.WITH_PHOTO));
-                    return dto;
-                })
-                .sorted(Comparator.comparing(FoundObjectDto::getScore).reversed())
-                .toList();
-
-        return FoundObjectsListDto.builder()
-                .foundObjects(result)
-                // Categoría clasificada por IA: el front la muestra read-only (decisión 8bis).
-                .category(category.name())
-                .build();
+        return dtoMapper.toDto(fo);
     }
 
     /**
@@ -650,7 +376,7 @@ public class FoundObjectService implements IFoundObjectService {
         boolean hasMore = foundObjects.size() > pageSize;
         List<FoundObjectDto> result = foundObjects.stream()
                 .limit(pageSize)
-                .map(this::foundObjectToDto)
+                .map(dtoMapper::toDto)
                 .toList();
 
         return FoundObjectsListDto.builder()
