@@ -30,7 +30,8 @@ Los tests corren de a uno porque comparten la base. Cada uno tarda entre 20 y 60
 | `recepcion.spec.js` | Receptar un objeto: campos, éxito, título obligatorio, formato y tamaño de imagen. |
 | `devolucion.spec.js` | Devolver un objeto: formulario, datos obligatorios, DNI inválido y devolución completa. |
 | `busqueda.spec.js` | Buscar por texto, por foto con descripción, descripción obligatoria, formato de imagen y sin coincidencias. |
-| `exportaciones.spec.js` | Descarga de los CSV de reportes de uso y de fraude. |
+| `exportaciones.spec.js` | Descarga de los CSV de reportes de uso, de fraude y de opiniones de usabilidad. |
+| `autenticacion.spec.js` | Pantallas de avisos, administración (contadores, dashboard, usuarios, organizaciones, configuración de fraude, solicitudes de alta, opiniones), solicitud de organización y calificaciones: muestran datos reales y ningún pedido sale sin credencial ni es rechazado por sesión inválida. |
 
 Las fotos de prueba están en `fixtures/`.
 

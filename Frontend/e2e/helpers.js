@@ -99,6 +99,27 @@ async function receptarObjeto(page, titulo) {
 }
 
 /**
+ * Cambia la fecha en la que "se perdió" el objeto a unos días atrás. Por defecto la búsqueda usa
+ * hace 3 horas, y un objeto recién receptado puede quedar unos minutos antes de esa hora.
+ */
+async function perderlo(page, diasAtras) {
+    const destino = new Date(Date.now() - diasAtras * 24 * 3600 * 1000);
+    await page.getByText(/^\d{1,2}\/\d{1,2}\/\d{4}$/).first().click();
+    const hoy = new Date();
+    if (destino.getMonth() !== hoy.getMonth()) await page.getByRole('button', { name: 'Previous Month' }).click();
+    const dia = String(destino.getDate()).padStart(3, '0');
+    await page.locator(`.react-datepicker__day--${dia}:not(.react-datepicker__day--outside-month)`).click();
+}
+
+/** Abre la pantalla de búsqueda, elige la organización donde se perdió el objeto y la fecha de pérdida. */
+async function abrirBusqueda(page, organizacion = 'UTN FRC') {
+    await irAlMenu(page, 'Buscar un objeto');
+    await expect(page.getByPlaceholder('Proporciona detalles que ayuden a identificarlo')).toBeVisible();
+    await page.locator('select').first().selectOption({ label: organizacion });
+    await perderlo(page, 2);
+}
+
+/**
  * Lleva el listado visible hasta el final una vez (como una persona que baja con el dedo o la rueda).
  * Devuelve la altura total del listado después de bajar, para saber si cargó más páginas.
  */
@@ -154,8 +175,39 @@ async function cargarListadoCompleto(page) {
     expect(sinCambios, 'el listado siguió creciendo al llegar al tope de bajadas').toBeGreaterThanOrEqual(3);
 }
 
+const URL_BACKEND = process.env.E2E_BACK_URL || 'http://localhost:8080';
+
+/**
+ * Registra, mientras la persona usa la app, los pedidos al servidor que salieron sin credencial
+ * (salvo los de /auth, que no la llevan) y los que el servidor rechazó por sesión inválida (401).
+ * Una pantalla que carga bien pero solo porque la app renovó la sesión después de un rechazo
+ * también cuenta como falla: la credencial tiene que salir en el primer pedido.
+ */
+function vigilarPedidos(page) {
+    const sinCredencial = [];
+    const rechazados = [];
+    page.on('request', (r) => {
+        if (!r.url().startsWith(URL_BACKEND) || r.method() === 'OPTIONS' || r.url().includes('/auth/')) return;
+        if (!r.headers()['authorization']) sinCredencial.push(`${r.method()} ${r.url()}`);
+    });
+    page.on('response', (r) => {
+        if (r.url().startsWith(URL_BACKEND) && r.status() === 401) rechazados.push(`${r.request().method()} ${r.url()}`);
+    });
+    return {
+        verificar() {
+            expect(sinCredencial, 'pedidos al servidor sin credencial').toEqual([]);
+            expect(rechazados, 'pedidos rechazados por sesión inválida').toEqual([]);
+        },
+    };
+}
+
+/** Espera la respuesta del servidor a un pedido que hace la app: `metodo` y un trozo de la ruta. */
+function esperarRespuesta(page, metodo, ruta) {
+    return page.waitForResponse((r) => r.request().method() === metodo && r.url().startsWith(URL_BACKEND) && r.url().includes(ruta));
+}
+
 module.exports = {
     CLAVE, USUARIOS, foto, nombreUnico, fotoPesada,
     irAlLogin, completarYEnviarLogin, iniciarSesion, abrirComoUsuario, elegirArchivo, abrirMenu, irAlMenu, receptarObjeto,
-    bajarHastaVer, cargarListadoCompleto,
+    bajarHastaVer, cargarListadoCompleto, perderlo, abrirBusqueda, vigilarPedidos, esperarRespuesta,
 };

@@ -56,9 +56,22 @@ test.describe('Exportaciones de reportes a CSV', () => {
 
         const csv = await descargar(page, exportar);
 
-        expect(csv.nombre).toMatch(/\.csv$/);
+        expect(csv.nombre).toBe('fraud-report.csv');
         expect(csv.lineas[0]).toBe('userId;email;fullName;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons');
         expect(csv.lineas.length).toBeGreaterThan(1);
+        await context.close();
+    });
+
+    test('el administrador descarga el CSV del reporte de opiniones de usabilidad de la app', async ({ browser }) => {
+        const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
+        await irAlMenu(page, 'Opiniones sobre la app');
+        const exportar = page.getByText('Exportar CSV', { exact: true });
+        await expect(exportar).toBeVisible();
+
+        const csv = await descargar(page, exportar);
+
+        expect(csv.nombre).toBe('usability-feedback-report.csv');
+        expect(csv.lineas[0]).toBe('id;starRating;aspects;comment;context;createdAt');
         await context.close();
     });
 });
