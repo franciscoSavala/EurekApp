@@ -11,9 +11,8 @@ import {
     View,
 } from "react-native";
 import { buildUsabilityFeedbackReportHtml, exportPdf } from "../../utils/pdfExport";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
-import { fetchWithAuth, refreshJwt } from "../../utils/fetchWithAuth";
+import { exportCsv } from "../../utils/exportCsv";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
@@ -71,40 +70,7 @@ const UsabilityFeedbackReport = ({ navigation }) => {
 
     const handleExportCsv = async () => {
         const url = `${BACK_URL}/usability-feedback/report/export?from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`;
-        if (isWeb) {
-            try {
-                const res = await fetchWithAuth(url);
-                const blob = await res.blob();
-                const objectUrl = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = objectUrl;
-                a.download = "usability-feedback-report.csv";
-                a.click();
-                URL.revokeObjectURL(objectUrl);
-            } catch (e) {
-                console.warn("Error exportando CSV:", e);
-            }
-        } else {
-            try {
-                const FileSystem = require("expo-file-system");
-                const Sharing = require("expo-sharing");
-                const fileUri = FileSystem.cacheDirectory + "usability-feedback-report.csv";
-                const download = async (jwt) => FileSystem.downloadAsync(url, fileUri, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                let jwt = await AsyncStorage.getItem("jwt");
-                let downloadRes = await download(jwt);
-                if (downloadRes.status === 401 || downloadRes.status === 403) {
-                    const newToken = await refreshJwt();
-                    if (newToken) downloadRes = await download(newToken);
-                }
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(downloadRes.uri, { mimeType: "text/csv", dialogTitle: "Exportar reporte de usabilidad" });
-                }
-            } catch (e) {
-                console.warn("Error exportando CSV en native:", e);
-            }
-        }
+        await exportCsv({ url, fileName: "usability-feedback-report.csv", dialogTitle: "Exportar reporte de usabilidad" });
     };
 
     const handleExportPdf = async () => {

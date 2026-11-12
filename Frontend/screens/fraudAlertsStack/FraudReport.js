@@ -15,9 +15,8 @@ import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import DonutChart from '../components/DonutChart';
 import WebDateInput from '../components/WebDateInput';
 import BaseModal from '../components/BaseModal';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { fetchWithAuth, refreshJwt } from '../../utils/fetchWithAuth';
+import { exportCsv as descargarCsv } from '../../utils/exportCsv';
 import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -130,40 +129,7 @@ const FraudReport = () => {
         const params = `from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`
             + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
         const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
-        if (Platform.OS === 'web') {
-            try {
-                const res = await fetchWithAuth(url);
-                const blob = await res.blob();
-                const objectUrl = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = objectUrl;
-                a.download = 'fraud-report.csv';
-                a.click();
-                URL.revokeObjectURL(objectUrl);
-            } catch (e) {
-                console.warn('Error exportando CSV:', e);
-            }
-        } else {
-            try {
-                const FileSystem = require('expo-file-system');
-                const Sharing = require('expo-sharing');
-                const fileUri = FileSystem.cacheDirectory + 'fraud-report.csv';
-                const download = async (jwt) => FileSystem.downloadAsync(url, fileUri, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                let jwt = await AsyncStorage.getItem('jwt');
-                let downloadRes = await download(jwt);
-                if (downloadRes.status === 401 || downloadRes.status === 403) {
-                    const newToken = await refreshJwt();
-                    if (newToken) downloadRes = await download(newToken);
-                }
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(downloadRes.uri);
-                }
-            } catch (e) {
-                console.warn('Error exportando CSV:', e);
-            }
-        }
+        await descargarCsv({ url, fileName: 'fraud-report.csv' });
         setExporting(false);
     };
 
