@@ -11,7 +11,7 @@ import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
 import com.eurekapp.backend.service.InAppNotificationService;
-import com.eurekapp.backend.service.OrganizationService;
+import com.eurekapp.backend.service.OrganizationRequestService;
 import com.eurekapp.backend.service.notification.NotificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ import static org.mockito.Mockito.verify;
 @SpringBootTest
 class OrganizationResolutionTransactionTest {
 
-    @Autowired OrganizationService organizationService;
+    @Autowired OrganizationRequestService organizationRequestService;
     @Autowired IUserRepository userRepository;
     @Autowired IOrganizationRepository organizationRepository;
     @Autowired IOrganizationRequestRepository requestRepository;
@@ -126,7 +126,7 @@ class OrganizationResolutionTransactionTest {
                 .resolution(OrganizationRequestStatus.APPROVED)
                 .build();
 
-        assertThatThrownBy(() -> organizationService.resolveOrganizationRequest(admin, solicitud.getId(), dto))
+        assertThatThrownBy(() -> organizationRequestService.resolveOrganizationRequest(admin, solicitud.getId(), dto))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("falla simulada");
 
