@@ -217,4 +217,77 @@ class FoundObjectRepositoryTest {
         assertThat(FoundObjectRepository.namedVectors(List.of(1f), null)).containsOnlyKeys("image");
         assertThat(FoundObjectRepository.namedVectors(null, null)).isEmpty();
     }
+
+    private static WeaviateObject weaviateObject(String id, String title, Object coordinates) {
+        Map<String, Object> props = new HashMap<>();
+        props.put("title", title);
+        props.put("human_description", "descripcion de " + title);
+        props.put("object_finder_user_id", "0");
+        props.put("coordinates", coordinates);
+        return WeaviateObject.builder().id(id).properties(props).build();
+    }
+
+    private static final String UUID_A = "11111111-1111-1111-1111-111111111111";
+    private static final String UUID_B = "22222222-2222-2222-2222-222222222222";
+
+    // Varios objetos se piden juntos: el repositorio los devuelve por el UUID con el que se pidieron, y
+    // el que no existe simplemente no figura.
+    @Test
+    void getByUuids_devuelveLosQueExistenPorSuUuidYPidePropiedadesQueConvierte() {
+        when(weaviateService.getObjectsByUuids(eq("FoundObject"), any(), any()))
+                .thenReturn(List.of(weaviateObject(UUID_A, "Billetera", null)));
+
+        Map<String, FoundObject> result = repository().getByUuids(List.of(UUID_A, "no-existe"));
+
+        assertThat(result).containsOnlyKeys(UUID_A);
+        assertThat(result.get(UUID_A).getTitle()).isEqualTo("Billetera");
+        ArgumentCaptor<List<String>> fields = ArgumentCaptor.forClass(List.class);
+        verify(weaviateService).getObjectsByUuids(eq("FoundObject"), any(), fields.capture());
+        assertThat(fields.getValue()).containsExactlyInAnyOrder("title", "object_finder_user_id",
+                "human_description", "found_date", "was_returned", "coordinates", "organization_id", "category");
+    }
+
+    // Weaviate devuelve el id en minusculas: el objeto igual se encuentra con el UUID tal como se guardo.
+    @Test
+    void getByUuids_encuentraElObjetoAunqueElUuidGuardadoTengaMayusculas() {
+        String enMayusculas = UUID_A.replace('1', 'A').toUpperCase();
+        when(weaviateService.getObjectsByUuids(eq("FoundObject"), any(), any()))
+                .thenReturn(List.of(weaviateObject(enMayusculas.toLowerCase(), "Billetera", null)));
+
+        Map<String, FoundObject> result = repository().getByUuids(List.of(enMayusculas));
+
+        assertThat(result).containsOnlyKeys(enMayusculas);
+    }
+
+    // Sin UUID que pedir (vacio, solo nulos o nulo) no se consulta a Weaviate.
+    @Test
+    void getByUuids_sinUuids_noConsultaWeaviate() {
+        assertThat(repository().getByUuids(List.of())).isEmpty();
+        assertThat(repository().getByUuids(java.util.Arrays.asList(null, null))).isEmpty();
+        assertThat(repository().getByUuids(null)).isEmpty();
+
+        verify(weaviateService, never()).getObjectsByUuids(anyString(), any(), any());
+    }
+
+    // Un objeto con datos rotos no estropea a los demas: solo el no figura, y los otros salen completos.
+    @Test
+    void getByUuids_unObjetoConDatosRotos_dejaSinDatosSoloAEseObjeto() {
+        when(weaviateService.getObjectsByUuids(eq("FoundObject"), any(), any())).thenReturn(List.of(
+                weaviateObject(UUID_A, "Billetera", null),
+                weaviateObject(UUID_B, "Roto", "coordenadas que no son un mapa")));
+
+        Map<String, FoundObject> result = repository().getByUuids(List.of(UUID_A, UUID_B));
+
+        assertThat(result).containsOnlyKeys(UUID_A);
+    }
+
+    // En la variante estricta (exportacion), el objeto con datos rotos hace fallar la llamada, como antes.
+    @Test
+    void getByUuidsOrFail_unObjetoConDatosRotos_lanzaLaExcepcion() {
+        when(weaviateService.getObjectsByUuids(eq("FoundObject"), any(), any())).thenReturn(List.of(
+                weaviateObject(UUID_B, "Roto", "coordenadas que no son un mapa")));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> repository().getByUuidsOrFail(List.of(UUID_B)))
+                .isInstanceOf(RuntimeException.class);
+    }
 }

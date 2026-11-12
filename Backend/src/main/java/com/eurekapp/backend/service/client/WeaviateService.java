@@ -181,6 +181,7 @@ public class WeaviateService {
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         // Extraemos los datos de la respuesta
         GraphQLResponse graphQLResponse = response.getResult();
+        lanzarSiWeaviateRechazoLaConsulta(graphQLResponse);
         // Nos aseguramos de que los datos sean un Map
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData(); // Hacer cast seguro
@@ -282,6 +283,7 @@ public class WeaviateService {
 
         List<WeaviateObject> weaviateObjects = new ArrayList<>();
         GraphQLResponse graphQLResponse = response.getResult();
+        lanzarSiWeaviateRechazoLaConsulta(graphQLResponse);
         if (graphQLResponse.getData() instanceof Map<?, ?>) {
             Map<String, Object> dataMap = (Map<String, Object>) graphQLResponse.getData();
             Map<String, Object> objectsMap = (Map<String, Object>) dataMap.get("Get");
@@ -297,6 +299,22 @@ public class WeaviateService {
         }
 
         return weaviateObjects;
+    }
+
+    /***
+     *      Cuando Weaviate rechaza una consulta GraphQL (por ejemplo, una propiedad que no existe), no es un error
+     *      de conexión: los errores vienen DENTRO del resultado y "data" trae la clase en null. Sin este chequeo
+     *      la consulta parecería devolver una lista vacía.
+     * ***/
+    private static void lanzarSiWeaviateRechazoLaConsulta(GraphQLResponse graphQLResponse) {
+        if (graphQLResponse.getErrors() == null || graphQLResponse.getErrors().length == 0) {
+            return;
+        }
+        String mensajes = java.util.Arrays.stream(graphQLResponse.getErrors())
+                .map(io.weaviate.client.v1.graphql.model.GraphQLError::getMessage)
+                .collect(Collectors.joining(", "));
+        log.error("Weaviate rechazó la consulta GraphQL: {}", mensajes);
+        throw new ApiException("database_error", mensajes, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     /***
@@ -334,6 +352,57 @@ public class WeaviateService {
         }
 
         return null;
+    }
+
+    /***
+     *      Cantidad máxima de ids por consulta de {@link #getObjectsByUuids}. Cada id es un operando del filtro
+     *      "Or", así que se acota para no armar una query desmedida.
+     * ***/
+    static final int UUIDS_POR_CONSULTA = 100;
+
+    private static final java.util.regex.Pattern UUID_PATTERN = java.util.regex.Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+
+    /***
+     *      Dado el nombre de la clase y varios UUID, devuelve los objetos que existen en una sola consulta
+     *      (o en una por cada tanda de {@link #UUIDS_POR_CONSULTA}), en lugar de pedirlos de a uno.
+     *
+     *      Reglas que importan:
+     *        - Sin límite explícito Weaviate devuelve 25 resultados (QUERY_DEFAULTS_LIMIT): por eso el límite
+     *          de cada consulta es la cantidad de ids de esa tanda.
+     *        - Los ids repetidos o nulos se descartan, y también los que no tienen forma de UUID (no pueden
+     *          existir, y entrarían crudos a la query). Sin ids no se consulta a Weaviate.
+     *        - Igual que {@link #getObjectByUuid}, si Weaviate responde con error esa tanda se da por no
+     *          encontrada (queda registrado) y no se lanza excepción.
+     *        - El esquema es manual: pedir un campo inexistente devuelve lista vacía SIN error, así que
+     *          {@code fieldNames} debe ser exactamente un subconjunto de las propiedades de la clase.
+     * ***/
+    public List<WeaviateObject> getObjectsByUuids(String className, java.util.Collection<String> uuids,
+                                                  List<String> fieldNames) {
+        List<String> distinctUuids = uuids == null ? List.of() : uuids.stream()
+                .filter(u -> u != null && UUID_PATTERN.matcher(u).matches())
+                .distinct()
+                .collect(Collectors.toList());
+
+        List<WeaviateObject> found = new ArrayList<>();
+        for (int from = 0; from < distinctUuids.size(); from += UUIDS_POR_CONSULTA) {
+            List<String> batch = distinctUuids.subList(from, Math.min(from + UUIDS_POR_CONSULTA, distinctUuids.size()));
+            WhereFilter[] operands = batch.stream()
+                    .map(u -> WhereFilter.builder().path("id").operator(io.weaviate.client.v1.filters.Operator.Equal)
+                            .valueText(u).build())
+                    .toArray(WhereFilter[]::new);
+            WhereFilter filter = operands.length == 1 ? operands[0]
+                    : WhereFilter.builder().operator(io.weaviate.client.v1.filters.Operator.Or).operands(operands).build();
+            try {
+                found.addAll(queryObjects(className, null, null, filter, fieldNames, batch.size(), null));
+            } catch (RuntimeException e) {
+                // queryObjects lanza ante una respuesta con errores de Weaviate; se trata igual que en
+                // getObjectByUuid: esa tanda no se encontró.
+                log.warn("Weaviate respondió con error al traer {} objetos {} por id: {}",
+                        batch.size(), className, e.getMessage());
+            }
+        }
+        return found;
     }
 
     /***

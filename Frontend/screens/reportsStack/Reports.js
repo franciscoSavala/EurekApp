@@ -13,9 +13,8 @@ import {
     View,
 } from "react-native";
 import { buildUsageReportHtml, exportPdf } from "../../utils/pdfExport";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
-import { fetchWithAuth, refreshJwt } from "../../utils/fetchWithAuth";
+import { exportCsv } from "../../utils/exportCsv";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
@@ -58,10 +57,8 @@ const Reports = ({ navigation }) => {
         setLoadingMain(true);
         setError(null);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
-            const headers = { Authorization: `Bearer ${jwt}` };
-            const res = await axiosInstance.get(`${BACK_URL}/reports`, { headers, params });
+            const res = await axiosInstance.get(`${BACK_URL}/reports`, { params });
             setData(res.data);
         } catch (e) {
             setError("No se pudieron cargar los reportes.");
@@ -74,14 +71,12 @@ const Reports = ({ navigation }) => {
     const fetchFeedback = async () => {
         setLoadingFeedback(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
-            const headers = { Authorization: `Bearer ${jwt}` };
             const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const recParams = { from: formatDateISO(fromDate), to: formatDateISO(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const [fbRes, recRes] = await Promise.all([
-                axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams }),
-                axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams }),
+                axiosInstance.get(`${BACK_URL}/feedback/report`, { params: fbParams }),
+                axiosInstance.get(`${BACK_URL}/feedback/records`, { params: recParams }),
             ]);
             setFeedbackData(fbRes.data);
             setFeedbackRecords(recRes.data || []);
@@ -114,42 +109,7 @@ const Reports = ({ navigation }) => {
     const handleExportCsv = async () => {
         const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
         const url = `${BACK_URL}/feedback/report/export?from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}${wasFoundParam}`;
-        if (isWeb) {
-            // En web, el JWT no se puede pasar por URL fácilmente; hacer fetch y disparar descarga
-            try {
-                const res = await fetchWithAuth(url);
-                const blob = await res.blob();
-                const objectUrl = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = objectUrl;
-                a.download = "feedback-report.csv";
-                a.click();
-                URL.revokeObjectURL(objectUrl);
-            } catch (e) {
-                console.warn("Error exportando CSV:", e);
-            }
-        } else {
-            // En native: descargar con expo-file-system y compartir con expo-sharing
-            try {
-                const FileSystem = require("expo-file-system");
-                const Sharing = require("expo-sharing");
-                const fileUri = FileSystem.cacheDirectory + "feedback-report.csv";
-                const download = async (jwt) => FileSystem.downloadAsync(url, fileUri, {
-                    headers: { Authorization: `Bearer ${jwt}` },
-                });
-                let jwt = await AsyncStorage.getItem("jwt");
-                let downloadRes = await download(jwt);
-                if (downloadRes.status === 401 || downloadRes.status === 403) {
-                    const newToken = await refreshJwt();
-                    if (newToken) downloadRes = await download(newToken);
-                }
-                if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(downloadRes.uri, { mimeType: "text/csv", dialogTitle: "Exportar reporte de feedback" });
-                }
-            } catch (e) {
-                console.warn("Error exportando CSV en native:", e);
-            }
-        }
+        await exportCsv({ url, fileName: "feedback-report.csv", dialogTitle: "Exportar reporte de feedback" });
     };
 
     useFocusEffect(

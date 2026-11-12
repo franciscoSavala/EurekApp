@@ -10,7 +10,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -47,10 +46,7 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
 
     const fetchRequests = async () => {
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/organizations/requests", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/organizations/requests");
             setRequests(res.data);
         } catch (e) {
             console.log("Error fetching org requests", e);

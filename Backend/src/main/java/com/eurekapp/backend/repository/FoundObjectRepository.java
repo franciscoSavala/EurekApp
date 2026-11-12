@@ -24,6 +24,21 @@ import java.util.*;
 public class FoundObjectRepository {
 
     private static final Logger log = LoggerFactory.getLogger(FoundObjectRepository.class);
+
+    /**
+     * Propiedades que lee {@link #convertToFoundObject}: toda consulta que arme FoundObject a partir de
+     * Weaviate tiene que pedirlas. El esquema es manual, así que un nombre inexistente devuelve lista vacía
+     * sin error.
+     */
+    private static final List<String> CONVERTED_FIELDS = List.of("title",
+            "object_finder_user_id",
+            "human_description",
+            "found_date",
+            "was_returned",
+            "coordinates",
+            "organization_id",
+            "category");
+
     private final WeaviateService weaviateService;
     private final IUserRepository userRepository;
 
@@ -238,14 +253,7 @@ public class FoundObjectRepository {
                                        Integer limit,
                                        Integer offset) {
         WhereFilter filter = buildFilter(orgId, coordinates, foundDate, foundDateTo, wasReturned, category);
-        List<String> fields = List.of("title",
-                "object_finder_user_id",
-                "human_description",
-                "found_date",
-                "was_returned",
-                "coordinates",
-                "organization_id",
-                "category");
+        List<String> fields = CONVERTED_FIELDS;
 
         // Preservamos el orden de aparición (primero los candidatos por imagen, luego los nuevos por texto).
         Map<String, FoundObject> merged = new LinkedHashMap<>();
@@ -282,6 +290,53 @@ public class FoundObjectRepository {
         WeaviateObject result = weaviateService.getObjectByUuid("FoundObject", uuid);
         if(result == null){return null;}
         return convertToFoundObject(result);
+    }
+
+    /**
+     * Trae varios objetos en una sola consulta (por tandas si son muchos), para los listados que antes
+     * pedían uno por fila. Devuelve uuid pedido a objeto; los que no existen no figuran en el mapa. Los
+     * repetidos y los nulos se consultan una sola vez, y sin UUID no se consulta a Weaviate.
+     *
+     * <p>Un objeto cuyos datos no se pueden convertir no figura en el mapa y queda registrado, para que
+     * deje sin datos solo su fila y no todo el listado. Si lo que se necesita es que ese error corte
+     * la operación, ver {@link #getByUuidsOrFail}.</p>
+     */
+    public Map<String, FoundObject> getByUuids(Collection<String> uuids) {
+        return getByUuids(uuids, false);
+    }
+
+    /**
+     * Igual que {@link #getByUuids}, pero un objeto cuyos datos no se pueden convertir hace fallar la
+     * llamada, como lo hacía {@link #getByUuid} (lo usa la exportación CSV, que no entrega un archivo a
+     * medias).
+     */
+    public Map<String, FoundObject> getByUuidsOrFail(Collection<String> uuids) {
+        return getByUuids(uuids, true);
+    }
+
+    private Map<String, FoundObject> getByUuids(Collection<String> uuids, boolean failOnBrokenObject) {
+        Map<String, FoundObject> byUuid = new HashMap<>();
+        if (uuids == null || uuids.stream().allMatch(Objects::isNull)) {
+            return byUuid;
+        }
+        for (WeaviateObject wo : weaviateService.getObjectsByUuids("FoundObject", uuids, CONVERTED_FIELDS)) {
+            try {
+                // Weaviate devuelve el id en minúsculas; la clave es el id con el que se pidió.
+                byUuid.put(wo.getId().toLowerCase(), convertToFoundObject(wo));
+            } catch (RuntimeException e) {
+                if (failOnBrokenObject) {
+                    throw e;
+                }
+                log.warn("No se pudo convertir el objeto {}: {}", wo.getId(), e.getMessage());
+            }
+        }
+        Map<String, FoundObject> result = new HashMap<>();
+        for (String uuid : uuids) {
+            if (uuid != null && byUuid.containsKey(uuid.toLowerCase())) {
+                result.put(uuid, byUuid.get(uuid.toLowerCase()));
+            }
+        }
+        return result;
     }
 
     public void markAsReturned(String uuid){

@@ -4,6 +4,7 @@ import com.eurekapp.backend.dto.request.SubmitFeedbackRequestDto;
 import com.eurekapp.backend.dto.response.FeedbackRecordDto;
 import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.OrganizationFeedback;
 import com.eurekapp.backend.model.Role;
@@ -247,7 +248,7 @@ class FeedbackServiceTest {
                 .id(1L).organizationId(String.valueOf(ORG_ID)).foundObjectUUID("uuid-objeto-555")
                 .wasFound(true).lostObjectText("billetera negra").createdAt(FROM.atStartOfDay()).build();
         when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(fb));
-        when(foundObjectRepository.getByUuid("uuid-objeto-555")).thenThrow(new RuntimeException("Weaviate caido"));
+        when(foundObjectRepository.getByUuids(any())).thenThrow(new RuntimeException("Weaviate caido"));
 
         List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
 
@@ -255,5 +256,161 @@ class FeedbackServiceTest {
         assertThat(registros.get(0).getFoundObjectTitle()).isEqualTo("billetera negra");
         assertThat(registros.get(0).getFoundObjectDescription()).isNull();
         assertThat(output).contains("WARN").contains("uuid-objeto-555");
+    }
+
+    // Simula la base vectorial: devuelve los objetos que existen; los demas UUID no figuran.
+    private void stubObjetos(java.util.Map<String, FoundObject> objetos) {
+        lenient().when(foundObjectRepository.getByUuids(any())).thenReturn(objetos);
+        lenient().when(foundObjectRepository.getByUuidsOrFail(any())).thenReturn(objetos);
+    }
+
+    private SearchFeedback registro(long id, String uuid, String textoBuscado) {
+        return SearchFeedback.builder()
+                .id(id).organizationId(String.valueOf(ORG_ID)).foundObjectUUID(uuid)
+                .wasFound(uuid != null).lostObjectText(textoBuscado).createdAt(FROM.atStartOfDay()).build();
+    }
+
+    private FoundObject objeto(String uuid, String titulo, String descripcion) {
+        return FoundObject.builder().uuid(uuid).title(titulo).humanDescription(descripcion).build();
+    }
+
+    private String csv(byte[] bytes) {
+        return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    // Si el objeto ya no existe en la base vectorial, la fila sale igual con el texto que la persona
+    // escribio al buscar, y sin descripcion.
+    @Test
+    void getRecords_siElObjetoNoExiste_respondeConElTextoDeLaBusqueda() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+                .thenReturn(List.of(registro(1L, "uuid-borrado", "billetera negra")));
+        stubObjetos(java.util.Map.of());
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros).hasSize(1);
+        assertThat(registros.get(0).getFoundObjectTitle()).isEqualTo("billetera negra");
+        assertThat(registros.get(0).getFoundObjectDescription()).isNull();
+    }
+
+    // Un registro sin objeto (la persona no encontro nada) sale con el texto buscado.
+    @Test
+    void getRecords_siElRegistroNoTieneObjeto_respondeConElTextoDeLaBusqueda() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+                .thenReturn(List.of(registro(1L, null, "paraguas")));
+        stubObjetos(java.util.Map.of());
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros.get(0).getFoundObjectTitle()).isEqualTo("paraguas");
+        assertThat(registros.get(0).getFoundObjectDescription()).isNull();
+    }
+
+    // El listado mantiene el orden de los registros y cada uno lleva el titulo y la descripcion de SU
+    // objeto; un objeto inexistente solo afecta a su propia fila.
+    @Test
+    void getRecords_cadaFilaLlevaLosDatosDeSuObjetoYConservaElOrden() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+                registro(1L, "uuid-a", "texto a"),
+                registro(2L, "uuid-borrado", "texto b"),
+                registro(3L, "uuid-c", "texto c")));
+        stubObjetos(java.util.Map.of(
+                "uuid-a", objeto("uuid-a", "Billetera", "Cuero negro"),
+                "uuid-c", objeto("uuid-c", "Mochila", "Roja")));
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros).extracting(FeedbackRecordDto::getId).containsExactly(1L, 2L, 3L);
+        assertThat(registros).extracting(FeedbackRecordDto::getFoundObjectTitle)
+                .containsExactly("Billetera", "texto b", "Mochila");
+        assertThat(registros).extracting(FeedbackRecordDto::getFoundObjectDescription)
+                .containsExactly("Cuero negro", null, "Roja");
+    }
+
+    // Si dos registros son del mismo objeto, los dos salen con su titulo.
+    @Test
+    void getRecords_siElMismoObjetoApareceEnVariosRegistros_todosSalenConTitulo() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+                registro(1L, "uuid-a", "texto 1"),
+                registro(2L, "uuid-a", "texto 2")));
+        stubObjetos(java.util.Map.of("uuid-a", objeto("uuid-a", "Billetera", "Cuero negro")));
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros).extracting(FeedbackRecordDto::getFoundObjectTitle)
+                .containsExactly("Billetera", "Billetera");
+    }
+
+    @Test
+    void exportCsv_ponePorCadaFilaElTituloDelObjetoOElTextoDeRespaldo() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+                registro(1L, "uuid-a", "texto a"),
+                registro(2L, "uuid-borrado", "texto b"),
+                registro(3L, null, "paraguas"),
+                registro(4L, "uuid-sin-titulo", "texto d"),
+                registro(5L, "uuid-a", "texto e")));
+        stubObjetos(java.util.Map.of(
+                "uuid-a", objeto("uuid-a", "Billetera", null),
+                "uuid-sin-titulo", objeto("uuid-sin-titulo", null, null)));
+
+        String contenido = csv(service.exportCsv(responsable(), FROM, TO, null));
+
+        assertThat(contenido).isEqualTo("\uFEFFID;Organización;Objeto encontrado;¿Encontró el objeto?;Fecha\n"
+                + "1;UTN FRC;Billetera;Sí;2026-05-01\n"
+                + "2;UTN FRC;texto b;Sí;2026-05-01\n"
+                + "3;UTN FRC;paraguas;No;2026-05-01\n"
+                + "4;UTN FRC;texto d;Sí;2026-05-01\n"
+                + "5;UTN FRC;Billetera;Sí;2026-05-01\n");
+    }
+
+    // Si el objeto no se puede convertir, la exportacion falla entera (no se entrega un CSV a medias).
+    @Test
+    void exportCsv_siUnObjetoVieneRoto_laExportacionFalla() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+                .thenReturn(List.of(registro(1L, "uuid-roto", "texto")));
+        when(foundObjectRepository.getByUuidsOrFail(any())).thenThrow(new RuntimeException("objeto roto"));
+
+        assertThatThrownBy(() -> service.exportCsv(responsable(), FROM, TO, null))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    // Todos los objetos del listado se piden en una sola consulta, sin importar cuantas filas haya, y
+    // el mismo objeto se pide una sola vez aunque aparezca en varios registros.
+    @Test
+    void getRecords_pideTodosLosObjetosEnUnaSolaConsultaYSinRepetidos() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+                registro(1L, "uuid-a", "t1"), registro(2L, "uuid-b", "t2"),
+                registro(3L, "uuid-a", "t3"), registro(4L, null, "t4")));
+        stubObjetos(java.util.Map.of());
+
+        service.getRecords(responsable(), FROM, TO, null);
+
+        verify(foundObjectRepository, times(1)).getByUuids(List.of("uuid-a", "uuid-b"));
+        verify(foundObjectRepository, never()).getByUuid(any());
+    }
+
+    // Sin ningun objeto que pedir (listado vacio o registros sin objeto) no se molesta a la base vectorial.
+    @Test
+    void getRecords_sinObjetosParaPedir_noConsultaLaBaseVectorial() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+                .thenReturn(List.of(registro(1L, null, "paraguas")));
+        when(foundObjectRepository.getByUuids(List.of())).thenReturn(java.util.Map.of());
+
+        List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
+
+        assertThat(registros.get(0).getFoundObjectTitle()).isEqualTo("paraguas");
+        verify(foundObjectRepository, never()).getByUuid(any());
+    }
+
+    @Test
+    void exportCsv_pideTodosLosObjetosEnUnaSolaConsulta() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+                registro(1L, "uuid-a", "t1"), registro(2L, "uuid-b", "t2"), registro(3L, "uuid-a", "t3")));
+        stubObjetos(java.util.Map.of());
+
+        service.exportCsv(responsable(), FROM, TO, null);
+
+        verify(foundObjectRepository, times(1)).getByUuidsOrFail(List.of("uuid-a", "uuid-b"));
+        verify(foundObjectRepository, never()).getByUuid(any());
     }
 }

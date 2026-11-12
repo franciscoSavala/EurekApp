@@ -7,6 +7,7 @@ import com.eurekapp.backend.dto.response.RewardExclusionListDto;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.dto.ReturnFoundObjectDto;
 import com.eurekapp.backend.model.*;
+import com.eurekapp.backend.service.FoundObjectSearchService;
 import com.eurekapp.backend.service.IFoundObjectService;
 import com.eurekapp.backend.service.ReturnFoundObjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +33,8 @@ public class FoundObjectController {
 
     @Autowired
     private IFoundObjectService foundObjectService;
+    @Autowired
+    private FoundObjectSearchService foundObjectSearchService;
     @Autowired
     private ReturnFoundObjectService returnFoundObjectService;
 
@@ -78,7 +81,7 @@ public class FoundObjectController {
                 .lostDateTo(lostDateTo)
                 .category(category)
                 .build();
-        return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
+        return ResponseEntity.ok(foundObjectSearchService.getFoundObjectByTextDescription(command));
     }
 
     @GetMapping
@@ -99,7 +102,7 @@ public class FoundObjectController {
                 .longitude(longitude)
                 .category(category)
                 .build();
-        return ResponseEntity.ok(foundObjectService.getFoundObjectByTextDescription(command));
+        return ResponseEntity.ok(foundObjectSearchService.getFoundObjectByTextDescription(command));
     }
 
     @GetMapping("/organizations/all/{organizationId}")
@@ -182,7 +185,7 @@ public class FoundObjectController {
                 .latitude(latitude)
                 .longitude(longitude)
                 .build();
-        return ResponseEntity.ok(foundObjectService.searchByPhoto(file, query, filters));
+        return ResponseEntity.ok(foundObjectSearchService.searchByPhoto(file, query, filters));
     }
 
     @PostMapping("/getReturnedObject")

@@ -9,7 +9,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -46,13 +45,10 @@ const UserManagement = () => {
     const fetchUsers = async (roleFilter) => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const url = roleFilter
                 ? BACK_URL + `/admin/users?role=${roleFilter}`
                 : BACK_URL + `/admin/users`;
-            const res = await axiosInstance.get(url, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(url);
             setUsers(res.data);
         } catch (e) {
             Toast.show({ type: "error", text1: "No se pudo cargar la lista de usuarios." });
@@ -76,12 +72,9 @@ const UserManagement = () => {
         setToggling(user.id);
         const actionPast = user.active ? "desactivado" : "activado";
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.put(
                 BACK_URL + `/admin/users/${user.id}/active`,
-                { active: !user.active },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { active: !user.active });
             Toast.show({ type: "success", text1: `Usuario ${actionPast} correctamente.` });
             fetchUsers(activeFilter);
         } catch (e) {

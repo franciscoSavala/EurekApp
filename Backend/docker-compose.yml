@@ -19,7 +19,7 @@ services:
       start_period: 30s
 
   weaviate:
-    image: semitechnologies/weaviate:1.24.1
+    image: semitechnologies/weaviate:1.36.24
     container_name: eurekapp-weaviate
     ports:
       - "8081:8080"

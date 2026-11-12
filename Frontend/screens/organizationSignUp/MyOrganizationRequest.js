@@ -8,7 +8,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -99,10 +98,7 @@ const MyOrganizationRequest = () => {
     const fetchRequests = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/organizations/requests/my", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/organizations/requests/my");
             setRequests(res.data);
         } catch {
             setRequests([]);
@@ -116,10 +112,7 @@ const MyOrganizationRequest = () => {
     const confirmCancel = async () => {
         setCancelling(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            await axiosInstance.delete(BACK_URL + `/organizations/requests/${cancelTargetId}`, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            await axiosInstance.delete(BACK_URL + `/organizations/requests/${cancelTargetId}`);
             Toast.show({ type: "success", text1: "Solicitud cancelada." });
             fetchRequests();
         } catch {

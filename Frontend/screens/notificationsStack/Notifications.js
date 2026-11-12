@@ -46,10 +46,7 @@ const Notifications = ({ navigation, route }) => {
 
     const fetchNotifications = async () => {
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/notifications", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/notifications");
             setNotifications(res.data);
         } catch (e) {
             console.log("Error fetching notifications", e);
@@ -70,10 +67,7 @@ const Notifications = ({ navigation, route }) => {
      */
     const markAllAsRead = async () => {
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            await axiosInstance.post(BACK_URL + "/notifications/read-all", {}, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            await axiosInstance.post(BACK_URL + "/notifications/read-all", {});
         } catch (e) {
             // silently ignore — lo recupera el próximo refresco
         }
@@ -91,10 +85,7 @@ const Notifications = ({ navigation, route }) => {
 
     const markAsRead = async (id) => {
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            await axiosInstance.post(BACK_URL + `/notifications/${id}/read`, {}, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            await axiosInstance.post(BACK_URL + `/notifications/${id}/read`, {});
             setNotifications((prev) =>
                 prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
             );
@@ -108,12 +99,9 @@ const Notifications = ({ navigation, route }) => {
             setNotifications(prev => prev.map(n =>
                 n.id === notifId ? { ...n, related_request_id: null } : n
             ));
-            const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.post(
                 BACK_URL + "/organizations/acceptAddEmployeeRequest",
-                { requestId },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { requestId });
             if (res.data?.token) {
                 await AsyncStorage.setItem('jwt', res.data.token);
             }
@@ -156,12 +144,9 @@ const Notifications = ({ navigation, route }) => {
             setNotifications(prev => prev.map(n =>
                 n.id === notifId ? { ...n, related_request_id: null } : n
             ));
-            const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.post(
                 BACK_URL + "/organizations/declineAddEmployeeRequest",
-                { requestId },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { requestId });
             await markAsRead(notifId);
             fetchNotifications();
         } catch (e) {
@@ -181,12 +166,9 @@ const Notifications = ({ navigation, route }) => {
         if (openingMatchId) return;
         setOpeningMatchId(item.id);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.post(
                 BACK_URL + "/found-objects/getDetail",
-                { foundObjectUUID: item.related_object_uuid },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { foundObjectUUID: item.related_object_uuid });
             markAsRead(item.id);
             navigation.navigate("FoundObjects", {
                 // El puntaje viaja en el aviso: es el que se calculó cuando se receptó el objeto, o
@@ -213,10 +195,7 @@ const Notifications = ({ navigation, route }) => {
 
     const handleRefreshSession = async (notifId) => {
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/user/refreshUserDetails", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/user/refreshUserDetails");
             if (res.data?.user) {
                 await AsyncStorage.setItem("user.first_name", res.data.user.firstName.toString());
                 await AsyncStorage.setItem("user", JSON.stringify(res.data.user));

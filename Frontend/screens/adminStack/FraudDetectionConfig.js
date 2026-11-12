@@ -11,7 +11,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -49,10 +48,7 @@ const FraudDetectionConfig = () => {
     const fetchConfig = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/admin/fraud/config", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/admin/fraud/config");
             setValues({
                 fraudThreshold: String(res.data.fraudThreshold),
                 fraudWindowDays: String(res.data.fraudWindowDays),
@@ -86,16 +82,13 @@ const FraudDetectionConfig = () => {
         }
         setSaving(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.put(
                 BACK_URL + "/admin/fraud/config",
                 {
                     fraudThreshold: parseInt(values.fraudThreshold, 10),
                     fraudWindowDays: parseInt(values.fraudWindowDays, 10),
                     blockDurationDays: parseInt(values.blockDurationDays, 10),
-                },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                });
             setValues({
                 fraudThreshold: String(res.data.fraudThreshold),
                 fraudWindowDays: String(res.data.fraudWindowDays),
