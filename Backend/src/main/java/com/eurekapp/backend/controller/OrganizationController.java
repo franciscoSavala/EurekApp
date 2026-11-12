@@ -18,6 +18,7 @@ import com.eurekapp.backend.dto.response.UserListResponseDto;
 import java.util.List;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.service.OrganizationRequestService;
 import com.eurekapp.backend.service.OrganizationService;
 import com.eurekapp.backend.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,6 +41,9 @@ public class OrganizationController {
     private OrganizationService organizationService;
 
     @Autowired
+    private OrganizationRequestService organizationRequestService;
+
+    @Autowired
     private UserService userService;
 
     @GetMapping
@@ -56,7 +60,7 @@ public class OrganizationController {
     public ResponseEntity<OrganizationRegistrationResponseDto> signUpOrganization(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestBody @Valid OrganizationRegistrationRequestDto dto) {
-        return ResponseEntity.ok(organizationService.signUpOrganization(user, dto));
+        return ResponseEntity.ok(organizationRequestService.signUpOrganization(user, dto));
     }
 
     @GetMapping("/employees")
@@ -134,7 +138,7 @@ public class OrganizationController {
             description = "Devuelve la cantidad de solicitudes de registro con estado PENDING_APPROVAL. Solo para ADMIN.")
     public ResponseEntity<java.util.Map<String, Long>> getPendingRequestsCount(
             @AuthenticationPrincipal UserEurekapp user) {
-        long count = organizationService.getPendingRequestsCount(user);
+        long count = organizationRequestService.getPendingRequestsCount(user);
         return ResponseEntity.ok(java.util.Map.of("count", count));
     }
 
@@ -143,7 +147,7 @@ public class OrganizationController {
             description = "Devuelve todas las solicitudes de registro. Solo para ADMIN.")
     public ResponseEntity<List<OrganizationRequestSummaryDto>> getOrganizationRequests(
             @AuthenticationPrincipal UserEurekapp user) {
-        return ResponseEntity.ok(organizationService.getOrganizationRequests(user));
+        return ResponseEntity.ok(organizationRequestService.getOrganizationRequests(user));
     }
 
     @GetMapping("/requests/my")
@@ -151,7 +155,7 @@ public class OrganizationController {
             description = "Devuelve todas las solicitudes realizadas por el usuario autenticado, ordenadas por fecha descendente.")
     public ResponseEntity<List<OrganizationRequestDetailDto>> getMyOrganizationRequests(
             @AuthenticationPrincipal UserEurekapp user) {
-        return ResponseEntity.ok(organizationService.getMyOrganizationRequests(user));
+        return ResponseEntity.ok(organizationRequestService.getMyOrganizationRequests(user));
     }
 
     @DeleteMapping("/requests/{id}")
@@ -160,7 +164,7 @@ public class OrganizationController {
     public ResponseEntity<Void> cancelOrganizationRequest(
             @AuthenticationPrincipal UserEurekapp user,
             @PathVariable Long id) {
-        organizationService.cancelOrganizationRequest(user, id);
+        organizationRequestService.cancelOrganizationRequest(user, id);
         return ResponseEntity.ok().build();
     }
 
@@ -170,7 +174,7 @@ public class OrganizationController {
     public ResponseEntity<OrganizationRequestDetailDto> getOrganizationRequestDetail(
             @AuthenticationPrincipal UserEurekapp user,
             @PathVariable Long id) {
-        return ResponseEntity.ok(organizationService.getOrganizationRequestDetail(user, id));
+        return ResponseEntity.ok(organizationRequestService.getOrganizationRequestDetail(user, id));
     }
 
     @PutMapping("/requests/{id}/resolve")
@@ -180,7 +184,7 @@ public class OrganizationController {
             @AuthenticationPrincipal UserEurekapp user,
             @PathVariable Long id,
             @RequestBody @Valid ResolveOrganizationRequestDto dto) {
-        organizationService.resolveOrganizationRequest(user, id, dto);
+        organizationRequestService.resolveOrganizationRequest(user, id, dto);
         return ResponseEntity.ok().build();
     }
 
