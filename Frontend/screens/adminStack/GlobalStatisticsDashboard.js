@@ -8,7 +8,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -43,10 +42,7 @@ const GlobalStatisticsDashboard = () => {
     const fetchStats = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + "/admin/stats", {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + "/admin/stats");
             setStats(res.data);
         } catch (e) {
             Toast.show({ type: "error", text1: "No se pudo cargar el dashboard." });

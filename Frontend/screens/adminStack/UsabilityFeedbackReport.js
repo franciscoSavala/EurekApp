@@ -53,14 +53,11 @@ const UsabilityFeedbackReport = ({ navigation }) => {
         setLoading(true);
         setError(null);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
             setAppliedRange({ from: params.from, to: params.to });
-            const headers = { Authorization: `Bearer ${jwt}` };
-
             const [repRes, recRes] = await Promise.all([
-                axiosInstance.get(`${BACK_URL}/usability-feedback/report`, { headers, params }),
-                axiosInstance.get(`${BACK_URL}/usability-feedback/records`, { headers, params: { from: formatDateISO(fromDate), to: formatDateISO(toDate) } }),
+                axiosInstance.get(`${BACK_URL}/usability-feedback/report`, { params }),
+                axiosInstance.get(`${BACK_URL}/usability-feedback/records`, { params: { from: formatDateISO(fromDate), to: formatDateISO(toDate) } }),
             ]);
             setReportData(repRes.data);
             setRecords(recRes.data || []);
@@ -138,9 +135,7 @@ const UsabilityFeedbackReport = ({ navigation }) => {
     const regroup = async () => {
         if (!appliedRange) return;
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const res = await axiosInstance.get(`${BACK_URL}/usability-feedback/report`, {
-                headers: { Authorization: `Bearer ${jwt}` },
                 params: { from: appliedRange.from, to: appliedRange.to, groupBy },
             });
             setReportData(res.data);

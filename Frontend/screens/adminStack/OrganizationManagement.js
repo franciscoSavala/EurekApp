@@ -8,7 +8,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -46,10 +45,7 @@ const OrganizationManagement = () => {
     const fetchOrgs = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + `/admin/organizations`, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + `/admin/organizations`);
             setOrgs(res.data);
         } catch (e) {
             Toast.show({ type: "error", text1: "No se pudo cargar la lista de organizaciones." });
@@ -64,12 +60,9 @@ const OrganizationManagement = () => {
         setOrgConfirmVisible(false);
         setToggling(org.id);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.put(
                 BACK_URL + `/admin/organizations/${org.id}/active`,
-                { active: !org.active },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { active: !org.active });
             const msg = org.active ? "Organización desactivada correctamente." : "Organización activada correctamente.";
             Toast.show({ type: "success", text1: msg });
             fetchOrgs();

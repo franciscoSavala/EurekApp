@@ -7,6 +7,16 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const axiosInstance = axios.create();
 
+// Todo pedido que sale por esta instancia lleva el JWT guardado. Los reintentos tras renovar la
+// sesión ya traen el token nuevo puesto y no se pisan. Sin sesión iniciada no se agrega nada.
+axiosInstance.interceptors.request.use(async (config) => {
+    const jwt = await AsyncStorage.getItem('jwt');
+    if (jwt && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${jwt}`;
+    }
+    return config;
+});
+
 // Cola de requests que esperan a que termine una renovación de token en curso,
 // para no disparar múltiples /auth/refresh en paralelo.
 let isRefreshing = false;

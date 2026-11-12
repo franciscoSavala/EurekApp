@@ -449,10 +449,7 @@ const EurekappTab = () => {
     useEffect(() => {
         const fetchUnreadCount = async () => {
             try {
-                const jwt = await AsyncStorage.getItem('jwt');
-                const res = await axiosInstance.get(BACK_URL + '/notifications/unread-count', {
-                    headers: { Authorization: 'Bearer ' + jwt },
-                });
+                const res = await axiosInstance.get(BACK_URL + '/notifications/unread-count');
                 const newCount = res.data.count || 0;
                 if (!isFirstFetchRef.current && newCount > prevCountRef.current) {
                     Toast.show({
@@ -476,10 +473,7 @@ const EurekappTab = () => {
     const fetchPendingCount = useCallback(async () => {
         if (userRole !== 'ADMIN') return;
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count', {
-                headers: { Authorization: 'Bearer ' + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + '/organizations/requests/pending-count');
             setPendingOrgRequestCount(res.data.count || 0);
         } catch (e) {
             // silently ignore — badge es opcional
@@ -501,10 +495,7 @@ const EurekappTab = () => {
     const fetchUnseenFraudAlertCount = useCallback(async () => {
         if (userRole !== 'ADMIN') return;
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const res = await axiosInstance.get(BACK_URL + '/fraud-alerts/unseen-count', {
-                headers: { Authorization: 'Bearer ' + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + '/fraud-alerts/unseen-count');
             setUnseenFraudAlertCount(res.data.count || 0);
         } catch (e) {
             // silently ignore — badge es opcional
@@ -529,10 +520,7 @@ const EurekappTab = () => {
         if (userRole !== 'ADMIN') return;
         setUnseenFraudAlertCount(0);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            await axiosInstance.post(BACK_URL + '/fraud-alerts/seen', {}, {
-                headers: { Authorization: 'Bearer ' + jwt },
-            });
+            await axiosInstance.post(BACK_URL + '/fraud-alerts/seen', {});
         } catch (e) {
             // silently ignore — lo recupera el próximo refresco
         }

@@ -58,10 +58,8 @@ const Reports = ({ navigation }) => {
         setLoadingMain(true);
         setError(null);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
-            const headers = { Authorization: `Bearer ${jwt}` };
-            const res = await axiosInstance.get(`${BACK_URL}/reports`, { headers, params });
+            const res = await axiosInstance.get(`${BACK_URL}/reports`, { params });
             setData(res.data);
         } catch (e) {
             setError("No se pudieron cargar los reportes.");
@@ -74,14 +72,12 @@ const Reports = ({ navigation }) => {
     const fetchFeedback = async () => {
         setLoadingFeedback(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
-            const headers = { Authorization: `Bearer ${jwt}` };
             const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const recParams = { from: formatDateISO(fromDate), to: formatDateISO(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const [fbRes, recRes] = await Promise.all([
-                axiosInstance.get(`${BACK_URL}/feedback/report`, { headers, params: fbParams }),
-                axiosInstance.get(`${BACK_URL}/feedback/records`, { headers, params: recParams }),
+                axiosInstance.get(`${BACK_URL}/feedback/report`, { params: fbParams }),
+                axiosInstance.get(`${BACK_URL}/feedback/records`, { params: recParams }),
             ]);
             setFeedbackData(fbRes.data);
             setFeedbackRecords(recRes.data || []);

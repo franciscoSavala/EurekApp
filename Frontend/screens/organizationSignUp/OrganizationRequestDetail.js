@@ -9,7 +9,6 @@ import {
     View,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
@@ -52,10 +51,7 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
     const fetchDetail = async () => {
         setLoading(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
-            const res = await axiosInstance.get(BACK_URL + `/organizations/requests/${requestId}`, {
-                headers: { Authorization: "Bearer " + jwt },
-            });
+            const res = await axiosInstance.get(BACK_URL + `/organizations/requests/${requestId}`);
             setRequest(res.data);
         } catch (e) {
             Toast.show({ type: "error", text1: "No se pudo cargar la solicitud." });
@@ -74,12 +70,9 @@ const OrganizationRequestDetail = ({ route, navigation }) => {
         }
         setResolving(true);
         try {
-            const jwt = await AsyncStorage.getItem("jwt");
             await axiosInstance.put(
                 BACK_URL + `/organizations/requests/${requestId}/resolve`,
-                { resolution, adminNote: adminNote.trim() || null },
-                { headers: { Authorization: "Bearer " + jwt } }
-            );
+                { resolution, adminNote: adminNote.trim() || null });
             const msg = resolution === "APPROVED" ? "Solicitud aprobada correctamente." : "Solicitud rechazada.";
             Toast.show({ type: "success", text1: msg });
             navigation.goBack();

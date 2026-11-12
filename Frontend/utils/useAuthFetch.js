@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import axiosInstance from './axiosInstance';
 
 const useAuthFetch = () => {
@@ -10,13 +9,11 @@ const useAuthFetch = () => {
         setLoading(true);
         setError(null);
         try {
-            const jwt = await AsyncStorage.getItem('jwt');
-            const config = { headers: { Authorization: `Bearer ${jwt}` } };
             const res = method === 'get'
-                ? await axiosInstance.get(url, config)
+                ? await axiosInstance.get(url)
                 : method === 'put'
-                ? await axiosInstance.put(url, data, config)
-                : await axiosInstance.post(url, data, config);
+                ? await axiosInstance.put(url, data)
+                : await axiosInstance.post(url, data);
             return res.data;
         } catch (e) {
             setError(e);
