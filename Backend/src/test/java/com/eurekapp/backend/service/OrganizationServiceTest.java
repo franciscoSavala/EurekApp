@@ -1,6 +1,11 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.dto.request.OrganizationRegistrationRequestDto;
 import com.eurekapp.backend.dto.request.ResolveOrganizationRequestDto;
+import com.eurekapp.backend.dto.response.OrganizationListResponseDto;
+import com.eurekapp.backend.dto.response.OrganizationRegistrationResponseDto;
+import com.eurekapp.backend.dto.response.OrganizationRequestDetailDto;
+import com.eurekapp.backend.dto.response.OrganizationRequestSummaryDto;
 import com.eurekapp.backend.dto.response.OrganizationPolicyDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
@@ -350,5 +355,325 @@ class OrganizationServiceTest {
 
         verify(policyRepository, never()).save(any());
         verify(historyRepository, never()).save(any());
+    }
+
+    // ── Alta de organización ──────────────────────────────────────────────────
+
+    private OrganizationRegistrationRequestDto altaDto() {
+        return OrganizationRegistrationRequestDto.builder()
+                .organizationName("Club Atlético")
+                .organizationType(OrganizationType.CLUB)
+                .street("Calle").streetNumber("123").city("Córdoba")
+                .province("Córdoba").country("Argentina")
+                .latitude(-31.4).longitude(-64.2)
+                .ownerFirstName("Dueño").ownerLastName("Nuevo")
+                .ownerEmail("owner@mail.com").ownerPhone("351")
+                .reason("motivo")
+                .build();
+    }
+
+    @Test
+    void alta_valida_guardaSolicitudPendienteAvisaAlSolicitanteYATodosLosAdmins() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        UserEurekapp admin1 = user(Role.ADMIN, "admin1@mail.com");
+        UserEurekapp admin2 = user(Role.ADMIN, "admin2@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(solicitante, OrganizationRequestStatus.PENDING_APPROVAL))
+                .thenReturn(List.of());
+        when(userRepository.findByUsernameAndRole("owner@mail.com", Role.ORGANIZATION_OWNER))
+                .thenReturn(Optional.empty());
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin1, admin2));
+        when(emailTemplateService.buildOrgRequestSubmittedEmail(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any())).thenReturn("cuerpo-recibida");
+        when(emailTemplateService.buildOrgRequestNewEmail(any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn("cuerpo-nueva");
+
+        OrganizationRegistrationResponseDto respuesta = service.signUpOrganization(solicitante, altaDto());
+
+        ArgumentCaptor<OrganizationRequest> captor = ArgumentCaptor.forClass(OrganizationRequest.class);
+        verify(requestRepository).save(captor.capture());
+        assertThat(captor.getValue().getStatus()).isEqualTo(OrganizationRequestStatus.PENDING_APPROVAL);
+        assertThat(captor.getValue().getRequestingUser()).isSameAs(solicitante);
+        assertThat(captor.getValue().getOrganizationName()).isEqualTo("Club Atlético");
+        assertThat(captor.getValue().getCoordinates().getLatitude()).isEqualTo(-31.4);
+        assertThat(respuesta.getMessage()).isEqualTo(
+                "Tu solicitud fue enviada correctamente. Un administrador la revisará a la brevedad.");
+        verify(notificationService).sendNotification("solicitante@mail.com",
+                "EurekApp — Solicitud de organización recibida", "cuerpo-recibida");
+        verify(inAppNotificationService).createNotification(eq(admin1), eq("Nueva solicitud de organización"),
+                contains("Club Atlético"), eq("ORG_REGISTRATION_REQUEST"), any());
+        verify(inAppNotificationService).createNotification(eq(admin2), eq("Nueva solicitud de organización"),
+                contains("Club Atlético"), eq("ORG_REGISTRATION_REQUEST"), any());
+        verify(notificationService).sendNotification("admin1@mail.com",
+                "EurekApp — Nueva solicitud de registro de organización", "cuerpo-nueva");
+        verify(notificationService).sendNotification("admin2@mail.com",
+                "EurekApp — Nueva solicitud de registro de organización", "cuerpo-nueva");
+    }
+
+    @Test
+    void alta_unAdministradorNoPuedeSolicitar_lanzaForbiddenSinGuardar() {
+        UserEurekapp admin = user(Role.ADMIN, "admin");
+
+        assertThatThrownBy(() -> service.signUpOrganization(admin, altaDto()))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void alta_conSolicitudPendiente_lanzaBadRequest() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(solicitante, OrganizationRequestStatus.PENDING_APPROVAL))
+                .thenReturn(List.of(pendingRequest(solicitante)));
+
+        assertThatThrownBy(() -> service.signUpOrganization(solicitante, altaDto()))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("pendiente");
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void alta_fueraDeCordobaOArgentina_lanzaBadRequest() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(any(), any())).thenReturn(List.of());
+        OrganizationRegistrationRequestDto otraProvincia = altaDto();
+        otraProvincia.setProvince("Mendoza");
+        OrganizationRegistrationRequestDto otroPais = altaDto();
+        otroPais.setCountry("Chile");
+
+        assertThatThrownBy(() -> service.signUpOrganization(solicitante, otraProvincia))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("Córdoba");
+        assertThatThrownBy(() -> service.signUpOrganization(solicitante, otroPais))
+                .isInstanceOf(BadRequestException.class).hasMessageContaining("Argentina");
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void alta_tipoOtroSinEspecificar_lanzaBadRequest() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(any(), any())).thenReturn(List.of());
+        OrganizationRegistrationRequestDto dto = altaDto();
+        dto.setOrganizationType(OrganizationType.OTHER);
+        dto.setCustomOrganizationType(" ");
+
+        assertThatThrownBy(() -> service.signUpOrganization(solicitante, dto))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void alta_conCorreoDeResponsableYaUsado_lanzaBadRequest() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(any(), any())).thenReturn(List.of());
+        when(userRepository.findByUsernameAndRole("owner@mail.com", Role.ORGANIZATION_OWNER))
+                .thenReturn(Optional.of(user(Role.ORGANIZATION_OWNER, "owner@mail.com")));
+
+        assertThatThrownBy(() -> service.signUpOrganization(solicitante, altaDto()))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void alta_siFallaElMailDeConfirmacion_laSolicitudQuedaGuardadaYSeAvisaALosAdmins() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        UserEurekapp admin = user(Role.ADMIN, "admin1@mail.com");
+        when(requestRepository.findByRequestingUserAndStatus(any(), any())).thenReturn(List.of());
+        when(userRepository.findByUsernameAndRole(any(), any())).thenReturn(Optional.empty());
+        when(userRepository.findAllByRole(Role.ADMIN)).thenReturn(List.of(admin));
+        when(emailTemplateService.buildOrgRequestSubmittedEmail(any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any())).thenThrow(new RuntimeException("plantilla rota"));
+        when(emailTemplateService.buildOrgRequestNewEmail(any(), any(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn("cuerpo-nueva");
+
+        service.signUpOrganization(solicitante, altaDto());
+
+        verify(requestRepository).save(any(OrganizationRequest.class));
+        verify(inAppNotificationService).createNotification(eq(admin), anyString(), anyString(),
+                eq("ORG_REGISTRATION_REQUEST"), any());
+    }
+
+    // ── Solicitudes: usuario ──────────────────────────────────────────────────
+
+    @Test
+    void misSolicitudes_devuelveLasDelUsuarioConSuDetalle() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findByRequestingUserOrderByCreatedAtDesc(solicitante))
+                .thenReturn(List.of(pendingRequest(solicitante)));
+
+        List<OrganizationRequestDetailDto> resultado = service.getMyOrganizationRequests(solicitante);
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).getOrganizationName()).isEqualTo("Club Atlético");
+        assertThat(resultado.get(0).getStatus()).isEqualTo("PENDING_APPROVAL");
+        assertThat(resultado.get(0).getRequestingUserEmail()).isEqualTo("solicitante@mail.com");
+        assertThat(resultado.get(0).getResolvedByEmail()).isNull();
+    }
+
+    @Test
+    void cancelar_laPropiaSolicitudPendiente_laMarcaComoCancelada() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        solicitante.setId(1L);
+        OrganizationRequest request = pendingRequest(solicitante);
+        when(requestRepository.findById(7L)).thenReturn(Optional.of(request));
+
+        service.cancelOrganizationRequest(solicitante, 7L);
+
+        assertThat(request.getStatus()).isEqualTo(OrganizationRequestStatus.CANCELLED);
+        verify(requestRepository).save(request);
+    }
+
+    @Test
+    void cancelar_solicitudAjena_lanzaForbidden() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        solicitante.setId(1L);
+        UserEurekapp otro = user(Role.USER, "otro@mail.com");
+        otro.setId(2L);
+        when(requestRepository.findById(7L)).thenReturn(Optional.of(pendingRequest(solicitante)));
+
+        assertThatThrownBy(() -> service.cancelOrganizationRequest(otro, 7L))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelar_solicitudYaResuelta_lanzaBadRequest() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        solicitante.setId(1L);
+        OrganizationRequest request = pendingRequest(solicitante);
+        request.setStatus(OrganizationRequestStatus.APPROVED);
+        when(requestRepository.findById(7L)).thenReturn(Optional.of(request));
+
+        assertThatThrownBy(() -> service.cancelOrganizationRequest(solicitante, 7L))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(requestRepository, never()).save(any());
+    }
+
+    @Test
+    void cancelar_solicitudInexistente_lanzaNotFound() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.cancelOrganizationRequest(solicitante, 99L))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    // ── Solicitudes: administrador ────────────────────────────────────────────
+
+    @Test
+    void conteoDePendientes_paraAdmin_cuentaLasPendientes() {
+        when(requestRepository.countByStatus(OrganizationRequestStatus.PENDING_APPROVAL)).thenReturn(4L);
+
+        assertThat(service.getPendingRequestsCount(user(Role.ADMIN, "admin"))).isEqualTo(4L);
+    }
+
+    @Test
+    void conteoDePendientes_paraNoAdmin_lanzaForbidden() {
+        assertThatThrownBy(() -> service.getPendingRequestsCount(user(Role.USER, "u")))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(requestRepository, never()).countByStatus(any());
+    }
+
+    @Test
+    void listadoDeSolicitudes_paraAdmin_resumeCadaSolicitud() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findAll()).thenReturn(List.of(pendingRequest(solicitante)));
+
+        List<OrganizationRequestSummaryDto> resultado = service.getOrganizationRequests(user(Role.ADMIN, "admin"));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).getOrganizationName()).isEqualTo("Club Atlético");
+        assertThat(resultado.get(0).getOrganizationType()).isEqualTo("CLUB");
+        assertThat(resultado.get(0).getOwnerEmail()).isEqualTo("owner@mail.com");
+        assertThat(resultado.get(0).getRequestingUserEmail()).isEqualTo("solicitante@mail.com");
+    }
+
+    @Test
+    void listadoDeSolicitudes_paraNoAdmin_lanzaForbidden() {
+        assertThatThrownBy(() -> service.getOrganizationRequests(user(Role.USER, "u")))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(requestRepository, never()).findAll();
+    }
+
+    @Test
+    void detalleDeSolicitud_paraAdmin_devuelveTodosLosDatos() {
+        UserEurekapp solicitante = user(Role.USER, "solicitante@mail.com");
+        when(requestRepository.findById(7L)).thenReturn(Optional.of(pendingRequest(solicitante)));
+
+        OrganizationRequestDetailDto detalle = service.getOrganizationRequestDetail(user(Role.ADMIN, "admin"), 7L);
+
+        assertThat(detalle.getId()).isEqualTo(7L);
+        assertThat(detalle.getReason()).isEqualTo("motivo");
+        assertThat(detalle.getRequestingUserFirstName()).isEqualTo("Nombre");
+        assertThat(detalle.getLatitude()).isNull();
+    }
+
+    @Test
+    void detalleDeSolicitud_paraNoAdmin_lanzaForbidden() {
+        assertThatThrownBy(() -> service.getOrganizationRequestDetail(user(Role.USER, "u"), 7L))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void detalleDeSolicitud_inexistente_lanzaNotFound() {
+        when(requestRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getOrganizationRequestDetail(user(Role.ADMIN, "admin"), 99L))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    // ── Listado público y lectura de política ─────────────────────────────────
+
+    @Test
+    void listadoPublico_omiteLasInactivasYNoExponeElContacto() {
+        Organization activa = Organization.builder().id(1L).name("Activa").street("Calle").streetNumber("1")
+                .city("Córdoba").province("Córdoba").country("Argentina").contactData("privado@mail.com").build();
+        Organization inactiva = Organization.builder().id(2L).name("Inactiva").active(false).build();
+        when(organizationRepository.findAll()).thenReturn(List.of(activa, inactiva));
+
+        OrganizationListResponseDto resultado = service.getAllOrganizations();
+
+        assertThat(resultado.getOrganizations()).hasSize(1);
+        assertThat(resultado.getOrganizations().get(0).getName()).isEqualTo("Activa");
+        assertThat(resultado.getOrganizations().get(0).getAddress()).doesNotContain("privado@mail.com");
+    }
+
+    @Test
+    void getPolicy_sinPoliticaCargada_devuelveSoloElHistorial() {
+        UserEurekapp owner = owner();
+        when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.empty());
+        when(historyRepository.findByOrganizationIdOrderByChangedAtDesc(5L)).thenReturn(List.of());
+
+        OrganizationPolicyDto resultado = service.getPolicy(owner);
+
+        assertThat(resultado.getMaxStorageDays()).isNull();
+        assertThat(resultado.getHistory()).isEmpty();
+    }
+
+    @Test
+    void getPolicy_conPolitica_devuelveSusValores() {
+        UserEurekapp owner = owner();
+        OrganizationPolicy politica = OrganizationPolicy.builder().organization(owner.getOrganization())
+                .maxStorageDays(15).organizationType(OrganizationType.CLUB).build();
+        when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.of(politica));
+        when(historyRepository.findByOrganizationIdOrderByChangedAtDesc(5L)).thenReturn(List.of());
+
+        OrganizationPolicyDto resultado = service.getPolicy(owner);
+
+        assertThat(resultado.getMaxStorageDays()).isEqualTo(15);
+        assertThat(resultado.getOrganizationType()).isEqualTo("CLUB");
+    }
+
+    @Test
+    void getPolicy_usuarioQueNoEsResponsable_lanzaForbidden() {
+        assertThatThrownBy(() -> service.getPolicy(user(Role.USER, "u")))
+                .isInstanceOf(ForbiddenException.class);
     }
 }
