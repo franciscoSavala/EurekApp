@@ -25,7 +25,7 @@ const opcion = (page, texto) => page.locator('a', { has: page.getByText(texto, {
 
 test.describe('Menú lateral según el rol', () => {
     for (const [rol, visibles] of Object.entries(OPCIONES)) {
-        test(`el rol ${rol} ve exactamente sus opciones del menú`, async ({ browser }) => {
+        test(`el rol ${rol} ve exactamente sus opciones del menú @menu ${rol === 'admin' ? '@paralelo' : '@serie'}`, async ({ browser }) => {
             const { context, page } = await abrirComoUsuario(browser, USUARIOS[rol]);
             await abrirMenu(page);
             for (const texto of TODAS) {
@@ -37,7 +37,7 @@ test.describe('Menú lateral según el rol', () => {
         });
     }
 
-    test('cada rol arranca en su pantalla de inicio', async ({ browser }) => {
+    test('cada rol arranca en su pantalla de inicio @menu @serie', async ({ browser }) => {
         const inicio = {
             usuario: 'Descripción del objeto:',
             empleado: 'Inventario',
@@ -50,7 +50,7 @@ test.describe('Menú lateral según el rol', () => {
         }
     });
 
-    test('los contadores del menú coinciden con lo que informa el servidor', async ({ browser }) => {
+    test('los contadores del menú coinciden con lo que informa el servidor @menu @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const sinLeer = esperarRespuesta(page, 'GET', '/notifications/unread-count');
         const pendientes = esperarRespuesta(page, 'GET', '/organizations/requests/pending-count');

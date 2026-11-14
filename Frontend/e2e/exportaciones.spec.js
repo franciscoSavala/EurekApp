@@ -18,7 +18,7 @@ async function cambiarFecha(page, etiqueta, fecha) {
 }
 
 test.describe('Exportaciones de reportes a CSV', () => {
-    test('casos 259 y 260: el dueño de la organización descarga el CSV del reporte de uso con su encabezado', async ({ browser }) => {
+    test('casos 259 y 260: el dueño de la organización descarga el CSV del reporte de uso con su encabezado @exportaciones @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.dueno);
         await irAlMenu(page, 'Reportes');
         const exportar = page.getByText('Exportar CSV', { exact: true });
@@ -31,7 +31,7 @@ test.describe('Exportaciones de reportes a CSV', () => {
         await context.close();
     });
 
-    test('caso 261: sin datos en el período el CSV se descarga solo con el encabezado', async ({ browser }) => {
+    test('caso 261: sin datos en el período el CSV se descarga solo con el encabezado @exportaciones @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.dueno);
         await irAlMenu(page, 'Reportes');
         await cambiarFecha(page, 'Desde', '2020-01-01');
@@ -44,7 +44,7 @@ test.describe('Exportaciones de reportes a CSV', () => {
         await context.close();
     });
 
-    test('casos 259 y 260: el administrador descarga el CSV del reporte de fraude con datos', async ({ browser }) => {
+    test('casos 259 y 260: el administrador descarga el CSV del reporte de fraude con datos @exportaciones @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         await irAlMenu(page, 'Alertas de fraude');
         await page.getByText('Ver reporte', { exact: true }).click();
@@ -62,7 +62,7 @@ test.describe('Exportaciones de reportes a CSV', () => {
         await context.close();
     });
 
-    test('el administrador descarga el CSV del reporte de opiniones de usabilidad de la app', async ({ browser }) => {
+    test('el administrador descarga el CSV del reporte de opiniones de usabilidad de la app @exportaciones @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         await irAlMenu(page, 'Opiniones sobre la app');
         const exportar = page.getByText('Exportar CSV', { exact: true });

@@ -76,6 +76,9 @@
     "web": "expo start --web",
     "test": "jest",
     "postinstall": "node react-native-map-web-fix.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:serie": "playwright test --grep @serie --workers=1",
+    "test:e2e:paralelo": "playwright test --grep @paralelo --workers=3",
+    "test:e2e:regresion": "node e2e/regresion.js"
   }
 }

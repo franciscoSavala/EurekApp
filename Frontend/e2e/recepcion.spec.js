@@ -18,7 +18,7 @@ test.describe('Recepción de un objeto encontrado', () => {
         await context.close();
     });
 
-    test('caso 076: la pantalla muestra todos los campos del formulario', async () => {
+    test('caso 076: la pantalla muestra todos los campos del formulario @recepcion @serie', async () => {
         await expect(page.getByText('Titulo de la publicación:')).toBeVisible();
         await expect(page.getByText('Usuario de Eurekapp (email, opcional):')).toBeVisible();
         await expect(page.getByText('Imagen del objeto encontrado:')).toBeVisible();
@@ -30,7 +30,7 @@ test.describe('Recepción de un objeto encontrado', () => {
         await expect(page.getByText('Receptar objeto encontrado', { exact: true })).toBeVisible();
     });
 
-    test('casos 077, 094, 095 y 134: recepta un objeto con título y foto PNG, muestra el aviso y queda en el inventario', async () => {
+    test('casos 077, 094, 095 y 134: recepta un objeto con título y foto PNG, muestra el aviso y queda en el inventario @recepcion @serie', async () => {
         const titulo = nombreUnico('Billetera e2e');
         await page.getByPlaceholder('Escribe un título').fill(titulo);
         await page.locator('input[type="file"]').first().setInputFiles(foto('billetera.png'));
@@ -44,7 +44,7 @@ test.describe('Recepción de un objeto encontrado', () => {
         await bajarHastaVer(page, titulo);
     });
 
-    test('caso 079: sin título no registra el objeto y pide escribirlo', async () => {
+    test('caso 079: sin título no registra el objeto y pide escribirlo @recepcion @serie', async () => {
         await page.locator('input[type="file"]').first().setInputFiles(foto('billetera.png'));
         await page.getByText('Receptar objeto encontrado', { exact: true }).click();
 
@@ -52,7 +52,7 @@ test.describe('Recepción de un objeto encontrado', () => {
         await expect(page.getByText(MENSAJE_EXITO)).toHaveCount(0);
     });
 
-    test('caso 089 (rechazo): sin imagen no registra el objeto y pide subir una', async () => {
+    test('caso 089 (rechazo): sin imagen no registra el objeto y pide subir una @recepcion @serie', async () => {
         await page.getByPlaceholder('Escribe un título').fill(nombreUnico('Objeto sin foto e2e'));
         await page.getByText('Receptar objeto encontrado', { exact: true }).click();
 
@@ -60,14 +60,14 @@ test.describe('Recepción de un objeto encontrado', () => {
         await expect(page.getByText(MENSAJE_EXITO)).toHaveCount(0);
     });
 
-    test('caso 092: rechaza una imagen en formato no permitido', async () => {
+    test('caso 092: rechaza una imagen en formato no permitido @recepcion @serie', async () => {
         await page.locator('input[type="file"]').first().setInputFiles(foto('formato_invalido.gif'));
 
         await expect(page.getByText('Formato no permitido')).toBeVisible();
         await expect(page.getByText('Solo se permiten imágenes .jpg, .jpeg o .png')).toBeVisible();
     });
 
-    test('caso 093: rechaza una imagen que supera los 10 MB', async () => {
+    test('caso 093: rechaza una imagen que supera los 10 MB @recepcion @serie', async () => {
         await page.getByPlaceholder('Escribe un título').fill(nombreUnico('Objeto pesado e2e'));
         await page.locator('input[type="file"]').first().setInputFiles({
             name: 'pesada.jpg', mimeType: 'image/jpeg', buffer: fotoPesada(10.5),
