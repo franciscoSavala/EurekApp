@@ -30,6 +30,9 @@ Los tests corren de a uno porque comparten la base. Cada uno tarda entre 20 y 60
 | `recepcion.spec.js` | Receptar un objeto: campos, éxito, título obligatorio, formato y tamaño de imagen. |
 | `devolucion.spec.js` | Devolver un objeto: formulario, datos obligatorios, DNI inválido y devolución completa. |
 | `busqueda.spec.js` | Buscar por texto, por foto con descripción, descripción obligatoria, formato de imagen y sin coincidencias. |
+| `busqueda-formulario.spec.js` | Pantalla Buscar un objeto: campos, datos mínimos, pin del mapa, filtros avanzados y carga, reemplazo y tamaño de la foto (carril paralelo). |
+| `busqueda-resultados.spec.js` | Resultados de la búsqueda: solo descripción, fecha y hora, mejora con foto, objetos que no se parecen, palabra clave y filtros (carril paralelo). |
+| `busqueda-sin-coincidencias.spec.js` | Búsqueda sin coincidencias: aviso, volver, calificación, comentario y modal de guardar la búsqueda (carril paralelo). |
 | `exportaciones.spec.js` | Descarga de los CSV de reportes de uso, de fraude y de opiniones de usabilidad. |
 | `autenticacion.spec.js` | Pantallas de avisos, administración (contadores, dashboard, usuarios, organizaciones, configuración de fraude, solicitudes de alta, opiniones), solicitud de organización y calificaciones: muestran datos reales y ningún pedido sale sin credencial ni es rechazado por sesión inválida. |
 
