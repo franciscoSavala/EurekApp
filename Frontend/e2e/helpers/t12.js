@@ -2,7 +2,7 @@
 const fs = require('fs');
 const { expect } = require('@playwright/test');
 const { foto, CLAVE } = require('../helpers');
-const { abrirComo: abrirComoCompartido } = require('./t02');
+const sesion = require('./sesion');
 const { URL_BACK, auth } = require('./t08');
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -14,31 +14,18 @@ const fechaLocal = (ms) => {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 };
 
-/** Inicia sesión por la API (con reintento ante el límite de 10 por minuto) y devuelve { token, orgId }. */
+/** Inicia sesión por la API (con cupo y reintento ante 429, ver helpers/sesion.js) y devuelve { token, orgId }. */
 async function loginConOrg(request, email, clave = CLAVE) {
-    let r;
-    for (let i = 0; i < 24; i++) {
-        r = await request.post(`${URL_BACK}/login`, { data: { username: email, password: clave } });
-        if (r.status() !== 429) break;
-        await pausa(8000 + Math.floor(Math.random() * 8000));
-    }
-    if (!r.ok()) throw new Error(`login ${email}: ${r.status()}`);
-    const j = await r.json();
+    const j = await sesion.loginApi(request, email, clave);
     return { token: j.token, orgId: j.organization && j.organization.id };
 }
 
-/** Registra un usuario nuevo; con 3 workers el cupo de /signup se agota, así que reintenta más tiempo. */
+/** Registra un usuario nuevo (con cupo y reintento ante 429). */
 async function registrarUsuario(request, sufijo) {
     const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
     const email = `t12.${sufijo}.${id}@eurekapp.com`;
-    let r;
-    for (let i = 0; i < 24; i++) {
-        r = await request.post(`${URL_BACK}/signup`, { data: { firstname: 'Prueba', lastname: `T12${sufijo}${id}`, username: email, password: CLAVE } });
-        if (r.status() !== 429) break;
-        await pausa(8000 + Math.floor(Math.random() * 8000));
-    }
-    if (!r.ok()) throw new Error(`signup ${email}: ${r.status()}`);
-    return { email, token: (await r.json()).token };
+    const cuerpo = await sesion.registrarUsuario(request, { firstname: 'Prueba', lastname: `T12${sufijo}${id}`, username: email, password: CLAVE });
+    return { email, token: cuerpo.token };
 }
 
 /** Recepta un objeto por la API, con foto de billetera y, si se pasa, el usuario que lo encontró. */
@@ -111,19 +98,8 @@ function tarjeta(page, ...textos) {
 /** Color de fondo de un elemento (las no leídas llevan fondo celeste). */
 const fondoDe = (loc) => loc.evaluate((e) => getComputedStyle(e).backgroundColor);
 
-/** Abre sesión por pantalla con más paciencia que t02 (el cupo de ingresos lo comparte todo el equipo). */
-async function abrirComo(browser, email) {
-    let ultimo;
-    for (let i = 0; i < 12; i++) {
-        try {
-            return await abrirComoCompartido(browser, email);
-        } catch (e) {
-            ultimo = e;
-            await pausa(10000 + Math.floor(Math.random() * 10000));
-        }
-    }
-    throw ultimo;
-}
+/** Abre la sesión de `email` (ver helpers/sesion.js). */
+const abrirComo = (browser, email) => sesion.abrirComo(browser, email);
 
 module.exports = {
     abrirComo,

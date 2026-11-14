@@ -51,6 +51,8 @@ async function irAlLogin(page) {
 async function completarYEnviarLogin(page, email, clave) {
     await page.getByPlaceholder('Email').fill(email);
     await page.getByPlaceholder('Contraseña').fill(clave);
+    // El ingreso cuenta para el cupo de /login del servidor: se espera el turno antes de enviarlo.
+    await require('./helpers/sesion').esperarCupo();
     await page.getByText('Iniciar sesión', { exact: true }).last().click();
 }
 
@@ -61,28 +63,9 @@ async function iniciarSesion(page, email, clave = CLAVE) {
     await expect(page.getByText('Logout')).toBeVisible();
 }
 
-/*
- * Para no repetir el ingreso por pantalla en cada test, la primera vez que se pide un usuario se
- * inicia sesión por la interfaz y se guarda el estado del navegador; los tests siguientes abren
- * una pestaña nueva con ese estado. El cierre de sesión de la app es local, así que no lo invalida.
- */
-const estadosDeSesion = new Map();
-
-/** Abre una pestaña nueva con la sesión de `email` ya iniciada y el menú disponible. */
-async function abrirComoUsuario(browser, email) {
-    const opciones = { baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082', viewport: { width: 1280, height: 900 } };
-    if (!estadosDeSesion.has(email)) {
-        const contextoInicial = await browser.newContext(opciones);
-        const paginaInicial = await contextoInicial.newPage();
-        await iniciarSesion(paginaInicial, email);
-        estadosDeSesion.set(email, await contextoInicial.storageState());
-        await contextoInicial.close();
-    }
-    const context = await browser.newContext({ ...opciones, storageState: estadosDeSesion.get(email) });
-    const page = await context.newPage();
-    await page.goto('/');
-    await expect(page.getByText('Logout')).toBeVisible();
-    return { context, page };
+/** Abre una pestaña nueva con la sesión de `email` ya iniciada y el menú disponible (ver helpers/sesion.js). */
+function abrirComoUsuario(browser, email) {
+    return require('./helpers/sesion').abrirComo(browser, email);
 }
 
 /** Elige un archivo en el selector de archivos que abre `accion`. */
@@ -93,7 +76,8 @@ async function elegirArchivo(page, accion, archivo) {
 
 /** Abre el menú lateral con el botón de hamburguesa del encabezado (no tiene texto ni etiqueta). */
 async function abrirMenu(page) {
-    await page.locator('button:has(img[src*="toggle-drawer-icon"])').last().click();
+    // Con pantallas apiladas quedan botones de menú ocultos: se usa el visible.
+    await page.locator('button:has(img[src*="toggle-drawer-icon"])').locator('visible=true').last().click();
     await expect(page.getByText('Logout')).toBeInViewport();
 }
 
@@ -165,7 +149,7 @@ const MAX_BAJADAS = 40;
  * Falla si llega al tope de bajadas o al final del listado sin encontrarlo.
  */
 async function bajarHastaVer(page, titulo) {
-    const objetivo = page.getByText(titulo, { exact: true }).filter({ visible: true });
+    const objetivo = page.getByText(titulo, { exact: true }).locator('visible=true');
     let alturaPrevia = -1;
     let sinCambios = 0;
     for (let i = 0; i < MAX_BAJADAS; i++) {

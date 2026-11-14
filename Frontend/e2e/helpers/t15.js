@@ -1,28 +1,16 @@
 // Utilidades de la tanda T15 (administración: usuarios, organizaciones y dashboard).
 const { expect } = require('@playwright/test');
 const { CLAVE, USUARIOS, irAlMenu, bajarHastaVer } = require('../helpers');
-const { abrirComo } = require('./t02');
+const sesion = require('./sesion');
+const abrirComo = (browser, email) => sesion.abrirComo(browser, email);
 
 const URL_BACK = process.env.E2E_BACK_URL || 'http://localhost:8080';
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** El servidor limita /login y /signup a 10 por minuto por IP: si responde 429 se espera y se reintenta. */
-async function conReintento(pedir) {
-    let r;
-    for (let i = 0; i < 30; i++) {
-        r = await pedir();
-        if (r.status() !== 429) return r;
-        await pausa(10000);
-    }
-    return r;
-}
-
-/** Inicia sesión por la API y devuelve el token. */
+/** Inicia sesión por la API (con cupo y reintento ante 429, ver helpers/sesion.js) y devuelve el token. */
 async function loginApi(request, email) {
-    const r = await conReintento(() => request.post(`${URL_BACK}/login`, { data: { username: email, password: CLAVE } }));
-    if (!r.ok()) throw new Error(`login ${email}: ${r.status()}`);
-    return (await r.json()).token;
+    return (await sesion.loginApi(request, email, CLAVE)).token;
 }
 
 /** Registra un usuario nuevo con email único por la API. Devuelve { email, nombre, apellido, token }. */
@@ -31,9 +19,8 @@ async function registrarNuevo(request, sufijo) {
     const email = `t15.${sufijo}.${id}@eurekapp.com`;
     const nombre = 'Prueba';
     const apellido = `T15${sufijo}${id}`;
-    const r = await conReintento(() => request.post(`${URL_BACK}/signup`, { data: { firstname: nombre, lastname: apellido, username: email, password: CLAVE } }));
-    if (!r.ok()) throw new Error(`signup ${email}: ${r.status()} ${await r.text()}`);
-    return { email, nombre, apellido, token: (await r.json()).token };
+    const cuerpo = await sesion.registrarUsuario(request, { firstname: nombre, lastname: apellido, username: email, password: CLAVE });
+    return { email, nombre, apellido, token: cuerpo.token };
 }
 
 /** Guarda en page.tokenApi el token que la app manda al servidor. */

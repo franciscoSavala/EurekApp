@@ -24,7 +24,7 @@ test.describe('Devolución: teléfono y foto', () => {
             await expect(page.getByText('Seleccionar foto').last()).toBeVisible();
             await cargarFotoDeQuienRetira(page);
             // Con la foto cargada se ve una imagen local (blob o data), no la imagen por defecto.
-            const vistaPrevia = page.locator('[style*="blob:"], img[src^="blob:"], img[src^="data:"]').filter({ visible: true });
+            const vistaPrevia = page.locator('[style*="blob:"], img[src^="blob:"], img[src^="data:"]').locator('visible=true');
             await expect(vistaPrevia.first()).toBeVisible();
         });
 

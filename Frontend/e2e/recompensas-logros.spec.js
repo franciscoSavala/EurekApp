@@ -195,7 +195,9 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             await caso(352, 'no se repite la notificación de una recompensa ya avisada', async () => {
                 await pu.reload();
                 await abrirNotificaciones(pu);
-                expect(await visible(pu.getByText('¡Obtuviste una recompensa!')).count()).toBeLessThanOrEqual(1);
+                // Primero tiene que existir la notificación; recién entonces se comprueba que no esté duplicada.
+                await expect(visible(pu.getByText('¡Obtuviste una recompensa!')).first(), 'la notificación de la recompensa no llegó').toBeVisible();
+                expect(await visible(pu.getByText('¡Obtuviste una recompensa!')).count()).toBe(1);
             });
 
             // Segunda devolución: el usuario llega a 20 XP y sube de nivel.

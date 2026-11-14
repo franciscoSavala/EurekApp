@@ -3,7 +3,7 @@ const fs = require('fs');
 const { expect } = require('@playwright/test');
 const { foto, irAlMenu, abrirMenu, bajarHastaVer } = require('../helpers');
 const { URL_BACK, auth, registrarUsuario, loginApi } = require('./t08');
-const { abrirSesion } = require('./t01');
+const sesion = require('./sesion');
 const { dniUnico, tarjetaInventario, cargarFotoDeQuienRetira, completarDatos } = require('./t04');
 
 const ORG_UTN = 1;
@@ -143,38 +143,19 @@ async function devolverInvalidoUi(page, titulo) {
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Registra un usuario nuevo con email @mail.com (como los registros de la tanda de registro), esperando si el cupo de ingresos está agotado. */
+/** Registra un usuario nuevo con email @mail.com (como los registros de la tanda de registro), con cupo y reintento ante 429. */
 async function registrarPaciente(request, sufijo) {
     const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
     const email = `e2e.t13.${sufijo}.${id}@mail.com`;
-    let ultimo;
-    for (let i = 0; i < 12; i++) {
-        const r = await request.post(`${URL_BACK}/signup`, { data: { firstname: 'Prueba', lastname: `T13${sufijo}${id}`, username: email, password: 'Eurekapp1!' } });
-        if (r.ok()) return { email, token: (await r.json()).token };
-        ultimo = `${r.status()} ${await r.text()}`;
-        if (r.status() !== 429) break;
-        await pausa(15000);
-    }
-    throw new Error(`signup ${email}: ${ultimo}`);
+    const cuerpo = await sesion.registrarUsuario(request, { firstname: 'Prueba', lastname: `T13${sufijo}${id}`, username: email, password: 'Eurekapp1!' });
+    return { email, token: cuerpo.token };
 }
 
-/** Como `abrirSesion`, pero reintenta más veces si el servidor limita los ingresos. */
-async function abrirSesionPaciente(browser, email) {
-    let ultimo;
-    for (let i = 0; i < 6; i++) {
-        try { return await abrirSesion(browser, email); } catch (e) { ultimo = e; await pausa(20000); }
-    }
-    throw ultimo;
-}
+/** Abre la sesión de `email` (ver helpers/sesion.js). */
+const abrirSesionPaciente = (browser, email) => sesion.abrirComo(browser, email);
 
-/** Inicia sesión por la API con más paciencia ante el límite de ingresos. */
-async function loginPaciente(request, email) {
-    let ultimo;
-    for (let i = 0; i < 6; i++) {
-        try { return await loginApi(request, email); } catch (e) { ultimo = e; await pausa(20000); }
-    }
-    throw ultimo;
-}
+/** Inicia sesión por la API (con cupo y reintento ante 429) y devuelve el token. */
+const loginPaciente = (request, email) => loginApi(request, email);
 
 module.exports = {
     registrarPaciente, abrirSesionPaciente, loginPaciente,

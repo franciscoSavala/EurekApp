@@ -82,12 +82,12 @@ test.describe('Devolución de un objeto', () => {
         // Tras registrar, la pantalla queda en el formulario: se vuelve al listado con el botón de volver.
         await page.goBack();
         // La app deja apiladas pantallas anteriores ocultas: solo importa lo que se ve.
-        await expect(page.getByText('Devolver', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+        await expect(page.getByText('Devolver', { exact: true }).locator('visible=true').first()).toBeVisible();
         // Con el listado completo cargado, para que la ausencia no se deba a una página sin cargar.
         await cargarListadoCompleto(page);
-        await expect(page.getByText(titulo, { exact: true }).filter({ visible: true })).toHaveCount(0);
+        await expect(page.getByText(titulo, { exact: true }).locator('visible=true')).toHaveCount(0);
 
         await irAlMenu(page, 'Ver objetos devueltos');
-        await expect(page.getByText(titulo).filter({ visible: true })).toBeVisible();
+        await expect(page.getByText(titulo).locator('visible=true')).toBeVisible();
     });
 });

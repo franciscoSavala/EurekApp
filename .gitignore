@@ -28,3 +28,4 @@ Backend/seed-data/reseed_via_api.sh
 # Tests end-to-end (Playwright)
 Frontend/test-results/
 Frontend/playwright-report/
+Frontend/e2e/.sesiones/

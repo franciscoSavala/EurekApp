@@ -1,14 +1,8 @@
 // Utilidades de la tanda T02 (búsqueda de objetos perdidos, carril paralelo).
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const { expect } = require('@playwright/test');
-const { CLAVE, iniciarSesion, irAlMenu, perderlo, receptarObjeto } = require('../helpers');
+const { irAlMenu, perderlo, receptarObjeto } = require('../helpers');
 
 const DESCRIPCION = 'Proporciona detalles que ayuden a identificarlo';
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:8082';
-const VENCIMIENTO_SESION_MS = 30 * 60 * 1000;
-const CARPETA_SESIONES = path.join(os.tmpdir(), 'eurekapp-e2e-sesiones-t02');
 
 // Organización donde se receptan los objetos propios (la usa emp1.aero) y organización sin objetos
 // (el empleado de Patio Olmos está bloqueado en el seed, así que nadie le carga objetos).
@@ -17,47 +11,8 @@ const ORG_SIN_OBJETOS = 'Shopping Patio Olmos';
 
 const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * El servidor limita los ingresos a 10 por minuto por IP y hay otros tests corriendo a la vez.
- * Se reintenta el ingreso por pantalla, y la sesión se comparte entre procesos con un archivo
- * temporal para no ingresar de nuevo en cada archivo de tests.
- */
-async function sesionGuardada(browser, email) {
-    const archivo = path.join(CARPETA_SESIONES, `${email}.json`);
-    try {
-        if (Date.now() - fs.statSync(archivo).mtimeMs < VENCIMIENTO_SESION_MS) return JSON.parse(fs.readFileSync(archivo, 'utf8'));
-    } catch { /* no hay sesión guardada */ }
-    let ultimoError;
-    for (let intento = 0; intento < 8; intento++) {
-        const contexto = await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 900 } });
-        try {
-            const pagina = await contexto.newPage();
-            await iniciarSesion(pagina, email, CLAVE);
-            const estado = await contexto.storageState();
-            fs.mkdirSync(CARPETA_SESIONES, { recursive: true });
-            const temporal = `${archivo}.${process.pid}.tmp`;
-            fs.writeFileSync(temporal, JSON.stringify(estado));
-            fs.renameSync(temporal, archivo);
-            return estado;
-        } catch (e) {
-            ultimoError = e;
-            await pausa(15000);
-        } finally {
-            await contexto.close();
-        }
-    }
-    throw ultimoError;
-}
-
-/** Abre una pestaña nueva con la sesión de `email` iniciada. */
-async function abrirComo(browser, email) {
-    const estado = await sesionGuardada(browser, email);
-    const context = await browser.newContext({ baseURL: BASE, viewport: { width: 1280, height: 900 }, storageState: estado });
-    const page = await context.newPage();
-    await page.goto('/');
-    await expect(page.getByText('Logout')).toBeVisible();
-    return { context, page };
-}
+/** Abre una pestaña nueva con la sesión de `email` iniciada (ver helpers/sesion.js). */
+const abrirComo = (browser, email) => require('./sesion').abrirComo(browser, email);
 
 /** Un empleado recepta una billetera con título único; devuelve el título. */
 async function receptarComoEmpleado(browser, email, titulo) {

@@ -11,7 +11,7 @@ const { abrirComo } = T;
 const MOTIVO_CASO_2 = 'Posible acuerdo entre quien registra y quien retira';
 
 test.describe('Reclamos y alertas de fraude', () => {
-    test('casos 265 a 270 y 370 a 372: alerta generada por un encargado, detalle, falsa alarma, resolución y listado @reclamos @paralelo', async ({ browser, request }) => {
+    test('casos 265 a 270 y 370 a 372: alerta generada por un encargado, detalle, falsa alarma, resolución y listado @reclamos @serie', async ({ browser, request }) => {
         test.setTimeout(420_000);
         const dueno = await T.loginConOrg(request, USUARIOS_PARALELO.duenoUnc);
         const admin = await loginApi(request, USUARIOS.admin);
