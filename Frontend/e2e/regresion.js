@@ -12,6 +12,10 @@ const sello = `${inicio.getFullYear()}-${p2(inicio.getMonth() + 1)}-${p2(inicio.
 const carpeta = path.join(raiz, 'e2e-resultados', sello);
 fs.mkdirSync(carpeta, { recursive: true });
 
+// Sesiones y conteo de 429 desde cero: el globalSetup de cada carril las arma de nuevo (ver e2e/helpers/sesion.js).
+const carpetaSesiones = path.join(__dirname, '.sesiones');
+fs.rmSync(carpetaSesiones, { recursive: true, force: true });
+
 const i = process.argv.indexOf('--grep');
 const extra = i >= 0 ? process.argv[i + 1] : null;
 const workersParalelo = process.env.E2E_WORKERS_PARALELO || '3';
@@ -70,6 +74,12 @@ const dur = (ms) => `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1
         console.error('No se pudo leer resultados.json');
     }
 
+    let cantidad429 = 0;
+    try {
+        cantidad429 = fs.readFileSync(path.join(carpetaSesiones, '429.txt'), 'utf8').split(String.fromCharCode(10)).filter(Boolean).length;
+        fs.copyFileSync(path.join(carpetaSesiones, '429.txt'), path.join(carpeta, 'respuestas-429.txt'));
+    } catch (e) { /* no hubo 429 */ }
+
     const resumen = [
         `Inicio: ${inicio.toLocaleString('es-AR', { hour12: false })}`,
         `Fin: ${fin.toLocaleString('es-AR', { hour12: false })}`,
@@ -78,6 +88,7 @@ const dur = (ms) => `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1
         `Pasados: ${stats.expected}`,
         `Fallados: ${stats.unexpected}`,
         `Salteados: ${stats.skipped}`,
+        `Respuestas 429 de ingreso o registro: ${cantidad429}`,
         ...(stats.flaky ? [`Inestables: ${stats.flaky}`] : []),
         '',
     ].join('\n');

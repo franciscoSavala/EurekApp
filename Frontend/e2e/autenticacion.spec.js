@@ -1,5 +1,7 @@
 const { test, expect } = require('@playwright/test');
-const { USUARIOS, abrirComoUsuario, irAlMenu, abrirBusqueda, vigilarPedidos, esperarRespuesta } = require('./helpers');
+const { USUARIOS, abrirComoUsuario, irAlMenu, abrirBusqueda, vigilarPedidos, esperarRespuesta, bajarHastaVer, nombreUnico } = require('./helpers');
+const sesion = require('./helpers/sesion');
+const T = require('./helpers/t12');
 
 /*
  * Cada pantalla que habla con el servidor tiene que presentarse con la sesión de la persona.
@@ -44,13 +46,19 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador desactiva y vuelve a activar a un usuario @admin @serie', async ({ browser }) => {
+    test('el administrador desactiva y vuelve a activar a un usuario @admin @serie', async ({ browser, request }) => {
+        test.setTimeout(240_000);
+        // Usuario nuevo de la corrida: así no se toca a ninguna cuenta que el carril paralelo necesite activa.
+        const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
+        const email = `t16.des.${id}@mail.com`;
+        await sesion.registrarUsuario(request, { firstname: 'Prueba', lastname: `T16des${id}`, username: email });
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Usuarios');
         // El filtro "Usuarios" deja solo a las personas sin organización; el texto se repite en el título y en el menú.
         await page.getByText('Usuarios', { exact: true }).nth(1).click();
-        const tarjeta = page.locator('div').filter({ has: page.getByText('micaela@mail.com', { exact: true }) }).filter({ hasText: /Desactivar|Activar/ }).last();
+        await bajarHastaVer(page, email);
+        const tarjeta = page.locator('div').filter({ has: page.getByText(email, { exact: true }) }).filter({ hasText: /Desactivar|Activar/ }).last();
         await expect(tarjeta).toBeVisible();
 
         await tarjeta.getByText('Desactivar', { exact: true }).click();
@@ -58,6 +66,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await page.getByText('Desactivar', { exact: true }).last().click();
         expect((await desactivado).status()).toBeLessThan(300);
 
+        await bajarHastaVer(page, email);
         await tarjeta.getByText('Activar', { exact: true }).click();
         const activado = esperarRespuesta(page, 'PUT', '/admin/users');
         await page.getByText('Activar', { exact: true }).last().click();
@@ -80,7 +89,8 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Organizaciones');
-        const tarjeta = page.locator('div').filter({ has: page.getByText('Shopping Patio Olmos', { exact: true }) }).filter({ hasText: /Desactivar|Activar/ }).last();
+        await bajarHastaVer(page, 'Terminal de Omnibus Cordoba');
+        const tarjeta = page.locator('div').filter({ has: page.getByText('Terminal de Omnibus Cordoba', { exact: true }) }).filter({ hasText: /Desactivar|Activar/ }).last();
         await expect(tarjeta).toBeVisible();
 
         await tarjeta.getByText('Desactivar', { exact: true }).click();
@@ -88,6 +98,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await page.getByText('Desactivar', { exact: true }).last().click();
         expect((await desactivada).status()).toBeLessThan(300);
 
+        await bajarHastaVer(page, 'Terminal de Omnibus Cordoba');
         await tarjeta.getByText('Activar', { exact: true }).click();
         const activada = esperarRespuesta(page, 'PUT', '/admin/organizations');
         await page.getByText('Activar', { exact: true }).last().click();
@@ -131,7 +142,16 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria ve sus avisos y entrar a la sección los registra como vistos @admin @serie', async ({ browser }) => {
+    test('la usuaria ve sus avisos y entrar a la sección los registra como vistos @usuario @serie', async ({ browser, request }) => {
+        test.setTimeout(240_000);
+        // El aviso lo genera este mismo test: la usuaria guarda una búsqueda y un empleado recepta algo parecido.
+        const token = await sesion.tokenDe(USUARIOS.usuario);
+        const emp = await sesion.sesionDe(USUARIOS.empleado);
+        const descripcion = nombreUnico('billetera negra aviso');
+        await T.guardarBusqueda(request, token, descripcion, emp.orgId);
+        await T.receptarConFinder(request, emp.token, emp.orgId, descripcion);
+        await T.esperarNotificacion(request, token, 'MATCH_FOUND');
+
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         const lista = esperarRespuesta(page, 'GET', '/notifications');
@@ -144,7 +164,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria ve su solicitud de organización pendiente @admin @serie', async ({ browser }) => {
+    test('la usuaria ve su solicitud de organización pendiente @usuario @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Mi solicitud de organización');
@@ -154,7 +174,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria califica una búsqueda sin resultados y el servidor lo registra @admin @serie', async ({ browser }) => {
+    test('la usuaria califica una búsqueda sin resultados y el servidor lo registra @usuario @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await abrirBusqueda(page, 'Aeropuerto Internacional Cordoba');
@@ -171,7 +191,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria envía su opinión de usabilidad de la app desde el perfil y el servidor la registra @admin @serie', async ({ browser }) => {
+    test('la usuaria envía su opinión de usabilidad de la app desde el perfil y el servidor la registra @usuario @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Mi perfil');

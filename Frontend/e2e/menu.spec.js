@@ -52,15 +52,16 @@ test.describe('Menú lateral según el rol', () => {
 
     test('los contadores del menú coinciden con lo que informa el servidor @menu @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
-        const sinLeer = esperarRespuesta(page, 'GET', '/notifications/unread-count');
-        const pendientes = esperarRespuesta(page, 'GET', '/organizations/requests/pending-count');
-        const alertas = esperarRespuesta(page, 'GET', '/fraud-alerts/unseen-count');
+        // El cuerpo se lee apenas llega la respuesta: después de recargar el navegador ya no lo entrega.
+        const cantidad = (ruta) => esperarRespuesta(page, 'GET', ruta).then(async (r) => ((await r.json()).count || 0));
+        const sinLeer = cantidad('/notifications/unread-count');
+        const pendientes = cantidad('/organizations/requests/pending-count');
+        const alertas = cantidad('/fraud-alerts/unseen-count');
         await page.reload();
-        const cantidad = async (r) => ((await (await r).json()).count || 0);
         const esperados = {
-            Notificaciones: await cantidad(sinLeer),
-            'Solicitudes de alta': await cantidad(pendientes),
-            'Alertas de fraude': await cantidad(alertas),
+            Notificaciones: await sinLeer,
+            'Solicitudes de alta': await pendientes,
+            'Alertas de fraude': await alertas,
         };
         await abrirMenu(page);
         for (const [texto, n] of Object.entries(esperados)) {

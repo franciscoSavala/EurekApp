@@ -1,14 +1,13 @@
 // Utilidades de la tanda de alertas de fraude.
 const fs = require('fs');
 const { foto, CLAVE } = require('../helpers');
+const sesion = require('./sesion');
 
 const URL_BACK = process.env.E2E_BACK_URL || 'http://localhost:8080';
 
 /** Inicia sesión por la API y devuelve { token, orgId }. */
 async function loginApi(request, email) {
-    const r = await request.post(`${URL_BACK}/login`, { data: { username: email, password: CLAVE } });
-    if (!r.ok()) throw new Error(`login ${email}: ${r.status()}`);
-    const j = await r.json();
+    const j = await sesion.loginApi(request, email, CLAVE);
     return { token: j.token, orgId: j.organization && j.organization.id };
 }
 

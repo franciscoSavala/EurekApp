@@ -1,6 +1,6 @@
 // Utilidades de la tanda T01 (registro, navegación y perfil).
 const { expect } = require('@playwright/test');
-const { irAlLogin, abrirMenu } = require('../helpers');
+const { irAlLogin, abrirMenu, CLAVE } = require('../helpers');
 
 /** Email que no existe todavía: único por corrida. */
 const emailUnico = (prefijo = 'e2e.t01') => `${prefijo}.${Date.now().toString(36)}${Math.floor(Math.random() * 10000)}@mail.com`;
@@ -18,12 +18,14 @@ async function completarRegistro(page, { nombre = 'Test', apellido = 'Tanda', em
     if (apellido !== null) await ph(page, 'Apellido').fill(apellido);
     if (email !== null) await ph(page, 'Email').fill(email);
     if (clave !== null) await ph(page, 'Contraseña').fill(clave);
+    // El registro cuenta para el cupo de /signup del servidor: se espera el turno antes de enviarlo.
+    await sesion.esperarCupo();
 }
 
-const registrate = (page) => page.getByText('Registrate', { exact: true }).filter({ visible: true }).last();
+const registrate = (page) => page.getByText('Registrate', { exact: true }).locator('visible=true').last();
 
 /** Campo por su placeholder, solo el que se ve (las pantallas anteriores siguen montadas debajo). */
-const ph = (page, texto) => page.getByPlaceholder(texto).filter({ visible: true }).last();
+const ph = (page, texto) => page.getByPlaceholder(texto).locator('visible=true').last();
 
 /** Ruta web de la pantalla a la que lleva cada opción del menú lateral. */
 const RUTAS = {
@@ -82,55 +84,12 @@ module.exports = {
 };
 
 /*
- * El servidor limita los intentos de ingreso (429) y varios tests corren a la vez. Por eso la sesión
- * de cada usuario se inicia una sola vez por interfaz, con reintentos, y se guarda en disco unos
- * minutos para que la reutilicen los demás archivos y workers.
+ * La sesión de cada usuario la guarda y comparte helpers/sesion.js (cupo de ingresos, reintentos y estado en disco).
  */
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const { CLAVE } = require('../helpers');
+const sesion = require('./sesion');
 
-const VIGENCIA_MS = 20 * 60 * 1000;
-const OPCIONES_CONTEXTO = { baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082', viewport: { width: 1280, height: 900 } };
-const archivoSesion = (email) => path.join(os.tmpdir(), `e2e-t01-${email.replace(/[^a-z0-9]/gi, '_')}.json`);
-
-async function iniciarYGuardarSesion(browser, email) {
-    for (let intento = 1; intento <= 6; intento++) {
-        const contexto = await browser.newContext(OPCIONES_CONTEXTO);
-        const pagina = await contexto.newPage();
-        try {
-            await irAlLogin(pagina);
-            await pagina.getByPlaceholder('Email').fill(email);
-            await pagina.getByPlaceholder('Contraseña').fill(CLAVE);
-            await pagina.getByText('Iniciar sesión', { exact: true }).last().click();
-            await expect(pagina.getByText('Logout')).toBeVisible({ timeout: 20_000 });
-            const estado = await contexto.storageState();
-            fs.writeFileSync(archivoSesion(email), JSON.stringify(estado));
-            await contexto.close();
-            return estado;
-        } catch (e) {
-            await contexto.close();
-            if (intento === 6) throw e;
-            await new Promise((r) => setTimeout(r, 4000 * intento));
-        }
-    }
-}
-
-/** Abre una pestaña nueva con la sesión del usuario ya iniciada (misma idea que `abrirComoUsuario`, tolerante al límite de ingresos). */
-async function abrirSesion(browser, email) {
-    const archivo = archivoSesion(email);
-    let estado = null;
-    try {
-        if (Date.now() - fs.statSync(archivo).mtimeMs < VIGENCIA_MS) estado = JSON.parse(fs.readFileSync(archivo, 'utf8'));
-    } catch (e) { /* sin sesión guardada */ }
-    if (!estado) estado = await iniciarYGuardarSesion(browser, email);
-    const context = await browser.newContext({ ...OPCIONES_CONTEXTO, storageState: estado });
-    const page = await context.newPage();
-    await page.goto('/');
-    await expect(page.getByText('Logout')).toBeVisible();
-    return { context, page };
-}
+/** Abre una pestaña nueva con la sesión del usuario ya iniciada (misma idea que `abrirComoUsuario`). */
+const abrirSesion = (browser, email) => sesion.abrirComo(browser, email);
 
 module.exports.abrirSesion = abrirSesion;
 
@@ -140,6 +99,7 @@ async function iniciarSesionReintentando(page, email) {
         await irAlLogin(page);
         await page.getByPlaceholder('Email').fill(email);
         await page.getByPlaceholder('Contraseña').fill(CLAVE);
+        await sesion.esperarCupo();
         await page.getByText('Iniciar sesión', { exact: true }).last().click();
         try {
             await expect(page.getByText('Logout')).toBeVisible({ timeout: 20_000 });

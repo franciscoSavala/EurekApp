@@ -1,36 +1,23 @@
 // Utilidades de la tanda de organización y empleados.
 const { CLAVE } = require('../helpers');
+const sesion = require('./sesion');
 
 const URL_BACK = process.env.E2E_BACK_URL || 'http://localhost:8080';
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 
-/** El servidor limita /login y /signup a 10 por minuto por IP: si responde 429 se espera y se reintenta. */
-async function conReintento(pedir) {
-    let r;
-    for (let i = 0; i < 8; i++) {
-        r = await pedir();
-        if (r.status() !== 429) return r;
-        await new Promise((ok) => setTimeout(ok, 15000));
-    }
-    return r;
-}
-
-/** Inicia sesión por la API y devuelve el token. */
+/** Inicia sesión por la API (con cupo y reintento ante 429, ver helpers/sesion.js) y devuelve el token. */
 async function loginApi(request, email, clave = CLAVE) {
-    const r = await conReintento(() => request.post(`${URL_BACK}/login`, { data: { username: email, password: clave } }));
-    if (!r.ok()) throw new Error(`login ${email}: ${r.status()}`);
-    return (await r.json()).token;
+    return (await sesion.loginApi(request, email, clave)).token;
 }
 
-/** Registra un usuario nuevo con email único. Devuelve { email, nombre, apellido }. */
+/** Registra un usuario nuevo con email único. Devuelve { email, nombre, apellido, token }. */
 async function registrarUsuario(request, sufijo) {
     const id = `${Date.now().toString(36)}${Math.floor(Math.random() * 1000)}`;
     const email = `t08.${sufijo}.${id}@eurekapp.com`;
     const nombre = 'Prueba';
     const apellido = `T08${sufijo}${id}`;
-    const r = await conReintento(() => request.post(`${URL_BACK}/signup`, { data: { firstname: nombre, lastname: apellido, username: email, password: CLAVE } }));
-    if (!r.ok()) throw new Error(`signup ${email}: ${r.status()} ${await r.text()}`);
-    return { email, nombre, apellido, token: (await r.json()).token };
+    const cuerpo = await sesion.registrarUsuario(request, { firstname: nombre, lastname: apellido, username: email, password: CLAVE });
+    return { email, nombre, apellido, token: cuerpo.token };
 }
 
 /** El invitado acepta por la API la solicitud pendiente de la organización. */

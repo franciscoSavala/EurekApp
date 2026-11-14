@@ -5,6 +5,8 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
     testDir: './e2e',
     testMatch: '**/*.spec.js',
+    // Inicia sesión una vez con cada usuario del seed y guarda las sesiones en e2e/.sesiones/.
+    globalSetup: require.resolve('./e2e/global-setup.js'),
     // Varios tests comparten la base y el backend: se corren de a uno.
     workers: 1,
     fullyParallel: false,
