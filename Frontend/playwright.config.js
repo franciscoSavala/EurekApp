@@ -11,14 +11,16 @@ module.exports = defineConfig({
     retries: 0,
     timeout: 90_000,
     expect: { timeout: 15_000 },
-    reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
+    // Por defecto: consola, informe html y json. La regresión (e2e/regresion.js) pide el reporter blob por línea de comandos.
+    reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }], ['json', { outputFile: 'test-results-json/resultados.json' }]],
     outputDir: 'test-results',
     use: {
         baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082',
         acceptDownloads: true,
         viewport: { width: 1280, height: 900 },
         trace: 'retain-on-failure',
-        screenshot: 'only-on-failure',
+        // E2E_CAPTURAS=on guarda una captura de cada test (la regresión la activa).
+        screenshot: process.env.E2E_CAPTURAS === 'on' ? 'on' : 'only-on-failure',
     },
     projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { USUARIOS, irAlLogin, completarYEnviarLogin, iniciarSesion, abrirMenu } = require('./helpers');
 
 test.describe('Sesión', () => {
-    test('caso 001/018: con credenciales correctas entra a Buscar un objeto', async ({ page }) => {
+    test('caso 001/018: con credenciales correctas entra a Buscar un objeto @sesion @serie', async ({ page }) => {
         await irAlLogin(page);
         await completarYEnviarLogin(page, USUARIOS.usuario, 'Eurekapp1!');
 
@@ -10,7 +10,7 @@ test.describe('Sesión', () => {
         await expect(page.getByText('Descripción del objeto:')).toBeVisible();
     });
 
-    test('caso 002: con credenciales incorrectas no deja entrar y avisa', async ({ page }) => {
+    test('caso 002: con credenciales incorrectas no deja entrar y avisa @sesion @serie', async ({ page }) => {
         await irAlLogin(page);
         await completarYEnviarLogin(page, USUARIOS.usuario, 'ClaveEquivocada9!');
 
@@ -18,7 +18,7 @@ test.describe('Sesión', () => {
         await expect(page.getByText('Logout')).toHaveCount(0);
     });
 
-    test('caso 003: con los campos vacíos pide completarlos', async ({ page }) => {
+    test('caso 003: con los campos vacíos pide completarlos @sesion @serie', async ({ page }) => {
         await irAlLogin(page);
         await page.getByText('Iniciar sesión', { exact: true }).last().click();
 
@@ -27,7 +27,7 @@ test.describe('Sesión', () => {
         await expect(page.getByText('Logout')).toHaveCount(0);
     });
 
-    test('caso 024: cierra la sesión desde el menú y vuelve a la portada', async ({ page }) => {
+    test('caso 024: cierra la sesión desde el menú y vuelve a la portada @sesion @serie', async ({ page }) => {
         await iniciarSesion(page, USUARIOS.usuario);
         await abrirMenu(page);
         await page.getByText('Logout').click();

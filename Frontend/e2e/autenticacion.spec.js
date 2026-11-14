@@ -8,7 +8,7 @@ const { USUARIOS, abrirComoUsuario, irAlMenu, abrirBusqueda, vigilarPedidos, esp
  * credencial ni sea rechazado por sesión inválida.
  */
 test.describe('Pantallas que consultan al servidor con la sesión iniciada', () => {
-    test('el menú del administrador consulta sus contadores (avisos, solicitudes y alertas) con la sesión', async ({ browser }) => {
+    test('el menú del administrador consulta sus contadores (avisos, solicitudes y alertas) con la sesión @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         const sinLeer = esperarRespuesta(page, 'GET', '/notifications/unread-count');
@@ -23,7 +23,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve el dashboard con los totales de la plataforma', async ({ browser }) => {
+    test('el administrador ve el dashboard con los totales de la plataforma @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Dashboard');
@@ -34,7 +34,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve el listado de usuarios del seed', async ({ browser }) => {
+    test('el administrador ve el listado de usuarios del seed @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Usuarios');
@@ -44,7 +44,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador desactiva y vuelve a activar a un usuario', async ({ browser }) => {
+    test('el administrador desactiva y vuelve a activar a un usuario @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Usuarios');
@@ -66,7 +66,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve el listado de organizaciones del seed', async ({ browser }) => {
+    test('el administrador ve el listado de organizaciones del seed @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Organizaciones');
@@ -76,7 +76,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador desactiva y vuelve a activar una organización', async ({ browser }) => {
+    test('el administrador desactiva y vuelve a activar una organización @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Organizaciones');
@@ -96,7 +96,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve la configuración de fraude del seed y puede guardarla sin cambios', async ({ browser }) => {
+    test('el administrador ve la configuración de fraude del seed y puede guardarla sin cambios @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Configuración de fraude');
@@ -111,7 +111,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve las solicitudes de alta y abre el detalle de una', async ({ browser }) => {
+    test('el administrador ve las solicitudes de alta y abre el detalle de una @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Solicitudes de alta');
@@ -122,7 +122,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('el administrador ve el reporte de opiniones sobre la app', async ({ browser }) => {
+    test('el administrador ve el reporte de opiniones sobre la app @admin @paralelo', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.admin);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Opiniones sobre la app');
@@ -131,7 +131,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria ve sus avisos y entrar a la sección los registra como vistos', async ({ browser }) => {
+    test('la usuaria ve sus avisos y entrar a la sección los registra como vistos @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         const lista = esperarRespuesta(page, 'GET', '/notifications');
@@ -144,7 +144,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria ve su solicitud de organización pendiente', async ({ browser }) => {
+    test('la usuaria ve su solicitud de organización pendiente @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Mi solicitud de organización');
@@ -154,7 +154,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria califica una búsqueda sin resultados y el servidor lo registra', async ({ browser }) => {
+    test('la usuaria califica una búsqueda sin resultados y el servidor lo registra @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await abrirBusqueda(page, 'Aeropuerto Internacional Cordoba');
@@ -171,7 +171,7 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
         await context.close();
     });
 
-    test('la usuaria envía su opinión de usabilidad de la app desde el perfil y el servidor la registra', async ({ browser }) => {
+    test('la usuaria envía su opinión de usabilidad de la app desde el perfil y el servidor la registra @admin @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
         await irAlMenu(page, 'Mi perfil');

@@ -1,7 +1,7 @@
 // Utilidades compartidas por los tests end-to-end.
 const path = require('path');
 const fs = require('fs');
-const { expect } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 
 const CLAVE = 'Eurekapp1!';
 
@@ -12,6 +12,23 @@ const USUARIOS = {
     encargado: 'encargado.utn@eurekapp.com',
     admin: 'soporte.eurekapp@gmail.com',
 };
+
+// Cuentas del carril paralelo (organizaciones 3 a 6 y usuarios que no usa el carril serie).
+const USUARIOS_PARALELO = {
+    usuarioValeria: 'valeria@mail.com',
+    usuarioPedro: 'pedro@mail.com',
+    usuarioMicaela: 'micaela@mail.com',
+    empleadoAero: 'emp1.aero@eurekapp.com',
+    empleadoPatio: 'emp1.patio@eurekapp.com',
+    empleadoUnc: 'emp1.unc@eurekapp.com',
+    empleadoDino: 'emp1.dino@eurekapp.com',
+    duenoPatio: 'owner.patio@eurekapp.com',
+    duenoUnc: 'owner.unc@eurekapp.com',
+    duenoDino: 'owner.dino@eurekapp.com',
+};
+
+/** Un caso de la planilla dentro de un test: paso con título "caso NNN: descripción". */
+const caso = (numero, descripcion, fn) => test.step(`caso ${String(numero).padStart(3, '0')}: ${descripcion}`, fn);
 
 const foto = (nombre) => path.join(__dirname, 'fixtures', nombre);
 
@@ -207,7 +224,7 @@ function esperarRespuesta(page, metodo, ruta) {
 }
 
 module.exports = {
-    CLAVE, USUARIOS, foto, nombreUnico, fotoPesada,
+    CLAVE, USUARIOS, USUARIOS_PARALELO, caso, foto, nombreUnico, fotoPesada,
     irAlLogin, completarYEnviarLogin, iniciarSesion, abrirComoUsuario, elegirArchivo, abrirMenu, irAlMenu, receptarObjeto,
     bajarHastaVer, cargarListadoCompleto, perderlo, abrirBusqueda, vigilarPedidos, esperarRespuesta,
 };

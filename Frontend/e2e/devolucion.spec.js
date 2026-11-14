@@ -23,7 +23,7 @@ test.describe('Devolución de un objeto', () => {
         await context.close();
     });
 
-    test('casos 114 y 115: Devolver abre el formulario con foto, DNI, teléfono y email', async () => {
+    test('casos 114 y 115: Devolver abre el formulario con foto, DNI, teléfono y email @devolucion @serie', async () => {
         await irAlMenu(page, 'Ver inventario');
         await page.getByText('Devolver', { exact: true }).first().click();
 
@@ -34,7 +34,7 @@ test.describe('Devolución de un objeto', () => {
         await expect(page.getByText('Registrar devolución', { exact: true })).toBeVisible();
     });
 
-    test('caso 117: sin foto no registra la devolución y con la foto pero sin datos tampoco', async () => {
+    test('caso 117: sin foto no registra la devolución y con la foto pero sin datos tampoco @devolucion @serie', async () => {
         await irAlMenu(page, 'Ver inventario');
         await page.getByText('Devolver', { exact: true }).first().click();
         await page.getByPlaceholder('Ingresa el nombre').fill('Ana');
@@ -51,7 +51,7 @@ test.describe('Devolución de un objeto', () => {
         await expect(page.getByText('La devolución del objeto se registró correctamente.')).toHaveCount(0);
     });
 
-    test('caso 118: un DNI con formato inválido no se acepta', async () => {
+    test('caso 118: un DNI con formato inválido no se acepta @devolucion @serie', async () => {
         await irAlMenu(page, 'Ver inventario');
         await page.getByText('Devolver', { exact: true }).first().click();
         await cargarFotoDeQuienRetira(page, 'persona_retiro.jpg');
@@ -65,7 +65,7 @@ test.describe('Devolución de un objeto', () => {
         await expect(page.getByText('La devolución del objeto se registró correctamente.')).toHaveCount(0);
     });
 
-    test('casos 116, 121, 122 y 132: devuelve un objeto, sale del inventario y aparece en los devueltos', async () => {
+    test('casos 116, 121, 122 y 132: devuelve un objeto, sale del inventario y aparece en los devueltos @devolucion @serie', async () => {
         const titulo = await receptarObjeto(page, nombreUnico('Billetera devolver e2e'));
 
         await irAlMenu(page, 'Ver inventario');
