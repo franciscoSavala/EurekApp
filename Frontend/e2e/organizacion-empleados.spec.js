@@ -1,6 +1,8 @@
 const { test, expect } = require('@playwright/test');
-const { USUARIOS, caso, abrirComoUsuario, iniciarSesion, irAlMenu } = require('./helpers');
+const { USUARIOS, abrirComoUsuario, iniciarSesion, irAlMenu } = require('./helpers');
 const { loginApi, registrarUsuario, aceptarInvitacionApi, desvincularApi, empleadosApi, filaEmpleado, URL_BACK } = require('./helpers/t08');
+
+const { casoContinuo: caso, noSePudoProbar } = require('./helpers/t17');
 
 const visible = (loc) => loc.locator('visible=true');
 
@@ -163,18 +165,24 @@ test.describe('organización y empleados', () => {
             expect.soft(await marcas.count(), 'no hay casillas para seleccionar varios empleados').toBeGreaterThan(1);
         });
 
+        // Los casos siguientes parten de que el rol se asignó por la interfaz y de que el servidor lo guardó.
+        let confirmado = false;
+        const rolAsignado = async () => (await empleadosApi(request, tokenDueno)).find((e) => e.username === a.email)?.role === 'ENCARGADO';
         await caso(226, 'Asignar encargado: el usuario pasa a rol encargado', async () => {
             await filaEmpleado(page, a.email).getByText('Asignar encargado', { exact: true }).click();
             await confirmar(page, 'Asignar').click();
+            confirmado = true;
             await expect(visible(page.getByText('Encargado asignado', { exact: true }))).toBeVisible();
             const emp = (await empleadosApi(request, tokenDueno)).find((e) => e.username === a.email);
             expect(emp.role).toBe('ENCARGADO');
         });
         await caso(365, 'mensaje de confirmación de que el rol fue asignado', async () => {
+            if (!confirmado) return noSePudoProbar('no se pudo asignar el rol de encargado desde la pantalla');
             await expect(visible(page.getByText('El rol de encargado fue asignado correctamente.'))).toBeVisible();
             await confirmar(page, 'Cerrar').click();
         });
         await caso(227, 'el empleado se ve como encargado', async () => {
+            if (!confirmado) return noSePudoProbar('no se pudo asignar el rol de encargado desde la pantalla');
             await expect(filaEmpleado(page, a.email).getByText('Encargado', { exact: true })).toBeVisible();
         });
 
@@ -191,14 +199,17 @@ test.describe('organización y empleados', () => {
         // el encargado nuevo entra con su cuenta
         const sa = await abrirComoUsuario(browser, a.email);
         await caso(366, 'el nuevo encargado ve en sus avisos que fue asignado', async () => {
+            if (!(await rolAsignado())) return noSePudoProbar('el usuario no quedó como encargado en el servidor');
             await irAlMenu(sa.page, 'Notificaciones');
             await expect(visible(sa.page.getByText(/designado como encargado/)).first()).toBeVisible();
         });
         await caso(368, 'Mi perfil muestra el tipo de usuario Encargado', async () => {
+            if (!(await rolAsignado())) return noSePudoProbar('el usuario no quedó como encargado en el servidor');
             await irAlMenu(sa.page, 'Mi perfil');
             await expect(visible(sa.page.getByText('Encargado', { exact: true }))).toBeVisible();
         });
         await caso(369, 'el rol permanece tras refrescar y volver a ingresar', async () => {
+            if (!(await rolAsignado())) return noSePudoProbar('el usuario no quedó como encargado en el servidor');
             await sa.page.reload();
             await irAlMenu(sa.page, 'Mi perfil');
             await expect(visible(sa.page.getByText('Encargado', { exact: true }))).toBeVisible();

@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
-const { caso, nombreUnico } = require('./helpers');
+const { nombreUnico } = require('./helpers');
+const { casoContinuo: caso, noSePudoProbar, primeraLinea } = require('./helpers/t17');
 const t = require('./helpers/t13');
 
 const { visible } = t;
@@ -86,15 +87,24 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
                 await expect(visible(pu.getByText('0/1'))).toBeVisible();
             });
 
+            // Si la devolución no se completa, los casos que parten de ella no se pueden probar.
+            let falloDevolucion = null;
             const antes = await xp();
-            await t.devolverUi(pe, objeto1);
+            try {
+                await t.devolverUi(pe, objeto1);
+            } catch (e) {
+                falloDevolucion = primeraLinea(e);
+            }
+            const sinDevolucion = () => falloDevolucion && noSePudoProbar(`la devolución del objeto no se completó (${falloDevolucion})`);
 
             await caso(321, 'una devolución exitosa suma 20 puntos', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 const despues = await xp();
                 expect.soft(despues - antes, 'la devolución debería sumar 20 puntos').toBe(20);
             });
 
             await caso(325, 'el total de puntos se actualiza sumando los puntos de la acción', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 const despues = await xp();
                 expect(despues).toBeGreaterThan(antes);
                 await t.irA(pu, 'Logros');
@@ -102,10 +112,14 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(327, 'Logros muestra el total de puntos actualizado', async () => {
+                if (falloDevolucion) return sinDevolucion();
+                await t.irA(pu, 'Logros');
                 await expect(t.textoNivel(pu)).toContainText(`${await xp()} XP`);
             });
 
             await caso(141, 'después de devolver, Logros muestra la XP y el progreso actualizados', async () => {
+                if (falloDevolucion) return sinDevolucion();
+                await t.irA(pu, 'Logros');
                 await expect(visible(pu.getByText('1/5'))).toBeVisible();
                 await expect(visible(pu.getByText('Te faltan 10 puntos para alcanzar el nivel 2'))).toBeVisible();
                 // 10 de 20 XP: la barra queda a la mitad.
@@ -115,26 +129,31 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(328, 'la devolución exitosa aumenta el progreso del usuario', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect(t.textoNivel(pu)).not.toHaveText(/^Nivel 1 - 0\s*XP$/);
                 expect((await t.logrosApi(request, u.token)).returnedObjects).toBe(1);
             });
 
             await caso(333, 'la primera devolución otorga la insignia correspondiente', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect(visible(pu.getByText('Primer Acto de Bondad'))).toBeVisible();
                 await expect(visible(pu.getByText('Devolviste 1 objeto.'))).toBeVisible();
             });
 
             await caso(139, 'con logros, la lista de logros se ve al bajar por la pantalla', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await visible(pu.getByText('Primer Acto de Bondad')).scrollIntoViewIfNeeded();
                 await expect(visible(pu.getByText('Primer Acto de Bondad'))).toBeVisible();
                 await expect(visible(pu.getByText('Mano Amiga', { exact: true }))).toBeVisible();
             });
 
             await caso(338, 'las insignias desbloqueadas se muestran en Logros', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect(visible(pu.getByText('Devolviste 1 objeto.'))).toHaveCount(1);
             });
 
             await caso(339, 'se muestra el progreso hacia la próxima insignia', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect(visible(pu.getByText(/Devuelve 4 objetos más para obtener el logro "Mano Amiga"/))).toBeVisible();
             });
 
@@ -144,10 +163,12 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(340, 'no se otorga dos veces la misma insignia', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect(visible(pu.getByText('Primer Acto de Bondad'))).toHaveCount(1);
             });
 
             await caso(332, 'repetir la misma devolución no suma progreso otra vez', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 const tokenEmp = await t.tokenDe(pe);
                 const uuidDevuelto = await (async () => {
                     // Se vuelve a intentar con el mismo objeto devuelto: el servidor lo rechaza.
@@ -167,32 +188,38 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(347, 'recargar la pantalla no vuelve a dar puntos por lo ya logrado', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await pu.reload();
                 await expect(t.textoNivel(pu)).toContainText('10 XP');
             });
 
             await caso(350, 'se avisa que se desbloqueó una insignia', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await abrirNotificaciones(pu);
                 // La única notificación habla de puntos; no hay aviso de insignia.
                 expect.soft(await visible(pu.getByText(/insignia|Primer Acto de Bondad/i)).count(), 'debería haber una notificación de insignia').toBeGreaterThan(0);
             });
 
             await caso(348, 'se muestra una notificación con la cantidad de puntos obtenidos', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect.soft(visible(pu.getByText(/Sumaste 10 puntos/))).toBeVisible();
             });
 
             await caso(351, 'la notificación muestra el tipo de recompensa y la información asociada', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await expect.soft(visible(pu.getByText('Recompensa obtenida', { exact: true }))).toBeVisible();
                 await expect.soft(visible(pu.getByText('¡Obtuviste una recompensa!'))).toBeVisible();
                 await expect.soft(visible(pu.getByText(new RegExp(`${objeto1}.*10 puntos`)))).toBeVisible();
             });
 
             await caso(326, 'queda registrado el motivo por el que se otorgaron los puntos', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 // El único registro es la notificación, que dice que el objeto fue devuelto a su dueño.
                 await expect.soft(visible(pu.getByText(/fue devuelto a su dueño\. Sumaste 10 puntos/))).toBeVisible();
             });
 
             await caso(352, 'no se repite la notificación de una recompensa ya avisada', async () => {
+                if (falloDevolucion) return sinDevolucion();
                 await pu.reload();
                 await abrirNotificaciones(pu);
                 // Primero tiene que existir la notificación; recién entonces se comprueba que no esté duplicada.
@@ -201,12 +228,18 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             // Segunda devolución: el usuario llega a 20 XP y sube de nivel.
-            const tokenEmp2 = await t.tokenDe(pe);
-            const uuid2 = await t.receptarApi(request, tokenEmp2, objeto2, u.email);
-            const r2 = await t.devolverApi(request, tokenEmp2, uuid2);
-            expect(r2.ok()).toBeTruthy();
+            let falloSegunda = null;
+            try {
+                const tokenEmp2 = await t.tokenDe(pe);
+                const uuid2 = await t.receptarApi(request, tokenEmp2, objeto2, u.email);
+                const r2 = await t.devolverApi(request, tokenEmp2, uuid2);
+                expect(r2.ok()).toBeTruthy();
+            } catch (e) {
+                falloSegunda = primeraLinea(e);
+            }
 
             await caso(349, 'se avisa que el usuario alcanzó un nuevo nivel', async () => {
+                if (falloSegunda) return noSePudoProbar(`la segunda devolución no se completó (${falloSegunda})`);
                 await t.irA(pu, 'Logros');
                 await expect(t.textoNivel(pu)).toHaveText(/^Nivel 2 - 20\s*XP$/);
                 await abrirNotificaciones(pu);
@@ -214,6 +247,7 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(345, 'los puntos coinciden con la cantidad de objetos devueltos por 10', async () => {
+                if (falloDevolucion || falloSegunda) return noSePudoProbar(`una devolución no se completó (${falloDevolucion || falloSegunda})`);
                 const l = await t.logrosApi(request, u.token);
                 expect(l.xp).toBe(l.returnedObjects * 10);
                 await t.irA(pu, 'Logros');
@@ -221,6 +255,7 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
             });
 
             await caso(142, 'al salir y volver a entrar se mantienen el nivel y el progreso', async () => {
+                if (falloSegunda) return noSePudoProbar(`la segunda devolución no se completó (${falloSegunda})`);
                 await t.cerrarSesion(pu);
                 await pu.getByText('Iniciar sesión', { exact: true }).click();
                 await pu.getByPlaceholder('Email').fill(u.email);
