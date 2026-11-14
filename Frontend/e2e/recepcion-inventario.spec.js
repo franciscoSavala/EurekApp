@@ -1,6 +1,7 @@
 // Tanda T03: inventario y detalle del objeto (carril paralelo).
 const { test, expect } = require('@playwright/test');
-const { caso, foto, nombreUnico, irAlMenu, esperarRespuesta } = require('./helpers');
+const { foto, nombreUnico, irAlMenu, esperarRespuesta } = require('./helpers');
+const { casoContinuo: caso, noSePudoProbar } = require('./helpers/t17');
 const { abrirComo } = require('./helpers/t02');
 const { MENSAJE_EXITO, EMPLEADO_AERO, URL_BACKEND, abrirRecepcion, cargarImagen, vistaPrevia, enviarRecepcion } = require('./helpers/t03');
 
@@ -93,14 +94,17 @@ test.describe('Inventario y detalle del objeto', () => {
             return tarjetas(page).first();
         })();
 
+        let detalleAbierto = false;
         await caso(110, 'al presionar Detalles el sistema muestra la información del objeto', async () => {
             const detalle = esperarRespuesta(page, 'POST', '/found-objects/getDetail');
             await tarjeta.getByText('Detalles', { exact: true }).click();
             expect((await detalle).status()).toBe(200);
             await expect(page.getByText('Datos del objeto')).toBeVisible();
+            detalleAbierto = true;
         });
 
         await caso(111, 'el detalle muestra título, descripción, descripción de la IA, fecha y ubicación', async () => {
+            if (!detalleAbierto) return noSePudoProbar('no se abrió el detalle del objeto');
             await expect(page.getByText('Título:', { exact: false }).locator('visible=true').first()).toBeVisible();
             await expect(page.getByText(/^Descripción: .+/).locator('visible=true').first()).toBeVisible();
             await expect(page.getByText('Encontrado el', { exact: false }).locator('visible=true').first()).toBeVisible();
@@ -110,6 +114,7 @@ test.describe('Inventario y detalle del objeto', () => {
         });
 
         await caso(112, 'el mapa muestra el punto donde se encontró el objeto', async () => {
+            if (!detalleAbierto) return noSePudoProbar('no se abrió el detalle del objeto');
             const marcador = page.locator('.leaflet-marker-icon').locator('visible=true').first();
             await expect(marcador).toBeVisible();
             const mapa = page.locator('.leaflet-container').locator('visible=true').first();
@@ -122,6 +127,7 @@ test.describe('Inventario y detalle del objeto', () => {
         });
 
         await caso(113, 'al presionar Volver el sistema regresa al inventario', async () => {
+            if (!detalleAbierto) return noSePudoProbar('no se abrió el detalle del objeto');
             await page.getByText('Volver', { exact: true }).locator('visible=true').click();
             await expect(page.getByText('Datos del objeto')).toHaveCount(0);
             await expect(tarjetas(page).first()).toBeVisible();

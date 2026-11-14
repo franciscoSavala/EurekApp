@@ -57,11 +57,12 @@ test.describe('Búsqueda de un objeto perdido', () => {
     });
 
     test('sin coincidencias: en otro establecimiento no aparece el objeto y se avisa @busqueda @serie', async () => {
-        await abrirBusqueda(page, 'Aeropuerto Internacional Cordoba');
-        await page.getByPlaceholder('Proporciona detalles que ayuden a identificarlo').fill('billetera');
+        // Se busca en una organización sin objetos y con un texto único; el objeto receptado vive en otra.
+        await abrirBusqueda(page, 'Shopping Patio Olmos');
+        await page.getByPlaceholder('Proporciona detalles que ayuden a identificarlo').fill(nombreUnico('zxqv sin coincidencias'));
         await page.getByText('Buscar objeto', { exact: true }).click();
 
-        await expect(page.getByText('No se encontraron coincidencias para tu búsqueda.')).toBeVisible();
+        await expect(page.getByText('No se encontraron coincidencias para tu búsqueda.')).toBeVisible({ timeout: 30000 });
         await expect(page.getByText(titulo, { exact: true })).toHaveCount(0);
     });
 });

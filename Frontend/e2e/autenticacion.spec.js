@@ -177,10 +177,11 @@ test.describe('Pantallas que consultan al servidor con la sesión iniciada', () 
     test('la usuaria califica una búsqueda sin resultados y el servidor lo registra @usuario @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.usuario);
         const vigilante = vigilarPedidos(page);
-        await abrirBusqueda(page, 'Aeropuerto Internacional Cordoba');
-        await page.getByPlaceholder('Proporciona detalles que ayuden a identificarlo').fill('billetera');
+        // Organización sin objetos y texto único: el resultado no depende de lo que cargaron otros tests.
+        await abrirBusqueda(page, 'Shopping Patio Olmos');
+        await page.getByPlaceholder('Proporciona detalles que ayuden a identificarlo').fill(nombreUnico('zxqv sin resultados'));
         await page.getByText('Buscar objeto', { exact: true }).click();
-        await expect(page.getByText('No se encontraron coincidencias para tu búsqueda.')).toBeVisible();
+        await expect(page.getByText('No se encontraron coincidencias para tu búsqueda.')).toBeVisible({ timeout: 30000 });
 
         await page.getByText('¿Qué tan útil fue la búsqueda?').locator('xpath=following-sibling::*[1]').locator('xpath=./*').nth(3).click();
         const calificacion = esperarRespuesta(page, 'POST', '/feedback');

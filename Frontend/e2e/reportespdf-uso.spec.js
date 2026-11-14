@@ -3,6 +3,7 @@
 // el contenido que la app manda a imprimir y verifican por separado si el navegador descarga un archivo.
 const { test, expect } = require('@playwright/test');
 const { texto, instalarCapturaPdf, leerPdf, descargaAlExportar, abrirReporteUso, sembrarFeedback } = require('./helpers/t11');
+const { pasoContinuo } = require('./helpers/t17');
 
 let sembrado;
 
@@ -20,7 +21,7 @@ async function valorEnPantalla(page, etiqueta) {
 test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el botón, métricas, gráficos, filtros, fecha, registros y lo mismo que la pantalla @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
-        await test.step('caso 448: el reporte muestra el botón Exportar PDF', async () => {
+        await pasoContinuo('caso 448: el reporte muestra el botón Exportar PDF', async () => {
             await expect(texto(page, 'Exportar PDF')).toBeVisible();
         });
 
@@ -37,7 +38,7 @@ test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el bot
         await texto(page, 'Exportar PDF').click();
         const pdf = await leerPdf(page);
 
-        await test.step('caso 453: el PDF incluye las métricas, los gráficos y las tablas del reporte', async () => {
+        await pasoContinuo('caso 453: el PDF incluye las métricas, los gráficos y las tablas del reporte', async () => {
             expect(pdf.texto).toContain('Métricas generales');
             expect(pdf.texto).toContain('Métricas de feedback');
             expect(pdf.html).toContain('<svg');
@@ -46,17 +47,17 @@ test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el bot
             expect(pdf.texto).toContain('Registros individuales de búsquedas');
         });
 
-        await test.step('caso 454: el PDF incluye los filtros aplicados al exportar', async () => {
+        await pasoContinuo('caso 454: el PDF incluye los filtros aplicados al exportar', async () => {
             expect(pdf.texto).toMatch(/Período: \d{4}-\d{2}-\d{2}\s+—\s+\d{4}-\d{2}-\d{2}/);
             expect(pdf.texto).toContain('Agrupado por');
             expect(pdf.texto).toContain('Solo encontrados');
         });
 
-        await test.step('caso 455: el PDF incluye la fecha y la hora de generación', async () => {
+        await pasoContinuo('caso 455: el PDF incluye la fecha y la hora de generación', async () => {
             expect(pdf.texto).toMatch(/Generado:\s*\d{1,2}\/\d{1,2}\/\d{4}[ ,]+\d{1,2}:\d{2}/);
         });
 
-        await test.step('caso 456: cada registro del PDF trae ID, organización, objeto, puntaje, si lo encontró, fecha y comentario', async () => {
+        await pasoContinuo('caso 456: cada registro del PDF trae ID, organización, objeto, puntaje, si lo encontró, fecha y comentario', async () => {
             const tabla = pdf.texto.slice(pdf.texto.indexOf('Registros individuales de búsquedas'));
             expect(tabla).toContain(sembrado.titulo);
             for (const columna of ['ID', 'Organización', 'Objeto', 'Encontrado', 'Fecha']) expect.soft(tabla, `columna ${columna}`).toContain(columna);
@@ -64,7 +65,7 @@ test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el bot
             expect.soft(tabla, 'columna de comentario del usuario').toContain('Comentario');
         });
 
-        await test.step('caso 457: el PDF muestra los mismos valores que la pantalla', async () => {
+        await pasoContinuo('caso 457: el PDF muestra los mismos valores que la pantalla', async () => {
             for (const [etiqueta, valor] of [...Object.entries(enPantalla), ...Object.entries(objetos)]) {
                 expect(valor, `valor de ${etiqueta} en pantalla`).not.toBeNull();
             }
@@ -90,23 +91,23 @@ test('casos 283, 449, 450, 458 y 459: al exportar el PDF del reporte de uso el n
         const descarga = await descargaAlExportar(page, texto(page, 'Exportar PDF'));
         const nombre = descarga ? descarga.suggestedFilename() : '';
 
-        await test.step('caso 283: el sistema descarga el reporte de opiniones en formato PDF', async () => {
+        await pasoContinuo('caso 283: el sistema descarga el reporte de opiniones en formato PDF', async () => {
             expect(descarga, 'descarga del navegador').not.toBeNull();
             expect(nombre).toMatch(/\.pdf$/i);
         });
-        await test.step('caso 449: el sistema descarga el reporte de uso del sistema en PDF', async () => {
+        await pasoContinuo('caso 449: el sistema descarga el reporte de uso del sistema en PDF', async () => {
             expect(descarga, 'descarga del navegador').not.toBeNull();
             expect(nombre).toMatch(/uso.*\.pdf$/i);
         });
-        await test.step('caso 450: el sistema descarga el reporte de precisión de coincidencias en PDF', async () => {
+        await pasoContinuo('caso 450: el sistema descarga el reporte de precisión de coincidencias en PDF', async () => {
             expect(descarga, 'descarga del navegador').not.toBeNull();
             const pdf = await leerPdf(page);
             expect(pdf.texto).toContain('Resultado de búsquedas');
         });
-        await test.step('caso 458: el archivo PDF se descarga automáticamente al presionar Exportar PDF', async () => {
+        await pasoContinuo('caso 458: el archivo PDF se descarga automáticamente al presionar Exportar PDF', async () => {
             expect(descarga, 'descarga automática del navegador').not.toBeNull();
         });
-        await test.step('caso 459: el nombre del archivo incluye el nombre del reporte y la fecha de generación', async () => {
+        await pasoContinuo('caso 459: el nombre del archivo incluye el nombre del reporte y la fecha de generación', async () => {
             expect(descarga, 'descarga del navegador').not.toBeNull();
             expect(nombre).toMatch(/Reporte.*Uso.*\d{4}-\d{2}-\d{2}\.pdf$/i);
         });
