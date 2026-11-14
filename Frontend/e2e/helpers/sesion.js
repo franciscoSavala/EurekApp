@@ -149,9 +149,9 @@ async function registrarUsuario(request, datos) {
     return conRequest(request, async (req) => {
         const r = await pedirConCupo(() => req.post(`${URL_BACK}/signup`, { data: pedido }), `signup ${pedido.username}`);
         if (!r.ok()) throw new Error(`signup ${pedido.username}: ${r.status()} ${await r.text()}`);
-        const cuerpo = await r.json();
-        if (cuerpo.token && pedido.password === CLAVE) guardarSesion(pedido.username, cuerpo);
-        return cuerpo;
+        // No se guarda la sesión del registro: el usuario nuevo cambia de rol u organización durante el test,
+        // y la primera vez que se abre con abrirComo tiene que ingresar con su estado de ese momento.
+        return r.json();
     });
 }
 
