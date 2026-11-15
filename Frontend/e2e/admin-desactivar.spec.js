@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { USUARIOS_PARALELO, caso, irAlLogin, completarYEnviarLogin, irAlMenu, CLAVE } = require('./helpers');
 const { abrirComo } = require('./helpers/t02');
 const t15 = require('./helpers/t15');
+const { casoContinuo } = require('./helpers/t17');
 
 const ORG_TERMINAL = 'Terminal de Omnibus Cordoba';
 const DUENO_TERMINAL = 'owner.term@eurekapp.com';
@@ -12,6 +13,8 @@ async function opcionesDeEstablecimiento(page) {
     await irAlMenu(page, 'Buscar un objeto');
     const opciones = page.locator('select').first();
     await expect(opciones).toBeVisible();
+    // Los establecimientos cargan después de la pantalla: se espera a que haya reales.
+    await expect.poll(async () => (await opciones.locator('option').allInnerTexts()).includes('UTN FRC'), { timeout: 30_000 }).toBe(true);
     return opciones.locator('option').allInnerTexts();
 }
 
@@ -99,7 +102,7 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
             await t15.irAOrganizaciones(page);
             const ficha = () => t15.tarjeta(page, ORG_TERMINAL);
 
-            await caso(425, 'antes de desactivar la organización el sistema pide confirmación', async () => {
+            await casoContinuo(425, 'antes de desactivar la organización el sistema pide confirmación', async () => {
                 await ficha().getByText('Desactivar', { exact: true }).click();
                 await expect(t15.dialogo(page).getByText('¿Desactivar organización?')).toBeVisible();
                 await expect(t15.dialogo(page).getByText('Cancelar', { exact: true })).toBeVisible();
@@ -108,7 +111,7 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
                 expect(o.active, 'sin confirmar, la organización sigue activa').toBe(true);
             });
 
-            await caso(426, 'al confirmar, la organización pasa a Inactiva', async () => {
+            await casoContinuo(426, 'al confirmar, la organización pasa a Inactiva', async () => {
                 await ficha().getByText('Desactivar', { exact: true }).click();
                 const respuesta = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/admin/organizations'));
                 await t15.dialogo(page).getByText('Desactivar', { exact: true }).click();
@@ -118,12 +121,12 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
                 expect(o.active).toBe(false);
             });
 
-            await caso(422, 'el listado muestra organizaciones activas e inactivas', async () => {
+            await casoContinuo(422, 'el listado muestra organizaciones activas e inactivas', async () => {
                 await expect(page.getByText('Activa', { exact: true }).locator('visible=true').first()).toBeVisible();
                 await expect(page.getByText('Inactiva', { exact: true }).locator('visible=true').first()).toBeVisible();
             });
 
-            await caso(428, 'la organización desactivada no opera ni aparece en la selección de establecimientos', async () => {
+            await casoContinuo(428, 'la organización desactivada no opera ni aparece en la selección de establecimientos', async () => {
                 const r = await request.get(`${t15.URL_BACK}/organizations/policy`, { headers: t15.auth(tokenDueno) });
                 expect.soft(r.status(), 'el dueño de la organización desactivada ya no puede operar').toBeGreaterThanOrEqual(400);
                 const textos = await opcionesDeEstablecimiento(valeria.page);
@@ -131,7 +134,7 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
                 expect(textos, 'la organización desactivada no debería ofrecerse al elegir establecimiento').not.toContain(ORG_TERMINAL);
             });
 
-            await caso(429, 'los empleados mantienen su rol aunque la organización quede inactiva', async () => {
+            await casoContinuo(429, 'los empleados mantienen su rol aunque la organización quede inactiva', async () => {
                 const dueno = (await t15.usuariosApi(request, page)).find((u) => u.username === DUENO_TERMINAL);
                 expect(dueno.role).toBe(duenoAntes.role);
                 expect(dueno.organizationName).toBe(ORG_TERMINAL);
@@ -143,7 +146,7 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
                 await expect(fichaDueno.getByText('Responsable', { exact: true })).toBeVisible();
             });
 
-            await caso(427, 'el administrador reactiva la organización y pasa a Activa', async () => {
+            await casoContinuo(427, 'el administrador reactiva la organización y pasa a Activa', async () => {
                 await t15.irAOrganizaciones(page);
                 await ficha().getByText('Activar', { exact: true }).click();
                 const respuesta = page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/admin/organizations'));

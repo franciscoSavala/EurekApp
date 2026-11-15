@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { USUARIOS, foto, nombreUnico, abrirComoUsuario, elegirArchivo, irAlMenu, receptarObjeto, bajarHastaVer, cargarListadoCompleto } = require('./helpers');
+const { casoContinuo, noSePudoProbar } = require('./helpers/t17');
 
 /** En el inventario, la tarjeta del objeto con ese título (la más cercana que tiene el botón Devolver). */
 const tarjeta = (page, titulo) =>
@@ -67,6 +68,7 @@ test.describe('Devolución de un objeto', () => {
 
     test('casos 116, 121, 122 y 132: devuelve un objeto, sale del inventario y aparece en los devueltos @devolucion @serie', async () => {
         const titulo = await receptarObjeto(page, nombreUnico('Billetera devolver e2e'));
+        let registrada = false;
 
         await irAlMenu(page, 'Ver inventario');
         await bajarHastaVer(page, titulo);
@@ -77,17 +79,32 @@ test.describe('Devolución de un objeto', () => {
         await page.getByPlaceholder('Ingresa el número de documento').fill(dniUnico());
         await page.getByPlaceholder('Ingresa un teléfono de contacto').fill('3514000000');
         await page.getByText('Registrar devolución', { exact: true }).click();
-        await expect(page.getByText('La devolución del objeto se registró correctamente.')).toBeVisible();
 
-        // Tras registrar, la pantalla queda en el formulario: se vuelve al listado con el botón de volver.
-        await page.goBack();
-        // La app deja apiladas pantallas anteriores ocultas: solo importa lo que se ve.
-        await expect(page.getByText('Devolver', { exact: true }).locator('visible=true').first()).toBeVisible();
-        // Con el listado completo cargado, para que la ausencia no se deba a una página sin cargar.
-        await cargarListadoCompleto(page);
-        await expect(page.getByText(titulo, { exact: true }).locator('visible=true')).toHaveCount(0);
+        await casoContinuo(116, 'Registro exitoso de devolución: se registra y aparece el mensaje de éxito', async () => {
+            await expect(page.getByText('La devolución del objeto se registró correctamente.')).toBeVisible();
+            registrada = true;
+        });
 
-        await irAlMenu(page, 'Ver objetos devueltos');
-        await expect(page.getByText(titulo).locator('visible=true')).toBeVisible();
+        await casoContinuo(121, 'Confirmación visual de devolución: se ve un mensaje "Devolución exitosa"', async () => {
+            if (!registrada) return noSePudoProbar('la devolución no se registró');
+            await expect(page.getByText(/Devolución exitosa/i)).toBeVisible({ timeout: 3000 });
+        });
+
+        await casoContinuo(122, 'Persistencia de devolución: el objeto ya no está en el inventario', async () => {
+            if (!registrada) return noSePudoProbar('la devolución no se registró');
+            // Tras registrar, la pantalla queda en el formulario: se vuelve al listado con el botón de volver.
+            await page.goBack();
+            // La app deja apiladas pantallas anteriores ocultas: solo importa lo que se ve.
+            await expect(page.getByText('Devolver', { exact: true }).locator('visible=true').first()).toBeVisible();
+            // Con el listado completo cargado, para que la ausencia no se deba a una página sin cargar.
+            await cargarListadoCompleto(page);
+            await expect(page.getByText(titulo, { exact: true }).locator('visible=true')).toHaveCount(0);
+        });
+
+        await casoContinuo(132, 'Persistencia de objeto devuelto: aparece en Ver objetos devueltos', async () => {
+            if (!registrada) return noSePudoProbar('la devolución no se registró');
+            await irAlMenu(page, 'Ver objetos devueltos');
+            await expect(page.getByText(titulo).locator('visible=true')).toBeVisible();
+        });
     });
 });
