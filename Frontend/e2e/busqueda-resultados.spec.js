@@ -3,6 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { USUARIOS_PARALELO, caso, foto, nombreUnico } = require('./helpers');
 const t = require('./helpers/t02');
+const { receptarComoEmpleadoConCarga } = require('./helpers/t19');
 
 const DESCRIPCION_BILLETERA = 'billetera de cuero marron';
 
@@ -21,7 +22,7 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
     let page;
 
     test.beforeAll(async ({ browser }) => {
-        titulo = await t.receptarComoEmpleado(browser, USUARIOS_PARALELO.empleadoAero, nombreUnico('Billetera resultados e2e'));
+        titulo = await receptarComoEmpleadoConCarga(browser, USUARIOS_PARALELO.empleadoAero, nombreUnico('Billetera resultados e2e'));
     });
 
     test.beforeEach(async ({ browser }) => {

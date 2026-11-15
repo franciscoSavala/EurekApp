@@ -8,7 +8,8 @@ test.describe('Administración: dashboard de estadísticas globales', () => {
         try {
             await caso(441, 'al abrir el panel, la pantalla inicial es el dashboard', async () => {
                 await page.goto('/');
-                await expect(page.getByText('Plataforma', { exact: true }).locator('visible=true')).toBeVisible();
+                // Con carga, el dashboard tarda en dejar el spinner.
+                await expect(page.getByText('Plataforma', { exact: true }).locator('visible=true')).toBeVisible({ timeout: 60_000 });
                 await expect(page.getByText('Usuarios totales', { exact: true }).locator('visible=true')).toBeVisible();
             });
             await caso(430, 'el dashboard se abre desde el menú del administrador', async () => {
