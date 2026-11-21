@@ -4,6 +4,7 @@ const { test, expect } = require('@playwright/test');
 const { USUARIOS_PARALELO, caso, foto, nombreUnico } = require('./helpers');
 const t = require('./helpers/t02');
 const { receptarComoEmpleadoConCarga } = require('./helpers/t19');
+const r = require('./helpers/r02');
 
 const DESCRIPCION_BILLETERA = 'billetera de cuero marron';
 
@@ -120,6 +121,24 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
             await t.botonBuscar(page).click();
             await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible({ timeout: 30000 });
             await expect.soft(page.getByText(/Categoría detectada: .+/)).toBeVisible();
+        });
+    });
+
+    test('caso 051: la búsqueda no depende de mayúsculas ni de tildes @busqueda @paralelo', async () => {
+        // El objeto lleva un sufijo único para reconocerlo entre los de otras corridas.
+        const sufijo = nombreUnico('').trim();
+        const tituloCampera = `Campera azul ${sufijo}`;
+        await r.conApi((request) => r.receptarPorApi(request, USUARIOS_PARALELO.empleadoAero, tituloCampera));
+
+        await caso(51, 'el objeto registrado como "Campera azul" aparece al buscar "CAMPERA azúl" y "campera azul"', async () => {
+            for (const texto of [`CAMPERA azúl ${sufijo}`, `campera azul ${sufijo}`]) {
+                await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+                await t.descripcion(page).fill(texto);
+                await t.botonBuscar(page).click();
+                await expect.soft(page.getByText('Coincidencias encontradas'), `la búsqueda "${texto}" no trajo resultados`).toBeVisible({ timeout: 30000 });
+                await expect.soft(page.locator('div[dir="auto"]', { hasText: tituloCampera }).locator('visible=true'), `la búsqueda "${texto}" no trajo la campera registrada`).toBeVisible();
+                await page.getByText('← Volver').click();
+            }
         });
     });
 
