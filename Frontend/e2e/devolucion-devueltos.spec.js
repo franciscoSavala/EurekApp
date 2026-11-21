@@ -50,7 +50,8 @@ test.describe('Objetos devueltos', () => {
 
         await caso(104, 'Ver objetos devueltos muestra la pantalla con la lista de objetos devueltos', async () => {
             await irAlMenu(page, 'Ver objetos devueltos');
-            await expect(page.getByText('Ver devolución', { exact: true }).locator('visible=true').first()).toBeVisible();
+            // El listado trae todas las devoluciones de la organización con sus fotos: con carga tarda más de 15 s.
+            await expect(page.getByText('Ver devolución', { exact: true }).locator('visible=true').first()).toBeVisible({ timeout: 45000 });
         });
 
         // El objeto recién devuelto puede no aparecer en el listado (caso 110). Los casos que parten de una tarjeta
