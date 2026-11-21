@@ -1,0 +1,15 @@
+{
+  "ronda": "R03",
+  "archivos": ["recepcion.spec.js","recepcion-formulario.spec.js","recepcion-inventario.spec.js","recepcion-confirmacion-feedback.spec.js","feedback-app.spec.js"],
+  "corridas": [
+    {"workers":3,"pasaron":16,"fallaron":4,"duracion":"6.4m"},
+    {"workers":3,"pasaron":16,"fallaron":4,"duracion":"3.7m"}
+  ],
+  "fallas_estables": [
+    {"caso":74,"detalle":"La categoria Accesorios no existe en el formulario de recepcion (quedan Electronica, Ropa, Billetera y documentos, Llaves, Otros). Divergencia app vs planilla."},
+    {"caso":"68/78","detalle":"Email sin cuenta o de usuario bloqueado: no aparece el aviso esperado en 8 s."},
+    {"caso":85,"detalle":"Con el servidor caido el inventario no muestra el aviso de error esperado (15 s)."},
+    {"caso":79,"detalle":"Titulo de 101 caracteres: no aparece 'El titulo no puede superar los 100 caracteres'."}
+  ],
+  "commit": "147862b"
+}
