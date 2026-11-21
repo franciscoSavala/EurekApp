@@ -14,3 +14,6 @@ web-build/
 .DS_Store
 /android/
 .env.development
+# Resultados de las corridas de regresion E2E
+e2e-resultados/
+test-results-json/
