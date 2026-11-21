@@ -4,10 +4,11 @@ const { test, expect } = require('@playwright/test');
 const { USUARIOS_PARALELO, caso, foto, nombreUnico } = require('./helpers');
 const t = require('./helpers/t02');
 const { receptarComoEmpleadoConCarga } = require('./helpers/t19');
+const r = require('./helpers/r02');
 
 const DESCRIPCION_BILLETERA = 'billetera de cuero marron';
 
-/** Fecha local "AAAA-MM-DD" de hace `dias` días. */
+/** Fecha local "AAAA-MM-DD" de hace `dias` días (negativo: dentro de `dias` días). */
 const fechaDeHace = (dias) => {
     const d = new Date(Date.now() - dias * 24 * 3600 * 1000);
     const p = (n) => String(n).padStart(2, '0');
@@ -18,6 +19,8 @@ const pedidoDeBusqueda = (page) => page.waitForRequest((r) => /\/found-objects(\
 
 test.describe('Búsqueda de un objeto perdido: resultados', () => {
     let titulo;
+    // El título del objeto tal como se ve en la lista de resultados (no en el campo de descripción).
+    const tarjetaDe = (p) => p.locator('div[dir="auto"]', { hasText: titulo }).locator('visible=true');
     let context;
     let page;
 
@@ -33,20 +36,22 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
         await context.close();
     });
 
-    test('caso 062: buscar solo con la descripción, sin foto, muestra resultados sin pedir una foto @busqueda @paralelo', async () => {
-        await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
-        await t.descripcion(page).fill('billetera');
-        await t.botonBuscar(page).click();
-
-        await caso(62, 'la búsqueda solo con descripción se ejecuta y muestra resultados, sin error ni pedido de foto', async () => {
-            await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible({ timeout: 30000 });
-            await expect.soft(page.getByText(titulo, { exact: true })).toBeVisible();
-            await expect.soft(page.getByText(/Error|No se pudo realizar la búsqueda/)).toHaveCount(0);
-            await expect.soft(page.getByText(/falta.*foto|foto.*obligatoria/i)).toHaveCount(0);
+    test('caso 044: buscar solo con la descripción, sin foto, muestra resultados sin pedir una foto @busqueda @paralelo', async () => {
+        await caso(44, 'con la descripción completa y con una sola palabra clave, sin foto, se muestran resultados relacionados sin error ni pedido de foto', async () => {
+            for (const texto of [DESCRIPCION_BILLETERA, 'billetera']) {
+                await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+                await t.descripcion(page).fill(texto);
+                await t.botonBuscar(page).click();
+                await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible({ timeout: 30000 });
+                await expect.soft(page.getByText(titulo, { exact: true }), `la búsqueda "${texto}" no trajo la billetera registrada`).toBeVisible();
+                await expect.soft(page.getByText(/Error|No se pudo realizar la búsqueda/)).toHaveCount(0);
+                await expect.soft(page.getByText(/falta.*foto|foto.*obligatoria/i)).toHaveCount(0);
+                await page.getByText('← Volver').click();
+            }
         });
     });
 
-    test('caso 049: la búsqueda usa la descripción, el establecimiento, la fecha y la hora ingresadas @busqueda @paralelo', async () => {
+    test('caso 035: la búsqueda usa la descripción, el establecimiento, la fecha y la hora ingresadas @busqueda @paralelo', async () => {
         await t.prepararBusqueda(page, t.ORG_CON_OBJETOS, 2);
         // Hora estimada: 9:00 de la mañana.
         await page.getByText(/^\d{1,2}:\d{2}/).first().click();
@@ -55,7 +60,7 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
         const pedido = pedidoDeBusqueda(page);
         await t.botonBuscar(page).click();
 
-        await caso(49, 'se busca en el establecimiento elegido con la descripción, la fecha y la hora ingresadas', async () => {
+        await caso(35, 'se busca en el establecimiento elegido con la descripción, la fecha y la hora ingresadas', async () => {
             const url = new URL((await pedido).url());
             expect.soft(url.pathname).toMatch(/\/found-objects\/organizations\/\d+$/);
             expect.soft(url.searchParams.get('query')).toContain('billetera');
@@ -64,7 +69,80 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
         });
     });
 
-    test('caso 065: sumar una foto del objeto desde otro ángulo sube el porcentaje de coincidencia @busqueda @paralelo', async () => {
+    test('caso 037: búsqueda con color y fecha límite en los filtros avanzados @busqueda @paralelo', async () => {
+        await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+        await t.descripcion(page).fill(titulo);
+        await t.abrirFiltros(page);
+        await page.getByPlaceholder('Ej: rojo, azul oscuro...').fill('marron');
+        // Fecha límite dentro de unos días: el objeto receptado hoy queda dentro del rango.
+        const [anio, mes, dia] = fechaDeHace(-5).split('-').map(Number);
+        await t.elegirFechaLimite(page, anio, mes, dia);
+        const pedido = pedidoDeBusqueda(page);
+        await t.botonBuscar(page).click();
+
+        await caso(37, 'la búsqueda se hace con la descripción y el color, limitada a la fecha elegida, y los resultados muestran los indicadores y Limpiar filtros', async () => {
+            const url = new URL((await pedido).url());
+            expect.soft(url.searchParams.get('query')).toContain(titulo);
+            expect.soft(url.searchParams.get('query')).toContain('marron');
+            const limite = url.searchParams.get('lost_date_to') ?? url.searchParams.get('lostDateTo');
+            expect.soft(limite, 'la búsqueda no envió la fecha límite elegida').toMatch(new RegExp(`^${fechaDeHace(-5)}`));
+            await t.esperarResultado(page);
+            await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible();
+            await expect.soft(page.getByText('marron', { exact: true }).locator('visible=true')).toBeVisible();
+            await expect.soft(page.getByText(`hasta ${fechaDeHace(-5)}`, { exact: true }).locator('visible=true')).toBeVisible();
+            await expect.soft(page.getByText('Limpiar filtros', { exact: true }).locator('visible=true')).toBeVisible();
+            await expect.soft(tarjetaDe(page)).toBeVisible();
+        });
+
+        await caso(37, 'una fecha límite anterior a la recepción deja afuera el objeto y, si nada coincide, avisa', async () => {
+            await page.getByText('← Volver').click();
+            await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+            await t.descripcion(page).fill(titulo);
+            await t.abrirFiltros(page);
+            await page.getByPlaceholder('Ej: rojo, azul oscuro...').fill('marron');
+            const ayer = fechaDeHace(1).split('-').map(Number);
+            await t.elegirFechaLimite(page, ...ayer);
+            await t.botonBuscar(page).click();
+            await t.esperarResultado(page);
+            await expect.soft(tarjetaDe(page), 'trajo un objeto hallado después de la fecha límite').toHaveCount(0);
+        });
+    });
+
+    test('caso 038: los filtros avanzados no tienen categoría y los resultados muestran la categoría detectada @busqueda @paralelo', async () => {
+        await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+        await t.abrirFiltros(page);
+
+        await caso(38, 'los filtros solo ofrecen Color y Fecha límite y, al buscar "billetera negra", los resultados muestran "Categoría detectada"', async () => {
+            await expect.soft(page.getByText('Color (opcional):')).toBeVisible();
+            await expect.soft(page.getByText('Fecha límite de búsqueda (hasta):')).toBeVisible();
+            await expect.soft(page.getByText(/categor[ií]a/i).locator('visible=true'), 'los filtros avanzados muestran un selector de categoría').toHaveCount(0);
+            await page.getByText('Filtros avanzados', { exact: true }).click();
+            await t.descripcion(page).fill('billetera negra');
+            await t.botonBuscar(page).click();
+            await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible({ timeout: 30000 });
+            await expect.soft(page.getByText(/Categoría detectada: .+/)).toBeVisible();
+        });
+    });
+
+    test('caso 051: la búsqueda no depende de mayúsculas ni de tildes @busqueda @paralelo', async () => {
+        // El objeto lleva un sufijo único para reconocerlo entre los de otras corridas.
+        const sufijo = nombreUnico('').trim();
+        const tituloCampera = `Campera azul ${sufijo}`;
+        await r.conApi((request) => r.receptarPorApi(request, USUARIOS_PARALELO.empleadoAero, tituloCampera));
+
+        await caso(51, 'el objeto registrado como "Campera azul" aparece al buscar "CAMPERA azúl" y "campera azul"', async () => {
+            for (const texto of [`CAMPERA azúl ${sufijo}`, `campera azul ${sufijo}`]) {
+                await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
+                await t.descripcion(page).fill(texto);
+                await t.botonBuscar(page).click();
+                await expect.soft(page.getByText('Coincidencias encontradas'), `la búsqueda "${texto}" no trajo resultados`).toBeVisible({ timeout: 30000 });
+                await expect.soft(page.locator('div[dir="auto"]', { hasText: tituloCampera }).locator('visible=true'), `la búsqueda "${texto}" no trajo la campera registrada`).toBeVisible();
+                await page.getByText('← Volver').click();
+            }
+        });
+    });
+
+    test('caso 047: sumar una foto del objeto desde otro ángulo sube el porcentaje de coincidencia @busqueda @paralelo', async () => {
         let sinFoto;
         await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
         await t.descripcion(page).fill(DESCRIPCION_BILLETERA);
@@ -81,48 +159,21 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
         await expect(page.getByText(titulo, { exact: true })).toBeVisible({ timeout: 30000 });
         const conFoto = await t.porcentajeDe(page, titulo);
 
-        await caso(65, `el porcentaje con la foto (${conFoto}%) es mayor que el de solo texto (${sinFoto}%)`, async () => {
+        await caso(47, `el porcentaje con la foto (${conFoto}%) es mayor que el de solo texto (${sinFoto}%)`, async () => {
             expect(conFoto).toBeGreaterThan(sinFoto);
         });
     });
 
-    test('caso 066: una búsqueda de zapatillas con foto de zapatillas no trae la billetera registrada @busqueda @paralelo', async () => {
+    test('caso 048: una búsqueda de zapatillas con foto de zapatillas no trae la billetera registrada @busqueda @paralelo', async () => {
         await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
         await t.descripcion(page).fill('zapatillas');
         await t.cargarFoto(page, foto('reemplazo_zapatilla.jpg'));
         await t.botonBuscar(page).click();
         await t.esperarResultado(page);
 
-        await caso(66, 'la billetera registrada no aparece en los resultados', async () => {
+        await caso(48, 'la billetera registrada no aparece en los resultados', async () => {
             await expect.soft(page.getByText(titulo, { exact: true })).toHaveCount(0);
             await expect.soft(page.getByText(/billetera/i)).toHaveCount(0);
-        });
-    });
-
-    test('casos 359 y 360: filtros combinados y palabra clave @busqueda @paralelo', async () => {
-        await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
-        await t.descripcion(page).fill('billetera');
-        await t.botonBuscar(page).click();
-
-        await caso(360, 'la palabra clave trae resultados relacionados con ella', async () => {
-            await expect.soft(page.getByText('Coincidencias encontradas')).toBeVisible({ timeout: 30000 });
-            await expect.soft(page.getByText(titulo, { exact: true })).toBeVisible();
-        });
-
-        await page.getByText('← Volver').click();
-        await t.prepararBusqueda(page, t.ORG_CON_OBJETOS);
-        await t.abrirFiltros(page);
-
-        await caso(359, 'con categoría, color, palabra clave y rango de fechas solo salen resultados que cumplen todo', async () => {
-            await expect.soft(page.getByText('Accesorios', { exact: true }), 'los filtros avanzados no ofrecen categorías').toBeVisible({ timeout: 1000 });
-            await t.descripcion(page).fill('billetera');
-            await page.getByPlaceholder('Ej: rojo, azul oscuro...').fill('marron');
-            // Rango: desde hace 2 días (fecha principal) hasta ayer; el objeto se receptó hoy, queda afuera.
-            const ayer = fechaDeHace(1).split('-').map(Number);
-            await t.elegirFechaLimite(page, ...ayer);
-            await t.botonBuscar(page).click();
-            await t.esperarResultado(page);
-            await expect.soft(page.getByText(titulo, { exact: true }), 'trajo un objeto hallado después de la fecha límite').toHaveCount(0);
         });
     });
 });
