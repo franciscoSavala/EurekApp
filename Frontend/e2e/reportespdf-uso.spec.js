@@ -1,9 +1,12 @@
-// Exportación a PDF del reporte de uso del responsable de organización (casos 283, 448 a 450 y 453 a 460).
+// Exportación a PDF del reporte de uso (casos 322, 323 y 326 a 330).
 // En la web el PDF se arma en un iframe y sale por el diálogo de impresión del navegador: los tests leen
 // el contenido que la app manda a imprimir y verifican por separado si el navegador descarga un archivo.
 const { test, expect } = require('@playwright/test');
+const { USUARIOS } = require('./helpers');
 const { texto, instalarCapturaPdf, leerPdf, descargaAlExportar, abrirReporteUso, sembrarFeedback } = require('./helpers/t11');
 const { pasoContinuo } = require('./helpers/t17');
+const { abrirComo } = require('./helpers/t02');
+const { abrirMenuDesdeInicio, enlaceMenu } = require('./helpers/t01');
 
 let sembrado;
 
@@ -18,10 +21,10 @@ async function valorEnPantalla(page, etiqueta) {
     return i > 0 ? lineas[i - 1] : null;
 }
 
-test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el botón, métricas, gráficos, filtros, fecha, registros y lo mismo que la pantalla @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF trae métricas, gráficos, tablas, filtros y fecha y hora de generación @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
-        await pasoContinuo('caso 448: el reporte muestra el botón Exportar PDF', async () => {
+        await pasoContinuo('caso 322: el reporte habilitado muestra el botón Exportar PDF', async () => {
             await expect(texto(page, 'Exportar PDF')).toBeVisible();
         });
 
@@ -30,100 +33,93 @@ test('casos 448, 453, 454, 455, 456 y 457: el PDF del reporte de uso trae el bot
         await expect(texto(page, 'Exportar PDF')).toBeVisible();
         await expect(texto(page, 'Búsquedas registradas')).toBeVisible();
         const enPantalla = {};
-        for (const e of ['Búsquedas registradas', 'Búsquedas exitosas', 'Búsquedas fallidas', 'Atenciones calificadas']) {
+        for (const e of ['Búsquedas registradas', 'Búsquedas exitosas', 'Búsquedas fallidas', 'Atenciones calificadas', 'Objetos encontrados', 'Objetos devueltos']) {
             enPantalla[e] = await valorEnPantalla(page, e);
         }
-        const objetos = { 'Objetos encontrados': await valorEnPantalla(page, 'Objetos encontrados'), 'Objetos devueltos': await valorEnPantalla(page, 'Objetos devueltos') };
         await instalarCapturaPdf(page);
         await texto(page, 'Exportar PDF').click();
         const pdf = await leerPdf(page);
 
-        await pasoContinuo('caso 453: el PDF incluye las métricas, los gráficos y las tablas del reporte', async () => {
+        await pasoContinuo('caso 326: el PDF incluye las métricas, los gráficos y las tablas del reporte, con las mismas cifras de la pantalla', async () => {
             expect(pdf.texto).toContain('Métricas generales');
             expect(pdf.texto).toContain('Métricas de feedback');
             expect(pdf.html).toContain('<svg');
             expect(pdf.html).toContain('<table');
             expect(pdf.texto).toContain('Gráfico: Resultado de búsquedas');
             expect(pdf.texto).toContain('Registros individuales de búsquedas');
+            for (const [etiqueta, valor] of Object.entries(enPantalla)) {
+                expect(valor, `valor de ${etiqueta} en pantalla`).not.toBeNull();
+                const m = pdf.texto.match(new RegExp(`${etiqueta}\\s*(\\d+)`));
+                expect.soft(m && m[1], `${etiqueta} en el PDF`).toBe(valor);
+            }
         });
 
-        await pasoContinuo('caso 454: el PDF incluye los filtros aplicados al exportar', async () => {
+        await pasoContinuo('caso 327: el PDF incluye los filtros aplicados al exportar', async () => {
             expect(pdf.texto).toMatch(/Período: \d{4}-\d{2}-\d{2}\s+—\s+\d{4}-\d{2}-\d{2}/);
             expect(pdf.texto).toContain('Agrupado por');
             expect(pdf.texto).toContain('Solo encontrados');
         });
 
-        await pasoContinuo('caso 455: el PDF incluye la fecha y la hora de generación', async () => {
+        await pasoContinuo('caso 328: el PDF incluye la fecha y la hora de generación', async () => {
             expect(pdf.texto).toMatch(/Generado:\s*\d{1,2}\/\d{1,2}\/\d{4}[ ,]+\d{1,2}:\d{2}/);
-        });
-
-        await pasoContinuo('caso 456: cada registro del PDF trae ID, organización, objeto, puntaje, si lo encontró, fecha y comentario', async () => {
-            const tabla = pdf.texto.slice(pdf.texto.indexOf('Registros individuales de búsquedas'));
-            expect(tabla).toContain(sembrado.titulo);
-            for (const columna of ['ID', 'Organización', 'Objeto', 'Encontrado', 'Fecha']) expect.soft(tabla, `columna ${columna}`).toContain(columna);
-            expect.soft(tabla, 'columna de puntaje o calificación').toMatch(/Puntaje|Calificaci[óo]n/);
-            expect.soft(tabla, 'columna de comentario del usuario').toContain('Comentario');
-        });
-
-        await pasoContinuo('caso 457: el PDF muestra los mismos valores que la pantalla', async () => {
-            for (const [etiqueta, valor] of [...Object.entries(enPantalla), ...Object.entries(objetos)]) {
-                expect(valor, `valor de ${etiqueta} en pantalla`).not.toBeNull();
-            }
-            const pdfLinea = (etiqueta) => new RegExp(`${etiqueta}\\s*(\\d+)`);
-            for (const [etiqueta, valor] of Object.entries(enPantalla)) {
-                const m = pdf.texto.match(pdfLinea(etiqueta));
-                expect.soft(m && m[1], `${etiqueta} en el PDF`).toBe(valor);
-            }
-            const encontrados = pdf.texto.match(/Objetos encontrados\s*(\d+)/);
-            expect.soft(encontrados && encontrados[1], 'Objetos encontrados en el PDF').toBe(objetos['Objetos encontrados']);
-            const devueltos = pdf.texto.match(/Objetos devueltos\s*(\d+)/);
-            expect.soft(devueltos && devueltos[1], 'Objetos devueltos en el PDF').toBe(objetos['Objetos devueltos']);
         });
     } finally {
         await context.close();
     }
 });
 
-test('casos 283, 449, 450, 458 y 459: al exportar el PDF del reporte de uso el navegador descarga un archivo con el nombre del reporte y la fecha @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('caso 323: al exportar el PDF del reporte de uso el dueño descarga Reporte_Uso_AAAA-MM-DD.pdf con las secciones de uso y de calificación de la atención @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
         await instalarCapturaPdf(page);
         const descarga = await descargaAlExportar(page, texto(page, 'Exportar PDF'));
         const nombre = descarga ? descarga.suggestedFilename() : '';
+        const hoy = new Date();
+        const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
-        await pasoContinuo('caso 283: el sistema descarga el reporte de opiniones en formato PDF', async () => {
-            expect(descarga, 'descarga del navegador').not.toBeNull();
-            expect(nombre).toMatch(/\.pdf$/i);
-        });
-        await pasoContinuo('caso 449: el sistema descarga el reporte de uso del sistema en PDF', async () => {
-            expect(descarga, 'descarga del navegador').not.toBeNull();
-            expect(nombre).toMatch(/uso.*\.pdf$/i);
-        });
-        await pasoContinuo('caso 450: el sistema descarga el reporte de precisión de coincidencias en PDF', async () => {
-            expect(descarga, 'descarga del navegador').not.toBeNull();
-            const pdf = await leerPdf(page);
-            expect(pdf.texto).toContain('Resultado de búsquedas');
-        });
-        await pasoContinuo('caso 458: el archivo PDF se descarga automáticamente al presionar Exportar PDF', async () => {
+        await pasoContinuo('caso 323: se descarga automáticamente Reporte_Uso_AAAA-MM-DD.pdf con la fecha del día y las secciones de uso y de calificación de la atención', async () => {
             expect(descarga, 'descarga automática del navegador').not.toBeNull();
-        });
-        await pasoContinuo('caso 459: el nombre del archivo incluye el nombre del reporte y la fecha de generación', async () => {
-            expect(descarga, 'descarga del navegador').not.toBeNull();
-            expect(nombre).toMatch(/Reporte.*Uso.*\d{4}-\d{2}-\d{2}\.pdf$/i);
+            expect(nombre).toBe(`Reporte_Uso_${fecha}.pdf`);
+            const pdf = await leerPdf(page);
+            expect.soft(pdf.texto).toContain('Reporte de uso del sistema');
+            expect.soft(pdf.texto).toContain('Calificación de la atención');
         });
     } finally {
         await context.close();
     }
 });
 
-test('caso 460: si falla la generación del PDF aparece un mensaje de error @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('caso 329: el administrador exporta el PDF del reporte de precisión de coincidencias y los registros traen solo ID, Organización, Objeto, Encontrado y Fecha @reportes @reportespdf @paralelo', async ({ browser }) => {
+    const { context, page } = await abrirComo(browser, USUARIOS.admin);
+    try {
+        await pasoContinuo('caso 329: el administrador abre el reporte, exporta el PDF y cada registro trae ID, Organización, Objeto, Encontrado y Fecha, sin puntaje ni comentario', async () => {
+            await abrirMenuDesdeInicio(page);
+            // El reporte de precisión de las coincidencias está en Reportes, que la app reserva al dueño.
+            await expect(enlaceMenu(page, 'Reportes'), 'el menú del administrador debería tener "Reportes"').toHaveCount(1);
+            await enlaceMenu(page, 'Reportes').click();
+            await instalarCapturaPdf(page);
+            await texto(page, 'Exportar PDF').click();
+            const pdf = await leerPdf(page);
+            const tabla = pdf.texto.slice(pdf.texto.indexOf('Registros individuales de búsquedas'));
+            for (const columna of ['ID', 'Organización', 'Objeto', 'Encontrado', 'Fecha']) expect.soft(tabla, `columna ${columna}`).toContain(columna);
+            expect.soft(tabla, 'sin puntaje').not.toMatch(/Puntaje|Calificaci[óo]n/);
+            expect.soft(tabla, 'sin comentario').not.toContain('Comentario');
+        });
+    } finally {
+        await context.close();
+    }
+});
+
+test('caso 330: si falla la generación del PDF aparece un mensaje de error @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
-        // El PDF de la web se arma en el navegador, sin pedido al servidor: se simula la falla de la
-        // generación haciendo que escribir el documento del iframe lance un error.
-        await instalarCapturaPdf(page, { fallar: true });
-        await texto(page, 'Exportar PDF').click();
-        await expect(texto(page, 'No se pudo exportar el PDF. Intentá nuevamente.')).toBeVisible();
+        await pasoContinuo('caso 330: ante una falla al exportar el sistema muestra el mensaje de error', async () => {
+            // El PDF de la web se arma en el navegador, sin pedido al servidor: se simula la falla de la
+            // generación haciendo que escribir el documento del iframe lance un error.
+            await instalarCapturaPdf(page, { fallar: true });
+            await texto(page, 'Exportar PDF').click();
+            await expect(texto(page, 'No se pudo exportar el PDF. Intentá nuevamente.')).toBeVisible();
+        });
     } finally {
         await context.close();
     }
