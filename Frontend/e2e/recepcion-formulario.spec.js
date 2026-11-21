@@ -83,7 +83,11 @@ test.describe('Recepción: formulario', () => {
         const titulo = nombreUnico('Objeto afuera e2e');
 
         await caso(72, 'el detalle muestra el punto marcado en el mapa como lugar donde fue encontrado', async () => {
-            await interruptor(page).click({ force: true });
+            // Recién abierta la pantalla, el primer toque puede perderse: se reintenta hasta que el interruptor queda activado.
+            await expect(async () => {
+                if (!(await interruptor(page).isChecked())) await interruptor(page).click({ force: true });
+                await expect(interruptor(page)).toBeChecked({ timeout: 1500 });
+            }).toPass({ timeout: 15000 });
             await expect(page.getByText('Ubicación donde fue encontrado:')).toBeVisible();
             await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible();
             await arrastrarPin(page, 80, 50);
