@@ -1,33 +1,27 @@
 const { test, expect } = require('@playwright/test');
 const { USUARIOS_PARALELO, caso, abrirMenu } = require('./helpers');
-const { abrirSesion, iniciarSesionReintentando, entrarPorMenu, verificarPantalla } = require('./helpers/t01');
+const { abrirSesion, iniciarSesionReintentando, abrirMenuDesdeInicio } = require('./helpers/t01');
+const { camposPerfil, irAMiPerfil } = require('./helpers/r15');
+const { casoContinuo } = require('./helpers/t17');
+const T = require('./helpers/t12');
 
-/** Los tres campos de datos personales del perfil (nombre, apellido y email): la app muestra el dato como texto del campo. */
-const camposPerfil = (page) => page.locator('input:visible');
+const nombreLargo = 'N'.repeat(51);
+
+/** Intenta cambiar un campo del perfil (0 nombre, 1 apellido, 2 email) y guardar. Falla si el campo no se puede editar. */
+async function editarCampo(page, indice, valor) {
+    const campo = camposPerfil(page).nth(indice);
+    await expect(campo, 'el campo no se puede editar').toBeEditable({ timeout: 3000 });
+    await campo.fill(valor);
+    await page.getByText('Guardar', { exact: true }).locator('visible=true').first().click({ timeout: 5000 });
+}
 
 test.describe('Mi perfil', () => {
-    test('casos 143, 144 y 145: el perfil del empleado muestra sus datos y no se pueden editar @navegacion @paralelo', async ({ browser }) => {
+    test('caso 121: los datos del perfil del empleado no se pueden editar @navegacion @paralelo', async ({ browser }) => {
+        test.setTimeout(240_000);
         const email = USUARIOS_PARALELO.empleadoUnc;
         const { context, page } = await abrirSesion(browser, email);
-        await caso(143, 'desde el menú, Mi perfil muestra los datos del usuario', async () => {
-            const entro = await entrarPorMenu(page, 'Mi perfil');
-            expect(entro).toBe(true);
-            await verificarPantalla(page, 'Mi perfil');
-            await expect(page.getByText('Nombre:')).toBeVisible();
-            await expect(camposPerfil(page).nth(2)).toHaveAttribute('placeholder', email);
-        });
-        await caso(144, 'se ven nombre, apellido, email, tipo de usuario y organización', async () => {
-            await expect.soft(page.getByText('Apellido:')).toBeVisible();
-            await expect.soft(page.getByText('Email:')).toBeVisible();
-            const nombre = await camposPerfil(page).nth(0).getAttribute('placeholder');
-            const apellido = await camposPerfil(page).nth(1).getAttribute('placeholder');
-            expect.soft(nombre.trim(), 'nombre del usuario').not.toBe('');
-            expect.soft(apellido.trim(), 'apellido del usuario').not.toBe('');
-            await expect.soft(page.getByText('Tipo de usuario:')).toBeVisible();
-            await expect.soft(page.getByText('Empleado de organización')).toBeVisible();
-            await expect.soft(page.getByText(/Organización:/)).toBeVisible();
-        });
-        await caso(145, 'los datos personales no se pueden modificar', async () => {
+        await irAMiPerfil(page, email);
+        await caso(121, 'intentar modificar los campos no cambia nada: son solo lectura', async () => {
             for (let i = 0; i < 3; i++) {
                 const campo = camposPerfil(page).nth(i);
                 const antes = await campo.getAttribute('placeholder');
@@ -40,17 +34,16 @@ test.describe('Mi perfil', () => {
         await context.close();
     });
 
-    test('caso 146: los datos del perfil se mantienen al cerrar sesión y volver a entrar @navegacion @paralelo', async ({ page }) => {
+    test('caso 122: los datos del perfil se mantienen al cerrar sesión y volver a entrar @navegacion @paralelo', async ({ page }) => {
+        test.setTimeout(300_000);
         const email = USUARIOS_PARALELO.usuarioPedro;
         await iniciarSesionReintentando(page, email);
         const leerPerfil = async () => {
-            await entrarPorMenu(page, 'Mi perfil');
-            await expect(page.getByText('Nombre:')).toBeVisible();
-            await expect(camposPerfil(page).nth(2)).toHaveAttribute('placeholder', email);
+            await irAMiPerfil(page, email);
             return [await camposPerfil(page).nth(0).getAttribute('placeholder'), await camposPerfil(page).nth(1).getAttribute('placeholder'), await camposPerfil(page).nth(2).getAttribute('placeholder')];
         };
         const antes = await leerPerfil();
-        await caso(146, 'tras cerrar sesión y volver a ingresar, los datos son los mismos', async () => {
+        await caso(122, 'tras cerrar sesión y volver a ingresar, los datos son los mismos', async () => {
             expect(antes[0].trim(), 'el perfil tiene nombre').not.toBe('');
             await abrirMenu(page);
             await page.getByText('Logout').click();
@@ -59,5 +52,44 @@ test.describe('Mi perfil', () => {
             const despues = await leerPerfil();
             expect(despues).toEqual(antes);
         });
+    });
+
+    test('casos 123 y 124: editar nombre y apellido en Mi perfil y que se conserven al volver a entrar @navegacion @paralelo', async ({ browser, request }) => {
+        test.setTimeout(240_000);
+        // Usuario nuevo: si el perfil se pudiera editar, no se toca el de nadie del seed.
+        const u = await T.registrarUsuario(request, 'perfil');
+        const { context, page } = await T.abrirComo(browser, u.email);
+        try {
+            await irAMiPerfil(page, u.email);
+            await casoContinuo(123, 'el nombre nuevo se guarda, se ve en Mi perfil y en el menú; un nombre vacío o de más de 50 caracteres se rechaza', async () => {
+                const nuevo = 'Nombrenuevo';
+                await editarCampo(page, 0, nuevo);
+                await page.reload();
+                await irAMiPerfil(page, u.email);
+                await expect(camposPerfil(page).nth(0)).toHaveAttribute('placeholder', nuevo);
+                await abrirMenuDesdeInicio(page);
+                await expect(page.getByText(nuevo).locator('visible=true').first(), 'el nombre nuevo no se ve en el menú').toBeVisible();
+                await irAMiPerfil(page, u.email);
+                await editarCampo(page, 0, '');
+                await expect(page.getByText(/obligatorio|vacío|requerido/i).locator('visible=true').first(), 'un nombre vacío no se rechaza con un mensaje').toBeVisible({ timeout: 3000 });
+                await editarCampo(page, 0, nombreLargo);
+                await expect(page.getByText(/50|largo|máximo|caracteres/i).locator('visible=true').first(), 'un nombre de más de 50 caracteres no se rechaza con un mensaje').toBeVisible({ timeout: 3000 });
+            });
+            await casoContinuo(124, 'el apellido nuevo se guarda y se ve en Mi perfil; vacío o de más de 50 se rechaza; el email no se edita', async () => {
+                const nuevo = 'Apellidonuevo';
+                await irAMiPerfil(page, u.email);
+                await editarCampo(page, 1, nuevo);
+                await page.reload();
+                await irAMiPerfil(page, u.email);
+                await expect(camposPerfil(page).nth(1)).toHaveAttribute('placeholder', nuevo);
+                await editarCampo(page, 1, '');
+                await expect(page.getByText(/obligatorio|vacío|requerido/i).locator('visible=true').first(), 'un apellido vacío no se rechaza con un mensaje').toBeVisible({ timeout: 3000 });
+                await editarCampo(page, 1, nombreLargo);
+                await expect(page.getByText(/50|largo|máximo|caracteres/i).locator('visible=true').first(), 'un apellido de más de 50 caracteres no se rechaza con un mensaje').toBeVisible({ timeout: 3000 });
+                await expect(camposPerfil(page).nth(2), 'el email no debe poder editarse').not.toBeEditable();
+            });
+        } finally {
+            await context.close();
+        }
     });
 });
