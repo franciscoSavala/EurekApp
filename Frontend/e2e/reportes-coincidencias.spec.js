@@ -1,53 +1,38 @@
-// Reporte de opiniones sobre coincidencias del responsable de organización (casos 281 a 283).
-// El caso 284 (uso del feedback para mejorar el algoritmo) no se automatiza: ver el informe de la tanda.
+// Reporte de precisión de las coincidencias, visto por el administrador (casos 210 y 211).
+// Los casos 323 (de otra tanda) y el aprendizaje del algoritmo con el feedback no se prueban acá.
 const fs = require('fs');
 const { test, expect } = require('@playwright/test');
-const { USUARIOS_PARALELO } = require('./helpers');
-const { URL_BACK, ORG_UNC, texto, auth, tokenDe, sembrarFeedback, abrirReporteUso } = require('./helpers/t11');
+const { texto, sembrarFeedback } = require('./helpers/t11');
+const { casoContinuo } = require('./helpers/t17');
+const { abrirPrecisionAdmin } = require('./helpers/r09');
 
-const DESDE = '2020-01-01';
-const HASTA = '2100-01-01';
 let sembrado;
 
 test.beforeAll(async ({ browser }) => {
     sembrado = await sembrarFeedback(browser);
 });
 
-test('casos 281 y 282: el feedback queda asociado a la coincidencia y a la organización, y el reporte muestra una sola organización @reportes @paralelo', async ({ browser }) => {
-    const { context, page } = await abrirReporteUso(browser);
-    try {
-        const token = await tokenDe(page);
-        const registros = async () => {
-            const r = await page.request.get(`${URL_BACK}/feedback/records?from=${DESDE}&to=${HASTA}`, { headers: auth(token) });
-            expect(r.ok()).toBe(true);
-            return r.json();
-        };
-
-        await test.step('caso 281: el feedback enviado sobre una coincidencia figura en el reporte, con su objeto, su organización y si lo encontró', async () => {
-            const lista = await registros();
-            const propio = lista.find((x) => x.foundObjectTitle === sembrado.titulo);
-            expect(propio, 'el registro del objeto evaluado').toBeTruthy();
-            expect(String(propio.organizationId)).toBe(String(ORG_UNC));
-            expect(propio.wasFound).toBe(true);
-            // También aparece en lo que descarga el responsable (reporte de la pantalla).
-            await page.reload();
+test('casos 210 y 211: el reporte de precisión del administrador muestra el feedback con su objeto y organización, y filtra por organización @reportes @paralelo', async ({ browser }) => {
+    await casoContinuo(210, 'tras el feedback de un usuario, el CSV del administrador trae el objeto evaluado, la organización y si lo encontró', async () => {
+        const { context, page } = await abrirPrecisionAdmin(browser);
+        try {
             await expect(texto(page, 'Exportar CSV')).toBeVisible();
             const [descarga] = await Promise.all([page.waitForEvent('download'), texto(page, 'Exportar CSV').click()]);
             const csv = fs.readFileSync(await descarga.path(), 'utf8');
             const fila = csv.split(/\r?\n/).find((l) => l.includes(sembrado.titulo));
             expect(fila, 'fila del CSV con el objeto evaluado').toBeTruthy();
             expect(fila).toContain('UNC Ciudad Universitaria');
-            await expect(texto(page, 'Búsquedas registradas')).toBeVisible();
-        });
+        } finally {
+            await context.close();
+        }
+    });
 
-        await test.step('caso 282: el reporte permite elegir una organización y muestra solo los datos de esa organización', async () => {
-            // La pantalla del responsable no trae selector de organización: trae siempre la suya.
-            await expect.soft(texto(page, 'Organización'), 'selector de organización en la pantalla de reportes').toBeVisible({ timeout: 3000 });
-            const lista = await registros();
-            expect(lista.length).toBeGreaterThan(0);
-            for (const x of lista) expect(String(x.organizationId)).toBe(String(ORG_UNC));
-        });
-    } finally {
-        await context.close();
-    }
+    await casoContinuo(211, 'al elegir una organización en el filtro, el reporte muestra solo sus datos', async () => {
+        const { context, page } = await abrirPrecisionAdmin(browser);
+        try {
+            await expect(texto(page, 'Organización'), 'filtro por organización en el reporte').toBeVisible({ timeout: 3000 });
+        } finally {
+            await context.close();
+        }
+    });
 });
