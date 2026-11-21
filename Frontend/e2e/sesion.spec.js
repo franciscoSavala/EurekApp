@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { USUARIOS, USUARIOS_PARALELO, caso, irAlLogin, abrirMenu, CLAVE } = require('./helpers');
 const { ingresar } = require('./helpers/r01');
+const { abrirComo } = require('./helpers/sesion');
 
 /** Inicia sesión por la pantalla y espera el menú. */
 async function iniciarSesion(page, email) {
@@ -10,6 +11,9 @@ async function iniciarSesion(page, email) {
 }
 
 test.describe('Sesión', () => {
+    // El límite de ingresos por minuto es de toda la máquina: los envíos esperan su turno y reintentan.
+    test.setTimeout(240_000);
+
     test('caso 001: con credenciales correctas entra a Buscar un objeto @sesion @paralelo', async ({ page }) => {
         await irAlLogin(page);
         await ingresar(page, USUARIOS_PARALELO.usuarioValeria, CLAVE);
@@ -65,8 +69,9 @@ test.describe('Sesión', () => {
         });
     });
 
-    test('caso 017: cierra la sesión desde el menú y vuelve a la portada @sesion @paralelo', async ({ page }) => {
-        await iniciarSesion(page, USUARIOS_PARALELO.usuarioPedro);
+    test('caso 017: cierra la sesión desde el menú y vuelve a la portada @sesion @paralelo', async ({ browser }) => {
+        // La sesión de Pedro ya está abierta (guardada por global-setup): el caso trata del cierre, no del ingreso.
+        const { context, page } = await abrirComo(browser, USUARIOS_PARALELO.usuarioPedro);
         await abrirMenu(page);
         await page.getByText('Logout').click();
 
@@ -79,5 +84,6 @@ test.describe('Sesión', () => {
             await expect(page.getByText('Bienvenido a Eurekapp')).toBeVisible();
             await expect(page.getByText('Logout')).toHaveCount(0);
         });
+        await context.close();
     });
 });

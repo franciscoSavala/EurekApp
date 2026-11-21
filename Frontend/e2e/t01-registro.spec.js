@@ -20,6 +20,9 @@ async function sigueEnRegistro(page) {
 }
 
 test.describe('Registro y acceso', () => {
+    // El límite de ingresos y registros por minuto es de toda la máquina: los envíos esperan su turno y reintentan.
+    test.setTimeout(240_000);
+
     test('caso 004: de login a registro y de registro a login @sesion @paralelo', async ({ page }) => {
         await irAlLogin(page);
         await caso(4, 'el enlace del login abre el registro y "Ya tengo cuenta. Iniciar sesión" vuelve al login', async () => {

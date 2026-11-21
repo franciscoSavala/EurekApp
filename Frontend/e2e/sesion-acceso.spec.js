@@ -22,6 +22,9 @@ async function cicloDelOjo(page, campo, ojoInicial, texto, pantalla) {
 const ojo = (page) => page.getByRole('button', { name: 'Mostrar contraseña' }).locator('visible=true').first();
 
 test.describe('Acceso: contraseña oculta y cuentas desactivadas', () => {
+    // El límite de ingresos y registros por minuto es de toda la máquina: los envíos esperan su turno y reintentan.
+    test.setTimeout(240_000);
+
     test('caso 005: el ojo oculta y muestra la contraseña en login, registro y Nueva contraseña @sesion @paralelo', async ({ page, request }) => {
         const usuario = await usuarioNuevo(request, 'ojo');
         const clave = 'Ojo12345!x';
