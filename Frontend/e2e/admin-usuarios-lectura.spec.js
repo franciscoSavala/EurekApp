@@ -6,23 +6,23 @@ const ETIQUETAS_ROL = { USER: 'Usuario', ORGANIZATION_OWNER: 'Responsable', ORGA
 const CHIPS = { USER: 'Usuarios', ORGANIZATION_OWNER: 'Responsables', ORGANIZATION_EMPLOYEE: 'Empleados', ENCARGADO: 'Encargados', ADMIN: 'Admins' };
 
 test.describe('Administración: gestión de usuarios (lectura)', () => {
-    test('casos 411, 413, 414, 415 y 416: el administrador entra a Usuarios, ve el listado, filtra por rol y revisa los datos @admin @adminpanel @paralelo', async ({ browser, request }) => {
+    test('casos 285, 287, 288, 289 y 290: el administrador entra a Usuarios, ve el listado, filtra por rol y revisa los datos @admin @adminpanel @paralelo', async ({ browser, request }) => {
         const { context, page } = await t15.abrirAdmin(browser);
         try {
-            await caso(411, 'el administrador entra a Gestión de usuarios desde el menú', async () => {
+            await caso(285, 'el administrador entra a Gestión de usuarios desde el menú', async () => {
                 await t15.irAUsuarios(page);
                 await expect(page.getByText('Todos', { exact: true }).locator('visible=true').first()).toBeVisible();
                 await expect(page.getByText(USUARIOS.admin, { exact: true }).locator('visible=true').first()).toBeVisible();
             });
 
-            await caso(413, 'el listado muestra a todos los usuarios registrados', async () => {
+            await caso(287, 'el listado muestra a todos los usuarios registrados', async () => {
                 const delServidor = await t15.usuariosApi(request, page);
                 const enPantalla = await t15.emailsVisibles(page);
                 const faltan = delServidor.map((u) => u.username).filter((e) => !enPantalla.has(e));
                 expect(faltan, 'usuarios del servidor que no aparecen en el listado').toEqual([]);
             });
 
-            await caso(414, 'cada filtro de rol muestra solo los usuarios de ese rol', async () => {
+            await caso(288, 'cada filtro de rol muestra solo los usuarios de ese rol', async () => {
                 for (const [rol, texto] of Object.entries(CHIPS)) {
                     const respuesta = page.waitForResponse((r) => r.url().includes('/admin/users?role=' + rol));
                     await t15.chip(page, texto).click();
@@ -36,7 +36,7 @@ test.describe('Administración: gestión de usuarios (lectura)', () => {
                 await t15.chip(page, 'Todos').click();
             });
 
-            await caso(415, 'cada usuario muestra nombre completo, email, rol, estado, XP y objetos devueltos', async () => {
+            await caso(289, 'cada usuario muestra nombre completo, email, rol, estado, XP y objetos devueltos', async () => {
                 await t15.chip(page, 'Admins').click();
                 const [admin] = await t15.usuariosApi(request, page, 'ADMIN');
                 const fichaAdmin = t15.tarjeta(page, admin.username);
@@ -49,7 +49,7 @@ test.describe('Administración: gestión de usuarios (lectura)', () => {
                 await expect.soft(fichaAdmin.getByText(/^(Activo|Activa|Inactivo|Inactiva)$/), 'la ficha debería mostrar el estado del usuario').toBeVisible({ timeout: 2000 });
             });
 
-            await caso(416, 'al seleccionar un usuario se muestra su detalle', async () => {
+            await caso(290, 'al seleccionar un usuario se muestra su detalle', async () => {
                 await t15.chip(page, 'Todos').click();
                 const [admin] = await t15.usuariosApi(request, page, 'ADMIN');
                 const url = page.url();
@@ -64,10 +64,10 @@ test.describe('Administración: gestión de usuarios (lectura)', () => {
         }
     });
 
-    test('caso 412: un usuario que no es administrador no ve Gestión de usuarios y el servidor responde 403 @admin @adminpanel @paralelo', async ({ browser, request }) => {
+    test('caso 286: un usuario que no es administrador no ve Gestión de usuarios y el servidor responde 403 @admin @adminpanel @paralelo', async ({ browser, request }) => {
         const { context, page } = await t15.abrirConToken(browser, USUARIOS_PARALELO.usuarioValeria);
         try {
-            await caso(412, 'el menú no ofrece la gestión y el servidor responde 403', async () => {
+            await caso(286, 'el menú no ofrece la gestión y el servidor responde 403', async () => {
                 await page.goto('/');
                 await page.locator('button:has(img[src*="toggle-drawer-icon"])').last().click();
                 await expect(page.getByText('Logout')).toBeInViewport();

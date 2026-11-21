@@ -3,17 +3,17 @@ const { caso } = require('./helpers');
 const t15 = require('./helpers/t15');
 
 test.describe('Administración: gestión de organizaciones (lectura)', () => {
-    test('casos 421, 423 y 424: el administrador entra a Organizaciones, revisa los datos de cada una y abre el detalle @admin @adminpanel @paralelo', async ({ browser, request }) => {
+    test('casos 297, 299 y 300: el administrador entra a Organizaciones, revisa los datos de cada una y abre el detalle @admin @adminpanel @paralelo', async ({ browser, request }) => {
         const { context, page } = await t15.abrirAdmin(browser);
         try {
-            await caso(421, 'el administrador entra a Gestión de organizaciones desde el menú', async () => {
+            await caso(297, 'el administrador entra a Gestión de organizaciones desde el menú', async () => {
                 await t15.irAOrganizaciones(page);
                 await expect(page.getByText('UTN FRC', { exact: true }).locator('visible=true').first()).toBeVisible();
             });
 
             const orgs = await t15.organizacionesApi(request, page);
 
-            await caso(423, 'cada organización muestra nombre, tipo, ciudad, contacto, estado y cantidad de empleados', async () => {
+            await caso(299, 'cada organización muestra nombre, tipo, ciudad, contacto, estado y cantidad de empleados', async () => {
                 for (const o of orgs) {
                     await expect.soft(page.getByText(o.name, { exact: true }).locator('visible=true').first(), `nombre ${o.name}`).toBeVisible();
                     const ficha = t15.tarjeta(page, o.name);
@@ -26,7 +26,7 @@ test.describe('Administración: gestión de organizaciones (lectura)', () => {
                 }
             });
 
-            await caso(424, 'al seleccionar una organización se muestra su detalle', async () => {
+            await caso(300, 'al seleccionar una organización se muestra su detalle', async () => {
                 const url = page.url();
                 await page.getByText(orgs[0].name, { exact: true }).locator('visible=true').first().click();
                 await page.waitForTimeout(800);
