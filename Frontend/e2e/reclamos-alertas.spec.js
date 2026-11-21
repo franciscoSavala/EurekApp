@@ -1,109 +1,137 @@
-// "Reclamos" de la planilla: en la app el único listado con estados, resolución y notificación es el
-// de alertas de fraude, que ve solo el administrador de EurekApp. La app no tiene un listado de reclamos.
+// Alertas de fraude generadas por devoluciones: tipos de alerta, correos, falsa alarma, bloqueo y resolución.
+// El listado de reclamos de la organización ya no existe (pasó a ser una búsqueda guardada).
 const { test, expect } = require('@playwright/test');
-const { USUARIOS, USUARIOS_PARALELO, nombreUnico, irAlMenu, abrirMenu, caso } = require('./helpers');
+const { USUARIOS, abrirComoUsuario, irAlMenu, irAlLogin, completarYEnviarLogin, CLAVE } = require('./helpers');
 const { dniUnico } = require('./helpers/t04');
 const { loginApi, alertaDelDni, resolverAlertaApi } = require('./helpers/t07');
-const { aceptarInvitacionApi, empleadosApi, desvincularApi } = require('./helpers/t08');
+const { casoContinuo } = require('./helpers/t17');
 const T = require('./helpers/t12');
-const { abrirComo } = T;
+const { configFraudeApi, devolverVarias, intentarDevolverApi, intentarLoginApi, esperarCorreo } = require('./helpers/r05');
 
 const MOTIVO_CASO_2 = 'Posible acuerdo entre quien registra y quien retira';
+const ASUNTO_ADMIN = 'EurekApp — Nueva alerta de fraude';
+const ASUNTO_BLOQUEO = 'EurekApp — Tu cuenta fue bloqueada temporalmente';
+const EMPLEADO = 'emp2.utn@eurekapp.com';
 
-test.describe('Reclamos y alertas de fraude', () => {
-    test('casos 265 a 270 y 370 a 372: alerta generada por un encargado, detalle, falsa alarma, resolución y listado @reclamos @serie', async ({ browser, request }) => {
+/** Abre la pantalla de alertas de fraude del administrador. */
+async function irALista(pagina) {
+    await pagina.goto('/');
+    await expect(pagina.getByText('Logout')).toBeVisible();
+    await irAlMenu(pagina, 'Alertas de fraude');
+    await expect(pagina.getByText('Ver reporte', { exact: true }).locator('visible=true')).toBeVisible();
+}
+
+test.describe('Alertas de fraude por devoluciones', () => {
+    test('casos 203 y 204: alerta por acuerdo entre quien registra y quien retira, y avisos por correo y notificación @fraude @serie', async ({ browser, request }) => {
         test.setTimeout(420_000);
-        const dueno = await T.loginConOrg(request, USUARIOS_PARALELO.duenoUnc);
-        const admin = await loginApi(request, USUARIOS.admin);
-        // Encargado propio de la corrida (organización 5) y un usuario que figura como quien encontró los objetos.
-        const enc = await T.registrarUsuario(request, 'enc');
-        const finder = await T.registrarUsuario(request, 'fnd');
         const dni = dniUnico();
+        const empleado = await loginApi(request, EMPLEADO);
+        const admin = await loginApi(request, USUARIOS.admin);
+        const dueno = await T.loginConOrg(request, USUARIOS.dueno);
+        const finder = await T.registrarUsuario(request, 'fnd');
+        const config = await configFraudeApi(request, admin.token);
         const contextos = [];
+        const desde = Date.now() - 5000;
+        const avisosAntes = (await T.notificacionesApi(request, dueno.token)).filter((n) => n.type === 'FRAUD_EMPLOYEE_INVOLVED').length;
         try {
-            await T.invitarApi(request, dueno.token, enc.email);
-            await aceptarInvitacionApi(request, enc);
-            const fila = (await empleadosApi(request, dueno.token)).find((e) => e.username === enc.email);
-            await T.asignarEncargadoApi(request, dueno.token, fila.id);
-            const sesion = await T.loginConOrg(request, enc.email);
+            // Las devoluciones del mismo usuario que encontró y del mismo DNI quedan a una de llegar a N.
+            await devolverVarias(request, empleado, dni, config.fraudThreshold - 1, finder.email);
+            expect(await alertaDelDni(request, admin.token, dni), 'antes de llegar a N no debería haber alerta').toBeFalsy();
+            // La devolución que alcanza N dispara la alerta.
+            await devolverVarias(request, empleado, dni, 1, finder.email);
 
-            // Tres devoluciones del mismo DNI, con los objetos registrados por el mismo usuario.
-            for (let i = 0; i < 3; i++) {
-                const uuid = await T.receptarConFinder(request, sesion.token, sesion.orgId, nombreUnico('Objeto alerta'), finder.email);
-                await T.devolver(request, sesion.token, sesion.orgId, uuid, dni);
-            }
+            const a = await abrirComoUsuario(browser, USUARIOS.admin);
+            contextos.push(a.context);
+            const pa = a.page;
 
-            const ad = await abrirComo(browser, USUARIOS.admin);
-            contextos.push(ad.context);
-            const pa = ad.page;
-            const lista = async () => {
-                await pa.goto('/');
-                await irAlMenu(pa, 'Alertas de fraude');
-                await expect(pa.getByText('Ver reporte', { exact: true }).locator('visible=true')).toBeVisible();
-            };
-            const dniCard = () => pa.getByText(`DNI: ${dni}`, { exact: true }).locator('visible=true');
-
-            await caso(265, 'tras los registros sospechosos del encargado el sistema genera la alerta', async () => {
-                const alerta = await alertaDelDni(request, admin.token, dni);
-                expect.soft(alerta, 'no se generó ninguna alerta').toBeTruthy();
-                await lista();
-                await expect.soft(dniCard()).toBeVisible();
-            });
-
-            await caso(266, 'el análisis relaciona al usuario que registra con quien retira', async () => {
-                await dniCard().click();
-                await expect.soft(pa.getByText('Motivo', { exact: true }).locator('visible=true')).toBeVisible();
+            await casoContinuo(203, 'la alerta es Activa con el motivo de acuerdo entre quien registra y quien retira, y quedan bloqueados el DNI y quien encontró', async () => {
+                expect(await alertaDelDni(request, admin.token, dni), 'no se generó la alerta').toBeTruthy();
+                await irALista(pa);
+                await pa.getByText(`DNI: ${dni}`, { exact: true }).locator('visible=true').click();
+                await expect.soft(pa.getByText('Activa', { exact: true }).locator('visible=true').first()).toBeVisible();
                 await expect.soft(pa.getByText(new RegExp(MOTIVO_CASO_2)).locator('visible=true').first()).toBeVisible();
                 await expect.soft(pa.getByText(finder.email, { exact: true }).locator('visible=true')).toBeVisible();
+                await expect.soft(pa.getByText(/fueron bloqueados automáticamente/).locator('visible=true')).toBeVisible();
+                // Quien encontró no puede iniciar sesión y el DNI no admite nuevas devoluciones.
+                const login = await intentarLoginApi(request, finder.email, CLAVE);
+                expect.soft(login.status, `quien encontró debería estar bloqueado: ${login.cuerpo}`).toBe(400);
+                expect.soft(login.cuerpo).toMatch(/bloquead/i);
+                const devolucion = await intentarDevolverApi(request, empleado, dni);
+                expect.soft(devolucion.status, `el DNI debería estar bloqueado: ${devolucion.cuerpo}`).toBe(400);
+                expect.soft(devolucion.cuerpo).toMatch(/bloquead/i);
             });
 
-            await caso(268, 'en el detalle de la alerta se puede elegir "Fraude confirmado" y guardar', async () => {
-                await expect.soft(pa.getByText(/Fraude confirmado/).locator('visible=true').first(), 'el detalle solo ofrece "Marcar falsa alarma"').toBeVisible({ timeout: 2000 });
+            await casoContinuo(204, 'el administrador recibe el correo de nueva alerta con motivo, DNI y fecha, y el dueño recibe el aviso del integrante involucrado (verificado en el servidor de correo de prueba)', async () => {
+                const correo = await esperarCorreo(request, USUARIOS.admin, ASUNTO_ADMIN, desde, [dni, MOTIVO_CASO_2], [/\d{2}\/\d{2}\/\d{4}/]);
+                expect.soft(correo.asunto).toBe(ASUNTO_ADMIN);
+                await expect.poll(async () => (await T.notificacionesApi(request, dueno.token)).filter((n) => n.type === 'FRAUD_EMPLOYEE_INVOLVED').length, { timeout: 30_000 }).toBeGreaterThan(avisosAntes);
+                const d = await abrirComoUsuario(browser, USUARIOS.dueno);
+                contextos.push(d.context);
+                await irAlMenu(d.page, 'Notificaciones');
+                await expect.soft(d.page.getByText('Integrante involucrado en una alerta de fraude').locator('visible=true').first()).toBeVisible();
+            });
+        } finally {
+            for (const c of contextos) await c.close();
+            const alerta = await alertaDelDni(request, admin.token, dni).catch(() => null);
+            if (alerta && alerta.status === 'ACTIVE') await resolverAlertaApi(request, admin.token, alerta.id);
+        }
+    });
+
+    test('casos 208, 205, 143 y 206: bloqueo automático, falsa alarma, la persona vuelve a operar y registro de la resolución @fraude @serie', async ({ browser, request }) => {
+        test.setTimeout(420_000);
+        const dni = dniUnico();
+        const empleado = await loginApi(request, EMPLEADO);
+        const admin = await loginApi(request, USUARIOS.admin);
+        const config = await configFraudeApi(request, admin.token);
+        const contextos = [];
+        const desde = Date.now() - 5000;
+        try {
+            await devolverVarias(request, empleado, dni, config.fraudThreshold);
+            expect(await alertaDelDni(request, admin.token, dni), 'no se generó la alerta').toBeTruthy();
+
+            await casoContinuo(208, 'la persona recibe el correo de bloqueo y no puede iniciar sesión (verificado en el servidor de correo de prueba)', async () => {
+                await esperarCorreo(request, EMPLEADO, ASUNTO_BLOQUEO, desde);
+                const p = await browser.newContext();
+                contextos.push(p);
+                const pagina = await p.newPage();
+                await irAlLogin(pagina);
+                await completarYEnviarLogin(pagina, EMPLEADO, CLAVE);
+                await expect(pagina.getByText(/bloqueado/i).first()).toBeVisible();
+                await expect(pagina.getByText('Logout')).toHaveCount(0);
             });
 
-            await caso(269, 'marcar falso positivo actualiza el estado de la alerta', async () => {
+            const a = await abrirComoUsuario(browser, USUARIOS.admin);
+            contextos.push(a.context);
+            const pa = a.page;
+            const tarjeta = () => pa.getByText(`DNI: ${dni}`, { exact: true }).locator('visible=true');
+
+            await casoContinuo(205, 'el administrador marca la alerta como falsa alarma, confirma, y la alerta pasa a Falsa alarma con los bloqueos levantados', async () => {
+                await irALista(pa);
+                await tarjeta().click();
                 await pa.getByText('Marcar falsa alarma', { exact: true }).locator('visible=true').click();
                 await pa.getByText('Marcar falsa alarma', { exact: true }).locator('visible=true').last().click();
                 await expect.soft(pa.getByText('Falsa alarma', { exact: true }).locator('visible=true').first()).toBeVisible();
+                await expect.soft(pa.getByText(/bloqueos que había generado se levantaron/).locator('visible=true')).toBeVisible();
                 await expect.poll(async () => (await alertaDelDni(request, admin.token, dni)).status).toBe('FALSE_POSITIVE');
             });
 
-            await caso(270, 'la alerta resuelta registra estado final, quién la resolvió y la fecha', async () => {
+            await casoContinuo(143, 'al levantarse el bloqueo la persona vuelve a iniciar sesión', async () => {
+                const login = await intentarLoginApi(request, EMPLEADO, CLAVE);
+                expect(login.status, `la persona debería poder operar: ${login.cuerpo}`).toBe(200);
+            });
+
+            await casoContinuo(206, 'el detalle de la alerta resuelta muestra Resuelto por con el correo y la Fecha de resolución', async () => {
+                await irALista(pa);
+                await tarjeta().click();
                 await expect.soft(pa.getByText('Resuelto por', { exact: true }).locator('visible=true')).toBeVisible();
                 await expect.soft(pa.getByText(USUARIOS.admin, { exact: true }).locator('visible=true').first()).toBeVisible();
                 await expect.soft(pa.getByText('Fecha de resolución', { exact: true }).locator('visible=true')).toBeVisible();
                 await expect.soft(pa.getByText(/\d{1,2}\/\d{1,2}\/\d{4}/).locator('visible=true').first()).toBeVisible();
             });
-
-            // El encargado ya está desbloqueado (la alerta fue falsa alarma) y puede entrar.
-            const en = await abrirComo(browser, enc.email);
-            contextos.push(en.context);
-            await caso(267, 'el encargado recibe una notificación sobre el posible caso de fraude', async () => {
-                await abrirMenu(en.page);
-                await en.page.locator('a', { has: en.page.getByText('Notificaciones', { exact: true }) }).click();
-                await expect.soft(en.page.getByText(/^(Alerta de fraude|Integrante involucrado en fraude|Posible caso de fraude)$/).locator('visible=true').first(), 'el encargado no recibe ningún aviso del posible caso de fraude (solo el de bloqueo levantado al resolver)').toBeVisible({ timeout: 5000 });
-            });
-
-            await caso(370, 'el encargado ve el listado y sigue el cambio de estado sin recargar', async () => {
-                await en.page.goto('/');
-                await abrirMenu(en.page);
-                const opcion = en.page.locator('a', { has: en.page.getByText(/Alertas de fraude|Reclamos/) });
-                await expect.soft(opcion, 'el menú del encargado no tiene ningún listado de reclamos ni de alertas').toBeVisible({ timeout: 3000 });
-            });
-
-            await caso(371, 'el listado destaca los casos urgentes o prioritarios', async () => {
-                await lista();
-                await expect.soft(pa.getByText(/urgente|prioridad|prioritari/i).locator('visible=true').first(), 'el listado no tiene ningún indicador de prioridad').toBeVisible({ timeout: 2000 });
-            });
-
-            await caso(372, 'el listado se puede ordenar por estado o prioridad', async () => {
-                await expect.soft(pa.getByText(/Ordenar/i).locator('visible=true').first(), 'el listado no ofrece ordenar').toBeVisible({ timeout: 2000 });
-            });
         } finally {
             for (const c of contextos) await c.close();
-            const a = await alertaDelDni(request, admin.token, dni).catch(() => null);
-            if (a && a.status === 'ACTIVE') await resolverAlertaApi(request, admin.token, a.id);
-            await desvincularApi(request, dueno.token, enc.email);
+            const alerta = await alertaDelDni(request, admin.token, dni).catch(() => null);
+            if (alerta && alerta.status === 'ACTIVE') await resolverAlertaApi(request, admin.token, alerta.id);
         }
     });
 });
