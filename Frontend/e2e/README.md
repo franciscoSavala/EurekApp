@@ -26,62 +26,72 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 
 | Archivo | Cubre | Casos | Carril |
 |---|---|---|---|
-| `admin-dashboard-valores.spec.js` | Dashboard de administración: abre al entrar al panel y sus métricas coinciden con el servidor. | 430 a 438, 441 | @paralelo |
-| `admin-desactivar.spec.js` | Desactivar y reactivar usuarios y la organización Terminal, y el contador de usuarios del dashboard. | 417 a 420, 422, 425 a 429, 439 | @serie |
-| `admin-organizaciones-lectura.spec.js` | Gestión de organizaciones (solo lectura): listado, datos y detalle. | 421, 423, 424 | @paralelo |
-| `admin-usuarios-lectura.spec.js` | Gestión de usuarios (solo lectura): listado, filtro por rol y acceso denegado a quien no es administrador. | 411 a 416 | @paralelo |
+| `admin-dashboard-valores.spec.js` | Dashboard de administración: acceso rechazado a quien no es administrador, métricas contra el servidor, usuarios por rol y solicitudes aprobadas y rechazadas. | 305 a 312, 315 a 317 | @paralelo |
+| `admin-desactivar.spec.js` | Desactivar y reactivar usuarios y organizaciones, registro del cambio y aviso al usuario desactivado. | 291 a 296, 298, 301 a 304, 313 | @serie |
+| `admin-organizaciones-lectura.spec.js` | Gestión de organizaciones (solo lectura): listado, datos y detalle. | 297, 299, 300 | @paralelo |
+| `admin-usuarios-lectura.spec.js` | Gestión de usuarios (solo lectura): listado, filtro por rol y acceso denegado a quien no es administrador. | 285 a 290 | @paralelo |
 | `autenticacion.spec.js` | Pantallas de avisos, administración (contadores, dashboard, usuarios, organizaciones, configuración de fraude, solicitudes de alta, opiniones), solicitud de organización y calificaciones: muestran datos reales y ningún pedido sale sin credencial ni es rechazado por sesión inválida. | sin número de caso | @paralelo y @serie |
 | `busqueda.spec.js` | Buscar por texto, por foto con descripción, descripción obligatoria, formato de imagen y sin coincidencias. | sin número de caso | @serie |
-| `busqueda-formulario.spec.js` | Pantalla Buscar un objeto: campos, datos mínimos, pin del mapa, filtros avanzados y carga, reemplazo y tamaño de la foto. | 046 a 048, 050 a 052, 054, 063, 064, 069 | @paralelo |
-| `busqueda-resultados.spec.js` | Resultados de la búsqueda: solo descripción, fecha y hora, mejora con foto, objetos que no se parecen, palabra clave y filtros. | 049, 062, 065, 066, 359, 360 | @paralelo |
-| `busqueda-sin-coincidencias.spec.js` | Búsqueda sin coincidencias: aviso, volver, calificación, comentario y guardar la búsqueda (modal, sin duplicar). | 055 a 059, 070 a 075 | @paralelo |
-| `devolucion.spec.js` | Devolver un objeto: formulario, datos obligatorios, DNI inválido y devolución completa. | 114 a 118, 121, 122, 132 | @serie |
-| `devolucion-devueltos.spec.js` | Devolución duplicada rechazada y consulta de los objetos devueltos. | 123 a 131 | @serie |
-| `devolucion-formulario.spec.js` | Teléfono que solo acepta números y carga de la foto de la persona. | 119, 120 | @serie |
-| `exportaciones.spec.js` | Descarga de los CSV de reportes de uso, de fraude y de opiniones de usabilidad. | 259 a 261 | @serie y @paralelo |
-| `feedback-app.spec.js` | Opinión sobre la app: modal, controles, omitir y envío completo. | 147 a 157 | @paralelo |
-| `feedback-recompensa.spec.js` | Opinión sobre una recompensa recibida. | 300 a 313 | @paralelo |
-| `feedback-roles.spec.js` | El botón de opinión sobre la app está en Mi perfil de cada rol. | 293 | @paralelo |
-| `fraude-alertas.spec.js` | Alertas de fraude del administrador y del dueño de la organización. | 169 a 172, 179, 180 | @serie |
-| `fraude-reporte-filtros.spec.js` | Reporte de fraude: acceso del dueño, filtros por organización, fechas y estados, y generación. | 181 a 195, 298, 299 | @paralelo |
-| `fraude-reporte-graficos.spec.js` | Reporte de fraude: torta de activas contra falsas alarmas y gráfico de evolución. | 498 a 508 | @paralelo |
-| `fraude-reporte-usuarios.spec.js` | Reporte de fraude: usuarios con fraude, historial, reincidentes y orden. | 294 a 297, 493 a 497 | @paralelo |
+| `busqueda-formulario.spec.js` | Pantalla Buscar un objeto: campos, datos mínimos, pin del mapa, filtros avanzados y carga, reemplazo y tamaño de la foto. | 033, 034, 036, 039, 045, 046, 049, 050 | @paralelo |
+| `busqueda-guardadas.spec.js` | Mis búsquedas: cierre, opinión, estados Por retirar y Retirado, "No era mi objeto" y calificar coincidencias. | 043, 056 a 062 | @paralelo |
+| `busqueda-resultados.spec.js` | Resultados de la búsqueda: solo descripción, fecha y hora, mejora con foto, objetos que no se parecen, palabra clave y filtros. | 035, 037, 038, 044, 047, 048, 051 | @paralelo |
+| `busqueda-sin-coincidencias.spec.js` | Búsqueda sin coincidencias: aviso, volver, calificación, comentario y guardar la búsqueda (modal, sin duplicar). | 040 a 042, 052 a 055, 063 | @paralelo |
+| `devolucion.spec.js` | Devolver un objeto: formulario, datos obligatorios, DNI inválido, documento bloqueado por fraude, requisitos de entrega y devolución completa. | 090 a 093, 096 a 099, 110, 111 | @serie |
+| `devolucion-confirmacion.spec.js` | Avisos y estado del usuario cuando se devuelve su objeto. | 100 a 102 | @serie |
+| `devolucion-devueltos.spec.js` | Devolución duplicada rechazada y consulta de los objetos devueltos. | 103 a 109 | @serie |
+| `devolucion-formulario.spec.js` | Teléfono que solo acepta números y carga de la foto de la persona. | 094, 095 | @serie |
+| `exportaciones.spec.js` | Descarga de los CSV de reportes de uso, de fraude y de opiniones de usabilidad (dos tests sin número de caso). | 195 a 197 y dos sin caso | @serie y @paralelo |
+| `feedback-app.spec.js` | Opinión sobre la app: modal, controles, omitir y envío completo. | 125 a 132 | @paralelo |
+| `feedback-roles.spec.js` | El botón de opinión sobre la app está en Mi perfil de cada rol (usa al encargado de la organización 1). | 265 | @serie |
+| `fraude-alertas.spec.js` | Alertas de fraude del administrador y del dueño de la organización. | 134 a 137, 141, 142, 202, 207, 209 | @serie |
+| `fraude-reporte-filtros.spec.js` | Reporte de fraude: acceso del dueño, filtros por organización, fechas y estados, y generación. | 144 a 153, 215, 216 | @paralelo |
+| `fraude-reporte-graficos.spec.js` | Reporte de fraude: torta de activas contra falsas alarmas y gráfico de evolución. | 356 a 361 | @paralelo |
+| `fraude-reporte-usuarios.spec.js` | Reporte de fraude: usuarios con fraude, historial, reincidentes y orden. | 212 a 214, 217, 218, 354, 355 | @paralelo |
 | `menu.spec.js` | Menú lateral según el rol: opciones, pantalla de inicio de cada rol y contadores contra el servidor. | sin número de caso | @serie (el administrador y los contadores, @paralelo) |
-| `notificaciones-lista.spec.js` | Notificaciones del usuario: listado, detalle, leídas, indicador, coincidencias, recompensas y estado vacío. | 373 a 375, 377, 378, 381, 382, 384, 385 | @paralelo |
-| `notificaciones-solicitudes.spec.js` | Notificaciones de solicitudes de rol: recibida, aceptar, rechazar y cambio de rol. | 376, 379, 380, 383 | @paralelo |
-| `organizacion-empleados.spec.js` | Datos de la organización, alta de empleados por correo, asignar encargado y eliminar empleados. | 196 a 209, 225 a 234, 364 a 369 | @serie |
-| `organizacion-politicas.spec.js` | Políticas de la organización: pantalla, guardado, persistencia, historial y aplicación al devolver. | 210 a 224, 361 a 363 | @serie |
-| `recepcion.spec.js` | Receptar un objeto: campos, éxito, título obligatorio, formato y tamaño de imagen. | 076, 077, 079, 089, 092 a 095, 134 | @serie |
-| `recepcion-confirmacion-feedback.spec.js` | Recepción: aviso de confirmación y modal de opinión de la experiencia. | 096 a 107 | @paralelo |
-| `recepcion-formulario.spec.js` | Recepción: objeto con todos los campos, interruptor de ubicación, datos inválidos y carga o reemplazo de imagen. | 078, 080, 081, 083 a 088, 090, 091 | @paralelo |
-| `recepcion-inventario.spec.js` | Inventario y detalle del objeto, y organización sin objetos. | 108 a 113, 133 | @paralelo |
-| `reclamos-alertas.spec.js` | Alerta generada por un encargado: detalle, falsa alarma, resolución y listado. | 265 a 270, 370 a 372 | @serie |
-| `recompensas-exclusiones.spec.js` | El encargado registra un objeto y no recibe recompensa. | 353 a 358 | @serie |
-| `recompensas-hitos.spec.js` | Insignias y puntos al llegar a 5 y 10 devoluciones. | 334, 335, 341 a 343, 346, 347 | @serie |
-| `recompensas-logros.spec.js` | Pantalla de Logros de un usuario nuevo y recorrido de un usuario que recibe recompensas. | 135 a 142, 319 a 322, 325 a 328, 330 a 333, 337 a 340, 345, 347 a 352 | @serie |
-| `recompensas-perdidas.spec.js` | Registrar una pérdida y recuperar el objeto no dan puntos ni progreso. | 323, 324, 329 | @serie |
-| `reportes-coincidencias.spec.js` | El feedback queda asociado a la coincidencia y a la organización. | 281, 282 | @paralelo |
-| `reportes-opiniones.spec.js` | Reporte de opiniones: filtro, tendencias, estrellas y búsquedas exitosas contra no exitosas. | 248 a 250, 262 a 264, 386 a 391, 488 a 492 | @paralelo |
-| `reportes-recompensas.spec.js` | Reporte de opiniones sobre recompensas. | 285 a 292 | @paralelo |
-| `reportes-uso-fechas.spec.js` | Reportes de uso: filtro de fechas y agrupación por día, semana y mes. | 237 a 243 | @paralelo |
-| `reportes-uso-graficos.spec.js` | Reportes de uso: porcentaje de recuperación, objetos más reportados y tiempo promedio. | 473 a 487 | @paralelo |
-| `reportes-uso-pantalla.spec.js` | Reportes: pantalla, secciones, métricas, estado sin datos y botón Ver reporte de fraude. | 173 a 175, 177, 178, 235, 236 | @paralelo |
-| `reportespdf-fraude-permisos.spec.js` | PDF del reporte de fraude: el administrador lo descarga y los demás roles no pueden. | 448, 451, 452 | @paralelo |
-| `reportespdf-uso.spec.js` | PDF del reporte de uso: botón, contenido, nombre del archivo, fecha y error de generación. | 283, 448 a 450, 453 a 460 | @paralelo |
-| `sesion.spec.js` | Ingreso, credenciales incorrectas, campos vacíos y cierre de sesión. | 001/018, 002, 003, 024 | @serie |
-| `solicitudes-alta.spec.js` | Solicitudes de alta de organizaciones: acceso, aprobar y rechazar con motivo. | 392 a 410, 440 | @serie |
-| `t01-menu-dueno.spec.js` | Menú del dueño: opciones y navegación a cada pantalla. | 026 a 033, 158 a 168 | @paralelo |
-| `t01-menu-empleado.spec.js` | Menú del empleado: opciones y navegación a cada pantalla. | 034 a 040 | @paralelo |
-| `t01-menu-usuario.spec.js` | Menú del usuario regular: versión, contacto, opciones y navegación. | 019 a 023, 025, 041 a 045 | @paralelo |
-| `t01-perfil.spec.js` | Mi perfil: datos del empleado no editables y persistencia al volver a entrar. | 143 a 146 | @paralelo |
-| `t01-registro.spec.js` | Registro y acceso: validaciones, email repetido, contraseña y recuperación de contraseña. | 004 a 014, 017, 461, 462, 464 | @paralelo |
+| `notificaciones-fraude.spec.js` | Aviso de fraude del dueño de la organización (depende de un aviso ya existente). | 261 | @paralelo |
+| `notificaciones-lista.spec.js` | Notificaciones del usuario: listado, detalle, leídas, indicador, coincidencias, recompensas y estado vacío. | 249, 250, 252, 253, 256, 257, 259, 260 | @paralelo |
+| `notificaciones-solicitudes.spec.js` | Notificaciones de solicitudes de rol: recibida, aceptar, rechazar y cambio de rol. | 251, 254, 255, 258, 262, 263 | @paralelo |
+| `organizacion-empleados.spec.js` | Datos de la organización, alta de empleados por correo, asignar encargado y eliminar empleados. | 154 a 164, 174 a 178, 245 a 248 | @serie |
+| `organizacion-politicas.spec.js` | Políticas de la organización: pantalla, guardado, persistencia, historial y aplicación al devolver. | 165 a 173, 243, 244 | @serie |
+| `recepcion.spec.js` | Receptar un objeto: campos, éxito, título e imagen obligatorios, formato, tamaño y largo del título. | 064, 065, 067, 075 a 077, 079, 080, 113 | @paralelo |
+| `recepcion-confirmacion-feedback.spec.js` | Recepción: aviso de confirmación y que no aparezca pedido de opinión. | 081, 082 | @paralelo |
+| `recepcion-formulario.spec.js` | Recepción: objeto con todos los campos, interruptor de ubicación, usuarios inválidos y carga o reemplazo de imagen. | 066, 068 a 069, 071 a 074, 078 | @paralelo |
+| `recepcion-inventario.spec.js` | Inventario y detalle del objeto, vencimientos, error de conexión y organización sin objetos. | 083 a 089, 112 | @paralelo |
+| `reclamos-alertas.spec.js` | Alerta generada por un encargado: detalle, falsa alarma, resolución y listado. | 143, 203 a 206, 208 | @serie |
+| `recompensas-exclusiones.spec.js` | El encargado registra un objeto y no recibe recompensa. | 238 a 241 | @serie |
+| `recompensas-hitos.spec.js` | Insignias y puntos al llegar a 5 y 10 devoluciones. | 115, 232, 233 | @serie |
+| `recompensas-logros.spec.js` | Pantalla de Logros de un usuario nuevo y recorrido de un usuario que recibe recompensas. | 114, 116 a 118, 224, 225, 227, 229, 231, 234 a 237 | @serie |
+| `recompensas-perdidas.spec.js` | Registrar una pérdida y recuperar el objeto no dan puntos ni progreso. | 226, 228, 230 | @serie |
+| `reportes-coincidencias.spec.js` | El feedback queda asociado a la coincidencia y a la organización. | 210, 211 | @paralelo |
+| `reportes-opiniones.spec.js` | Reporte de opiniones: filtro, tendencias, estrellas y búsquedas exitosas contra no exitosas. | 190 a 194, 264, 352, 353 | @paralelo |
+| `reportes-usabilidad.spec.js` | Reporte de opiniones de usabilidad. | 266 a 268 | @paralelo |
+| `reportes-uso-fechas.spec.js` | Reportes de uso: filtro de fechas y agrupación por día, semana y mes. | 180 a 184 | @paralelo |
+| `reportes-uso-graficos.spec.js` | Reportes de uso: porcentaje de recuperación, objetos más reportados y tiempo promedio. | 341 a 351 | @paralelo |
+| `reportes-uso-pantalla.spec.js` | Reportes: pantalla, secciones, métricas, estado sin datos y comparación con el servidor. | 138 a 140, 179, 185 a 189, 201 | @paralelo |
+| `reportes-uso-tendencias.spec.js` | Reportes de uso: precisión y tendencias. | 198 a 200 | @paralelo |
+| `reportespdf-fraude-permisos.spec.js` | PDF del reporte de fraude: el administrador lo descarga y los demás roles no pueden. | 324, 325 | @paralelo |
+| `reportespdf-uso.spec.js` | PDF del reporte de uso: botón, contenido, cifras contra la pantalla y error de generación. | 322, 323, 326 a 330 | @paralelo |
+| `sesion.spec.js` | Ingreso, credenciales incorrectas, campos vacíos, pantalla de inicio de cada rol y cierre de sesión. | 001 a 003, 015, 017 | @paralelo (el 015, @serie) |
+| `sesion-acceso.spec.js` | Ojo de la contraseña y rechazo de usuario desactivado u organización suspendida. | 005, 006 | @paralelo |
+| `sesion-google.spec.js` | Ingreso con Google: se abre el selector de cuentas y, si se cierra, se puede reintentar. | 219, 223 | @paralelo |
+| `sesion-recuperacion.spec.js` | Recuperación de contraseña: pedir el código, validarlo, reenviarlo, que expire y cambiar la contraseña (el correo se lee en Mailpit). | 332, 334 a 340 | @paralelo |
+| `solicitudes-alta.spec.js` | Solicitudes de alta de organizaciones: acceso, aprobar y rechazar con motivo, dashboard y correos al administrador (Mailpit). | 269 a 284, 314, 318 a 321 | @serie |
+| `t01-menu-admin.spec.js` | Menú del administrador: inicio, opciones e indicadores (el 030, @serie). | 015 a 017, 029 a 031 | @paralelo (el 030, @serie) |
+| `t01-menu-dueno.spec.js` | Menú del dueño: opciones y navegación a cada pantalla. | 015 a 017, 019 a 024, 032, 119, 120, 133 | @paralelo |
+| `t01-menu-empleado.spec.js` | Menú del empleado: opciones y navegación a cada pantalla. | 015 a 017, 020 a 022, 025, 032, 119, 120, 133 | @paralelo |
+| `t01-menu-encargado.spec.js` | Menú del encargado: inicio, menú, perfil y cierre de sesión (solo lectura). | 015 a 017, 025, 032, 119, 120, 133 | @serie |
+| `t01-menu-usuario.spec.js` | Menú del usuario regular: versión, contacto, opciones y navegación. | 015 a 018, 026 a 028, 119, 120, 133 | @paralelo |
+| `t01-perfil.spec.js` | Mi perfil: datos del empleado no editables y persistencia al volver a entrar. | 121 a 124 | @paralelo |
+| `t01-registro.spec.js` | Registro: validaciones, email repetido y contraseña. | 004, 007 a 014, 331, 333 | @paralelo |
+
+Los números son los de la planilla depurada. Los pasos y utilidades de cada tanda están en `helpers/r01.js` a `r15.js` (existen r01 a r06, r08 a r10, r12 y r15).
 
 Las fotos de prueba están en `fixtures/`.
 
 ## Cosas a tener en cuenta
 
 - Todas las devoluciones usan un DNI distinto en cada corrida (incluso las que deberían fallar: si una validación se rompe, la devolución se registra de verdad). Con el mismo DNI repetido tres veces el sistema detecta fraude y bloquea al empleado, y los tests siguientes ya no pueden iniciar sesión con ese usuario. Si pasa, hay que quitar esa alerta y esos bloqueos de la base.
-- Quedan fuera de la tanda el ingreso con Google o Facebook y todo lo que dependa de mails.
+- El ingreso con Google se prueba hasta abrir el selector de cuentas y cancelarlo. Los correos (recuperación de contraseña, solicitudes de alta, avisos al administrador: casos 318 a 321, 337 y otros) se leen en Mailpit (SMTP 1025, web 8025), que tiene que estar levantado con el backend apuntando a él.
 - El inventario carga de a 20 objetos y la base de pruebas acumula objetos en cada corrida, por eso los tests bajan por el listado hasta ver el objeto (`bajarHastaVer`) en vez de suponer que está en la primera página.
 - Los tests no usan identificadores propios en la interfaz: buscan por texto y por el menú lateral.
 
