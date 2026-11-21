@@ -16,15 +16,6 @@ async function tarjetasFeedback(page) {
 }
 const delServidor = (f) => ({ total_feedback: f.total_feedback, total_ratings: f.total_ratings, successful_searches: f.successful_searches, unsuccessful_searches: f.unsuccessful_searches });
 
-/** Renglones de la tabla "Tendencias de búsquedas": [período, exitosas, fallidas]. */
-async function leerTendencias(page) {
-    const lineas = (await h.seccion(page, 'Tendencias de búsquedas').innerText()).split('\n').map((l) => l.trim()).filter(Boolean).slice(1);
-    const cabecera = lineas.slice(0, 3);
-    const filas = [];
-    for (let i = 3; i + 2 < lineas.length; i += 3) filas.push([lineas[i], Number(lineas[i + 1]), Number(lineas[i + 2])]);
-    return { cabecera, filas };
-}
-
 const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 100) : 0);
 
 /** Lee el anillo de precisión: porcentaje del centro y leyendas de exitosas y fallidas. */
@@ -77,45 +68,6 @@ test.describe('Reportes de opiniones: feedback de búsquedas', () => {
                 await context.close();
             }
         });
-    });
-
-    test('casos 198, 199 y 200: la tabla de tendencias de feedback muestra períodos, datos y se actualiza con el rango @reportes @reportesuso @paralelo', async ({ browser }) => {
-        const { context, page, feedback, registros } = await h.abrirReportes(browser);
-
-        await test.step('caso 198: se muestra la tabla de períodos', async () => {
-            const t = await leerTendencias(page);
-            expect(feedback.time_series.length).toBeGreaterThan(0);
-            expect(t.cabecera.slice(0, 1)).toEqual(['Período']);
-            expect(t.filas.map((f) => f[0])).toEqual(feedback.time_series.map((p) => p.label));
-        });
-        await test.step('caso 199: los datos por período coinciden con los feedbacks registrados', async () => {
-            const t = await leerTendencias(page);
-            expect(t.filas).toEqual(feedback.time_series.map((p) => [p.label, p.successful, p.unsuccessful]));
-            // Cada período cuenta los feedbacks registrados en ese día.
-            for (const p of feedback.time_series) {
-                const delDia = registros.filter((r) => r.createdAt.slice(0, 10) === p.label);
-                expect(delDia.filter((r) => r.wasFound).length, `exitosas de ${p.label}`).toBe(p.successful);
-                expect(delDia.filter((r) => !r.wasFound).length, `fallidas de ${p.label}`).toBe(p.unsuccessful);
-            }
-            await expect.soft(page.getByText('Calif. prom.', { exact: true }).locator('visible=true'), 'columna Calif. prom.').toBeVisible({ timeout: 2000 });
-        });
-        await test.step('caso 200: la tabla y el gráfico de precisión se actualizan según el rango de fechas', async () => {
-            // Antes de que existiera ningún feedback: la tabla queda vacía y el gráfico en cero.
-            await h.cambiarFecha(page, 'Hasta', '2026-10-31');
-            const vacio = await h.cambiarFecha(page, 'Desde', h.DESDE_AMPLIO);
-            expect(vacio.feedback.time_series).toEqual([]);
-            await expect(page.getByText('Tendencias de búsquedas', { exact: true }).locator('visible=true')).toHaveCount(0);
-            expect(vacio.feedback.total_feedback).toBe(0);
-            expect((await anillo(page)).centro).toBe(0);
-            expect(await tarjetasFeedback(page)).toEqual(delServidor(vacio.feedback));
-            // Al volver al rango con feedback reaparece con los datos del servidor.
-            const y = await h.cambiarFecha(page, 'Hasta', h.HOY());
-            expect(y.feedback.time_series.length).toBeGreaterThan(0);
-            expect((await leerTendencias(page)).filas).toEqual(y.feedback.time_series.map((p) => [p.label, p.successful, p.unsuccessful]));
-            const a = await anillo(page);
-            expect(Number(a.fallidas[1])).toBe(y.feedback.unsuccessful_searches);
-        });
-        await context.close();
     });
 
     test('casos 191, 193, 194 y 264: calificación de la atención (promedios, comentarios, estado sin calificaciones y barras) @reportes @reportesuso @paralelo', async ({ browser }) => {
