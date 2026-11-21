@@ -1,11 +1,14 @@
 // Notificaciones de solicitudes de organización y de cambio de rol.
 const { test, expect } = require('@playwright/test');
-const { USUARIOS_PARALELO, abrirMenu, caso } = require('./helpers');
-const { empleadosApi, desvincularApi, auth, URL_BACK } = require('./helpers/t08');
+const { USUARIOS_PARALELO, abrirMenu, irAlMenu } = require('./helpers');
+const { casoContinuo: caso } = require('./helpers/t17');
+const { abrirMenuDesdeInicio } = require('./helpers/t01');
+const { empleadosApi, desvincularApi, filaEmpleado, auth, URL_BACK } = require('./helpers/t08');
 const T = require('./helpers/t12');
 const { abrirComo } = T;
 
 const enlaceNotif = (page) => page.locator('a', { has: page.getByText('Notificaciones', { exact: true }) });
+const enlaceMenuTexto = (page, t) => page.locator('a', { has: page.getByText(t, { exact: true }) }).locator('visible=true');
 const irANotificaciones = async (page) => {
     await page.goto('/');
     await abrirMenu(page);
@@ -14,7 +17,7 @@ const irANotificaciones = async (page) => {
 };
 
 test.describe('Notificaciones de solicitudes y cambio de rol', () => {
-    test('casos 376, 379, 380 y 383: solicitud recibida, aceptar, rechazar y cambio de rol @notificaciones @paralelo', async ({ browser, request }) => {
+    test('casos 251, 254, 255, 258, 262 y 263: solicitud recibida, aceptar, rechazar, cambio de rol y efecto en la organización @notificaciones @paralelo', async ({ browser, request }) => {
         test.setTimeout(480_000);
         // El dueño de la organización 5 invita a dos usuarios nuevos: uno acepta y el otro rechaza.
         const dueno = await T.loginConOrg(request, USUARIOS_PARALELO.duenoUnc);
@@ -28,7 +31,7 @@ test.describe('Notificaciones de solicitudes y cambio de rol', () => {
             const a = await abrirComo(browser, acepta.email);
             contextos.push(a.context);
             await irANotificaciones(a.page);
-            await caso(376, 'la solicitud recibida muestra título, descripción, fecha y hora, y estado', async () => {
+            await caso(251, 'la solicitud recibida muestra título, descripción, fecha y hora, y estado', async () => {
                 const t = T.tarjeta(a.page, 'Solicitud de organización', 'quiere que te unas a su organización');
                 await expect.soft(t.getByText('Solicitud de organización', { exact: true }).last()).toBeVisible();
                 await expect.soft(t.getByText(/quiere que te unas a su organización/)).toBeVisible();
@@ -36,7 +39,7 @@ test.describe('Notificaciones de solicitudes y cambio de rol', () => {
                 await expect.soft(t.getByText(/Pendiente|Aceptada|Rechazada/), 'la solicitud no muestra su estado').toBeVisible({ timeout: 2000 });
             });
 
-            await caso(379, 'Aceptar suma a la persona a la organización y la solicitud deja de estar pendiente', async () => {
+            await caso(254, 'Aceptar suma a la persona a la organización y la solicitud deja de estar pendiente', async () => {
                 const t = T.tarjeta(a.page, 'Solicitud de organización', 'quiere que te unas a su organización');
                 await t.getByText('Aceptar', { exact: true }).click();
                 await expect.soft(a.page.getByText('¡Solicitud aceptada!').locator('visible=true')).toBeVisible();
@@ -48,7 +51,17 @@ test.describe('Notificaciones de solicitudes y cambio de rol', () => {
                 expect.soft(emp, 'la persona no figura entre los empleados de la organización').toBeTruthy();
             });
 
-            await caso(383, 'al recibir el rol de encargado aparece la notificación del cambio de rol', async () => {
+            await caso(262, 'al aceptar, la persona pasa a ser empleado de la organización y el dueño la ve en su lista', async () => {
+                // El menú pasó a ser el de un empleado: ya puede receptar y deja de buscar objetos.
+                await abrirMenuDesdeInicio(a.page);
+                await expect.soft(enlaceMenuTexto(a.page, 'Receptar un objeto'), 'el menú no es el de un empleado').toBeVisible();
+                const d = await abrirComo(browser, USUARIOS_PARALELO.duenoUnc);
+                contextos.push(d.context);
+                await irAlMenu(d.page, 'Mi organización');
+                await expect.soft(filaEmpleado(d.page, acepta.email), 'el dueño no ve a la persona en su lista de empleados').toBeVisible({ timeout: 20000 });
+            });
+
+            await caso(258, 'al recibir el rol de encargado aparece la notificación del cambio de rol', async () => {
                 const emp = (await empleadosApi(request, dueno.token)).find((e) => e.username === acepta.email);
                 await T.asignarEncargadoApi(request, dueno.token, emp.id);
                 await irANotificaciones(a.page);
@@ -60,7 +73,7 @@ test.describe('Notificaciones de solicitudes y cambio de rol', () => {
             const r = await abrirComo(browser, rechaza.email);
             contextos.push(r.context);
             await irANotificaciones(r.page);
-            await caso(380, 'Rechazar descarta la solicitud y la persona no entra a la organización', async () => {
+            await caso(255, 'Rechazar descarta la solicitud y la persona no entra a la organización', async () => {
                 const t = T.tarjeta(r.page, 'Solicitud de organización', 'quiere que te unas a su organización');
                 await t.getByText('Rechazar', { exact: true }).click();
                 await expect.soft(T.tarjeta(r.page, 'Solicitud de organización', 'quiere que te unas a su organización').getByText('Rechazar', { exact: true })).toHaveCount(0);
@@ -70,6 +83,16 @@ test.describe('Notificaciones de solicitudes y cambio de rol', () => {
                     return (await pend.json()).requests.length;
                 }, { message: 'la solicitud sigue pendiente' }).toBe(0);
                 expect.soft((await empleadosApi(request, dueno.token)).some((e) => e.username === rechaza.email), 'la persona entró igual a la organización').toBe(false);
+            });
+            await caso(263, 'al rechazar, la persona sigue sin organización y no aparece en la lista del dueño', async () => {
+                await abrirMenuDesdeInicio(r.page);
+                await expect.soft(enlaceMenuTexto(r.page, 'Buscar un objeto'), 'la persona dejó de ser usuario sin organización').toBeVisible();
+                await expect.soft(enlaceMenuTexto(r.page, 'Receptar un objeto')).toHaveCount(0);
+                const d = await abrirComo(browser, USUARIOS_PARALELO.duenoUnc);
+                contextos.push(d.context);
+                await irAlMenu(d.page, 'Mi organización');
+                await expect(d.page.getByText('Empleados:').locator('visible=true')).toBeVisible();
+                await expect.soft(d.page.getByText(rechaza.email, { exact: true }), 'la persona aparece en la lista del dueño').toHaveCount(0);
             });
         } finally {
             for (const c of contextos) await c.close();
