@@ -5,12 +5,11 @@ const { abrirComo } = require('./helpers/t02');
 const { arrastrarPin } = require('./helpers/t02');
 const {
     MENSAJE_EXITO, EMPLEADO_AERO, PUNTO_POR_DEFECTO, abrirRecepcion, cargarImagen, vistaPrevia, interruptor,
-    categoria, elegirHora, elegirDiaAtras, enviarRecepcion, objetoGuardado, receptarMinimo,
+    elegirHora, elegirDiaAtras, enviarRecepcion, objetoGuardado, receptarMinimo,
 } = require('./helpers/t03');
 const { abrirDetalleDe } = require('./helpers/r03');
 const { casoContinuo } = require('./helpers/t17');
 
-const fondoDe = (chip) => chip.evaluate((e) => getComputedStyle(e.parentElement).backgroundColor);
 const boton = (page) => page.getByText('Receptar objeto encontrado', { exact: true });
 
 test.describe('Recepción: formulario', () => {
@@ -27,7 +26,7 @@ test.describe('Recepción: formulario', () => {
         await context.close();
     });
 
-    test('casos 066 y 074: recepta con todos los campos, el detalle muestra lo ingresado y la categoría es opcional @recepcion @paralelo', async () => {
+    test('caso 066: recepta con todos los campos y el detalle muestra lo ingresado @recepcion @paralelo', async () => {
         const titulo = nombreUnico('Objeto completo e2e');
         const descripcion = `Descripción propia ${titulo}`;
         const email = 'valeria@mail.com';
@@ -38,31 +37,16 @@ test.describe('Recepción: formulario', () => {
         await cargarImagen(page, foto('billetera.png'));
         await expect(vistaPrevia(page)).toHaveCount(1);
 
-        await caso(74, 'al tocar Accesorios el chip queda resaltado y al tocarlo de nuevo vuelve a quedar sin marcar', async () => {
-            // El caso pide Accesorios; la app ya no tiene esa categoría (quedaron Electrónica, Ropa, Billetera y documentos, Llaves y Otros).
-            await expect.soft(page.getByText('Accesorios', { exact: true }).locator('visible=true'), 'la categoría Accesorios no existe en el formulario').toHaveCount(1, { timeout: 3000 });
-            // El comportamiento de resaltar y desmarcar se verifica con una categoría que sí existe.
-            const chip = categoria(page, 'Llaves');
-            const sinMarcar = await fondoDe(chip);
-            await chip.click();
-            await expect.poll(() => fondoDe(chip)).not.toBe(sinMarcar);
-            await chip.click();
-            await expect.poll(() => fondoDe(chip)).toBe(sinMarcar);
-        });
-
         fecha = await elegirDiaAtras(page, 2);
         await elegirHora(page, '8:15 AM');
-        await categoria(page, 'Electrónica').click();
         await page.getByPlaceholder('Agrega una descripción').fill(descripcion);
 
         const respuesta = await enviarRecepcion(page);
         await expect(page.getByText(MENSAJE_EXITO)).toBeVisible();
         const guardado = await objetoGuardado(page, titulo);
 
-        await caso(74, 'la categoría es opcional: con o sin categoría elegida el objeto se registra', async () => {
-            expect(respuesta.status()).toBe(200);
-            expect(guardado, 'el objeto no está en el inventario').not.toBeNull();
-        });
+        expect(respuesta.status()).toBe(200);
+        expect(guardado, 'el objeto no está en el inventario').not.toBeNull();
 
         await caso(66, 'el objeto se registra y el detalle muestra título, foto, descripción, fecha y hora, y quién lo encontró', async () => {
             expect(guardado.finderEmail).toBe(email);

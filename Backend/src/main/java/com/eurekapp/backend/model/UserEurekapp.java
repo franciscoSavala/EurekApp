@@ -42,6 +42,13 @@ public class UserEurekapp implements UserDetails {
     @Column(name = "active")
     private boolean active;
 
+    // Última vez que el administrador activó o desactivó la cuenta, y quién lo hizo.
+    @Column(name = "status_changed_at")
+    private LocalDateTime statusChangedAt;
+
+    @Column(name = "status_changed_by")
+    private String statusChangedBy;
+
     @NotNull
     @Size(min = 1, max = 50, message = "El nombre debe tener entre 1 y 50 caracteres.")
     @Column(name = "first_name", nullable = false, length = 50)

@@ -27,7 +27,6 @@ import MapViewComponent from "../components/MapViewComponent";
 import {CommonActions, useFocusEffect, useNavigation} from "@react-navigation/native";
 import {Controller, useForm} from "react-hook-form";
 import { isWeb, isIOS } from "../../utils/platform";
-import { CATEGORIES } from "../../utils/constants";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
@@ -84,7 +83,6 @@ const UploadObject = () => {
     const [foundDate, setFoundDate] = useState(defaultFoundDate);
     const [useCoordinates, setUseCoordinates] = useState(false);
     const toggleSwitch = () => setUseCoordinates(previousState => !previousState);
-    const [category, setCategory] = useState(null);
 
     //form loading state
     const [loading, setLoading] = useState(false);
@@ -132,7 +130,7 @@ useEffect(() => {
  *
  * Se limpia SÓLO si el intento anterior ya terminó. Si el usuario dejó el formulario a medio
  * completar y salió un momento —a mirar el inventario, por ejemplo— al volver encuentra su trabajo
- * intacto: este formulario es largo (foto, título, fecha, categoría, descripción) y borrárselo por
+ * intacto: este formulario es largo (foto, título, fecha, descripción) y borrárselo por
  * navegar sería peor que el bug que arregla.
  *
  * La marca va en un ref y no en el estado a propósito: como dependencia del useFocusEffect, pasar a
@@ -146,7 +144,6 @@ const resetForm = () => {
     setImage({});
     setImageByte(new Buffer("something"));
     setImageUploaded(false);
-    setCategory(null);
     setFoundDate(defaultFoundDate());
     setUseCoordinates(false);
     setObjectMarker({ latitude: -31.4124, longitude: -64.1867 });
@@ -312,7 +309,6 @@ const submitData = async () => {
             formData.append('title', objectTitle);
             formData.append('found_date', toLocalISO(foundDate));
             formData.append('detailed_description', detailedDescription);
-            if (category) formData.append('category', category);
             if (useCoordinates){
                 formData.append('latitude', objectMarker.latitude.toString());
                 formData.append('longitude', objectMarker.longitude.toString());
@@ -342,7 +338,6 @@ const submitData = async () => {
                 {name: 'object_finder_username', data: objectFinderUsername || ''},
                 {name: 'file', filename: 'found_object.jpg',
                     data: String(image.base64)}];
-            if (category) body.push({name: 'category', data: category});
 
             if(useCoordinates) {
                 body.push(
@@ -445,7 +440,6 @@ return (
             <View style={styles.textAreaContainer}>
                 <Text style={styles.label}>Titulo de la publicación: </Text>
                 <TextInput
-                    maxLength={100}
                     style={styles.textArea}
                     placeholder="Escribe un título"
                     multiline
@@ -546,21 +540,6 @@ return (
             }
             <EurekappDateComponent labelText={"Fecha y hora en la que fue encontrado:  "}
                                    setDate={setFoundDate} date={foundDate}/>
-            <View style={styles.textAreaContainer}>
-                <Text style={styles.label}>Categoría (opcional):</Text>
-                <View style={styles.categoryRow}>
-                    {CATEGORIES.map((cat) => (
-                        <TouchableOpacity
-                            key={cat.value}
-                            style={[styles.categoryChip, category === cat.value && styles.categoryChipActive]}
-                            onPress={() => setCategory(category === cat.value ? null : cat.value)}>
-                            <Text style={[styles.categoryChipText, category === cat.value && styles.categoryChipTextActive]}>
-                                {cat.label}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
             <View style={styles.textAreaContainer}>
                 <Text style={styles.label}>
                     Información relevante (opcional):

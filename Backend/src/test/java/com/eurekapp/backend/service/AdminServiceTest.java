@@ -7,6 +7,10 @@ import com.eurekapp.backend.model.OrganizationRequestStatus;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
+import com.eurekapp.backend.model.FraudAlertStatus;
+import com.eurekapp.backend.model.LostObject;
+import com.eurekapp.backend.repository.IFraudAlertRepository;
+import com.eurekapp.backend.repository.LostObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
@@ -30,6 +34,8 @@ class AdminServiceTest {
     @Mock IOrganizationRepository organizationRepository;
     @Mock IOrganizationRequestRepository organizationRequestRepository;
     @Mock FoundObjectRepository foundObjectRepository;
+    @Mock LostObjectRepository lostObjectRepository;
+    @Mock IFraudAlertRepository fraudAlertRepository;
     @Mock InAppNotificationService inAppNotificationService;
     @Mock NotificationService notificationService;
     @Mock EmailTemplateService emailTemplateService;
@@ -40,7 +46,8 @@ class AdminServiceTest {
     void setUp() {
         adminService = new AdminService(userRepository, organizationRepository, organizationRequestRepository,
                 inAppNotificationService, notificationService, emailTemplateService,
-                new PlatformCountsService(foundObjectRepository, organizationRepository, userRepository));
+                new PlatformCountsService(foundObjectRepository, organizationRepository, userRepository, lostObjectRepository),
+                fraudAlertRepository);
     }
 
     private UserEurekapp buildUser(Role role, boolean active) {
@@ -74,6 +81,9 @@ class AdminServiceTest {
         when(foundObjectRepository.query(null, null, null, null, null, false, null)).thenReturn(List.of(
                 FoundObject.builder().uuid("c").wasReturned(false).build()
         ));
+        when(lostObjectRepository.query(null, null, null, null, null)).thenReturn(List.of(
+                LostObject.builder().uuid("l1").build(), LostObject.builder().uuid("l2").build()));
+        when(fraudAlertRepository.countByStatus(FraudAlertStatus.ACTIVE)).thenReturn(4L);
         when(organizationRequestRepository.countByStatus(OrganizationRequestStatus.PENDING_APPROVAL)).thenReturn(2L);
         when(organizationRequestRepository.countByStatus(OrganizationRequestStatus.APPROVED)).thenReturn(1L);
         when(organizationRequestRepository.countByStatus(OrganizationRequestStatus.REJECTED)).thenReturn(3L);
@@ -90,6 +100,8 @@ class AdminServiceTest {
         assertThat(result.getActiveOrgs()).isEqualTo(2L);
         assertThat(result.getReturnedFoundObjects()).isEqualTo(2L);
         assertThat(result.getTotalFoundObjects()).isEqualTo(3L);
+        assertThat(result.getTotalLostObjects()).isEqualTo(2L);
+        assertThat(result.getPendingFraudAlerts()).isEqualTo(4L);
         assertThat(result.getOrgRequestsPending()).isEqualTo(2L);
         assertThat(result.getOrgRequestsApproved()).isEqualTo(1L);
         assertThat(result.getOrgRequestsRejected()).isEqualTo(3L);
@@ -100,6 +112,44 @@ class AdminServiceTest {
         UserEurekapp owner = buildUser(Role.ORGANIZATION_OWNER, true);
 
         assertThatThrownBy(() -> adminService.getAdminStats(owner))
+                .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void toggleUserActive_recordsWhoAndWhen() {
+        UserEurekapp admin = buildUser(Role.ADMIN, true);
+        admin.setId(1L);
+        UserEurekapp target = buildUser(Role.USER, true);
+        target.setId(2L);
+        when(userRepository.findById(2L)).thenReturn(java.util.Optional.of(target));
+
+        adminService.toggleUserActive(admin, 2L, false);
+
+        assertThat(target.isActive()).isFalse();
+        assertThat(target.getStatusChangedBy()).isEqualTo(admin.getUsername());
+        assertThat(target.getStatusChangedAt()).isNotNull();
+    }
+
+    @Test
+    void getOrganizationMembers_listsMembersOfOrg() {
+        com.eurekapp.backend.model.Organization org = new com.eurekapp.backend.model.Organization();
+        UserEurekapp member = buildUser(Role.ORGANIZATION_EMPLOYEE, true);
+        when(organizationRepository.findById(5L)).thenReturn(java.util.Optional.of(org));
+        when(userRepository.findByOrganizationAndRoleIn(org,
+                List.of(Role.ORGANIZATION_OWNER, Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO)))
+                .thenReturn(List.of(member));
+
+        var result = adminService.getOrganizationMembers(buildUser(Role.ADMIN, true), 5L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getRole()).isEqualTo("ORGANIZATION_EMPLOYEE");
+    }
+
+    @Test
+    void getOrganizationMembers_nonAdmin_throwsForbidden() {
+        UserEurekapp owner = buildUser(Role.ORGANIZATION_OWNER, true);
+
+        assertThatThrownBy(() -> adminService.getOrganizationMembers(owner, 5L))
                 .isInstanceOf(ForbiddenException.class);
     }
 }

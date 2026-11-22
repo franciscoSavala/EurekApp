@@ -4,6 +4,7 @@ import {
     FlatList,
     ScrollView,
     StyleSheet,
+    Modal,
     Text,
     TouchableOpacity,
     View,
@@ -41,6 +42,7 @@ const UserManagement = () => {
     const [toggling, setToggling] = useState(null);
     const [selectedUser, setSelectedUser] = useState(null);
     const [userConfirmVisible, setUserConfirmVisible] = useState(false);
+    const [detailUser, setDetailUser] = useState(null);
 
     const fetchUsers = async (roleFilter) => {
         setLoading(true);
@@ -91,7 +93,7 @@ const UserManagement = () => {
 
         return (
             <View style={styles.card}>
-                <View style={styles.cardHeader}>
+                <TouchableOpacity style={styles.cardHeader} activeOpacity={0.7} onPress={() => setDetailUser(item)}>
                     <View style={styles.nameRow}>
                         <Text style={styles.fullName}>{item.firstName} {item.lastName}</Text>
                         <View style={[styles.roleBadge, { backgroundColor: roleCfg.color + "22", borderColor: roleCfg.color }]}>
@@ -99,13 +101,19 @@ const UserManagement = () => {
                         </View>
                     </View>
                     <Text style={styles.email}>{item.username}</Text>
+                    <View style={[styles.statusBadge, item.active ? styles.statusActive : styles.statusInactive]}>
+                        <Text style={[styles.statusText, { color: item.active ? "#065f46" : "#991b1b" }]}>
+                            {item.active ? "Activo" : "Inactivo"}
+                        </Text>
+                    </View>
+
                     {item.organizationName ? (
                         <View style={styles.orgRow}>
                             <Icon name="sitemap" size={11} color="#638888" />
                             <Text style={styles.orgName}>{item.organizationName}</Text>
                         </View>
                     ) : null}
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardFooter}>
                     <View style={styles.statsRow}>
@@ -182,6 +190,39 @@ const UserManagement = () => {
                 />
             )}
 
+            <Modal visible={!!detailUser} transparent animationType="fade" onRequestClose={() => setDetailUser(null)}>
+                <View style={styles.detailOverlay}>
+                    <View style={styles.detailBox}>
+                        <Text style={styles.detailTitle}>Detalle del usuario</Text>
+                        {detailUser ? (
+                            <ScrollView>
+                                {[
+                                    ["Nombre y apellido", `${detailUser.firstName} ${detailUser.lastName}`],
+                                    ["Email", detailUser.username],
+                                    ["Rol", (ROLE_CONFIG[detailUser.role] || { label: detailUser.role }).label],
+                                    ["Organización", detailUser.organizationName || "Sin organización"],
+                                    ["Estado", detailUser.active ? "Activo" : "Inactivo"],
+                                    ["XP", String(detailUser.XP ?? 0)],
+                                    ["Objetos devueltos", String(detailUser.returnedObjects ?? 0)],
+                                    ["Último cambio de estado por", detailUser.statusChangedBy || "Sin cambios registrados"],
+                                    ["Fecha del último cambio", detailUser.statusChangedAt
+                                        ? new Date(detailUser.statusChangedAt).toLocaleString("es-AR")
+                                        : "Sin cambios registrados"],
+                                ].map(([label, value]) => (
+                                    <View key={label} style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>{label}</Text>
+                                        <Text style={styles.detailValue}>{value}</Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        ) : null}
+                        <TouchableOpacity style={styles.detailClose} onPress={() => setDetailUser(null)}>
+                            <Text style={styles.detailCloseText}>Cerrar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
             <InfoModal
                 visible={userConfirmVisible}
                 onClose={() => setUserConfirmVisible(false)}
@@ -202,6 +243,14 @@ const UserManagement = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#f4f7f7" },
+    statusBadge: {
+        alignSelf: "flex-start", marginTop: 4,
+        paddingHorizontal: 10, paddingVertical: 3,
+        borderRadius: 10, borderWidth: 1,
+    },
+    statusActive:   { backgroundColor: "#d1fae5", borderColor: "#065f46" },
+    statusInactive: { backgroundColor: "#fee2e2", borderColor: "#991b1b" },
+    statusText: { fontSize: 11, fontFamily: "PlusJakartaSans-Bold" },
     filtersScroll: { height: 56, flexGrow: 0, flexShrink: 0 },
     filtersRow: {
         flexDirection: "row",
@@ -228,6 +277,15 @@ const styles = StyleSheet.create({
         shadowRadius: 4, elevation: 2,
     },
     cardHeader: { marginBottom: 12 },
+    detailOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: 20 },
+    detailBox: { backgroundColor: "#fff", borderRadius: 16, padding: 20, maxHeight: "85%" },
+    detailTitle: { fontSize: 18, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", marginBottom: 12 },
+    detailRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#f0f4f4" },
+    detailLabel: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#638888", marginRight: 12 },
+    detailValue: { fontSize: 13, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", flexShrink: 1, textAlign: "right" },
+    detailSub: { fontSize: 14, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", marginTop: 14, marginBottom: 6 },
+    detailClose: { marginTop: 16, alignSelf: "center", paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10, backgroundColor: "#4A9999" },
+    detailCloseText: { color: "#fff", fontSize: 13, fontFamily: "PlusJakartaSans-Bold" },
     nameRow: {
         flexDirection: "row", alignItems: "center",
         marginBottom: 4, flexWrap: "wrap",

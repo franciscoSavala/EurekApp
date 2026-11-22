@@ -38,9 +38,16 @@ const GROUP_OPTIONS = [
     { label: 'Por DNI', value: 'DNI' },
 ];
 
-const defaultFrom = () => {
+// Las fechas del filtro se guardan a la medianoche UTC del día local: así, después de las 21 de Argentina,
+// "hoy" no pasa a ser mañana al formatearlo.
+const defaultTo = () => {
     const d = new Date();
-    d.setDate(d.getDate() - 30);
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+};
+
+const defaultFrom = () => {
+    const d = defaultTo();
+    d.setUTCDate(d.getUTCDate() - 30);
     return d;
 };
 
@@ -64,7 +71,7 @@ const UserAvatar = ({ fullName }) => {
 const FraudReport = () => {
     const { authFetch } = useAuthFetch();
     const [fromDate, setFromDate] = useState(defaultFrom());
-    const [toDate, setToDate] = useState(new Date());
+    const [toDate, setToDate] = useState(defaultTo());
     const [showFrom, setShowFrom] = useState(false);
     const [showTo, setShowTo] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
@@ -101,7 +108,11 @@ const FraudReport = () => {
         });
     }, [entries, sortBy, isDniMode]);
 
+    const rangoInvertido = formatDateISO(fromDate) > formatDateISO(toDate);
+
     const fetchReport = async () => {
+        // EU-431: con el rango invertido el reporte no se genera hasta corregirlo.
+        if (rangoInvertido) return;
         setLoading(true);
         const filters = {
             fromDate: formatDateISO(fromDate),
@@ -355,6 +366,8 @@ const FraudReport = () => {
                     </View>
                 </View>
 
+                {rangoInvertido && <Text style={styles.rangeError}>La fecha "Desde" no puede ser posterior a la fecha "Hasta". Corregí el rango.</Text>}
+
                 <Text style={styles.filterLabel}>Agrupar</Text>
                 <View style={styles.statusRow}>
                     {GROUP_OPTIONS.map(opt => (
@@ -519,6 +532,10 @@ const styles = StyleSheet.create({
     },
     statusBtnTextActive: {
         color: colors.background,
+    },
+    rangeError: {
+        color: '#d32f2f',
+        marginBottom: 8,
     },
     generateBtn: {
         backgroundColor: colors.text,

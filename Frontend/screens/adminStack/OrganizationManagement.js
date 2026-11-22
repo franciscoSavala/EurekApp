@@ -2,6 +2,8 @@ import React, { useCallback, useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
+    Modal,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -41,6 +43,20 @@ const OrganizationManagement = () => {
     const [toggling, setToggling] = useState(null);
     const [selectedOrg, setSelectedOrg] = useState(null);
     const [orgConfirmVisible, setOrgConfirmVisible] = useState(false);
+    const [detailOrg, setDetailOrg] = useState(null);
+    const [members, setMembers] = useState(null);
+
+    const openDetail = async (org) => {
+        setDetailOrg(org);
+        setMembers(null);
+        try {
+            const res = await axiosInstance.get(BACK_URL + `/admin/organizations/${org.id}/members`);
+            setMembers(res.data);
+        } catch (e) {
+            setMembers([]);
+            Toast.show({ type: "error", text1: "No se pudieron cargar los miembros de la organización." });
+        }
+    };
 
     const fetchOrgs = async () => {
         setLoading(true);
@@ -80,7 +96,7 @@ const OrganizationManagement = () => {
 
         return (
             <View style={styles.card}>
-                <View style={styles.cardHeader}>
+                <TouchableOpacity style={styles.cardHeader} activeOpacity={0.7} onPress={() => openDetail(item)}>
                     <View style={styles.titleRow}>
                         <Text style={styles.orgName} numberOfLines={1}>{item.name}</Text>
                         <View style={[
@@ -114,7 +130,7 @@ const OrganizationManagement = () => {
                         <Icon name="envelope" size={11} color="#638888" />
                         <Text style={styles.subText}>{item.contactData}</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.cardFooter}>
                     <View style={styles.statItem}>
@@ -139,8 +155,52 @@ const OrganizationManagement = () => {
         );
     };
 
+    const ROLE_LABELS = {
+        ORGANIZATION_OWNER: "Responsable",
+        ORGANIZATION_EMPLOYEE: "Empleado",
+        ENCARGADO: "Encargado",
+    };
+
     return (
         <View style={styles.container}>
+            <Modal visible={!!detailOrg} transparent animationType="fade" onRequestClose={() => setDetailOrg(null)}>
+                <View style={styles.detailOverlay}>
+                    <View style={styles.detailBox}>
+                        <Text style={styles.detailTitle}>Detalle de la organización</Text>
+                        {detailOrg ? (
+                            <ScrollView>
+                                {[
+                                    ["Nombre", detailOrg.name],
+                                    ["Tipo", ORG_TYPE_LABELS[detailOrg.organizationType] || detailOrg.organizationType || "—"],
+                                    ["Ciudad", detailOrg.city || "—"],
+                                    ["Provincia", detailOrg.province || "—"],
+                                    ["Contacto", detailOrg.contactData || "—"],
+                                    ["Estado", detailOrg.active ? "Activa" : "Inactiva"],
+                                ].map(([label, value]) => (
+                                    <View key={label} style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>{label}</Text>
+                                        <Text style={styles.detailValue}>{value}</Text>
+                                    </View>
+                                ))}
+                                <Text style={styles.detailSub}>Miembros</Text>
+                                {members === null ? (
+                                    <ActivityIndicator size="small" color="#4A9999" />
+                                ) : members.length === 0 ? (
+                                    <Text style={styles.detailLabel}>Sin miembros.</Text>
+                                ) : members.map((m) => (
+                                    <View key={m.id} style={styles.detailRow}>
+                                        <Text style={styles.detailLabel}>{m.firstName} {m.lastName} ({m.username})</Text>
+                                        <Text style={styles.detailValue}>{ROLE_LABELS[m.role] || m.role}</Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        ) : null}
+                        <TouchableOpacity style={styles.detailClose} onPress={() => setDetailOrg(null)}>
+                            <Text style={styles.detailCloseText}>Cerrar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
             {loading && orgs.length === 0 ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#4A9999" />
@@ -193,6 +253,15 @@ const styles = StyleSheet.create({
         shadowRadius: 4, elevation: 2,
     },
     cardHeader: { marginBottom: 12 },
+    detailOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "center", padding: 20 },
+    detailBox: { backgroundColor: "#fff", borderRadius: 16, padding: 20, maxHeight: "85%" },
+    detailTitle: { fontSize: 18, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", marginBottom: 12 },
+    detailRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: "#f0f4f4" },
+    detailLabel: { fontSize: 13, fontFamily: "PlusJakartaSans-Regular", color: "#638888", marginRight: 12 },
+    detailValue: { fontSize: 13, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", flexShrink: 1, textAlign: "right" },
+    detailSub: { fontSize: 14, fontFamily: "PlusJakartaSans-Bold", color: "#1A3434", marginTop: 14, marginBottom: 6 },
+    detailClose: { marginTop: 16, alignSelf: "center", paddingHorizontal: 24, paddingVertical: 10, borderRadius: 10, backgroundColor: "#4A9999" },
+    detailCloseText: { color: "#fff", fontSize: 13, fontFamily: "PlusJakartaSans-Bold" },
     titleRow: {
         flexDirection: "row", alignItems: "center",
         justifyContent: "space-between", marginBottom: 8,

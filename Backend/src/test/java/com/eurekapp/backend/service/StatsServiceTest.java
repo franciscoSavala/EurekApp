@@ -28,7 +28,7 @@ class StatsServiceTest {
 
     @BeforeEach
     void setUp() {
-        statsService = new StatsService(new PlatformCountsService(foundObjectRepository, organizationRepository, userRepository));
+        statsService = new StatsService(new PlatformCountsService(foundObjectRepository, organizationRepository, userRepository, null));
     }
 
     private void stubCounts(long owners, long employees, long regular, long organizations) {

@@ -33,7 +33,6 @@ test.describe('Recepción de un objeto encontrado', () => {
             await expect(page.getByText('Sacar Foto')).toBeVisible();
             await expect(page.getByText('El objeto fue encontrado fuera del establecimiento')).toBeVisible();
             await expect(page.getByText('Fecha y hora en la que fue encontrado:')).toBeVisible();
-            await expect(page.getByText('Categoría (opcional):')).toBeVisible();
             await expect(page.getByPlaceholder('Agrega una descripción')).toBeVisible();
             await expect(boton(page)).toBeVisible();
         });

@@ -80,8 +80,10 @@ async function xpEnPantalla(page) {
 /** Ancho (porcentaje) de la barra de progreso del nivel, una vez terminada su animación. */
 async function anchoBarraNivel(page) {
     await page.waitForTimeout(1500);
-    const barras = visible(page.locator('div[style*="width"][style*="%"][style*="rgb(25, 230, 230)"]'));
-    const estilo = await barras.first().getAttribute('style');
+    // Se busca el riel visible y se lee su relleno: un relleno de 0 % no es visible y haría tomar otra barra.
+    const relleno = 'div[style*="width"][style*="%"][style*="rgb(25, 230, 230)"]';
+    const rieles = visible(page.locator(`div:has(> ${relleno})`));
+    const estilo = await rieles.first().locator(`:scope > ${relleno}`).first().getAttribute('style');
     return Number(/width:\s*([\d.]+)%/.exec(estilo)[1]);
 }
 

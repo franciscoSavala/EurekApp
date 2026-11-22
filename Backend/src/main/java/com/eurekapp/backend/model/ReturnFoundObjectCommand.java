@@ -25,6 +25,10 @@ public class ReturnFoundObjectCommand {
     private String phoneNumber;
     @JsonProperty("found_object_uuid")
     private String foundObjectUUID;
+    /** EU-440: confirmación del empleado de que verificó la identidad de quien retira. */
+    private Boolean identityVerified;
+    /** EU-440: confirmación del empleado de que pidió la evidencia adicional de propiedad. */
+    private Boolean evidenceVerified;
     @JsonIgnore
     private Long organizationId;
     private MultipartFile image;

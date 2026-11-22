@@ -26,6 +26,8 @@ const TYPE_LABELS = {
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
     REWARD_BLOCKED: "Recompensa no otorgada",
+    LEVEL_UP: "Nuevo nivel",
+    ACHIEVEMENT_UNLOCKED: "Logro desbloqueado",
     FRAUD_BLOCK_LIFTED: "Bloqueo levantado",
     FRAUD_EMPLOYEE_INVOLVED: "Integrante involucrado en fraude",
     FRAUD_ALERT: "Alerta de fraude",
@@ -248,6 +250,10 @@ const Notifications = ({ navigation, route }) => {
                 <Text style={styles.itemDate}>{formatDateTimeLocaleES(item.created_at)}</Text>
 
                 {isPendingInvitation && (
+                    <Text style={styles.statusLabel}>Pendiente</Text>
+                )}
+
+                {isPendingInvitation && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={styles.acceptButton}
@@ -306,7 +312,7 @@ const Notifications = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 )}
-                {item.type === "REWARD_EARNED" && (
+                {(item.type === "REWARD_EARNED" || item.type === "LEVEL_UP" || item.type === "ACHIEVEMENT_UNLOCKED") && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={styles.acceptButton}
@@ -430,6 +436,19 @@ const styles = StyleSheet.create({
         color: "#555",
         marginBottom: 6,
         lineHeight: 18,
+    },
+    statusLabel: {
+        alignSelf: "flex-start",
+        marginTop: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#b45309",
+        backgroundColor: "#fef3c7",
+        color: "#b45309",
+        fontSize: 11,
+        fontFamily: "PlusJakartaSans-Bold",
     },
     itemDate: {
         fontSize: 11,

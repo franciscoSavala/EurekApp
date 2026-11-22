@@ -46,6 +46,10 @@ const ReturnObjectForm = ({ route, navigation}) => {
     const [imageByte, setImageByte] = useState(new Buffer("something"));
     const [imageRequiredMessage, setImageRequiredMessage] = useState('');
     const [policy, setPolicy] = useState(null);
+    // EU-440: confirmaciones del empleado de que cumplió lo que exige la organización al entregar.
+    const [identityChecked, setIdentityChecked] = useState(false);
+    const [evidenceChecked, setEvidenceChecked] = useState(false);
+    const [policyMessage, setPolicyMessage] = useState('');
     const [cameraModalVisible, setCameraModalVisible] = useState(false);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
@@ -77,8 +81,22 @@ const ReturnObjectForm = ({ route, navigation}) => {
     }
 
 
+    const validatePolicyConfirmed = () => {
+        if (policy?.requiresIdentityValidation && !identityChecked) {
+            setPolicyMessage('Confirmá que verificaste la identidad de quien retira el objeto.');
+            return false;
+        }
+        if (policy?.requiresAdditionalEvidence && !evidenceChecked) {
+            setPolicyMessage('Confirmá que pediste la evidencia adicional de propiedad.');
+            return false;
+        }
+        setPolicyMessage('');
+        return true;
+    }
+
     const onSubmit = async () => {
         if(!validatePhotoUploaded()) return;
+        if(!validatePolicyConfirmed()) return;
         setButtonWasPressed(true);
         const ownerUsername = getValues('ObjectOwnerUsername');
         const firstName = getValues('FirstName');
@@ -112,6 +130,8 @@ const ReturnObjectForm = ({ route, navigation}) => {
             formData.append('phoneNumber', phone);
             formData.append('found_object_uuid', objectId);
             formData.append("file", new Blob([imageByte]));
+            if (identityChecked) formData.append('identityVerified', 'true');
+            if (evidenceChecked) formData.append('evidenceVerified', 'true');
             let res = await fetchWithAuth(`${BACK_URL}/found-objects/return/${institute.id}`, {
                 method: 'POST',
                 body: formData,
@@ -340,6 +360,17 @@ const ReturnObjectForm = ({ route, navigation}) => {
                                 policy.strictControlCategories.toUpperCase().split(',').map(c => c.trim()).includes(objectCategory.toUpperCase()) && (
                                 <Text style={styles.policyItemStrict}>⚠ Objeto con control estricto (categoría: {objectCategory})</Text>
                             )}
+                            {policy.requiresIdentityValidation && (
+                                <Pressable style={styles.policyCheck} onPress={() => setIdentityChecked(v => !v)}>
+                                    <Text style={styles.policyItem}>{identityChecked ? '☑' : '☐'} Verifiqué la identidad de quien retira</Text>
+                                </Pressable>
+                            )}
+                            {policy.requiresAdditionalEvidence && (
+                                <Pressable style={styles.policyCheck} onPress={() => setEvidenceChecked(v => !v)}>
+                                    <Text style={styles.policyItem}>{evidenceChecked ? '☑' : '☐'} Ya pedí la evidencia adicional</Text>
+                                </Pressable>
+                            )}
+                            {policyMessage ? <Text style={styles.textError}>{policyMessage}</Text> : null}
                         </View>
                     )}
 
@@ -647,6 +678,9 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: colors.text,
         marginBottom: 8,
+    },
+    policyCheck: {
+        paddingVertical: 4,
     },
     policyItem: {
         fontFamily: 'PlusJakartaSans-Regular',

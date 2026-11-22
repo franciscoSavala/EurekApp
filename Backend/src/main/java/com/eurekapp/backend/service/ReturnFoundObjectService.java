@@ -49,6 +49,7 @@ public class ReturnFoundObjectService {
     private final FraudDetectionService fraudDetectionService;
     private final FraudBlockService fraudBlockService;
     private final LostObjectService lostObjectService;
+    private final IOrganizationPolicyRepository policyRepository;
 
     public ReturnFoundObjectService(IOrganizationRepository organizationRepository,
                                     IUserRepository userRepository,
@@ -60,7 +61,8 @@ public class ReturnFoundObjectService {
                                     EmailTemplateService emailTemplateService,
                                     FraudDetectionService fraudDetectionService,
                                     FraudBlockService fraudBlockService,
-                                    LostObjectService lostObjectService){
+                                    LostObjectService lostObjectService,
+                                    IOrganizationPolicyRepository policyRepository){
         this.organizationRepository = organizationRepository;
         this.userRepository = userRepository;
         this.returnFoundObjectRepository = returnFoundObjectRepository;
@@ -73,6 +75,7 @@ public class ReturnFoundObjectService {
         this.fraudDetectionService = fraudDetectionService;
         this.fraudBlockService = fraudBlockService;
         this.lostObjectService = lostObjectService;
+        this.policyRepository = policyRepository;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -114,7 +117,7 @@ public class ReturnFoundObjectService {
                 user = userRepository.getByUsername(command.getUsername());
             }else{
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
-                throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
+                throw new NotFoundException("user_not_found", String.format("No se encontró el usuario con el username %s", command.getUsername()));
             }
         }
 
@@ -130,6 +133,9 @@ public class ReturnFoundObjectService {
         if(foundObject.getWasReturned()){
             throw new BadRequestException("found_object", String.format("Found object with UUID '%s' was already returned", command.getFoundObjectUUID()));
         }
+
+        // EU-440: las políticas de entrega de la organización se exigen al devolver.
+        enforceDeliveryPolicy(command);
 
         // Validación de bloqueo (EU-286): no se permite el retiro si el DNI o el usuario que retira
         // están bloqueados por sospecha de fraude. El finder bloqueado NO frena la devolución (se
@@ -257,6 +263,8 @@ public class ReturnFoundObjectService {
                     returnFoundObjectRepository.save(rfo);
 
                     // Actualizar XP y contador
+                    Level nivelAnterior = Level.getLevel(finder.getXP());
+                    long devueltosAnteriores = finder.getReturnedObjects();
                     finder.setXP(finder.getXP() + 10L);
                     finder.setReturnedObjects(finder.getReturnedObjects() + 1L);
                     userRepository.save(finder);
@@ -280,6 +288,8 @@ public class ReturnFoundObjectService {
                             "REWARD_EARNED",
                             null
                     );
+
+                    notificarNivelYLogros(finder, nivelAnterior, devueltosAnteriores);
                 }
             } catch (Exception e) {
                 log.warn("Error en notificación/XP para finder id={}: {}", finderProxy.getId(), e.getMessage());
@@ -340,6 +350,26 @@ public class ReturnFoundObjectService {
      * diciendo cuál falta. Trimear no es cosmético: un DNI con un espacio al final no coincidiría
      * con los bloqueos por fraude, que comparan el texto tal cual.
      */
+    /**
+     * EU-440: si la organización exige verificar la identidad de quien retira o pedir evidencia
+     * adicional de propiedad, el empleado tiene que confirmar que lo hizo; sin esa confirmación
+     * la devolución no se registra.
+     */
+    private void enforceDeliveryPolicy(ReturnFoundObjectCommand command) {
+        policyRepository.findByOrganization_Id(command.getOrganizationId()).ifPresent(policy -> {
+            if (Boolean.TRUE.equals(policy.getRequiresIdentityValidation())
+                    && !Boolean.TRUE.equals(command.getIdentityVerified())) {
+                throw new BadRequestException("identity_not_verified",
+                        "La organización exige verificar la identidad de quien retira el objeto. Confirmá que la verificaste para registrar la devolución.");
+            }
+            if (Boolean.TRUE.equals(policy.getRequiresAdditionalEvidence())
+                    && !Boolean.TRUE.equals(command.getEvidenceVerified())) {
+                throw new BadRequestException("evidence_not_verified",
+                        "La organización exige evidencia adicional de propiedad. Confirmá que la solicitaste para registrar la devolución.");
+            }
+        });
+    }
+
     private String requireText(String value, String fieldLabel) {
         if (value == null || value.isBlank()) {
             throw new BadRequestException("incomplete_data",
@@ -353,6 +383,33 @@ public class ReturnFoundObjectService {
      * para auditoría por parte del responsable de la organización.
      */
     @Transactional
+    /**
+     * EU-435: avisa (solo in-app) cuando la devolución hizo subir de nivel al usuario o le desbloqueó un logro.
+     * Cada nivel y cada logro se avisa una sola vez porque solo se evalúa el cruce de umbral de esta devolución.
+     */
+    private void notificarNivelYLogros(UserEurekapp finder, Level nivelAnterior, long devueltosAnteriores) {
+        Level nivelNuevo = Level.getLevel(finder.getXP());
+        if (nivelNuevo != null && nivelNuevo != nivelAnterior) {
+            inAppNotificationService.createNotification(
+                    finder,
+                    "¡Subiste al nivel " + nivelNuevo.getName() + "!",
+                    "Alcanzaste un nuevo nivel con " + finder.getXP() + " puntos de experiencia.",
+                    "LEVEL_UP",
+                    null);
+        }
+        for (ReturnedObjectsAchievement logro : ReturnedObjectsAchievement.values()) {
+            if (devueltosAnteriores < logro.getRequiredObjects() && finder.getReturnedObjects() >= logro.getRequiredObjects()) {
+                inAppNotificationService.createNotification(
+                        finder,
+                        "¡Desbloqueaste el logro \"" + logro.getName() + "\"!",
+                        "Lograste la insignia por devolver " + logro.getRequiredObjects()
+                                + (logro.getRequiredObjects() == 1 ? " objeto." : " objetos."),
+                        "ACHIEVEMENT_UNLOCKED",
+                        null);
+            }
+        }
+    }
+
     public RewardExclusionListDto getRewardExclusions(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de recompensa");
