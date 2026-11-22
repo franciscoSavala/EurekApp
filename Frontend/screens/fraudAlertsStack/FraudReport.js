@@ -75,7 +75,7 @@ const FraudReport = () => {
     const [showFrom, setShowFrom] = useState(false);
     const [showTo, setShowTo] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
-    const [groupBy, setGroupBy] = useState('USER');
+    const [groupBy, setGroupBy] = useState('DNI'); // EU-438: abre agrupado por DNI
     const [entries, setEntries] = useState([]);
     // EU-395: la agrupación del gráfico de evolución vive acá, y no adentro del gráfico, porque el
     // PDF se exporta con la que esté elegida en pantalla (el PDF no tiene los botones).

@@ -95,11 +95,11 @@ test.describe('Reporte de fraude: filtros y generación', () => {
             await irAlReporte(page);
             const resumen = () => visible(page.getByText(/^\d{4}-\d{2}-\d{2} a \d{4}-\d{2}-\d{2} · /)).first();
 
-            await caso(153, 'sin tocar nada se genera con 30 días atrás, hoy (hora argentina), Por usuario y Todos', async () => {
+            await caso(153, 'sin tocar nada se genera con 30 días atrás, hoy (hora argentina), Por DNI y Todos', async () => {
                 const hoy = hoyAr();
                 const datos = await generar(page);
                 expect(datos.entries).toBeDefined();
-                await expect.soft(resumen()).toHaveText(`${restarDias(hoy, 30)} a ${hoy} · Por usuario · Todos`);
+                await expect.soft(resumen()).toHaveText(`${restarDias(hoy, 30)} a ${hoy} · Por DNI · Todos`);
             });
 
             await caso(148, 'el reporte solo incluye datos dentro del rango elegido', async () => {
@@ -148,8 +148,8 @@ test.describe('Reporte de fraude: filtros y generación', () => {
                 expect(datos.entries.length).toBeGreaterThan(0);
                 await expect(visible(page.getByText('Activas vs. falsas alarmas', { exact: true }))).toBeVisible();
                 await expect(visible(page.getByText('Evolución de casos', { exact: true }))).toBeVisible();
-                await expect(visible(page.getByText(datos.entries[0].email, { exact: true }))).toBeVisible();
-                await expect(resumen()).toContainText(`${DESDE} a ${HASTA} · Por usuario · Todos`);
+                await expect(visible(page.getByText(datos.entries[0].dni, { exact: true })).first()).toBeVisible();
+                await expect(resumen()).toContainText(`${DESDE} a ${HASTA} · Por DNI · Todos`);
             });
 
             // Un rango sin datos: no hay alertas en 2020.
