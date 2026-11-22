@@ -283,6 +283,59 @@ class ReturnFoundObjectServiceTest {
         verify(userRepository, never()).save(finder);   // no se suma XP
     }
 
+    // EU-435: avisos de nivel nuevo y de logro desbloqueado.
+    private void devolverConFinder(Long xp, Long devueltos) throws Exception {
+        Organization org = Organization.builder().id(1L).name("TestOrg").build();
+        UserEurekapp caller = UserEurekapp.builder()
+                .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
+                .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
+        UserEurekapp finder = UserEurekapp.builder()
+                .id(99L).username("finder@test.com").firstName("Fin").lastName("Der")
+                .role(Role.USER).XP(xp).returnedObjects(devueltos).build();
+        FoundObject fo = FoundObject.builder()
+                .uuid("uuid-123").organizationId("1").title("Mochila azul")
+                .wasReturned(false).objectFinderUser(finder).build();
+        ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
+                .firstName("Marina").lastName("Quiroga")
+                .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
+                .organizationId(1L).username(null)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
+        when(userRepository.findById(99L)).thenReturn(Optional.of(finder));
+        when(fraudBlockService.describeActiveDniBlock(eq("12345678"), anyString())).thenReturn(Optional.empty());
+        when(fraudBlockService.isUserBlocked(99L)).thenReturn(false);
+        when(returnFoundObjectRepository.save(any(ReturnFoundObject.class))).thenAnswer(inv -> inv.getArgument(0));
+        service.returnFoundObject(command, caller);
+    }
+
+    @Test
+    void devolucion_quePasaDe10a20XP_avisaDelNivel2YDelLogroManoAmiga() throws Exception {
+        devolverConFinder(10L, 4L);
+        verify(inAppNotificationService).createNotification(
+                any(), eq("¡Subiste al nivel 2!"), anyString(), eq("LEVEL_UP"), isNull());
+        verify(inAppNotificationService).createNotification(
+                any(), eq("¡Desbloqueaste el logro \"Mano Amiga\"!"), anyString(), eq("ACHIEVEMENT_UNLOCKED"), isNull());
+    }
+
+    @Test
+    void primeraDevolucion_avisaDelLogroPrimerActoDeBondad_peroNoDeNivel() throws Exception {
+        devolverConFinder(0L, 0L);
+        verify(inAppNotificationService).createNotification(
+                any(), eq("¡Desbloqueaste el logro \"Primer Acto de Bondad\"!"), anyString(), eq("ACHIEVEMENT_UNLOCKED"), isNull());
+        verify(inAppNotificationService, never()).createNotification(
+                any(), anyString(), anyString(), eq("LEVEL_UP"), any());
+    }
+
+    @Test
+    void devolucion_sinCruzarUmbral_noAvisaNivelNiLogro() throws Exception {
+        devolverConFinder(20L, 2L);
+        verify(inAppNotificationService, never()).createNotification(
+                any(), anyString(), anyString(), eq("LEVEL_UP"), any());
+        verify(inAppNotificationService, never()).createNotification(
+                any(), anyString(), anyString(), eq("ACHIEVEMENT_UNLOCKED"), any());
+    }
+
     // ─── EU-362: nombre y apellido de quien retira ───────────────────────────────────────────
 
     @Test

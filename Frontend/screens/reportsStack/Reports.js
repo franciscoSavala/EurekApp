@@ -61,8 +61,12 @@ const Reports = ({ navigation }) => {
             const res = await axiosInstance.get(`${BACK_URL}/reports`, { params });
             setData(res.data);
         } catch (e) {
-            setError("No se pudieron cargar los reportes.");
-            console.error(e);
+            // EU-431: con el rango invertido el servidor responde 400 con el motivo; no se muestran datos viejos.
+            setData(null);
+            setError(e?.response?.status === 400 && e.response.data?.message
+                ? e.response.data.message
+                : "No se pudieron cargar los reportes.");
+            if (e?.response?.status !== 400) console.error(e);
         } finally {
             setLoadingMain(false);
         }

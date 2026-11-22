@@ -48,6 +48,7 @@ public class FeedbackController {
             @RequestParam(required = false) Boolean wasFound) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
+        if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy, wasFound));
     }
 
@@ -60,6 +61,7 @@ public class FeedbackController {
             @RequestParam(required = false) Boolean wasFound) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
+        if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         return ResponseEntity.ok(feedbackService.getRecords(user, fromDate, toDate, wasFound));
     }
 
@@ -72,6 +74,7 @@ public class FeedbackController {
             @RequestParam(required = false) Boolean wasFound) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
+        if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         byte[] csv = feedbackService.exportCsv(user, fromDate, toDate, wasFound);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=feedback-report.csv")
