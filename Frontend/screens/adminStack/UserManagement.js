@@ -99,6 +99,12 @@ const UserManagement = () => {
                         </View>
                     </View>
                     <Text style={styles.email}>{item.username}</Text>
+                    <View style={[styles.statusBadge, item.active ? styles.statusActive : styles.statusInactive]}>
+                        <Text style={[styles.statusText, { color: item.active ? "#065f46" : "#991b1b" }]}>
+                            {item.active ? "Activo" : "Inactivo"}
+                        </Text>
+                    </View>
+
                     {item.organizationName ? (
                         <View style={styles.orgRow}>
                             <Icon name="sitemap" size={11} color="#638888" />
@@ -202,6 +208,14 @@ const UserManagement = () => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#f4f7f7" },
+    statusBadge: {
+        alignSelf: "flex-start", marginTop: 4,
+        paddingHorizontal: 10, paddingVertical: 3,
+        borderRadius: 10, borderWidth: 1,
+    },
+    statusActive:   { backgroundColor: "#d1fae5", borderColor: "#065f46" },
+    statusInactive: { backgroundColor: "#fee2e2", borderColor: "#991b1b" },
+    statusText: { fontSize: 11, fontFamily: "PlusJakartaSans-Bold" },
     filtersScroll: { height: 56, flexGrow: 0, flexShrink: 0 },
     filtersRow: {
         flexDirection: "row",
