@@ -15,7 +15,8 @@ test.describe('Notificaciones del usuario', () => {
         // y otro objeto suyo (él lo encontró) se devuelve a su dueño (recompensa).
         const u = await T.registrarUsuario(request, 'n1');
         const emp = await T.loginConOrg(request, USUARIOS_PARALELO.empleadoAero);
-        const descripcion = nombreUnico('billetera negra notificacion');
+        // Un objeto que ningún otro test recepta: si no, el aviso podría ser por el objeto de otro test.
+        const descripcion = nombreUnico('metrónomo dorado notificacion');
         // Si un aviso no llega, solo los casos que lo necesitan quedan como "no se pudo probar".
         let faltaMatch = null;
         let faltaReward = null;
