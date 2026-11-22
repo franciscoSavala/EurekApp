@@ -53,14 +53,18 @@ test.describe('Devolución de un objeto', () => {
             if (configurada) await expect.soft(page.getByText('Requisitos de entrega', { exact: true })).toBeVisible();
         });
 
-        await casoContinuo(92, 'sin completar nada no se registra y se pide la foto; con la foto cada campo vacío muestra "Dato obligatorio."', async () => {
-            await page.getByText('Registrar devolución', { exact: true }).click();
-            await expect.soft(page.getByText('La foto es obligatoria.')).toBeVisible();
-            await cargarFotoDeQuienRetira(page);
+        await casoContinuo(92, 'sin completar nada cada campo vacío muestra "Dato obligatorio."; con los campos completos y sin foto se pide la foto', async () => {
             await page.getByText('Registrar devolución', { exact: true }).click();
             // Nombre, apellido, DNI y teléfono vacíos: un aviso por cada uno.
             await expect.soft(page.getByText('Dato obligatorio.').locator('visible=true')).toHaveCount(4);
+            await page.getByPlaceholder('Ingresa el nombre').fill('Ana');
+            await page.getByPlaceholder('Ingresa el apellido').fill('Prueba');
+            await page.getByPlaceholder('Ingresa el número de documento').fill('12345678');
+            await page.getByPlaceholder('Ingresa un teléfono de contacto').fill('3514000000');
+            await page.getByText('Registrar devolución', { exact: true }).click();
+            await expect.soft(page.getByText('La foto es obligatoria.')).toBeVisible();
             await expect(page.getByText(MENSAJE_OK)).toHaveCount(0);
+            await cargarFotoDeQuienRetira(page);
         });
 
         await casoContinuo(93, 'las letras no se escriben en el DNI y con 5 dígitos aparece "Número de documento inválido." sin registrar', async () => {

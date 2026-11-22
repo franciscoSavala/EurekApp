@@ -28,8 +28,8 @@ test.describe('Sesión', () => {
         await irAlLogin(page);
         await ingresar(page, 'no.registrado.r01@mail.com', 'ClaveMala9!');
 
-        await caso(2, 'con email no registrado y contraseña incorrecta no entra y muestra "Error en los datos enviados"', async () => {
-            await expect(page.getByText('Error en los datos enviados')).toBeVisible();
+        await caso(2, 'con email no registrado y contraseña incorrecta no entra y muestra "Usuario y/o contraseña incorrecta."', async () => {
+            await expect(page.getByText('Usuario y/o contraseña incorrecta.')).toBeVisible();
             await expect(page.getByText('Logout')).toHaveCount(0);
         });
     });

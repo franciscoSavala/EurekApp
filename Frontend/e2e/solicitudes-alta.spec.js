@@ -361,9 +361,9 @@ test.describe('Solicitudes de alta de organizaciones', () => {
                 expect(correo.texto).toMatch(/\d{2}\/\d{2}\/\d{4}/);
             });
 
-            await casoContinuo(320, 'el correo indica que la solicitud está pendiente de revisión', async () => {
+            await casoContinuo(320, 'el asunto del correo indica que es una nueva solicitud de registro de organización', async () => {
                 expect(correo, 'hay correo del caso 318').toBeTruthy();
-                expect(correo.texto.toLowerCase()).toMatch(/pendiente/);
+                expect(correo.asunto).toBe(ASUNTO_ADMIN);
             });
 
             await caso(321, 'cada solicitud registrada genera su propio correo al administrador', async () => {

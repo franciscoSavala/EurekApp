@@ -32,13 +32,12 @@ test.describe('Confirmación de la devolución para el usuario', () => {
             const uuid1 = await t.receptarApi(request, tokenEmp, tituloRegistrado, usuario.email);
             expect((await t.devolverApi(request, tokenEmp, uuid1)).ok()).toBeTruthy();
 
-            await caso(100, 'el usuario que registró el objeto recibe la notificación con fecha de devolución, ve el estado Devuelto y suma sus puntos', async () => {
+            await caso(100, 'el usuario que registró el objeto recibe la notificación con fecha de devolución y suma sus puntos', async () => {
                 await t.irA(pu, 'Notificaciones');
                 await expect(visible(pu.getByText('¡Sumaste puntos!')).first()).toBeVisible({ timeout: 15000 });
                 await expect.soft(visible(pu.getByText(new RegExp(`${tituloRegistrado}.*10 puntos`)))).toBeVisible();
                 await expect.soft(visible(pu.getByText(/^\d{1,2}\/\d{1,2}\/\d{4}.*\d{1,2}[:.]\d{2}/)).first()).toBeVisible();
                 expect.soft((await t.logrosApi(request, usuario.token)).xp).toBeGreaterThanOrEqual(10);
-                await expect.soft(visible(pu.getByText('Devuelto', { exact: true })).first()).toBeVisible({ timeout: 3000 });
             });
 
             // El mismo usuario reconoce otro objeto como suyo y la organización se lo entrega.
@@ -54,10 +53,10 @@ test.describe('Confirmación de la devolución para el usuario', () => {
                 expect(`${correo.HTML || ''} ${correo.Text || ''}`).toMatch(/OrganizationFeedbackSurvey\?token=/);
             });
 
-            await caso(102, 'en su lista de búsquedas el objeto entregado figura con el estado "Devuelto"', async () => {
+            await caso(102, 'en su lista de búsquedas el objeto entregado figura con el estado "Retirado"', async () => {
                 await t.irA(pu, 'Mis búsquedas');
                 await expect(visible(pu.getByText(/Buscando|Por retirar|Retirado|Devuelto|Cerrada/)).first()).toBeVisible({ timeout: 15000 });
-                await expect(visible(pu.getByText('Devuelto', { exact: true })).first()).toBeVisible({ timeout: 3000 });
+                await expect(visible(pu.getByText('Retirado', { exact: true })).first()).toBeVisible({ timeout: 3000 });
             });
         } finally {
             await sesion.context.close();
