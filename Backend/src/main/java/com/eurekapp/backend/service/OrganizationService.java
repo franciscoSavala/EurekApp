@@ -55,13 +55,17 @@ public class OrganizationService {
     // ── Políticas ─────────────────────────────────────────────────────────────
 
     public OrganizationPolicyDto getPolicy(UserEurekapp user) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbiddenException("forbidden", "Solo el responsable puede acceder a las políticas");
+        // EU-440: el responsable ve y edita las políticas; el resto del personal de la organización solo
+        // las consulta (sin el historial de cambios) para ver qué se exige al devolver un objeto.
+        boolean isOwner = user.getRole() == Role.ORGANIZATION_OWNER;
+        boolean isStaff = user.getRole() == Role.ORGANIZATION_EMPLOYEE || user.getRole() == Role.ENCARGADO;
+        if ((!isOwner && !isStaff) || user.getOrganization() == null) {
+            throw new ForbiddenException("forbidden", "Solo el personal de la organización puede acceder a las políticas");
         }
         Long orgId = user.getOrganization().getId();
         Optional<OrganizationPolicy> policyOpt = policyRepository.findByOrganization_Id(orgId);
 
-        List<OrganizationPolicyHistoryDto> history = historyRepository
+        List<OrganizationPolicyHistoryDto> history = !isOwner ? List.of() : historyRepository
                 .findByOrganizationIdOrderByChangedAtDesc(orgId)
                 .stream()
                 .map(h -> OrganizationPolicyHistoryDto.builder()
