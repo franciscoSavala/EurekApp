@@ -114,7 +114,7 @@ public class ReturnFoundObjectService {
                 user = userRepository.getByUsername(command.getUsername());
             }else{
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
-                throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getUsername()));
+                throw new NotFoundException("user_not_found", String.format("No se encontró el usuario con el username %s", command.getUsername()));
             }
         }
 

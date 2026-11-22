@@ -135,7 +135,7 @@ public class FoundObjectService implements IFoundObjectService {
                 objectFinderUser = userRepository.getByUsername(command.getObjectFinderUsername());
             }else{
                 // Si el contenido de username no es vacío, pero tampoco válido, lanzamos una excepción.
-                throw new NotFoundException("user_not_found", String.format("El usuario con email '%s' no existe", command.getObjectFinderUsername()));
+                throw new NotFoundException("user_not_found", String.format("No se encontró el usuario con el username %s", command.getObjectFinderUsername()));
             }
         }
 
