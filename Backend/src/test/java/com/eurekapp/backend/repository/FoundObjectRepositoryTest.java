@@ -290,4 +290,15 @@ class FoundObjectRepositoryTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> repository().getByUuidsOrFail(List.of(UUID_B)))
                 .isInstanceOf(RuntimeException.class);
     }
+
+    @Test
+    void query_sinLimiteExplicito_pideATodosLosObjetos_yNoSoloLosPrimeros25DeWeaviate() {
+        when(weaviateService.queryObjects(anyString(), any(), anyString(), any(), any(), any(), any()))
+                .thenReturn(List.of());
+
+        repository().query(List.of(0.1f, 0.2f), "3", null, null, null, false, "BILLETERA");
+
+        verify(weaviateService).queryObjects(eq("FoundObject"), any(), eq("text"), any(), any(),
+                eq(10_000), any());
+    }
 }

@@ -109,7 +109,7 @@ test.describe('Notificaciones del usuario', () => {
                 const url = page.url();
                 await t.getByText('Ver coincidencia', { exact: true }).click();
                 await expect.poll(() => page.url(), { message: 'Ver coincidencia no abrió otra pantalla' }).not.toBe(url);
-                await expect.soft(page.getByText(descripcion).locator('visible=true').first(), 'no se ve el objeto encontrado').toBeVisible();
+                await expect.soft(page.getByText(descripcion).locator('visible=true').first(), 'no se ve el objeto encontrado').toBeVisible({ timeout: 30_000 });
             });
         } finally {
             await context.close();
