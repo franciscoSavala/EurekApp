@@ -540,8 +540,8 @@ SQL
   && success "Las 24 devoluciones apuntan a un objeto que existe y figura como devuelto" \
   || error "$FALTANTES devoluciones apuntan a un objeto que no existe o no figura como devuelto"
 
-# ─── 13. Insertar exclusiones de recompensa ──────────────────────────────────
-header "Insertando exclusiones de recompensa"
+# ─── 13. Insertar exclusiones de puntos ──────────────────────────────────
+header "Insertando exclusiones de puntos"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reward_exclusions
@@ -551,7 +551,7 @@ VALUES
 ('$FO_PARAGUAS', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 10:00:00', '1'),
 ('$FO_ANTEOJOS', 4, 'ENCARGADO',             'INCOMPATIBLE_ROLE', '2026-05-20 10:00:00', '1');
 SQL
-success "3 exclusiones de recompensa registradas (personal de la organizacion)"
+success "3 exclusiones de puntos registradas (personal de la organizacion)"
 
 # ─── 14. Insertar SearchFeedback ─────────────────────────────────────────────
 header "Insertando SearchFeedback"

@@ -246,7 +246,7 @@ public class FoundObjectService implements IFoundObjectService {
             throw new ApiException("upload_error", "There was an error uploading your object", HttpStatus.INTERNAL_SERVER_ERROR);
         }
 
-        // Si el finder tiene rol incompatible, registrar exclusión de recompensa al momento de la carga
+        // Si el finder tiene rol incompatible, registrar exclusión de puntos al momento de la carga
         if (objectFinderUser != null && INCOMPATIBLE_ROLES.contains(objectFinderUser.getRole())) {
             rewardExclusionRepository.save(RewardExclusion.builder()
                     .foundObjectUUID(foundObjectId)
