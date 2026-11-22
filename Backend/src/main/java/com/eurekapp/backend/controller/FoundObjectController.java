@@ -136,6 +136,8 @@ public class FoundObjectController {
             @RequestParam(value = "phoneNumber") String phoneNumber,
             @RequestParam(value = "found_object_uuid") String uuid,
             @RequestParam(value = "file") MultipartFile file,
+            @RequestParam(value = "identityVerified", required = false) Boolean identityVerified,
+            @RequestParam(value = "evidenceVerified", required = false) Boolean evidenceVerified,
             @PathVariable(name = "organizationId") Long organizationId) {
         ReturnFoundObjectCommand command = ReturnFoundObjectCommand.builder()
                 .organizationId(organizationId)
@@ -146,6 +148,8 @@ public class FoundObjectController {
                 .phoneNumber(phoneNumber)
                 .username(eurekappUser)
                 .image(file)
+                .identityVerified(identityVerified)
+                .evidenceVerified(evidenceVerified)
                 .build();
         return ResponseEntity.ok(returnFoundObjectService.returnFoundObject(command, caller));
     }

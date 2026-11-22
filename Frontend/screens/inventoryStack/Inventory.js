@@ -36,6 +36,8 @@ const Inventory = ({ navigation }) => {
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(false);
     const [maxStorageDays, setMaxStorageDays] = useState(null);
+    // EU-444: si la carga falla no se sabe qué hay en el inventario; no se puede decir que está vacío.
+    const [loadFailed, setLoadFailed] = useState(false);
 
     useEffect(() => {
         const fetchPolicy = async () => {
@@ -66,7 +68,9 @@ const Inventory = ({ navigation }) => {
             setInstitutesObject(prev => append ? [...prev, ...found_objects] : found_objects);
             setHasMore(has_more);
             setPage(pageNum);
+            setLoadFailed(false);
         } catch (error) {
+            setLoadFailed(true);
             if (__DEV__) console.error(error);
             Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo cargar el inventario. Verificá tu conexión.' });
         } finally {
@@ -150,7 +154,9 @@ const Inventory = ({ navigation }) => {
 
     const NotFoundComponent = () => {
         return (
-            <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />
+            loadFailed
+                ? <EmptyState icon="wifi" title="No se pudo cargar el inventario. Verificá tu conexión." />
+                : <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />
         );
     }
     return (

@@ -42,6 +42,7 @@ class ReturnFoundObjectServiceTest {
     @Mock FraudDetectionService fraudDetectionService;
     @Mock FraudBlockService fraudBlockService;
     @Mock LostObjectService lostObjectService;
+    @Mock IOrganizationPolicyRepository policyRepository;
 
     ReturnFoundObjectService service;
 
@@ -52,7 +53,61 @@ class ReturnFoundObjectServiceTest {
                 foundObjectRepository, s3Service, notificationService,
                 rewardExclusionRepository,
                 inAppNotificationService, emailTemplateService, fraudDetectionService,
-                fraudBlockService, lostObjectService);
+                fraudBlockService, lostObjectService, policyRepository);
+    }
+
+    private ReturnFoundObjectCommand.ReturnFoundObjectCommandBuilder comandoBase() {
+        return ReturnFoundObjectCommand.builder()
+                .firstName("Marina").lastName("Quiroga").DNI("12345678").phoneNumber("3511234567")
+                .foundObjectUUID("uuid-123").organizationId(1L)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}));
+    }
+
+    private UserEurekapp empleadoDeOrg1() {
+        return UserEurekapp.builder().id(10L).username("employee@test.com").role(Role.ORGANIZATION_EMPLOYEE)
+                .organization(Organization.builder().id(1L).name("TestOrg").build()).build();
+    }
+
+    @Test
+    void devolucion_conValidacionDeIdentidadExigidaSinConfirmar_seRechaza() {
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(
+                FoundObject.builder().uuid("uuid-123").organizationId("1").wasReturned(false).build());
+        when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
+                OrganizationPolicy.builder().requiresIdentityValidation(true).build()));
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoBase().build(), empleadoDeOrg1()))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("verificar la identidad");
+        verify(returnFoundObjectRepository, never()).save(any());
+    }
+
+    @Test
+    void devolucion_conEvidenciaExigidaSinConfirmar_seRechaza() {
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(
+                FoundObject.builder().uuid("uuid-123").organizationId("1").wasReturned(false).build());
+        when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
+                OrganizationPolicy.builder().requiresIdentityValidation(true).requiresAdditionalEvidence(true).build()));
+
+        assertThatThrownBy(() -> service.returnFoundObject(
+                comandoBase().identityVerified(true).build(), empleadoDeOrg1()))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("evidencia adicional");
+        verify(returnFoundObjectRepository, never()).save(any());
+    }
+
+    @Test
+    void devolucion_conRequisitosConfirmados_noSeRechazaPorPolitica() {
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
+                OrganizationPolicy.builder().requiresIdentityValidation(true).requiresAdditionalEvidence(true).build()));
+        // Sin el objeto en Weaviate el flujo sigue hasta ahí: la política ya no es lo que lo frena.
+        when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(null);
+
+        assertThatThrownBy(() -> service.returnFoundObject(
+                comandoBase().identityVerified(true).evidenceVerified(true).build(), empleadoDeOrg1()))
+                .hasMessageContaining("not found");
     }
 
     @Test

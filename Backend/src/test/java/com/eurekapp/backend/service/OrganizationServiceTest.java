@@ -29,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -168,5 +169,23 @@ class OrganizationServiceTest {
     void getPolicy_usuarioQueNoEsResponsable_lanzaForbidden() {
         assertThatThrownBy(() -> service.getPolicy(user(Role.USER, "u")))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void getPolicy_empleadoDeLaOrganizacion_veLasPoliticasSinElHistorial() {
+        // EU-440: el empleado necesita ver qué exige la organización al devolver un objeto.
+        UserEurekapp empleado = user(Role.ORGANIZATION_EMPLOYEE, "emp@mail.com");
+        empleado.setOrganization(Organization.builder().id(5L).name("Org").build());
+        OrganizationPolicy politica = OrganizationPolicy.builder().organization(empleado.getOrganization())
+                .requiresIdentityValidation(true).requiresAdditionalEvidence(true)
+                .additionalEvidenceDetails("foto con el dueño").build();
+        when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.of(politica));
+
+        OrganizationPolicyDto resultado = service.getPolicy(empleado);
+
+        assertThat(resultado.getRequiresIdentityValidation()).isTrue();
+        assertThat(resultado.getAdditionalEvidenceDetails()).isEqualTo("foto con el dueño");
+        assertThat(resultado.getHistory()).isEmpty();
+        verifyNoInteractions(historyRepository);
     }
 }

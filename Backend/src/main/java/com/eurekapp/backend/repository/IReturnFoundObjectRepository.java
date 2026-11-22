@@ -1,6 +1,7 @@
 package com.eurekapp.backend.repository;
 
 import com.eurekapp.backend.model.ReturnFoundObject;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -37,4 +38,12 @@ public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundO
      */
     @Query("SELECT r FROM ReturnFoundObject r WHERE r.DNI = :dni AND r.datetimeOfReturn >= :from")
     List<ReturnFoundObject> findByDniInWindow(@Param("dni") String dni, @Param("from") LocalDateTime from);
+
+    /**
+     * EU-441: las devoluciones más recientes de una organización. Las anteriores al EU-371 no guardan
+     * la organización, así que también se reconoce por la del empleado que las registró.
+     */
+    @Query("SELECT r FROM ReturnFoundObject r WHERE r.organizationId = :orgId "
+            + "OR r.returnedByEmployee.organization.id = :orgId ORDER BY r.datetimeOfReturn DESC")
+    List<ReturnFoundObject> findMostRecentByOrganization(@Param("orgId") Long orgId, Pageable pageable);
 }

@@ -30,14 +30,22 @@ public class FoundObjectDtoMapper {
     }
 
     public FoundObjectDto toDto(FoundObject foundObject) {
-        String imageUrl = s3Service.generatePresignedUrl(foundObject.getUuid(), java.time.Duration.ofHours(1));
-
         Long objectOrganizationId = Long.parseLong(foundObject.getOrganizationId());
         Organization organization = organizationRepository.findById(objectOrganizationId)
                 .orElse(null);
         PublicOrganizationDto organizationDto = organization != null ?
                 organizationService.organizationToPublicDto(organization) :
                 null;
+        return toDto(foundObject, organizationDto);
+    }
+
+    public PublicOrganizationDto toPublicOrganization(Organization organization) {
+        return organizationService.organizationToPublicDto(organization);
+    }
+
+    /** Igual que {@link #toDto(FoundObject)} con la organización ya resuelta: un listado de una sola organización no la consulta por fila. */
+    public FoundObjectDto toDto(FoundObject foundObject, PublicOrganizationDto organizationDto) {
+        String imageUrl = s3Service.generatePresignedUrl(foundObject.getUuid(), java.time.Duration.ofHours(1));
 
         GeoCoordinates coordinates = foundObject.getCoordinates();
 
