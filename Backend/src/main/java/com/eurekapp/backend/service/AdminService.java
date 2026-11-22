@@ -114,6 +114,8 @@ public class AdminService {
                     "No podés desactivarte a vos mismo.");
         }
         target.setActive(active);
+        target.setStatusChangedAt(java.time.LocalDateTime.now());
+        target.setStatusChangedBy(admin.getUsername());
         userRepository.save(target);
         log.info("[action:toggleUserActive] Admin {} set active={} for user {}",
                 admin.getUsername(), active, target.getUsername());
@@ -147,6 +149,17 @@ public class AdminService {
         return organizationRepository.findAll().stream()
                 .map(this::toAdminOrganizationDto)
                 .toList();
+    }
+
+    public List<AdminUserDto> getOrganizationMembers(UserEurekapp admin, Long orgId) {
+        if (admin.getRole() != Role.ADMIN) {
+            throw new ForbiddenException("forbidden", "Solo el administrador puede acceder a esta sección.");
+        }
+        Organization org = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new NotFoundException("org_not_found", "Organización no encontrada."));
+        return userRepository.findByOrganizationAndRoleIn(
+                        org, List.of(Role.ORGANIZATION_OWNER, Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO))
+                .stream().map(this::toAdminUserDto).toList();
     }
 
     public void toggleOrganizationActive(UserEurekapp admin, Long orgId, boolean active) {
@@ -198,6 +211,8 @@ public class AdminService {
                 .XP(user.getXP())
                 .returnedObjects(user.getReturnedObjects())
                 .organizationName(user.getOrganization() != null ? user.getOrganization().getName() : null)
+                .statusChangedAt(user.getStatusChangedAt())
+                .statusChangedBy(user.getStatusChangedBy())
                 .build();
     }
 

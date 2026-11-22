@@ -114,4 +114,42 @@ class AdminServiceTest {
         assertThatThrownBy(() -> adminService.getAdminStats(owner))
                 .isInstanceOf(ForbiddenException.class);
     }
+
+    @Test
+    void toggleUserActive_recordsWhoAndWhen() {
+        UserEurekapp admin = buildUser(Role.ADMIN, true);
+        admin.setId(1L);
+        UserEurekapp target = buildUser(Role.USER, true);
+        target.setId(2L);
+        when(userRepository.findById(2L)).thenReturn(java.util.Optional.of(target));
+
+        adminService.toggleUserActive(admin, 2L, false);
+
+        assertThat(target.isActive()).isFalse();
+        assertThat(target.getStatusChangedBy()).isEqualTo(admin.getUsername());
+        assertThat(target.getStatusChangedAt()).isNotNull();
+    }
+
+    @Test
+    void getOrganizationMembers_listsMembersOfOrg() {
+        com.eurekapp.backend.model.Organization org = new com.eurekapp.backend.model.Organization();
+        UserEurekapp member = buildUser(Role.ORGANIZATION_EMPLOYEE, true);
+        when(organizationRepository.findById(5L)).thenReturn(java.util.Optional.of(org));
+        when(userRepository.findByOrganizationAndRoleIn(org,
+                List.of(Role.ORGANIZATION_OWNER, Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO)))
+                .thenReturn(List.of(member));
+
+        var result = adminService.getOrganizationMembers(buildUser(Role.ADMIN, true), 5L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getRole()).isEqualTo("ORGANIZATION_EMPLOYEE");
+    }
+
+    @Test
+    void getOrganizationMembers_nonAdmin_throwsForbidden() {
+        UserEurekapp owner = buildUser(Role.ORGANIZATION_OWNER, true);
+
+        assertThatThrownBy(() -> adminService.getOrganizationMembers(owner, 5L))
+                .isInstanceOf(ForbiddenException.class);
+    }
 }
