@@ -26,6 +26,8 @@ const TYPE_LABELS = {
     MATCH_FOUND: "Coincidencia encontrada",
     REWARD_EARNED: "Recompensa obtenida",
     REWARD_BLOCKED: "Recompensa no otorgada",
+    LEVEL_UP: "Nuevo nivel",
+    ACHIEVEMENT_UNLOCKED: "Logro desbloqueado",
     FRAUD_BLOCK_LIFTED: "Bloqueo levantado",
     FRAUD_EMPLOYEE_INVOLVED: "Integrante involucrado en fraude",
     FRAUD_ALERT: "Alerta de fraude",
@@ -306,7 +308,7 @@ const Notifications = ({ navigation, route }) => {
                         </TouchableOpacity>
                     </View>
                 )}
-                {item.type === "REWARD_EARNED" && (
+                {(item.type === "REWARD_EARNED" || item.type === "LEVEL_UP" || item.type === "ACHIEVEMENT_UNLOCKED") && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={styles.acceptButton}

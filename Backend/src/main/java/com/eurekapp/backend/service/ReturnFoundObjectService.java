@@ -257,6 +257,8 @@ public class ReturnFoundObjectService {
                     returnFoundObjectRepository.save(rfo);
 
                     // Actualizar XP y contador
+                    Level nivelAnterior = Level.getLevel(finder.getXP());
+                    long devueltosAnteriores = finder.getReturnedObjects();
                     finder.setXP(finder.getXP() + 10L);
                     finder.setReturnedObjects(finder.getReturnedObjects() + 1L);
                     userRepository.save(finder);
@@ -280,6 +282,8 @@ public class ReturnFoundObjectService {
                             "REWARD_EARNED",
                             null
                     );
+
+                    notificarNivelYLogros(finder, nivelAnterior, devueltosAnteriores);
                 }
             } catch (Exception e) {
                 log.warn("Error en notificación/XP para finder id={}: {}", finderProxy.getId(), e.getMessage());
@@ -353,6 +357,33 @@ public class ReturnFoundObjectService {
      * para auditoría por parte del responsable de la organización.
      */
     @Transactional
+    /**
+     * EU-435: avisa (solo in-app) cuando la devolución hizo subir de nivel al usuario o le desbloqueó un logro.
+     * Cada nivel y cada logro se avisa una sola vez porque solo se evalúa el cruce de umbral de esta devolución.
+     */
+    private void notificarNivelYLogros(UserEurekapp finder, Level nivelAnterior, long devueltosAnteriores) {
+        Level nivelNuevo = Level.getLevel(finder.getXP());
+        if (nivelNuevo != null && nivelNuevo != nivelAnterior) {
+            inAppNotificationService.createNotification(
+                    finder,
+                    "¡Subiste al nivel " + nivelNuevo.getName() + "!",
+                    "Alcanzaste un nuevo nivel con " + finder.getXP() + " puntos de experiencia.",
+                    "LEVEL_UP",
+                    null);
+        }
+        for (ReturnedObjectsAchievement logro : ReturnedObjectsAchievement.values()) {
+            if (devueltosAnteriores < logro.getRequiredObjects() && finder.getReturnedObjects() >= logro.getRequiredObjects()) {
+                inAppNotificationService.createNotification(
+                        finder,
+                        "¡Desbloqueaste el logro \"" + logro.getName() + "\"!",
+                        "Lograste la insignia por devolver " + logro.getRequiredObjects()
+                                + (logro.getRequiredObjects() == 1 ? " objeto." : " objetos."),
+                        "ACHIEVEMENT_UNLOCKED",
+                        null);
+            }
+        }
+    }
+
     public RewardExclusionListDto getRewardExclusions(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de recompensa");
