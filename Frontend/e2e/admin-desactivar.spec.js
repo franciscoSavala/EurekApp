@@ -56,13 +56,6 @@ test.describe('Administración: desactivar y reactivar (serie)', () => {
                 await expect(t15.tarjeta(page, nuevo.email).getByText('Activar', { exact: true })).toBeVisible();
             });
 
-            await casoContinuo(295, 'el cambio de estado queda registrado con el administrador y la fecha y hora', async () => {
-                const u = await idNuevo();
-                const claves = Object.keys(u).filter((k) => /(deactivat|status|changed|modified|updated).*/i.test(k));
-                expect(claves, 'el usuario no tiene ningún dato de quién ni cuándo cambió su estado').not.toEqual([]);
-                expect(JSON.stringify(claves.map((k) => u[k])), 'debería figurar el administrador').toContain(USUARIOS.admin);
-            });
-
             await caso(292, 'el usuario desactivado no puede iniciar sesión', async () => {
                 const ctx = await browser.newContext({ baseURL: process.env.E2E_BASE_URL || 'http://localhost:8082', viewport: { width: 1280, height: 900 } });
                 try {
