@@ -445,7 +445,6 @@ return (
             <View style={styles.textAreaContainer}>
                 <Text style={styles.label}>Titulo de la publicación: </Text>
                 <TextInput
-                    maxLength={100}
                     style={styles.textArea}
                     placeholder="Escribe un título"
                     multiline

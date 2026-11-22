@@ -121,6 +121,9 @@ public class FoundObjectService implements IFoundObjectService {
             throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
+        // EU-443: la anotación @Length del controlador no se ejecuta (no está @Validated), así que el largo se controla acá.
+        if(command.getTitle() != null && command.getTitle().length() > 100)
+            throw new BadRequestException("title_too_long", "El título no puede superar los 100 caracteres");
 
 
                     //2- USUARIO QUE TRAJO EL OBJETO
@@ -290,11 +293,11 @@ public class FoundObjectService implements IFoundObjectService {
                 .build();
     }
 
+    private static final int MAX_RETURNED_SHOWN = 50;
+
     /*
     * Método usado para que un usuario organizacional pueda ver una lista de todos los objetos que su organización
     * ya ha devuelto.
-    private static final int MAX_RETURNED_SHOWN = 50;
-
     * */
     public FoundObjectsListDto getAllReturnedFoundObjectsByOrganization(UserEurekapp user){
 

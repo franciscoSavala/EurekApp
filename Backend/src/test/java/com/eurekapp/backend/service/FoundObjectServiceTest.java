@@ -122,6 +122,22 @@ class FoundObjectServiceTest {
         verify(foundObjectRepository, never()).add(any());
     }
 
+    @Test
+    void uploadFails_whenTitleExceeds100Characters() {
+        UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
+                .title("x".repeat(101))
+                .foundDate(LocalDateTime.now().minusDays(1))
+                .organizationId(1L)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.uploadFoundObject(command))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessage("El título no puede superar los 100 caracteres");
+        verify(foundObjectRepository, never()).add(any());
+    }
+
     private static final GeoCoordinates CORDOBA =
             GeoCoordinates.builder().latitude(-31.4201).longitude(-64.1888).build();
 
@@ -180,6 +196,13 @@ class FoundObjectServiceTest {
                 .organization(org).build();
     }
 
+    private void devolucionesDeLaOrg(List<FoundObject> objetos, List<ReturnFoundObject> devoluciones) {
+        when(returnFoundObjectRepository.findMostRecentByOrganization(eq(1L), any())).thenReturn(devoluciones);
+        when(foundObjectRepository.getByUuids(any())).thenReturn(
+                objetos.stream().collect(java.util.stream.Collectors.toMap(FoundObject::getUuid, o -> o)));
+        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+    }
+
     @Test
     void returnedObjects_followTheOrderOfTheMostRecentReturns() {
         /* El objeto encontrado MÁS RECIENTE es el que se devolvió PRIMERO. El historial arranca por la
@@ -191,13 +214,6 @@ class FoundObjectServiceTest {
         devolucionesDeLaOrg(List.of(encontradoTarde, encontradoTemprano), List.of(
                 returnRecord("uuid-temprano", LocalDateTime.of(2026, 8, 24, 23, 26)),
                 returnRecord("uuid-tarde", LocalDateTime.of(2026, 8, 24, 20, 0))));
-
-    private void devolucionesDeLaOrg(List<FoundObject> objetos, List<ReturnFoundObject> devoluciones) {
-        when(returnFoundObjectRepository.findMostRecentByOrganization(eq(1L), any())).thenReturn(devoluciones);
-        when(foundObjectRepository.getByUuids(any())).thenReturn(
-                objetos.stream().collect(java.util.stream.Collectors.toMap(FoundObject::getUuid, o -> o)));
-        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
-    }
 
         FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
 
