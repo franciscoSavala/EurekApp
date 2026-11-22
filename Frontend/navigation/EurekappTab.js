@@ -226,7 +226,7 @@ export const EurekappTab = () => {
                     }} component={ReportsStackScreen}
                     />
                     <Drawer.Screen name="RewardExclusionsStackScreen" options={{
-                        title: 'Exclusiones de recompensa',
+                        title: 'Exclusiones de puntos',
                         headerTitleAlign: 'center',
                         drawerIcon: () => <Icon name={'ban'} size={20} />,
                     }} component={RewardExclusionsStackScreen}

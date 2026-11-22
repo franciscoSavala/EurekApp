@@ -202,8 +202,8 @@ public class FoundObjectController {
     }
 
     @GetMapping("/reward-exclusions")
-    @Operation(summary = "Consultar exclusiones de recompensa",
-            description = "Devuelve los casos en que no se otorgó recompensa por incompatibilidad de funciones (encargado/empleado). Solo accesible por el responsable de la organización.")
+    @Operation(summary = "Consultar exclusiones de puntos",
+            description = "Devuelve los casos en que no se otorgaron puntos por incompatibilidad de funciones (encargado/empleado). Solo accesible por el responsable de la organización.")
     public ResponseEntity<RewardExclusionListDto> getRewardExclusions(
             @AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(returnFoundObjectService.getRewardExclusions(user));

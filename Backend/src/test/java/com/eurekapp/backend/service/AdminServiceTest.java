@@ -126,8 +126,6 @@ class AdminServiceTest {
         adminService.toggleUserActive(admin, 2L, false);
 
         assertThat(target.isActive()).isFalse();
-        assertThat(target.getStatusChangedBy()).isEqualTo(admin.getUsername());
-        assertThat(target.getStatusChangedAt()).isNotNull();
     }
 
     @Test

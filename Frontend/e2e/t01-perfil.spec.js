@@ -9,6 +9,8 @@ const nombreLargo = 'N'.repeat(51);
 
 /** Intenta cambiar un campo del perfil (0 nombre, 1 apellido, 2 email) y guardar. Falla si el campo no se puede editar. */
 async function editarCampo(page, indice, valor) {
+    const editar = page.getByText('Editar', { exact: true }).locator('visible=true');
+    if (await editar.count()) await editar.first().click();
     const campo = camposPerfil(page).nth(indice);
     await expect(campo, 'el campo no se puede editar').toBeEditable({ timeout: 3000 });
     await campo.fill(valor);

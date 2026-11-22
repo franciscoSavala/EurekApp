@@ -69,7 +69,7 @@ const RewardExclusionsList = () => {
                 </View>
             </View>
             <View style={styles.reasonBadge}>
-                <Text style={styles.reasonText}>Sin recompensa · Incompatibilidad de funciones</Text>
+                <Text style={styles.reasonText}>Sin puntos · Incompatibilidad de funciones</Text>
             </View>
         </View>
     );
@@ -84,7 +84,7 @@ const RewardExclusionsList = () => {
 
     return (
         <View style={styles.container}>
-            <Text style={styles.heading}>Exclusiones de recompensa</Text>
+            <Text style={styles.heading}>Exclusiones de puntos</Text>
             <Text style={styles.subheading}>
                 Registros de objetos cargados por encargados, empleados o responsables que no reciben puntos.
             </Text>
@@ -92,7 +92,7 @@ const RewardExclusionsList = () => {
                 <EmptyState
                     icon="circle-check"
                     title="Sin exclusiones registradas"
-                    description="No hay casos de exclusión de recompensa en tu organización."
+                    description="No hay casos de exclusión de puntos en tu organización."
                 />
             ) : (
                 <FlatList

@@ -243,7 +243,7 @@ public class ReturnFoundObjectService {
                 } else if (fraudBlockService.isUserBlocked(finder.getId())) {
                     // Finder bloqueado por sospecha de fraude (EU-286): la devolución se permite igual,
                     // pero no se le otorgan puntos. Se le notifica el motivo (solo in-app).
-                    log.info("Finder id={} bloqueado: devolución permitida sin recompensa", finder.getId());
+                    log.info("Finder id={} bloqueado: devolución permitida sin puntos", finder.getId());
                     inAppNotificationService.createNotification(
                             finder,
                             "No recibiste puntos por esta devolución",
@@ -283,7 +283,7 @@ public class ReturnFoundObjectService {
 
                     inAppNotificationService.createNotification(
                             finder,
-                            "¡Obtuviste una recompensa!",
+                            "¡Sumaste puntos!",
                             "El objeto \"" + foundObject.getTitle() + "\" fue devuelto a su dueño. Sumaste 10 puntos de experiencia.",
                             "REWARD_EARNED",
                             null
@@ -379,7 +379,7 @@ public class ReturnFoundObjectService {
     }
 
     /**
-     * Devuelve todos los casos en que no se otorgó recompensa por incompatibilidad de funciones,
+     * Devuelve todos los casos en que no se otorgaron puntos por incompatibilidad de funciones,
      * para auditoría por parte del responsable de la organización.
      */
     @Transactional
@@ -412,7 +412,7 @@ public class ReturnFoundObjectService {
 
     public RewardExclusionListDto getRewardExclusions(UserEurekapp user) {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de recompensa");
+            throw new ForbiddenException("forbidden", "Solo el responsable de la organización puede consultar exclusiones de puntos");
         }
         if (user.getOrganization() == null) {
             throw new ForbiddenException("forbidden", "No pertenece a ninguna organización");
@@ -464,7 +464,7 @@ public class ReturnFoundObjectService {
         String rfoUsername = null;
         if(rfo.getUserEurekapp() != null){rfoUsername = rfo.getUserEurekapp().getUsername();}
 
-        // Datos del finder y motivo de exclusión de recompensa.
+        // Datos del finder y motivo de exclusión de puntos.
         // La exclusión de MySQL es la fuente primaria: evita depender del proxy Hibernate de Weaviate.
         String finderEmail = null;
         String finderFullName = null;
@@ -483,7 +483,7 @@ public class ReturnFoundObjectService {
             }
             rewardExcluded = true;
             String roleLabel = ROLE_LABELS.getOrDefault(exclusion.getUserRole().name(), exclusion.getUserRole().name());
-            rewardExclusionMessage = "Sin recompensa de puntos: incompatibilidad de funciones (" + roleLabel + ")";
+            rewardExclusionMessage = "Sin puntos: incompatibilidad de funciones (" + roleLabel + ")";
         } else if (fo.getObjectFinderUser() != null) {
             // Finder sin exclusión registrada: resolverlo desde la BD directamente (evita proxy lazy)
             Long finderId = fo.getObjectFinderUser().getId();
@@ -497,7 +497,7 @@ public class ReturnFoundObjectService {
                     // Rol incompatible sin exclusión registrada (e.g. datos de seed insertados por SQL)
                     rewardExcluded = true;
                     String roleLabel = ROLE_LABELS.getOrDefault(finder.getRole().name(), finder.getRole().name());
-                    rewardExclusionMessage = "Sin recompensa de puntos: incompatibilidad de funciones (" + roleLabel + ")";
+                    rewardExclusionMessage = "Sin puntos: incompatibilidad de funciones (" + roleLabel + ")";
                 } else {
                     rewardExcluded = false;
                 }

@@ -34,7 +34,7 @@ test.describe('Confirmación de la devolución para el usuario', () => {
 
             await caso(100, 'el usuario que registró el objeto recibe la notificación con fecha de devolución, ve el estado Devuelto y suma sus puntos', async () => {
                 await t.irA(pu, 'Notificaciones');
-                await expect(visible(pu.getByText('¡Obtuviste una recompensa!')).first()).toBeVisible({ timeout: 15000 });
+                await expect(visible(pu.getByText('¡Sumaste puntos!')).first()).toBeVisible({ timeout: 15000 });
                 await expect.soft(visible(pu.getByText(new RegExp(`${tituloRegistrado}.*10 puntos`)))).toBeVisible();
                 await expect.soft(visible(pu.getByText(/^\d{1,2}\/\d{1,2}\/\d{4}.*\d{1,2}[:.]\d{2}/)).first()).toBeVisible();
                 expect.soft((await t.logrosApi(request, usuario.token)).xp).toBeGreaterThanOrEqual(10);

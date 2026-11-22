@@ -1,5 +1,6 @@
 package com.eurekapp.backend.controller;
 
+import com.eurekapp.backend.dto.request.UpdateProfileDto;
 import com.eurekapp.backend.dto.response.AchievementsResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.model.UserEurekapp;
@@ -31,6 +32,14 @@ public class UserController {
             description = "Devuelve los datos actualizados del usuario (rol, organización, XP). Usar luego de aceptar una solicitud de vinculación a una organización.")
     public ResponseEntity<LoginResponseDto> refreshUserDetails(@AuthenticationPrincipal UserEurekapp user) {
         return ResponseEntity.ok(userService.refreshUserDetails(user));
+    }
+
+    @PutMapping("/profile")
+    @Operation(summary = "Editar nombre y apellido",
+            description = "Actualiza nombre y apellido del usuario autenticado (1 a 50 caracteres cada uno). El email no se modifica. Devuelve los datos refrescados del usuario.")
+    public ResponseEntity<LoginResponseDto> updateProfile(@AuthenticationPrincipal UserEurekapp user,
+                                                          @RequestBody UpdateProfileDto dto) {
+        return ResponseEntity.ok(userService.updateProfile(user, dto.getFirstName(), dto.getLastName()));
     }
 
     @GetMapping("/achievements")

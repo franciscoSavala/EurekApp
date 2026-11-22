@@ -151,7 +151,7 @@ export const RewardExclusionsStackScreen = () => (
         <RewardExclusionsStack.Screen
             name="RewardExclusionsList"
             component={RewardExclusionsList}
-            options={{ headerShown: false, title: 'Exclusiones de recompensa' }}
+            options={{ headerShown: false, title: 'Exclusiones de puntos' }}
         />
     </RewardExclusionsStack.Navigator>
 );

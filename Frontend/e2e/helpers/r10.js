@@ -1,4 +1,4 @@
-// Utilidades de la tanda R10 (logros, puntos, niveles, insignias y exclusiones de recompensa).
+// Utilidades de la tanda R10 (logros, puntos, niveles, insignias y exclusiones de puntos).
 const { expect } = require('@playwright/test');
 const t = require('./t13');
 
@@ -9,7 +9,7 @@ async function notificaciones(request, token) {
     return (await t.notificacionesApi(request, token)) || [];
 }
 
-/** Cantidad de notificaciones de recompensa ("¡Obtuviste una recompensa!") del usuario. */
+/** Cantidad de notificaciones de recompensa ("¡Sumaste puntos!") del usuario. */
 async function cuantasRecompensas(request, token) {
     return (await notificaciones(request, token)).filter((n) => n.type === 'REWARD_EARNED').length;
 }

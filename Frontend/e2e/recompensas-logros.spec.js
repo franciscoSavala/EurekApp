@@ -111,14 +111,14 @@ test.describe('logros y recompensas de un usuario nuevo', () => {
                 expect(texto).toMatch(/\+?10 puntos/);
             });
 
-            await caso(234, 'aparece la notificación "¡Obtuviste una recompensa!" con el objeto y "Sumaste 10 puntos de experiencia.", y queda guardada', async () => {
+            await caso(234, 'aparece la notificación "¡Sumaste puntos!" con el objeto y "Sumaste 10 puntos de experiencia.", y queda guardada', async () => {
                 if (falloDevolucion) return sinDevolucion();
                 await abrirNotificaciones(pu);
-                await expect(visible(pu.getByText('¡Obtuviste una recompensa!'))).toBeVisible();
+                await expect(visible(pu.getByText('¡Sumaste puntos!'))).toBeVisible();
                 await expect(visible(pu.getByText(new RegExp(`${objeto1}.*Sumaste 10 puntos de experiencia\\.`)))).toBeVisible();
                 // Queda guardada: al volver a entrar a la pantalla sigue ahí.
                 await abrirNotificaciones(pu);
-                await expect(visible(pu.getByText('¡Obtuviste una recompensa!'))).toHaveCount(1);
+                await expect(visible(pu.getByText('¡Sumaste puntos!'))).toHaveCount(1);
             });
 
             await caso(236, 'se muestra una notificación de la insignia desbloqueada', async () => {

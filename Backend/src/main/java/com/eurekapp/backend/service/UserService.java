@@ -6,6 +6,7 @@ import com.eurekapp.backend.dto.response.AddEmployeeRequestListResponseDto;
 import com.eurekapp.backend.dto.response.LoginResponseDto;
 import com.eurekapp.backend.dto.response.UserListResponseDto;
 import com.eurekapp.backend.service.EmailTemplateService;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
@@ -355,6 +356,31 @@ public class UserService {
                 .user(userDto)
                 .organization(orgDto)
                 .build();
+    }
+
+    /*
+     * Actualiza nombre y apellido del usuario autenticado. Devuelve los datos refrescados para que el frontend
+     * muestre el nombre nuevo sin volver a iniciar sesión. El email no se modifica.
+     * */
+    public LoginResponseDto updateProfile(UserEurekapp user, String firstName, String lastName) {
+        String first = firstName == null ? "" : firstName.trim();
+        String last = lastName == null ? "" : lastName.trim();
+        if (first.isEmpty()) {
+            throw new BadRequestException("invalid_first_name", "El nombre no puede estar vacío.");
+        }
+        if (first.length() > 50) {
+            throw new BadRequestException("invalid_first_name", "El nombre no puede superar los 50 caracteres.");
+        }
+        if (last.isEmpty()) {
+            throw new BadRequestException("invalid_last_name", "El apellido no puede estar vacío.");
+        }
+        if (last.length() > 50) {
+            throw new BadRequestException("invalid_last_name", "El apellido no puede superar los 50 caracteres.");
+        }
+        user.setFirstName(first);
+        user.setLastName(last);
+        userRepository.saveAndFlush(user);
+        return refreshUserDetails(user);
     }
 
     private UserDto userToDto(UserEurekapp user) {

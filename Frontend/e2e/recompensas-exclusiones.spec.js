@@ -8,7 +8,7 @@ const { visible } = t;
 const dos = (n) => String(n).padStart(2, '0');
 const EMPLEADO = 'emp1.utn@eurekapp.com';
 
-/** Exclusiones de recompensa de la organización, tal como las informa el servidor. */
+/** Exclusiones de puntos de la organización, tal como las informa el servidor. */
 async function exclusionesApi(request, token) {
     const r = await request.get(`${t.URL_BACK}/found-objects/reward-exclusions`, { headers: { Authorization: `Bearer ${token}` } });
     expect(r.ok()).toBeTruthy();
@@ -73,18 +73,18 @@ test.describe('exclusión de recompensas por incompatibilidad de funciones', () 
                 expect((await t.logrosApi(request, tokenEmp)).xp).toBe(xpEmpAntes);
             });
 
-            await t.irA(pd, 'Exclusiones de recompensa');
-            await expect(visible(pd.getByText('Exclusiones de recompensa').first())).toBeVisible();
+            await t.irA(pd, 'Exclusiones de puntos');
+            await expect(visible(pd.getByText('Exclusiones de puntos').first())).toBeVisible();
             const tarjeta = () => pd.locator('div')
                 .filter({ has: pd.getByText(`Obj: ${nueva.foundObjectUUID.substring(0, 8)}...`) })
                 .filter({ has: pd.getByText(USUARIOS.encargado, { exact: true }) })
                 .locator('visible=true').last();
 
-            await caso(239, 'queda constancia del motivo: "No se otorgó recompensa por incompatibilidad de funciones"', async () => {
-                await expect(tarjeta()).toContainText('No se otorgó recompensa por incompatibilidad de funciones');
+            await caso(239, 'queda constancia del motivo: "Sin puntos · Incompatibilidad de funciones"', async () => {
+                await expect(tarjeta()).toContainText('Sin puntos · Incompatibilidad de funciones');
             });
 
-            await caso(240, 'el responsable de la organización ve en Exclusiones de recompensa el caso excluido por incompatibilidad', async () => {
+            await caso(240, 'el responsable de la organización ve en Exclusiones de puntos el caso excluido por incompatibilidad', async () => {
                 await expect(tarjeta()).toBeVisible();
                 await expect(tarjeta()).toContainText(/incompatibilidad de funciones/i);
             });

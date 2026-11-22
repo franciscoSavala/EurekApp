@@ -7,7 +7,7 @@ const DUENO = USUARIOS_PARALELO.duenoPatio;
 
 const OPCIONES_DUENO = [
     'Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Notificaciones', 'Mi perfil', 'Reportes',
-    'Exclusiones de recompensa', 'Mi organización', 'Mi solicitud de organización',
+    'Exclusiones de puntos', 'Mi organización', 'Mi solicitud de organización',
 ];
 
 test.describe('Menú del dueño de la organización', () => {
