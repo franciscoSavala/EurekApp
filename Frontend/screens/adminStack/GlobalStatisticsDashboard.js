@@ -100,6 +100,13 @@ const GlobalStatisticsDashboard = () => {
                 </Text>
             </View>
 
+            {/* ── Objetos perdidos y alertas de fraude ── */}
+            <SectionTitle title="Objetos perdidos y fraude" />
+            <View style={styles.grid2}>
+                <StatCard value={stats?.totalLostObjects ?? 0} label="Objetos perdidos reportados" accent="#F0A500" />
+                <StatCard value={stats?.pendingFraudAlerts ?? 0} label="Alertas de fraude pendientes" accent="#CC4444" />
+            </View>
+
             {/* ── Usuarios por rol ── */}
             <SectionTitle title="Usuarios por rol" />
             <View style={styles.card}>

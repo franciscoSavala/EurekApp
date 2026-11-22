@@ -7,9 +7,11 @@ import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.Organization;
+import com.eurekapp.backend.model.FraudAlertStatus;
 import com.eurekapp.backend.model.OrganizationRequestStatus;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.UserEurekapp;
+import com.eurekapp.backend.repository.IFraudAlertRepository;
 import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.IOrganizationRequestRepository;
 import com.eurekapp.backend.repository.IUserRepository;
@@ -34,6 +36,7 @@ public class AdminService {
     private final NotificationService notificationService;
     private final EmailTemplateService emailTemplateService;
     private final PlatformCountsService platformCountsService;
+    private final IFraudAlertRepository fraudAlertRepository;
 
     // ── Stats ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +60,9 @@ public class AdminService {
         long unreturnedFoundObjects = platformCountsService.countUnreturnedFoundObjects();
         long totalFoundObjects = returnedFoundObjects + unreturnedFoundObjects;
 
+        long totalLostObjects = platformCountsService.countLostObjects();
+        long pendingFraudAlerts = fraudAlertRepository.countByStatus(FraudAlertStatus.ACTIVE);
+
         long orgRequestsPending  = organizationRequestRepository.countByStatus(OrganizationRequestStatus.PENDING_APPROVAL);
         long orgRequestsApproved = organizationRequestRepository.countByStatus(OrganizationRequestStatus.APPROVED);
         long orgRequestsRejected = organizationRequestRepository.countByStatus(OrganizationRequestStatus.REJECTED);
@@ -73,6 +79,8 @@ public class AdminService {
                 .activeOrgs(activeOrgs)
                 .totalFoundObjects(totalFoundObjects)
                 .returnedFoundObjects(returnedFoundObjects)
+                .totalLostObjects(totalLostObjects)
+                .pendingFraudAlerts(pendingFraudAlerts)
                 .orgRequestsPending(orgRequestsPending)
                 .orgRequestsApproved(orgRequestsApproved)
                 .orgRequestsRejected(orgRequestsRejected)
