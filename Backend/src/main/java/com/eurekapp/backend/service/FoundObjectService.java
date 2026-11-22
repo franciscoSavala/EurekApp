@@ -26,6 +26,7 @@ import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 
@@ -292,55 +293,36 @@ public class FoundObjectService implements IFoundObjectService {
     /*
     * Método usado para que un usuario organizacional pueda ver una lista de todos los objetos que su organización
     * ya ha devuelto.
+    private static final int MAX_RETURNED_SHOWN = 50;
+
     * */
     public FoundObjectsListDto getAllReturnedFoundObjectsByOrganization(UserEurekapp user){
 
         // Obtenemos la organización a partir del usuario.
         Organization org = user.getOrganization();
-        String orgId = org.getId().toString();
 
-        // Obtenemos todos los objetos devueltos de la organización.
-        List<FoundObject> foundObjects = foundObjectRepository.query(null, orgId, null, null, null, true, null);
+        // EU-441: la fecha de devolución vive en MySQL, no en Weaviate. Se piden primero las devoluciones más
+        // recientes de la organización (ya ordenadas por fecha, con un tope) y recién después sus objetos.
+        // Antes se pedían los objetos a Weaviate, que sin orden devuelve apenas 25: la última devolución
+        // podía quedar afuera. Y traer todos los objetos para ordenarlos y quedarse con unos pocos era lento.
+        List<ReturnFoundObject> recientes = returnFoundObjectRepository.findMostRecentByOrganization(
+                org.getId(), PageRequest.of(0, MAX_RETURNED_SHOWN));
+        Map<String, FoundObject> objetos = foundObjectRepository.getByUuids(
+                recientes.stream().map(ReturnFoundObject::getFoundObjectUUID).toList());
 
-        /* EU-348: la fecha de devolución no está en Weaviate —el objeto sólo sabe que fue devuelto—
-         * sino en MySQL. Se resuelve el lote entero en UNA consulta, y no una por objeto. */
-        Map<String, LocalDateTime> returnDates = returnDatesByObject(foundObjects);
-
-        /* El historial se ordena por CUÁNDO SE DEVOLVIÓ, no por cuándo se encontró, que es como
-         * estaba: lo que ordena un historial es el hecho que registra. Ordenando por hallazgo, un
-         * objeto encontrado hace meses y devuelto recién queda sepultado al fondo.
-         * Los que no tienen fecha van al final, pero NO se descartan: un objeto marcado como devuelto
-         * sin su registro en MySQL no debería existir, y esconderlo sería volver al bug que reportó
-         * este mismo ticket —algo que se fue del inventario y no aparece en ninguna parte—. */
-        List<FoundObjectDto> dtos = foundObjects.stream()
-                .map(foundObject -> {
-                    FoundObjectDto dto = dtoMapper.toDto(foundObject);
-                    dto.setReturnDate(returnDates.get(foundObject.getUuid()));
+        var organizacion = dtoMapper.toPublicOrganization(org);
+        List<FoundObjectDto> dtos = recientes.stream()
+                .filter(rfo -> objetos.containsKey(rfo.getFoundObjectUUID()))
+                .map(rfo -> {
+                    FoundObjectDto dto = dtoMapper.toDto(objetos.get(rfo.getFoundObjectUUID()), organizacion);
+                    dto.setReturnDate(rfo.getDatetimeOfReturn());
                     return dto;
                 })
-                .sorted(Comparator.comparing(FoundObjectDto::getReturnDate,
-                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
 
         return FoundObjectsListDto.builder()
                 .foundObjects(dtos)
                 .build();
-    }
-
-    /**
-     * EU-348: fecha de devolución de cada objeto, indexada por UUID.
-     *
-     * <p>Una sola consulta para todo el lote. Si un objeto aparece dos veces —no debería:
-     * {@code found_object_uuid} es único en la tabla— gana el primero, que es indistinto.</p>
-     */
-    private Map<String, LocalDateTime> returnDatesByObject(List<FoundObject> foundObjects) {
-        if (foundObjects.isEmpty()) return Map.of();
-        List<String> uuids = foundObjects.stream().map(FoundObject::getUuid).toList();
-        return returnFoundObjectRepository.findByFoundObjectUUIDIn(uuids).stream()
-                .filter(rfo -> rfo.getFoundObjectUUID() != null && rfo.getDatetimeOfReturn() != null)
-                .collect(Collectors.toMap(ReturnFoundObject::getFoundObjectUUID,
-                        ReturnFoundObject::getDatetimeOfReturn,
-                        (first, second) -> first));
     }
 
     public FoundObjectDto getFoundObjectDetail(FoundObjectDetailCommand command){

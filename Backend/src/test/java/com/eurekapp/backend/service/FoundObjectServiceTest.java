@@ -181,20 +181,23 @@ class FoundObjectServiceTest {
     }
 
     @Test
-    void returnedObjects_areSortedByReturnDateNotFoundDate() {
-        /* El caso que reportó la prueba: el objeto encontrado MÁS RECIENTE es el que se devolvió
-         * PRIMERO. Ordenando por fecha de hallazgo queda arriba, aunque su devolución sea la más
-         * vieja. El historial tiene que arrancar por la última devolución. */
+    void returnedObjects_followTheOrderOfTheMostRecentReturns() {
+        /* El objeto encontrado MÁS RECIENTE es el que se devolvió PRIMERO. El historial arranca por la
+         * última devolución, no por el último hallazgo. */
         FoundObject encontradoTarde = returnedObject("uuid-tarde", "Mochila roja",
                 LocalDateTime.of(2026, 8, 24, 16, 0));
         FoundObject encontradoTemprano = returnedObject("uuid-temprano", "Auriculares Sony",
                 LocalDateTime.of(2026, 8, 24, 10, 0));
-        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
-                .thenReturn(List.of(encontradoTarde, encontradoTemprano));
-        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any())).thenReturn(List.of(
-                returnRecord("uuid-tarde", LocalDateTime.of(2026, 8, 24, 20, 0)),
-                returnRecord("uuid-temprano", LocalDateTime.of(2026, 8, 24, 23, 26))));
+        devolucionesDeLaOrg(List.of(encontradoTarde, encontradoTemprano), List.of(
+                returnRecord("uuid-temprano", LocalDateTime.of(2026, 8, 24, 23, 26)),
+                returnRecord("uuid-tarde", LocalDateTime.of(2026, 8, 24, 20, 0))));
+
+    private void devolucionesDeLaOrg(List<FoundObject> objetos, List<ReturnFoundObject> devoluciones) {
+        when(returnFoundObjectRepository.findMostRecentByOrganization(eq(1L), any())).thenReturn(devoluciones);
+        when(foundObjectRepository.getByUuids(any())).thenReturn(
+                objetos.stream().collect(java.util.stream.Collectors.toMap(FoundObject::getUuid, o -> o)));
         when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+    }
 
         FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
 
@@ -204,46 +207,41 @@ class FoundObjectServiceTest {
 
     @Test
     void returnedObjects_exposeReturnDate() {
-        // La fecha de devolución viaja en el DTO: es el dato que la pantalla no tenía cómo mostrar.
-        FoundObject devuelto = returnedObject("uuid-1", "Paraguas negro",
-                LocalDateTime.of(2026, 4, 15, 10, 0));
+        FoundObject devuelto = returnedObject("uuid-1", "Paraguas negro", LocalDateTime.of(2026, 4, 15, 10, 0));
         LocalDateTime devueltoEl = LocalDateTime.of(2026, 8, 24, 23, 28);
-        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
-                .thenReturn(List.of(devuelto));
-        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any()))
-                .thenReturn(List.of(returnRecord("uuid-1", devueltoEl)));
-        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+        devolucionesDeLaOrg(List.of(devuelto), List.of(returnRecord("uuid-1", devueltoEl)));
 
         FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
 
         assertThat(result.getFoundObjects()).hasSize(1);
         assertThat(result.getFoundObjects().get(0).getReturnDate()).isEqualTo(devueltoEl);
-        // Los fixtures no tienen coordenadas a propósito: antes eso tiraba un NPE que se llevaba
-        // puesto el listado entero. Ahora el dato ausente viaja como null.
+        // Los fixtures no tienen coordenadas a propósito: el dato ausente viaja como null y no rompe el listado.
         assertThat(result.getFoundObjects().get(0).getLatitude()).isNull();
     }
 
     @Test
-    void returnedObjects_withoutReturnRecord_goLastAndDoNotBreakTheList() {
-        /* Un objeto marcado como devuelto en Weaviate sin su fila en MySQL no debería existir, pero
-         * el alta escribe en las dos bases sin una transacción que las abarque. Si aparece, va al
-         * final — NO se descarta: esconderlo sería volver al bug de este ticket, algo que se fue del
-         * inventario y no está en ninguna parte. */
-        FoundObject huerfano = returnedObject("uuid-sin-registro", "Llave suelta",
-                LocalDateTime.of(2026, 8, 24, 18, 0));
-        FoundObject normal = returnedObject("uuid-ok", "Billetera rosa",
-                LocalDateTime.of(2026, 5, 1, 10, 0));
-        when(foundObjectRepository.query(any(), eq("1"), any(), any(), any(), eq(true), any()))
-                .thenReturn(List.of(huerfano, normal));
-        when(returnFoundObjectRepository.findByFoundObjectUUIDIn(any()))
-                .thenReturn(List.of(returnRecord("uuid-ok", LocalDateTime.of(2026, 8, 24, 23, 0))));
-        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+    void returnedObjects_askForTheMostRecentReturnsWithALimitAbove25() {
+        // EU-441: sin ordenar por fecha antes de recortar, la última devolución podía quedar afuera.
+        devolucionesDeLaOrg(List.of(), List.of());
+
+        service.getAllReturnedFoundObjectsByOrganization(orgUser());
+
+        org.mockito.ArgumentCaptor<org.springframework.data.domain.Pageable> pagina =
+                org.mockito.ArgumentCaptor.forClass(org.springframework.data.domain.Pageable.class);
+        org.mockito.Mockito.verify(returnFoundObjectRepository).findMostRecentByOrganization(eq(1L), pagina.capture());
+        assertThat(pagina.getValue().getPageSize()).isGreaterThan(25);
+    }
+
+    @Test
+    void returnedObjects_aDevolutionWhoseObjectIsMissingDoesNotBreakTheList() {
+        FoundObject ok = returnedObject("uuid-ok", "Billetera rosa", LocalDateTime.of(2026, 5, 1, 10, 0));
+        devolucionesDeLaOrg(List.of(ok), List.of(
+                returnRecord("uuid-perdido", LocalDateTime.of(2026, 8, 24, 23, 0)),
+                returnRecord("uuid-ok", LocalDateTime.of(2026, 8, 24, 22, 0))));
 
         FoundObjectsListDto result = service.getAllReturnedFoundObjectsByOrganization(orgUser());
 
-        assertThat(result.getFoundObjects()).extracting("id")
-                .containsExactly("uuid-ok", "uuid-sin-registro");
-        assertThat(result.getFoundObjects().get(1).getReturnDate()).isNull();
+        assertThat(result.getFoundObjects()).extracting("id").containsExactly("uuid-ok");
     }
 
 }
