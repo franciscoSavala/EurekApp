@@ -146,7 +146,12 @@ public class WeaviateService {
         if (limit != null) { queryBuilder.append("limit: ").append(limit).append(" "); }
         if (offset != null && offset > 0) { queryBuilder.append("offset: ").append(offset).append(" "); }
 
-        queryBuilder.append(")");
+        if (queryBuilder.toString().endsWith("( ")) {
+            // Sin filtro, vector ni paginación: Weaviate rechaza "Clase ( )" con argumentos vacíos.
+            queryBuilder.setLength(queryBuilder.length() - 2);
+        } else {
+            queryBuilder.append(")");
+        }
 
         // 4- Lista de atributos a incluir en la respuesta
         queryBuilder.append("{ ");
