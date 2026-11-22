@@ -44,6 +44,10 @@ const toLocalISO = (date) => {
     return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
 
+// EU-442: la fecha límite se maneja en UTC (así se muestra), y se envía como el final de ese mismo día
+// para que la búsqueda incluya el día elegido en lugar de correrse al anterior por la zona horaria.
+const toDateLimitISO = (date) => `${date.toISOString().split('T')[0]}T23:59:59`;
+
 const FindObject = ({ navigation, route }) => {
     const { authFetch } = useAuthFetch();
     const [selectedInstitute, setSelectedInstitution] = useState(null);
@@ -120,7 +124,7 @@ const FindObject = ({ navigation, route }) => {
         const queryParams = new URLSearchParams({ query: routeParams.query });
         if (orgId) queryParams.append('organizationId', orgId);
         queryParams.append('lostDate', toLocalISO(lostDate));
-        if (filterLostDateTo) queryParams.append('lostDateTo', toLocalISO(filterLostDateTo));
+        if (filterLostDateTo) queryParams.append('lostDateTo', toDateLimitISO(filterLostDateTo));
         if (!orgId) {
             queryParams.append('latitude', objectMarker.latitude);
             queryParams.append('longitude', objectMarker.longitude);
@@ -150,7 +154,7 @@ const FindObject = ({ navigation, route }) => {
      *  el selector manual se sacó porque el filtro es duro y elegir mal esconde el objeto en silencio. */
     const searchWithText = async (routeParams) => {
         const params = new URLSearchParams({ lost_date: toLocalISO(lostDate), query: routeParams.query });
-        if (filterLostDateTo) params.append('lost_date_to', toLocalISO(filterLostDateTo));
+        if (filterLostDateTo) params.append('lost_date_to', toDateLimitISO(filterLostDateTo));
         if (!selectedInstitute) {
             params.append('latitude', objectMarker.latitude);
             params.append('longitude', objectMarker.longitude);
