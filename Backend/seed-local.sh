@@ -122,6 +122,25 @@ SQL
   success "ENUM corregido"
 fi
 
+# El estado de una cuenta ya no registra quién ni cuándo lo cambió: si una base vieja todavía
+# tiene esas columnas en 'users', se borran.
+for COL in status_changed_at status_changed_by; do
+  COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'users' AND COLUMN_NAME = '$COL';
+SQL
+)
+  if echo "$COL_EXISTS" | grep -q "^1$"; then
+    warn "'$COL' sobra en users. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE users DROP COLUMN $COL;
+SQL
+    success "'$COL' borrada de users"
+  else
+    success "'$COL' no existe en users — OK"
+  fi
+done
+
 # ─── 6. Limpiar MySQL ────────────────────────────────────────────────────────
 header "Limpiando MySQL"
 
