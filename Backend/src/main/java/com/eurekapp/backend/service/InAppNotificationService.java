@@ -56,7 +56,8 @@ public class InAppNotificationService {
     }
 
     public void resolveInvitationNotification(Long requestId, String newTitle, String newDescription) {
-        repository.findByRelatedRequestId(requestId).ifPresent(n -> {
+        // Sólo el aviso de invitación de empleado: las solicitudes de alta de organización usan el mismo campo.
+        repository.findByRelatedRequestIdAndType(requestId, "EMPLOYEE_INVITATION").forEach(n -> {
             n.setRelatedRequestId(null);
             n.setTitle(newTitle);
             n.setDescription(newDescription);
