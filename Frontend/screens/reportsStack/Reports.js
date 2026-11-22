@@ -41,6 +41,8 @@ const Reports = ({ navigation }) => {
 
     const [fromDate, setFromDate] = useState(thirtyDaysAgo);
     const [toDate, setToDate] = useState(new Date());
+    // EU-449: las fechas elegidas no recalculan el reporte hasta tocar "Actualizar reporte".
+    const [appliedRange, setAppliedRange] = useState({ from: thirtyDaysAgo, to: new Date() });
     const [showFromPicker, setShowFromPicker] = useState(false);
     const [showToPicker, setShowToPicker] = useState(false);
     const [groupBy, setGroupBy] = useState("DAY");
@@ -57,7 +59,7 @@ const Reports = ({ navigation }) => {
         setLoadingMain(true);
         setError(null);
         try {
-            const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
+            const params = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), groupBy };
             const res = await axiosInstance.get(`${BACK_URL}/reports`, { params });
             setData(res.data);
         } catch (e) {
@@ -75,9 +77,9 @@ const Reports = ({ navigation }) => {
     const fetchFeedback = async () => {
         setLoadingFeedback(true);
         try {
-            const params = { from: formatDateISO(fromDate), to: formatDateISO(toDate), groupBy };
+            const params = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), groupBy };
             const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-            const recParams = { from: formatDateISO(fromDate), to: formatDateISO(toDate), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
+            const recParams = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
             const [fbRes, recRes] = await Promise.all([
                 axiosInstance.get(`${BACK_URL}/feedback/report`, { params: fbParams }),
                 axiosInstance.get(`${BACK_URL}/feedback/records`, { params: recParams }),
@@ -96,8 +98,8 @@ const Reports = ({ navigation }) => {
         setExportingPdf(true);
         try {
             const html = buildUsageReportHtml(data, feedbackData, feedbackRecords, {
-                fromDate: formatDateISO(fromDate),
-                toDate: formatDateISO(toDate),
+                fromDate: formatDateISO(appliedRange.from),
+                toDate: formatDateISO(appliedRange.to),
                 groupBy,
                 wasFoundFilter,
             });
@@ -112,7 +114,7 @@ const Reports = ({ navigation }) => {
 
     const handleExportCsv = async () => {
         const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
-        const url = `${BACK_URL}/feedback/report/export?from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}${wasFoundParam}`;
+        const url = `${BACK_URL}/feedback/report/export?from=${formatDateISO(appliedRange.from)}&to=${formatDateISO(appliedRange.to)}${wasFoundParam}`;
         await exportCsv({ url, fileName: "feedback-report.csv", dialogTitle: "Exportar reporte de feedback" });
     };
 
@@ -120,7 +122,7 @@ const Reports = ({ navigation }) => {
         React.useCallback(() => {
             fetchMainReport();
             fetchFeedback();
-        }, [fromDate, toDate, groupBy, wasFoundFilter])
+        }, [appliedRange, groupBy, wasFoundFilter])
     );
 
     const maxValue = data?.time_series
@@ -196,6 +198,15 @@ const Reports = ({ navigation }) => {
                         )}
                     </View>
                 </View>
+
+                <TouchableOpacity
+                    style={styles.refreshBtn}
+                    onPress={() => setAppliedRange({ from: fromDate, to: toDate })}
+                    testID="reports-refresh"
+                    accessibilityLabel="Actualizar reporte"
+                >
+                    <Text style={styles.refreshBtnText}>Actualizar reporte</Text>
+                </TouchableOpacity>
 
                 {/* EU-407: estos botones estaban pegados a las fechas y se leían como atajos de
                     período. No cambian el período consultado: sólo cómo se agrupan los cuadros de
@@ -488,6 +499,15 @@ const MetricCard = ({ label, value, color }) => (
 );
 
 const styles = StyleSheet.create({
+    refreshBtn: {
+        backgroundColor: "#19b8b8",
+        borderRadius: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        alignSelf: "flex-start",
+        marginBottom: 12,
+    },
+    refreshBtnText: { color: "#fff", fontWeight: "600" },
     container: {
         flex: 1,
         backgroundColor: "#fff",

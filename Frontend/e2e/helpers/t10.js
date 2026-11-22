@@ -40,6 +40,8 @@ async function cambiarFecha(page, etiqueta, fecha) {
         const campo = page.locator('input[type="date"]');
         await campo.fill(fecha);
         await campo.press('Enter');
+        // EU-449: las fechas se aplican recién al tocar "Actualizar reporte".
+        await page.getByText('Actualizar reporte', { exact: true }).locator('visible=true').click();
     });
 }
 
