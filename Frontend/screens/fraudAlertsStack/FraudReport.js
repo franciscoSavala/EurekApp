@@ -38,9 +38,16 @@ const GROUP_OPTIONS = [
     { label: 'Por DNI', value: 'DNI' },
 ];
 
-const defaultFrom = () => {
+// Las fechas del filtro se guardan a la medianoche UTC del día local: así, después de las 21 de Argentina,
+// "hoy" no pasa a ser mañana al formatearlo.
+const defaultTo = () => {
     const d = new Date();
-    d.setDate(d.getDate() - 30);
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+};
+
+const defaultFrom = () => {
+    const d = defaultTo();
+    d.setUTCDate(d.getUTCDate() - 30);
     return d;
 };
 
@@ -64,7 +71,7 @@ const UserAvatar = ({ fullName }) => {
 const FraudReport = () => {
     const { authFetch } = useAuthFetch();
     const [fromDate, setFromDate] = useState(defaultFrom());
-    const [toDate, setToDate] = useState(new Date());
+    const [toDate, setToDate] = useState(defaultTo());
     const [showFrom, setShowFrom] = useState(false);
     const [showTo, setShowTo] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
