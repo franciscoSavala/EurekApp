@@ -137,4 +137,31 @@ class InAppNotificationServiceTest {
 
         assertThat(service.getUnreadCount(user)).isZero();
     }
+
+    // ---------- Aceptar invitación: no confundir con la solicitud de alta de organización ----------
+
+    @Test
+    void resolverInvitacion_soloToma_elAvisoDeInvitacionDeEmpleado_aunqueOtroAvisoComparta_elNumero() {
+        InAppNotification invitacion = sinLeer(20L);
+        invitacion.setType("EMPLOYEE_INVITATION");
+        invitacion.setRelatedRequestId(7L);
+        when(repository.findByRelatedRequestIdAndType(7L, "EMPLOYEE_INVITATION")).thenReturn(List.of(invitacion));
+
+        service.resolveInvitationNotification(7L, "Solicitud aceptada", "Aceptaste unirte.");
+
+        assertThat(invitacion.getTitle()).isEqualTo("Solicitud aceptada");
+        assertThat(invitacion.getDescription()).isEqualTo("Aceptaste unirte.");
+        assertThat(invitacion.getRelatedRequestId()).isNull();
+        verify(repository).save(invitacion);
+        verify(repository, never()).save(org.mockito.ArgumentMatchers.argThat(n -> "ORG_REGISTRATION_REQUEST".equals(n.getType())));
+    }
+
+    @Test
+    void resolverInvitacion_sinAvisoDeInvitacion_noGuardaNada() {
+        when(repository.findByRelatedRequestIdAndType(8L, "EMPLOYEE_INVITATION")).thenReturn(List.of());
+
+        service.resolveInvitationNotification(8L, "t", "d");
+
+        verify(repository, never()).save(org.mockito.ArgumentMatchers.any());
+    }
 }

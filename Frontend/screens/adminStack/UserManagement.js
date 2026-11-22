@@ -204,10 +204,6 @@ const UserManagement = () => {
                                     ["Estado", detailUser.active ? "Activo" : "Inactivo"],
                                     ["XP", String(detailUser.XP ?? 0)],
                                     ["Objetos devueltos", String(detailUser.returnedObjects ?? 0)],
-                                    ["Último cambio de estado por", detailUser.statusChangedBy || "Sin cambios registrados"],
-                                    ["Fecha del último cambio", detailUser.statusChangedAt
-                                        ? new Date(detailUser.statusChangedAt).toLocaleString("es-AR")
-                                        : "Sin cambios registrados"],
                                 ].map(([label, value]) => (
                                     <View key={label} style={styles.detailRow}>
                                         <Text style={styles.detailLabel}>{label}</Text>

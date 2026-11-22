@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
 const { texto, sembrarFeedback } = require('./helpers/t11');
 const { casoContinuo } = require('./helpers/t17');
 const { abrirPrecisionAdmin } = require('./helpers/r09');
+const r8 = require('./helpers/r08');
 
 let sembrado;
 
@@ -31,6 +32,17 @@ test('casos 210 y 211: el reporte de precisión del administrador muestra el fee
         const { context, page } = await abrirPrecisionAdmin(browser);
         try {
             await expect(texto(page, 'Organización'), 'filtro por organización en el reporte').toBeVisible({ timeout: 3000 });
+            // Por defecto incluye todas las organizaciones; al elegir una, el reporte trae solo sus datos.
+            await expect(texto(page, 'Todas')).toBeVisible();
+            // La carga inicial del reporte pide los registros: se espera a que termine para no tomarla por el pedido del filtro.
+            await page.waitForLoadState('networkidle');
+            // Se espera la respuesta que ya lleva la organización: una carga inicial tardía no se confunde con el pedido del filtro.
+            const alRegistro = r8.esperarJson(page, '/feedback/records?', (u) => u.searchParams.has('organizationId'));
+            await texto(page, 'UNC Ciudad Universitaria').click();
+            const { url, cuerpo } = await alRegistro;
+            expect(url.searchParams.get('organizationId'), 'el pedido lleva la organización elegida').toBeTruthy();
+            expect(cuerpo.length, 'registros de la organización elegida').toBeGreaterThan(0);
+            expect(new Set(cuerpo.map((r) => r.organizationId)).size, 'una sola organización en los registros').toBe(1);
         } finally {
             await context.close();
         }

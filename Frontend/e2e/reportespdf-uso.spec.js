@@ -28,12 +28,12 @@ test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF tr
             await expect(texto(page, 'Exportar PDF')).toBeVisible();
         });
 
-        // Se aplica un filtro y se exporta una vez; los pasos siguientes leen ese PDF.
-        await texto(page, 'Encontró objeto').click();
+        // Se aplica un filtro (la agrupación por semana) y se exporta una vez; los pasos siguientes leen ese PDF.
+        await texto(page, 'Semana').click();
         await expect(texto(page, 'Exportar PDF')).toBeVisible();
-        await expect(texto(page, 'Búsquedas registradas')).toBeVisible();
+        await expect(texto(page, 'Atenciones calificadas')).toBeVisible();
         const enPantalla = {};
-        for (const e of ['Búsquedas registradas', 'Búsquedas exitosas', 'Búsquedas fallidas', 'Atenciones calificadas', 'Objetos encontrados', 'Objetos devueltos']) {
+        for (const e of ['Atenciones calificadas', 'Objetos encontrados', 'Objetos devueltos']) {
             enPantalla[e] = await valorEnPantalla(page, e);
         }
         await instalarCapturaPdf(page);
@@ -42,11 +42,10 @@ test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF tr
 
         await pasoContinuo('caso 326: el PDF incluye las métricas, los gráficos y las tablas del reporte, con las mismas cifras de la pantalla', async () => {
             expect(pdf.texto).toContain('Métricas generales');
-            expect(pdf.texto).toContain('Métricas de feedback');
+            expect(pdf.texto).toContain('Calificación de la atención');
             expect(pdf.html).toContain('<svg');
             expect(pdf.html).toContain('<table');
-            expect(pdf.texto).toContain('Gráfico: Resultado de búsquedas');
-            expect(pdf.texto).toContain('Registros individuales de búsquedas');
+            expect(pdf.texto).not.toContain('Registros individuales de búsquedas');
             for (const [etiqueta, valor] of Object.entries(enPantalla)) {
                 expect(valor, `valor de ${etiqueta} en pantalla`).not.toBeNull();
                 const m = pdf.texto.match(new RegExp(`${etiqueta}\\s*(\\d+)`));
@@ -57,7 +56,7 @@ test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF tr
         await pasoContinuo('caso 327: el PDF incluye los filtros aplicados al exportar', async () => {
             expect(pdf.texto).toMatch(/Período: \d{4}-\d{2}-\d{2}\s+—\s+\d{4}-\d{2}-\d{2}/);
             expect(pdf.texto).toContain('Agrupado por');
-            expect(pdf.texto).toContain('Solo encontrados');
+            expect(pdf.texto).toMatch(/Agrupado por:\s*Semana/);
         });
 
         await pasoContinuo('caso 328: el PDF incluye la fecha y la hora de generación', async () => {
@@ -68,19 +67,16 @@ test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF tr
     }
 });
 
-test('caso 323: al exportar el PDF del reporte de uso el dueño descarga Reporte_Uso_AAAA-MM-DD.pdf con las secciones de uso y de calificación de la atención @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('caso 323: al exportar el PDF del reporte de uso el dueño ve el diálogo de impresión con las secciones de uso y de calificación de la atención @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
         await instalarCapturaPdf(page);
         const descarga = await descargaAlExportar(page, texto(page, 'Exportar PDF'));
-        const nombre = descarga ? descarga.suggestedFilename() : '';
-        const hoy = new Date();
-        const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
-        await pasoContinuo('caso 323: se descarga automáticamente Reporte_Uso_AAAA-MM-DD.pdf con la fecha del día y las secciones de uso y de calificación de la atención', async () => {
-            expect(descarga, 'descarga automática del navegador').not.toBeNull();
-            expect(nombre).toBe(`Reporte_Uso_${fecha}.pdf`);
+        await pasoContinuo('caso 323: se abre el diálogo de impresión del PDF (no una descarga) con las secciones de uso y de calificación de la atención', async () => {
             const pdf = await leerPdf(page);
+            expect(pdf.impresiones, 'se abrió el diálogo de impresión').toBeGreaterThan(0);
+            expect(descarga, 'no es una descarga del navegador').toBeNull();
             expect.soft(pdf.texto).toContain('Reporte de uso del sistema');
             expect.soft(pdf.texto).toContain('Calificación de la atención');
         });
@@ -94,9 +90,9 @@ test('caso 329: el administrador exporta el PDF del reporte de precisión de coi
     try {
         await pasoContinuo('caso 329: el administrador abre el reporte, exporta el PDF y cada registro trae ID, Organización, Objeto, Encontrado y Fecha, sin puntaje ni comentario', async () => {
             await abrirMenuDesdeInicio(page);
-            // El reporte de precisión de las coincidencias está en Reportes, que la app reserva al dueño.
-            await expect(enlaceMenu(page, 'Reportes'), 'el menú del administrador debería tener "Reportes"').toHaveCount(1);
-            await enlaceMenu(page, 'Reportes').click();
+            await expect(enlaceMenu(page, 'Precisión de búsquedas'), 'el menú del administrador debería tener el reporte de precisión').toHaveCount(1);
+            await enlaceMenu(page, 'Precisión de búsquedas').click();
+            await expect(texto(page, 'Exportar PDF')).toBeVisible();
             await instalarCapturaPdf(page);
             await texto(page, 'Exportar PDF').click();
             const pdf = await leerPdf(page);

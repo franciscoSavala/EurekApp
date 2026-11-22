@@ -1275,4 +1275,87 @@ class FraudDetectionServiceTest {
         verify(foundObjectRepository, times(1)).getByUuids(any());
         verify(foundObjectRepository, never()).getByUuid(anyString());
     }
+
+    // ---------- Filtro por organización del reporte (EU-434) ----------
+
+    private FraudAlert alertaDeOrganizacion(long id, String dni, Long organizacionDeLaDevolucion, UserEurekapp sospechoso) {
+        ReturnFoundObject devolucion = new ReturnFoundObject();
+        devolucion.setOrganizationId(organizacionDeLaDevolucion);
+        FraudAlert a = FraudAlert.builder()
+                .id(id).dni(dni).reason("CASE_1").status(FraudAlertStatus.ACTIVE)
+                .suspectUsers(new LinkedHashSet<>(sospechoso == null ? Set.of() : Set.of(sospechoso)))
+                .triggeringReturns(new LinkedHashSet<>(organizacionDeLaDevolucion == null ? Set.of() : Set.of(devolucion)))
+                .createdAt(LocalDateTime.now().minusDays(1)).build();
+        return a;
+    }
+
+    @Test
+    void getFraudDniReport_conOrganizacion_muestraSoloLasAlertasDeEsaOrganizacion() {
+        FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
+        FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
+        FraudAlert sinOrganizacion = alertaDeOrganizacion(3L, "333", null, null);
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, deOtra, sinOrganizacion));
+        when(alertRepository.findByDni("111")).thenReturn(List.of(deUnc));
+
+        var report = service.getFraudDniReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, 4L);
+
+        assertThat(report.getEntries()).extracting(FraudDniReportEntryDto::getDni).containsExactly("111");
+        assertThat(report.getSummary().getTotalAlerts()).isEqualTo(1);
+    }
+
+    @Test
+    void getFraudDniReport_sinOrganizacion_incluyeTodasLasAlertasTambienLasSinOrganizacion() {
+        FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
+        FraudAlert sinOrganizacion = alertaDeOrganizacion(3L, "333", null, null);
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, sinOrganizacion));
+        when(alertRepository.findByDni("111")).thenReturn(List.of(deUnc));
+        when(alertRepository.findByDni("333")).thenReturn(List.of(sinOrganizacion));
+
+        var report = service.getFraudDniReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, null);
+
+        assertThat(report.getEntries()).extracting(FraudDniReportEntryDto::getDni).containsExactlyInAnyOrder("111", "333");
+        assertThat(report.getSummary().getTotalAlerts()).isEqualTo(2);
+    }
+
+    @Test
+    void getFraudUserReport_conOrganizacion_cuentaSoloLasAlertasDeEsaOrganizacion() {
+        UserEurekapp sospechoso = user(7L, "sus@test.com", "Sus", "Pect");
+        FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, sospechoso);
+        FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, sospechoso);
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, deOtra));
+        when(userRepository.findById(7L)).thenReturn(java.util.Optional.of(sospechoso));
+        when(alertRepository.findBySuspectUsers_Id(7L)).thenReturn(List.of(deUnc, deOtra));
+
+        var report = service.getFraudUserReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, 4L);
+
+        assertThat(report.getEntries()).hasSize(1);
+        assertThat(report.getEntries().get(0).getFraudCount()).isEqualTo(1);
+        assertThat(report.getEntries().get(0).getHistoricalCount()).isEqualTo(1);
+        assertThat(report.getSummary().getTotalAlerts()).isEqualTo(1);
+    }
+
+    @Test
+    void getFraudUserReport_organizacionSinAlertas_devuelveElReporteVacio() {
+        FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deOtra));
+
+        var report = service.getFraudUserReport(admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, 4L);
+
+        assertThat(report.getEntries()).isEmpty();
+        assertThat(report.getSummary().getTotalAlerts()).isZero();
+    }
+
+    @Test
+    void exportFraudReportCsv_conOrganizacion_exportaSoloLasAlertasDeEsaOrganizacion() {
+        FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
+        FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
+        when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, deOtra));
+        when(alertRepository.findByDni("111")).thenReturn(List.of(deUnc));
+
+        String csv = new String(service.exportFraudReportCsv(
+                admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, "DNI", 4L),
+                java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(csv).contains("111").doesNotContain("222");
+    }
 }

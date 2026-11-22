@@ -98,6 +98,9 @@ public class FoundObjectRepository {
         return vectors;
     }
 
+    /** Tope de objetos que se piden a Weaviate cuando quien llama no fija uno (su máximo por defecto es 10000). */
+    static final int MAX_RESULTS = 10_000;
+
     public List<FoundObject> query(List<Float> vector,
                                    String orgId,
                                    GeoCoordinates coordinates,
@@ -105,7 +108,9 @@ public class FoundObjectRepository {
                                    LocalDateTime foundDateTo,
                                    Boolean wasReturned,
                                    String category){
-        return query(vector, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, null, null);
+        // Sin límite explícito Weaviate devuelve sólo los 25 más cercanos (QUERY_DEFAULTS_LIMIT): con muchos objetos
+        // parecidos en el mismo lugar los nuevos quedaban afuera de la búsqueda y de los conteos. Se pide todo.
+        return query(vector, orgId, coordinates, foundDate, foundDateTo, wasReturned, category, MAX_RESULTS, null);
     }
 
     public List<FoundObject> query(List<Float> vector,

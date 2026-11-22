@@ -5,6 +5,7 @@ import UsabilityFeedbackModal from "../components/UsabilityFeedbackModal";
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
+    DeviceEventEmitter,
     FlatList,
     Image,
     Modal,
@@ -36,6 +37,8 @@ const Profile = ({ route, navigation }) => {
         getValues ,
         setError} = useForm();
     const [enableModification, setEnableModification] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({});
+    const [saving, setSaving] = useState(false);
     const [user, setUser] = useState('');
     const [organization, setOrganization] = useState('');
     const [addEmployeeRequests, setAddEmployeeRequests] = useState('');
@@ -59,21 +62,60 @@ const Profile = ({ route, navigation }) => {
         fetchUserData();
     }, []);
 
-    const InputForm = ({text, valueName, value , autoComplete = 'off', keyboardType = 'default', editable}) => {
-        return (
-            <TextInput
-                placeholder={text}
-                placeholderTextColor={colors.textMuted}
-                onChangeText={(value) => setValue(valueName, value)}
-                value={value}
-                style={styles.textArea}
-                renderErrorMessage={false}
-                autoComplete={autoComplete}
-                keyboardType={keyboardType}
-                editable={editable}
-            />
-        );
-    }
+    const renderInput = ({text, valueName, value, editable}) => (
+        <TextInput
+            placeholder={text}
+            placeholderTextColor={colors.textMuted}
+            onChangeText={(v) => setValue(valueName, v)}
+            value={value}
+            style={[styles.textArea, editable && styles.textAreaEditable]}
+            autoComplete='off'
+            editable={editable}
+        />
+    );
+
+    const startEditing = () => {
+        setValue('FirstName', user.firstName || '');
+        setValue('LastName', user.lastName || '');
+        setFieldErrors({});
+        setEnableModification(true);
+    };
+
+    const cancelEditing = () => {
+        setValue('FirstName', '');
+        setValue('LastName', '');
+        setFieldErrors({});
+        setEnableModification(false);
+    };
+
+    const saveProfile = async () => {
+        const first = (getValues('FirstName') || '').trim();
+        const last = (getValues('LastName') || '').trim();
+        const errs = {};
+        if (!first) errs.first = 'El nombre es obligatorio: no puede quedar vacío.';
+        else if (first.length > 50) errs.first = 'El nombre no puede superar los 50 caracteres.';
+        if (!last) errs.last = 'El apellido es obligatorio: no puede quedar vacío.';
+        else if (last.length > 50) errs.last = 'El apellido no puede superar los 50 caracteres.';
+        setFieldErrors(errs);
+        if (errs.first || errs.last) return;
+        setSaving(true);
+        try {
+            const data = await authFetch('put', `${BACK_URL}/user/profile`, { firstName: first, lastName: last });
+            await AsyncStorage.setItem('user.first_name', data.user.firstName.toString());
+            await AsyncStorage.setItem('user', JSON.stringify(data.user));
+            setUser(data.user);
+            DeviceEventEmitter.emit('userNameChanged');
+            setValue('FirstName', '');
+            setValue('LastName', '');
+            setEnableModification(false);
+            Toast.show({ type: 'success', text1: '¡Datos actualizados!', text2: 'Tu nombre y apellido se guardaron.' });
+        } catch (error) {
+            const msg = error?.response?.data?.description || error?.response?.data?.message || 'No se pudieron guardar los cambios. Intentá de nuevo.';
+            Toast.show({ type: 'error', text1: 'Error', text2: msg });
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const getPendingAddEmployeeRequests = async () => {
         setLoading(true);
@@ -180,68 +222,44 @@ const Profile = ({ route, navigation }) => {
                 <Text style={styles.label}>{"\n"}Nombre:</Text>
                 <Controller
                     control={control}
-                    render={({onChange, value}) => (
-                        <InputForm
-                            text={user.firstName}
-                            valueName='FirstName'
-                            value={value}
-                            editable={enableModification} // Pasamos la variable enableModification
-                            style={{
-                                backgroundColor: enableModification ? 'white' : 'gray', // Color de fondo en función de enableModification
-                                color: enableModification ? 'black' : 'lightgray'       // Color del texto
-                            }}
-                        />
-                    )}
+                    render={() => renderInput({text: user.firstName, valueName: 'FirstName', value: getValues('FirstName'), editable: enableModification})}
                     name='FirstName'
-                    rules={{
-                        required: { value: true, message: 'No puedes dejar el nombre vacío.' },
-                    }}
                     defaultValue=''
                 />
+                {fieldErrors.first ? <Text style={styles.errorText}>{fieldErrors.first}</Text> : null}
 
                 <Text style={styles.label}>{"\n"}Apellido:</Text>
                 <Controller
                     control={control}
-                    render={({onChange, value}) => (
-                        <InputForm
-                            text={user.lastName}
-                            valueName='LastName'
-                            value={value}
-                            editable={enableModification} // Pasamos la variable enableModification
-                            style={{
-                                backgroundColor: enableModification ? 'white' : 'gray', // Color de fondo en función de enableModification
-                                color: enableModification ? 'black' : 'lightgray'       // Color del texto
-                            }}
-                        />
-                    )}
+                    render={() => renderInput({text: user.lastName, valueName: 'LastName', value: getValues('LastName'), editable: enableModification})}
                     name='LastName'
-                    rules={{
-                        required: { value: true, message: 'No puedes dejar el apellido vacío.' },
-                    }}
                     defaultValue=''
                 />
+                {fieldErrors.last ? <Text style={styles.errorText}>{fieldErrors.last}</Text> : null}
 
                 <Text style={styles.label}>{"\n"}Email:</Text>
-                <Controller
-                    control={control}
-                    render={({onChange, value}) => (
-                        <InputForm
-                            text={user.username}
-                            valueName='username'
-                            value={value}
-                            editable={enableModification} // Pasamos la variable enableModification
-                            style={{
-                                backgroundColor: enableModification ? 'white' : 'gray', // Color de fondo en función de enableModification
-                                color: enableModification ? 'black' : 'lightgray'       // Color del texto
-                            }}
-                        />
-                    )}
-                    name='username'
-                    rules={{
-                        required: { value: true, message: 'EL email es obligatorio.' },
-                    }}
-                    defaultValue=''
+                <TextInput
+                    placeholder={user.username}
+                    placeholderTextColor={colors.textMuted}
+                    style={styles.textArea}
+                    editable={false}
                 />
+                <View style={styles.editButtonsRow}>
+                    {enableModification ? (
+                        <>
+                            <TouchableOpacity style={[styles.editButton, styles.saveButton]} onPress={saveProfile} disabled={saving}>
+                                <Text style={styles.requestButtonText}>Guardar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.editButton, styles.cancelButton]} onPress={cancelEditing} disabled={saving}>
+                                <Text style={styles.requestButtonText}>Cancelar</Text>
+                            </TouchableOpacity>
+                        </>
+                    ) : (
+                        <TouchableOpacity style={[styles.editButton, styles.saveButton]} onPress={startEditing}>
+                            <Text style={styles.requestButtonText}>Editar</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
                 <View style={{flexDirection: "row", alignSelf: 'flex-start'}}>
                     <Text style={[styles.label, {maxWidth: '50%'}]}>{"\n"}Tipo de usuario: </Text>
                     <Text style={[styles.label, {fontWeight: 'bold', marginLeft:'0px' } ]}>{"\n"}{translateRole()}</Text>
@@ -372,6 +390,31 @@ const styles = StyleSheet.create({
         borderBottomWidth: 0,
         marginHorizontal: 10,
     },
+    textAreaEditable: {
+        borderWidth: 1,
+        borderColor: colors.textMuted,
+    },
+    errorText: {
+        alignSelf: 'flex-start',
+        marginLeft: 10,
+        color: 'red',
+        fontSize: 14,
+        fontFamily: 'PlusJakartaSans-Regular',
+    },
+    editButtonsRow: {
+        flexDirection: 'row',
+        alignSelf: 'flex-start',
+        marginLeft: 10,
+        marginTop: 16,
+    },
+    editButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+        marginRight: 10,
+    },
+    saveButton: { backgroundColor: '#0d9e9e' },
+    cancelButton: { backgroundColor: 'gray' },
     feedbackButton: {
         marginBottom: 24,
         marginHorizontal: 16,

@@ -100,8 +100,10 @@ test.describe('Búsqueda de un objeto perdido: resultados', () => {
             await t.descripcion(page).fill(titulo);
             await t.abrirFiltros(page);
             await page.getByPlaceholder('Ej: rojo, azul oscuro...').fill('marron');
-            const ayer = fechaDeHace(1).split('-').map(Number);
-            await t.elegirFechaLimite(page, ...ayer);
+            // El objeto se receptó con fecha de hallazgo de una hora atrás: pasada la medianoche cae en el día anterior,
+            // así que la fecha límite se toma dos días atrás para que siempre quede antes del hallazgo.
+            const antesDelHallazgo = fechaDeHace(2).split('-').map(Number);
+            await t.elegirFechaLimite(page, ...antesDelHallazgo);
             await t.botonBuscar(page).click();
             await t.esperarResultado(page);
             await expect.soft(tarjetaDe(page), 'trajo un objeto hallado después de la fecha límite').toHaveCount(0);

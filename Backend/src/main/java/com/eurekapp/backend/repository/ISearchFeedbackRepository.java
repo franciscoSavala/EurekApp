@@ -11,6 +11,8 @@ public interface ISearchFeedbackRepository extends JpaRepository<SearchFeedback,
     List<SearchFeedback> findByOrganizationIdAndCreatedAtBetween(
             String organizationId, LocalDateTime from, LocalDateTime to);
 
+    List<SearchFeedback> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
     long countByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);
 
     List<SearchFeedback> findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);

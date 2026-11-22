@@ -114,8 +114,6 @@ public class AdminService {
                     "No podés desactivarte a vos mismo.");
         }
         target.setActive(active);
-        target.setStatusChangedAt(java.time.LocalDateTime.now());
-        target.setStatusChangedBy(admin.getUsername());
         userRepository.save(target);
         log.info("[action:toggleUserActive] Admin {} set active={} for user {}",
                 admin.getUsername(), active, target.getUsername());
@@ -211,8 +209,6 @@ public class AdminService {
                 .XP(user.getXP())
                 .returnedObjects(user.getReturnedObjects())
                 .organizationName(user.getOrganization() != null ? user.getOrganization().getName() : null)
-                .statusChangedAt(user.getStatusChangedAt())
-                .statusChangedBy(user.getStatusChangedBy())
                 .build();
     }
 

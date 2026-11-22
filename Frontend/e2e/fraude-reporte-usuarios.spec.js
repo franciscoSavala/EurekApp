@@ -25,6 +25,8 @@ test.describe('Reporte de fraude: usuarios con fraude', () => {
         try {
             // El administrador llega al reporte por Alertas de fraude > Ver reporte: no tiene un menú Reportes.
             await irAlReporte(page);
+            // EU-438: el reporte abre agrupado por DNI; estos casos son por usuario.
+            await elegir(page, 'Por usuario');
             let datos = await generarRango(page, ...RECIENTE);
             expect(datos.entries.length, 'el seed debería traer usuarios con fraude en el rango').toBeGreaterThan(1);
 

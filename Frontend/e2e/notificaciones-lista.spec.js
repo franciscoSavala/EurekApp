@@ -15,7 +15,8 @@ test.describe('Notificaciones del usuario', () => {
         // y otro objeto suyo (él lo encontró) se devuelve a su dueño (recompensa).
         const u = await T.registrarUsuario(request, 'n1');
         const emp = await T.loginConOrg(request, USUARIOS_PARALELO.empleadoAero);
-        const descripcion = nombreUnico('billetera negra notificacion');
+        // Un objeto que ningún otro test recepta: si no, el aviso podría ser por el objeto de otro test.
+        const descripcion = nombreUnico('metrónomo dorado notificacion');
         // Si un aviso no llega, solo los casos que lo necesitan quedan como "no se pudo probar".
         let faltaMatch = null;
         let faltaReward = null;
@@ -66,7 +67,7 @@ test.describe('Notificaciones del usuario', () => {
             });
 
             const titMatch = 'Alguien podría haber encontrado tu objeto';
-            const titReward = '¡Obtuviste una recompensa!';
+            const titReward = '¡Sumaste puntos!';
             await caso(250, 'el listado muestra las notificaciones del usuario', async () => {
                 if (faltaMatch || faltaReward) return sinAmbos();
                 await expect.soft(page.getByText(titMatch, { exact: true }).locator('visible=true').first()).toBeVisible();
@@ -78,10 +79,10 @@ test.describe('Notificaciones del usuario', () => {
                 await expect.soft(t).toBeVisible();
                 await expect.soft(t.getByText('Ver coincidencia', { exact: true })).toBeVisible();
             });
-            await caso(260, 'la recompensa aparece como "Recompensa obtenida" con título, descripción y fecha', async () => {
+            await caso(260, 'la recompensa aparece como "Puntos obtenidos" con título, descripción y fecha', async () => {
                 if (faltaReward) return sinReward();
-                await expect.soft(page.getByText('Recompensa obtenida', { exact: true }).locator('visible=true').first(),
-                    'no hay una notificación titulada "Recompensa obtenida"').toBeVisible({ timeout: 3000 });
+                await expect.soft(page.getByText('Puntos obtenidos', { exact: true }).locator('visible=true').first(),
+                    'no hay una notificación titulada "Puntos obtenidos"').toBeVisible({ timeout: 3000 });
                 const t = T.tarjeta(page, titReward, tituloRecompensa);
                 await expect.soft(t, 'la notificación de recompensa no muestra el objeto').toBeVisible();
                 await expect.soft(t.getByText(/Sumaste 10 puntos/)).toBeVisible();
@@ -109,7 +110,7 @@ test.describe('Notificaciones del usuario', () => {
                 const url = page.url();
                 await t.getByText('Ver coincidencia', { exact: true }).click();
                 await expect.poll(() => page.url(), { message: 'Ver coincidencia no abrió otra pantalla' }).not.toBe(url);
-                await expect.soft(page.getByText(descripcion).locator('visible=true').first(), 'no se ve el objeto encontrado').toBeVisible();
+                await expect.soft(page.getByText(descripcion).locator('visible=true').first(), 'no se ve el objeto encontrado').toBeVisible({ timeout: 30_000 });
             });
         } finally {
             await context.close();

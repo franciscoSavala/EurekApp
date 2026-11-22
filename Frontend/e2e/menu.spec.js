@@ -9,7 +9,7 @@ const TODAS = [
     'Buscar un objeto', 'Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Mis búsquedas',
     'Solicitar alta de organización', 'Mi solicitud de organización', 'Dashboard', 'Solicitudes de alta', 'Usuarios',
     'Organizaciones', 'Alertas de fraude', 'Configuración de fraude', 'Opiniones sobre la app', 'Logros',
-    'Notificaciones', 'Mi perfil', 'Reportes', 'Exclusiones de recompensa', 'Mi organización',
+    'Notificaciones', 'Mi perfil', 'Reportes', 'Exclusiones de puntos', 'Mi organización',
     'Calificar la atención',
 ];
 
@@ -17,7 +17,7 @@ const OPCIONES = {
     usuario: ['Buscar un objeto', 'Mis búsquedas', 'Solicitar alta de organización', 'Mi solicitud de organización', 'Logros', 'Notificaciones', 'Mi perfil'],
     empleado: ['Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Notificaciones', 'Mi perfil'],
     encargado: ['Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Notificaciones', 'Mi perfil'],
-    dueno: ['Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Notificaciones', 'Mi perfil', 'Reportes', 'Exclusiones de recompensa', 'Mi organización', 'Mi solicitud de organización'],
+    dueno: ['Receptar un objeto', 'Ver inventario', 'Ver objetos devueltos', 'Notificaciones', 'Mi perfil', 'Reportes', 'Exclusiones de puntos', 'Mi organización', 'Mi solicitud de organización'],
     admin: ['Buscar un objeto', 'Dashboard', 'Solicitudes de alta', 'Usuarios', 'Organizaciones', 'Alertas de fraude', 'Configuración de fraude', 'Opiniones sobre la app', 'Notificaciones', 'Mi perfil'],
 };
 

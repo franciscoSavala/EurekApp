@@ -43,6 +43,7 @@ class FeedbackServiceTest {
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock IUsabilityFeedbackRepository usabilityFeedbackRepository;
     @Mock IOrganizationFeedbackRepository organizationFeedbackRepository;
+    @Mock com.eurekapp.backend.repository.IOrganizationRepository organizationRepository;
 
     FeedbackService service;
 
@@ -53,7 +54,7 @@ class FeedbackServiceTest {
     @BeforeEach
     void setUp() {
         service = new FeedbackService(feedbackRepository, foundObjectRepository,
-                usabilityFeedbackRepository, organizationFeedbackRepository);
+                usabilityFeedbackRepository, organizationFeedbackRepository, organizationRepository);
     }
 
     private UserEurekapp responsable() {
@@ -412,5 +413,101 @@ class FeedbackServiceTest {
 
         verify(foundObjectRepository, times(1)).getByUuidsOrFail(List.of("uuid-a", "uuid-b"));
         verify(foundObjectRepository, never()).getByUuid(any());
+    }
+
+    // -- EU-436: la precision de las coincidencias la ve el administrador ------
+
+    private UserEurekapp administrador() {
+        return UserEurekapp.builder().id(1L).role(Role.ADMIN).build();
+    }
+
+    private SearchFeedback busqueda(String org, boolean encontro) {
+        return SearchFeedback.builder().id(1L).organizationId(org).wasFound(encontro)
+                .createdAt(LocalDateTime.of(2026, 5, 2, 9, 0)).build();
+    }
+
+    @Test
+    void getReport_elAdministradorSinOrganizacionVeLasBusquedasDeTodas() {
+        when(feedbackRepository.findByCreatedAtBetween(any(), any()))
+                .thenReturn(List.of(busqueda("3", true), busqueda("4", false), busqueda("4", false)));
+
+        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", null, null);
+
+        assertThat(report.getTotalFeedback()).isEqualTo(3L);
+        assertThat(report.getSuccessfulSearches()).isEqualTo(1L);
+        assertThat(report.getUnsuccessfulSearches()).isEqualTo(2L);
+        verify(feedbackRepository, never()).findByOrganizationIdAndCreatedAtBetween(any(), any(), any());
+        verifyNoInteractions(organizationFeedbackRepository);
+    }
+
+    @Test
+    void getReport_elAdministradorConOrganizacionVeSoloLasBusquedasDeEsa() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("4"), any(), any()))
+                .thenReturn(List.of(busqueda("4", false)));
+
+        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", null, "4");
+
+        assertThat(report.getTotalFeedback()).isEqualTo(1L);
+        verify(feedbackRepository, never()).findByCreatedAtBetween(any(), any());
+    }
+
+    @Test
+    void getReport_elAdministradorPuedeFiltrarPorEncontroONoEncontro() {
+        when(feedbackRepository.findByCreatedAtBetween(any(), any()))
+                .thenReturn(List.of(busqueda("3", true), busqueda("4", false), busqueda("4", false)));
+
+        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", false, "");
+
+        assertThat(report.getTotalFeedback()).isEqualTo(2L);
+        assertThat(report.getSuccessfulSearches()).isZero();
+    }
+
+    @Test
+    void getReport_elResponsableIgnoraLaOrganizacionQueMandeYVeSoloLaSuya() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("3"), any(), any()))
+                .thenReturn(List.of(busqueda("3", true)));
+        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+                .thenReturn(List.of());
+
+        FeedbackReportDto report = service.getReport(responsable(), FROM, TO, "DAY", null, "99");
+
+        assertThat(report.getTotalFeedback()).isEqualTo(1L);
+        verify(feedbackRepository, never()).findByOrganizationIdAndCreatedAtBetween(eq("99"), any(), any());
+    }
+
+    @Test
+    void getRecords_elAdministradorSinOrganizacionRecibeLosRegistrosDeTodas() {
+        when(feedbackRepository.findByCreatedAtBetween(any(), any()))
+                .thenReturn(List.of(busqueda("3", true), busqueda("4", false)));
+
+        List<FeedbackRecordDto> registros = service.getRecords(administrador(), FROM, TO, null, null);
+
+        assertThat(registros).extracting(FeedbackRecordDto::getOrganizationId).containsExactly("3", "4");
+    }
+
+    @Test
+    void exportCsv_elAdministradorRecibeElNombreDeLaOrganizacionDeCadaFila() {
+        when(feedbackRepository.findByCreatedAtBetween(any(), any()))
+                .thenReturn(List.of(busqueda("3", true), busqueda("4", false)));
+        when(organizationRepository.findById(3L)).thenReturn(java.util.Optional.of(Organization.builder().id(3L).name("UTN FRC").build()));
+        when(organizationRepository.findById(4L)).thenReturn(java.util.Optional.of(Organization.builder().id(4L).name("UNC").build()));
+        stubObjetos(java.util.Map.of());
+
+        String contenido = csv(service.exportCsv(administrador(), FROM, TO, null, null));
+
+        assertThat(contenido).contains(";UTN FRC;").contains(";UNC;");
+    }
+
+    @Test
+    void exportCsv_elAdministradorConOrganizacionExportaSoloEsa() {
+        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("4"), any(), any()))
+                .thenReturn(List.of(busqueda("4", false)));
+        when(organizationRepository.findById(4L)).thenReturn(java.util.Optional.of(Organization.builder().id(4L).name("UNC").build()));
+        stubObjetos(java.util.Map.of());
+
+        String contenido = csv(service.exportCsv(administrador(), FROM, TO, null, "4"));
+
+        assertThat(contenido.split("\\n")).hasSize(2);
+        assertThat(contenido).contains(";UNC;");
     }
 }

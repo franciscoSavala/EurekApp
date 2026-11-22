@@ -32,9 +32,12 @@ test.describe('Reportes: tendencias de búsquedas (reporte de precisión)', () =
                 const pedido = alRegistrar();
                 await page.getByText(boton, { exact: true }).locator('visible=true').click();
                 const { cuerpo: registros } = await pedido;
-                await page.waitForTimeout(500);
-                const t = await leerTendencias(page);
                 const dias = new Set(registros.map((r) => r.createdAt.slice(0, 10)));
+                // La tabla se vuelve a dibujar después de la respuesta: se espera a que refleje los registros recibidos.
+                const esperadas = [...dias].sort().map((d) => [d, registros.filter((r) => r.createdAt.slice(0, 10) === d && r.wasFound).length, registros.filter((r) => r.createdAt.slice(0, 10) === d && !r.wasFound).length]);
+                const dibujadas = async () => JSON.stringify((await leerTendencias(page)).filas.sort((a, b) => (a[0] < b[0] ? -1 : 1)));
+                await expect.poll(dibujadas, { timeout: 10000 }).toBe(JSON.stringify(esperadas)).catch(() => {});
+                const t = await leerTendencias(page);
                 for (const [periodo, exitosas, fallidas] of t.filas) {
                     const delDia = registros.filter((r) => r.createdAt.slice(0, 10) === periodo);
                     expect(exitosas, `exitosas de ${periodo} con ${boton}`).toBe(delDia.filter((r) => r.wasFound).length);

@@ -14,6 +14,7 @@ import com.eurekapp.backend.model.UsabilityFeedback;
 import com.eurekapp.backend.model.UserEurekapp;
 import com.eurekapp.backend.repository.FoundObjectRepository;
 import com.eurekapp.backend.repository.IOrganizationFeedbackRepository;
+import com.eurekapp.backend.repository.IOrganizationRepository;
 import com.eurekapp.backend.repository.ISearchFeedbackRepository;
 import com.eurekapp.backend.repository.IUsabilityFeedbackRepository;
 import lombok.AllArgsConstructor;
@@ -49,6 +50,42 @@ public class FeedbackService {
     private final FoundObjectRepository foundObjectRepository;
     private final IUsabilityFeedbackRepository usabilityFeedbackRepository;
     private final IOrganizationFeedbackRepository organizationFeedbackRepository;
+    private final IOrganizationRepository organizationRepository;
+
+    /* EU-436: la precision de las coincidencias la ve el administrador, de todas las organizaciones o de
+     * una. El responsable de organizacion sigue viendo solo lo suyo y el filtro que mande se ignora.
+     * Devuelve el id de la organizacion a consultar, o null si el administrador pidio todas. */
+    private String organizacionConsultada(UserEurekapp user, String organizationId, String accion) {
+        if (user.getRole() == Role.ADMIN) {
+            return (organizationId == null || organizationId.isBlank()) ? null : organizationId.trim();
+        }
+        if (user.getRole() == Role.ORGANIZATION_OWNER) {
+            return user.getOrganization().getId().toString();
+        }
+        throw new BadRequestException("forbidden", "Solo el administrador o el responsable de la organización pueden " + accion);
+    }
+
+    private List<SearchFeedback> buscarFeedback(String orgId, LocalDateTime from, LocalDateTime to) {
+        return orgId == null
+                ? feedbackRepository.findByCreatedAtBetween(from, to)
+                : feedbackRepository.findByOrganizationIdAndCreatedAtBetween(orgId, from, to);
+    }
+
+    private Map<String, String> nombresDeOrganizaciones(List<SearchFeedback> feedbacks) {
+        Map<String, String> nombres = new HashMap<>();
+        for (SearchFeedback f : feedbacks) {
+            String id = f.getOrganizationId();
+            if (id == null || nombres.containsKey(id)) continue;
+            String nombre = id;
+            try {
+                nombre = organizationRepository.findById(Long.valueOf(id)).map(o -> o.getName()).orElse(id);
+            } catch (NumberFormatException ignorado) {
+                // el id no es numerico: se muestra tal cual
+            }
+            nombres.put(id, nombre);
+        }
+        return nombres;
+    }
 
     public void submit(UserEurekapp user, SubmitFeedbackRequestDto dto) {
         FoundObject fo = null;
@@ -91,16 +128,15 @@ public class FeedbackService {
     }
 
     public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los reportes de feedback");
-        }
+        return getReport(user, from, to, groupBy, wasFound, null);
+    }
 
-        String orgId = user.getOrganization().getId().toString();
+    public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound, String organizationId) {
+        String orgId = organizacionConsultada(user, organizationId, "acceder a los reportes de feedback");
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
-        List<SearchFeedback> feedbacks =
-                feedbackRepository.findByOrganizationIdAndCreatedAtBetween(orgId, fromDt, toDt);
+        List<SearchFeedback> feedbacks = buscarFeedback(orgId, fromDt, toDt);
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
@@ -111,9 +147,11 @@ public class FeedbackService {
         /* EU-375: la calificacion de la organizacion sale ahora de las respuestas POSTERIORES A LA
          * DEVOLUCION, que es cuando la persona ya trato con la organizacion. Se muestran promediadas
          * por aspecto: asi el responsable sabe QUE corregir, y no solo que algo anda mal. */
-        List<OrganizationFeedback> ratings =
-                organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(
-                        user.getOrganization().getId(), fromDt, toDt);
+        // La calificacion de la atencion es del responsable de cada organizacion: el administrador no la ve aca.
+        List<OrganizationFeedback> ratings = user.getRole() == Role.ORGANIZATION_OWNER
+                ? organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(
+                        user.getOrganization().getId(), fromDt, toDt)
+                : List.of();
 
         Map<String, Double> aspectAverages = new LinkedHashMap<>();
         ASPECTS.forEach((name, valueOf) -> aspectAverages.put(name, average(ratings, valueOf)));
@@ -152,11 +190,12 @@ public class FeedbackService {
     }
 
     public List<FeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden acceder a los registros de feedback");
-        }
-        String orgId = user.getOrganization().getId().toString();
-        List<SearchFeedback> feedbacks = feedbackRepository.findByOrganizationIdAndCreatedAtBetween(
+        return getRecords(user, from, to, wasFound, null);
+    }
+
+    public List<FeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, String organizationId) {
+        String orgId = organizacionConsultada(user, organizationId, "acceder a los registros de feedback");
+        List<SearchFeedback> feedbacks = buscarFeedback(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
@@ -199,15 +238,17 @@ public class FeedbackService {
     }
 
     public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound) {
-        if (user.getRole() != Role.ORGANIZATION_OWNER) {
-            throw new BadRequestException("forbidden", "Solo los responsables de organización pueden exportar reportes");
-        }
+        return exportCsv(user, from, to, wasFound, null);
+    }
 
-        String orgId = user.getOrganization().getId().toString();
-        String orgName = user.getOrganization() != null ? csvField(user.getOrganization().getName()) : orgId;
+    public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, String organizationId) {
+        String orgId = organizacionConsultada(user, organizationId, "exportar reportes");
 
-        List<SearchFeedback> feedbacks = feedbackRepository.findByOrganizationIdAndCreatedAtBetween(
+        List<SearchFeedback> feedbacks = buscarFeedback(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+        Map<String, String> nombres = user.getRole() == Role.ORGANIZATION_OWNER
+                ? Map.of(orgId, String.valueOf(user.getOrganization().getName()))
+                : nombresDeOrganizaciones(feedbacks);
         if (wasFound != null) {
             feedbacks = feedbacks.stream().filter(f -> wasFound.equals(f.getWasFound())).collect(Collectors.toList());
         }
@@ -233,7 +274,7 @@ public class FeedbackService {
                aplicacion y viven en el reporte del administrador. Lo que queda es lo que si es de
                la organizacion: si la persona encontro su objeto. */
             sb.append(f.getId()).append(';')
-              .append(orgName).append(';')
+              .append(csvField(nombres.getOrDefault(f.getOrganizationId(), ""))).append(';')
               .append(csvField(objTitle)).append(';')
               .append(encontroStr).append(';')
               .append(fechaStr).append('\n');

@@ -21,6 +21,4 @@ public class AdminUserDto {
     private Long XP;
     private Long returnedObjects;
     private String organizationName;
-    private java.time.LocalDateTime statusChangedAt;
-    private String statusChangedBy;
 }

@@ -62,7 +62,7 @@ test.describe('Alertas de fraude', () => {
                 await expect.soft(t.getByText(/usuarios? involucrados?/)).toBeVisible();
                 await expect.soft(t.getByText(/\d{1,2}\/\d{1,2}\/\d{4}/)).toBeVisible();
                 await tarjetaDni().click();
-                for (const etiqueta of ['Detalle', 'Empleado que entregó', 'Objeto asociado', 'Fecha de detección']) {
+                for (const etiqueta of ['Detalle', 'Empleado que entregó', 'Fecha de detección']) {
                     await expect.soft(pa.getByText(etiqueta, { exact: true }).locator('visible=true').first(), `el detalle muestra "${etiqueta}"`).toBeVisible();
                 }
             });

@@ -12,7 +12,7 @@ const { casoContinuo, noSePudoProbar, primeraLinea } = require('./helpers/t17');
 const ADMIN = USUARIOS.admin;
 
 const OPCIONES_ADMIN = [
-    'Dashboard', 'Solicitudes de alta', 'Usuarios', 'Organizaciones', 'Alertas de fraude', 'Configuración de fraude',
+    'Buscar un objeto', 'Dashboard', 'Solicitudes de alta', 'Usuarios', 'Organizaciones', 'Alertas de fraude', 'Configuración de fraude',
     'Opiniones sobre la app', 'Notificaciones', 'Mi perfil',
 ];
 
@@ -24,8 +24,8 @@ test.describe('Menú del administrador', () => {
             await expect(page.getByText('Dashboard').locator('visible=true').first()).toBeVisible();
         });
         await abrirMenuDesdeInicio(page);
-        await caso(29, 'el menú del administrador muestra sus opciones y no aparecen Buscar un objeto ni Logros', async () => {
-            await verificarMenu(page, OPCIONES_ADMIN, ['Buscar un objeto', 'Logros']);
+        await caso(29, 'el menú del administrador muestra sus opciones, incluida Buscar un objeto, y no aparece Logros', async () => {
+            await verificarMenu(page, OPCIONES_ADMIN, ['Logros']);
         });
         await caso(16, 'el pie del menú muestra la versión y el contacto de soporte', async () => {
             await expect.soft(page.getByText('Versión de la app: 0.0.1', { exact: true })).toBeVisible();
@@ -78,7 +78,8 @@ test.describe('Menú del administrador', () => {
         // Usuario nuevo con una búsqueda guardada: cuando un empleado recepta algo parecido, le llega un aviso.
         const u = await T.registrarUsuario(request, 'notif');
         const emp = await sesion.sesionDe(USUARIOS_PARALELO.empleadoAero);
-        const descripcion = nombreUnico('billetera marron indicador');
+        // Un objeto que ningún otro test recepta, para que no lleguen avisos ajenos mientras se prueba.
+        const descripcion = nombreUnico('ukelele celeste indicador');
         let falta = null;
         try {
             await T.guardarBusqueda(request, u.token, descripcion, emp.orgId);

@@ -35,6 +35,9 @@ async function receptarConDescripcion(page, titulo, descripcion) {
 
 /** Abre el formulario de devolución del objeto desde el inventario. */
 async function abrirFormularioDevolucion(page, titulo) {
+    // La pantalla de inicio ya cargó el inventario antes de que el test creara el objeto: se vuelve a cargar la app.
+    await page.goto('/');
+    await expect(page.getByText('Logout')).toBeVisible();
     await irAlMenu(page, 'Ver inventario');
     await bajarHastaVer(page, titulo);
     await tarjetaInventario(page, titulo).getByText('Devolver', { exact: true }).click();

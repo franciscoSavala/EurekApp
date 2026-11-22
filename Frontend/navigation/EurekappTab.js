@@ -9,6 +9,7 @@ import {CustomDrawerContent} from "../components/CustomDrawerContent";
 import UploadObject from "../screens/uploadFoundObjectStack/UploadObject";
 import OrganizationSignupForm from "../screens/organizationSignUp/OrganizationSignupForm";
 import MyOrganizationRequest from "../screens/organizationSignUp/MyOrganizationRequest";
+import SearchPrecisionReport from "../screens/adminStack/SearchPrecisionReport";
 import UsabilityFeedbackReport from "../screens/adminStack/UsabilityFeedbackReport";
 import OrganizationFeedbackSurvey from "../screens/myObjectsStack/OrganizationFeedbackSurvey";
 import UserManagement from "../screens/adminStack/UserManagement";
@@ -165,6 +166,13 @@ export const EurekappTab = () => {
                     headerTitleAlign: 'center',
                     drawerIcon: slidersIcon
                 }} component={FraudDetectionConfig} />
+                {/* EU-436: la precisión de las coincidencias es de todas las organizaciones; la lee el
+                    administrador, no el responsable de cada una. */}
+                <Drawer.Screen name="SearchPrecisionReport" options={{
+                    title: 'Precisión de búsquedas',
+                    headerTitleAlign: 'center',
+                    drawerIcon: chartIcon
+                }} component={SearchPrecisionReport} />
                 {/* EU-370: la opinión sobre la aplicación la lee quien puede corregir la
                     aplicación. Antes colgaba del menú de reportes del responsable de organización,
                     que no puede accionarla. */}
@@ -226,7 +234,7 @@ export const EurekappTab = () => {
                     }} component={ReportsStackScreen}
                     />
                     <Drawer.Screen name="RewardExclusionsStackScreen" options={{
-                        title: 'Exclusiones de recompensa',
+                        title: 'Exclusiones de puntos',
                         headerTitleAlign: 'center',
                         drawerIcon: () => <Icon name={'ban'} size={20} />,
                     }} component={RewardExclusionsStackScreen}

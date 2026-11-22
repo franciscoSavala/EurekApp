@@ -20,5 +20,7 @@ public interface IInAppNotificationRepository extends JpaRepository<InAppNotific
 
     Optional<InAppNotification> findByIdAndUser(Long id, UserEurekapp user);
 
-    Optional<InAppNotification> findByRelatedRequestId(Long relatedRequestId);
+    // relatedRequestId lo comparten los avisos de invitación de empleado y los de solicitudes de alta de
+    // organización (ids de tablas distintas que pueden coincidir): siempre se busca junto con el tipo.
+    List<InAppNotification> findByRelatedRequestIdAndType(Long relatedRequestId, String type);
 }

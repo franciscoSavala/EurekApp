@@ -27,7 +27,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | Archivo | Cubre | Casos | Carril |
 |---|---|---|---|
 | `admin-dashboard-valores.spec.js` | Dashboard de administración: acceso rechazado a quien no es administrador, métricas contra el servidor, usuarios por rol y solicitudes aprobadas y rechazadas. | 305 a 312, 315 a 317 | @paralelo |
-| `admin-desactivar.spec.js` | Desactivar y reactivar usuarios y organizaciones, registro del cambio y aviso al usuario desactivado. | 291 a 296, 298, 301 a 304, 313 | @serie |
+| `admin-desactivar.spec.js` | Desactivar y reactivar usuarios y organizaciones, y aviso al usuario desactivado. | 291 a 294, 296, 298, 301 a 304, 313 | @serie |
 | `admin-organizaciones-lectura.spec.js` | Gestión de organizaciones (solo lectura): listado, datos y detalle. | 297, 299, 300 | @paralelo |
 | `admin-usuarios-lectura.spec.js` | Gestión de usuarios (solo lectura): listado, filtro por rol y acceso denegado a quien no es administrador. | 285 a 290 | @paralelo |
 | `autenticacion.spec.js` | Pantallas de avisos, administración (contadores, dashboard, usuarios, organizaciones, configuración de fraude, solicitudes de alta, opiniones), solicitud de organización y calificaciones: muestran datos reales y ningún pedido sale sin credencial ni es rechazado por sesión inválida. | sin número de caso | @paralelo y @serie |
@@ -55,7 +55,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | `organizacion-politicas.spec.js` | Políticas de la organización: pantalla, guardado, persistencia, historial y aplicación al devolver. | 165 a 173, 243, 244 | @serie |
 | `recepcion.spec.js` | Receptar un objeto: campos, éxito, título e imagen obligatorios, formato, tamaño y largo del título. | 064, 065, 067, 075 a 077, 079, 080, 113 | @paralelo |
 | `recepcion-confirmacion-feedback.spec.js` | Recepción: aviso de confirmación y que no aparezca pedido de opinión. | 081, 082 | @paralelo |
-| `recepcion-formulario.spec.js` | Recepción: objeto con todos los campos, interruptor de ubicación, usuarios inválidos y carga o reemplazo de imagen. | 066, 068 a 069, 071 a 074, 078 | @paralelo |
+| `recepcion-formulario.spec.js` | Recepción: objeto con todos los campos, interruptor de ubicación, usuarios inválidos y carga o reemplazo de imagen. | 066, 068 a 069, 071 a 073, 078 | @paralelo |
 | `recepcion-inventario.spec.js` | Inventario y detalle del objeto, vencimientos, error de conexión y organización sin objetos. | 083 a 089, 112 | @paralelo |
 | `reclamos-alertas.spec.js` | Alerta generada por un encargado: detalle, falsa alarma, resolución y listado. | 143, 203 a 206, 208 | @serie |
 | `recompensas-exclusiones.spec.js` | El encargado registra un objeto y no recibe recompensa. | 238 a 241 | @serie |

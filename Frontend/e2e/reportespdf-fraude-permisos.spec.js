@@ -7,7 +7,7 @@ const { enlaceMenu, abrirMenuDesdeInicio } = require('./helpers/t01');
 const { irAlReporte, generarRango } = require('./helpers/t06');
 const { URL_BACK, texto, auth, tokenDe, instalarCapturaPdf, leerPdf, descargaAlExportar } = require('./helpers/t11');
 
-test('caso 324: el administrador exporta el reporte de usuarios con fraude y se descarga el PDF @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('caso 324: el administrador exporta el reporte de usuarios con fraude y se abre el diálogo de impresión del PDF @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirComo(browser, USUARIOS.admin);
     try {
         await irAlReporte(page);
@@ -17,14 +17,14 @@ test('caso 324: el administrador exporta el reporte de usuarios con fraude y se 
         await instalarCapturaPdf(page);
         const descarga = await descargaAlExportar(page, boton);
 
-        await test.step('caso 324: se descarga un PDF con el reporte de usuarios con fraude y las tarjetas y filtros de la pantalla', async () => {
+        await test.step('caso 324: se abre el diálogo de impresión con el PDF del reporte de usuarios con fraude y las tarjetas y filtros de la pantalla', async () => {
             // Lo que la app manda a imprimir sí es el reporte de fraude.
             const pdf = await leerPdf(page);
             expect.soft(pdf.texto).toMatch(/fraude/i);
             expect.soft(pdf.texto).toContain('Métricas del período');
             expect.soft(pdf.texto).toMatch(/Período|Desde/i);
-            expect(descarga, 'descarga del navegador').not.toBeNull();
-            expect(descarga.suggestedFilename()).toMatch(/\.pdf$/i);
+            expect(pdf.impresiones, 'se abrió el diálogo de impresión').toBeGreaterThan(0);
+            expect(descarga, 'no es una descarga del navegador').toBeNull();
         });
     } finally {
         await context.close();
