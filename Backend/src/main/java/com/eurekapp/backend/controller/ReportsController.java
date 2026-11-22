@@ -38,6 +38,7 @@ public class ReportsController {
     ) {
         LocalDate fromDate = (from != null) ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = (to != null) ? LocalDate.parse(to) : LocalDate.now();
+        if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         return ResponseEntity.ok(reportsService.getReports(user, fromDate, toDate, groupBy));
     }
 }

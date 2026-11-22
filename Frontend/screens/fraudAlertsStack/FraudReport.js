@@ -101,7 +101,11 @@ const FraudReport = () => {
         });
     }, [entries, sortBy, isDniMode]);
 
+    const rangoInvertido = formatDateISO(fromDate) > formatDateISO(toDate);
+
     const fetchReport = async () => {
+        // EU-431: con el rango invertido el reporte no se genera hasta corregirlo.
+        if (rangoInvertido) return;
         setLoading(true);
         const filters = {
             fromDate: formatDateISO(fromDate),
@@ -355,6 +359,8 @@ const FraudReport = () => {
                     </View>
                 </View>
 
+                {rangoInvertido && <Text style={styles.rangeError}>La fecha "Desde" no puede ser posterior a la fecha "Hasta". Corregí el rango.</Text>}
+
                 <Text style={styles.filterLabel}>Agrupar</Text>
                 <View style={styles.statusRow}>
                     {GROUP_OPTIONS.map(opt => (
@@ -519,6 +525,10 @@ const styles = StyleSheet.create({
     },
     statusBtnTextActive: {
         color: colors.background,
+    },
+    rangeError: {
+        color: '#d32f2f',
+        marginBottom: 8,
     },
     generateBtn: {
         backgroundColor: colors.text,

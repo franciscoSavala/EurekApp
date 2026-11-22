@@ -84,6 +84,7 @@ public class FraudAlertController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) FraudAlertStatus status,
             @RequestParam(defaultValue = "USER") String groupBy) {
+        if (from.isAfter(to)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         if ("DNI".equalsIgnoreCase(groupBy)) {
             return ResponseEntity.ok(service.getFraudDniReport(user, from, to, status));
         }
@@ -98,6 +99,7 @@ public class FraudAlertController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) FraudAlertStatus status,
             @RequestParam(defaultValue = "USER") String groupBy) {
+        if (from.isAfter(to)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         byte[] csv = service.exportFraudReportCsv(user, from, to, status, groupBy);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"fraud-report.csv\"")
