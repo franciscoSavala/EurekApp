@@ -34,6 +34,8 @@ test('casos 210 y 211: el reporte de precisión del administrador muestra el fee
             await expect(texto(page, 'Organización'), 'filtro por organización en el reporte').toBeVisible({ timeout: 3000 });
             // Por defecto incluye todas las organizaciones; al elegir una, el reporte trae solo sus datos.
             await expect(texto(page, 'Todas')).toBeVisible();
+            // La carga inicial del reporte pide los registros: se espera a que termine para no tomarla por el pedido del filtro.
+            await page.waitForLoadState('networkidle');
             const alRegistro = r8.esperarJson(page, '/feedback/records?');
             await texto(page, 'UNC Ciudad Universitaria').click();
             const { url, cuerpo } = await alRegistro;
