@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {StyleSheet, Text, View} from "react-native";
+import {DeviceEventEmitter, StyleSheet, Text, View} from "react-native";
 import {useNavigation} from '@react-navigation/native';
 import {DrawerContentScrollView, DrawerItem, DrawerItemList} from "@react-navigation/drawer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -28,6 +28,8 @@ export const CustomDrawerContent = (props) => {
             setUserFirstName(user);
         }
         fetchUserFirstName();
+        const sub = DeviceEventEmitter.addListener('userNameChanged', fetchUserFirstName);
+        return () => sub.remove();
     }, []);
 
     const handleLogout = async () => {
