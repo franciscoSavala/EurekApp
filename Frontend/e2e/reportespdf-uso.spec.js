@@ -67,19 +67,16 @@ test('casos 322, 326, 327 y 328: el dueño ve el botón Exportar PDF y el PDF tr
     }
 });
 
-test('caso 323: al exportar el PDF del reporte de uso el dueño descarga Reporte_Uso_AAAA-MM-DD.pdf con las secciones de uso y de calificación de la atención @reportes @reportespdf @paralelo', async ({ browser }) => {
+test('caso 323: al exportar el PDF del reporte de uso el dueño ve el diálogo de impresión con las secciones de uso y de calificación de la atención @reportes @reportespdf @paralelo', async ({ browser }) => {
     const { context, page } = await abrirReporteUso(browser);
     try {
         await instalarCapturaPdf(page);
         const descarga = await descargaAlExportar(page, texto(page, 'Exportar PDF'));
-        const nombre = descarga ? descarga.suggestedFilename() : '';
-        const hoy = new Date();
-        const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
 
-        await pasoContinuo('caso 323: se descarga automáticamente Reporte_Uso_AAAA-MM-DD.pdf con la fecha del día y las secciones de uso y de calificación de la atención', async () => {
-            expect(descarga, 'descarga automática del navegador').not.toBeNull();
-            expect(nombre).toBe(`Reporte_Uso_${fecha}.pdf`);
+        await pasoContinuo('caso 323: se abre el diálogo de impresión del PDF (no una descarga) con las secciones de uso y de calificación de la atención', async () => {
             const pdf = await leerPdf(page);
+            expect(pdf.impresiones, 'se abrió el diálogo de impresión').toBeGreaterThan(0);
+            expect(descarga, 'no es una descarga del navegador').toBeNull();
             expect.soft(pdf.texto).toContain('Reporte de uso del sistema');
             expect.soft(pdf.texto).toContain('Calificación de la atención');
         });
