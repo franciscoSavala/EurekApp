@@ -5,7 +5,7 @@ const { irAlMenu, abrirMenu, USUARIOS } =require('../helpers');
 const { abrirComo } = require('./t02');
 
 /** Espera la respuesta (JSON) del servidor cuyo pedido contiene `parte`. */
-const esperarJson = (page, parte) => page.waitForResponse((r) => r.url().includes(parte) && r.request().method() === 'GET')
+const esperarJson = (page, parte, filtro = () => true) => page.waitForResponse((r) => r.url().includes(parte) && r.request().method() === 'GET' && filtro(new URL(r.url())))
     .then(async (r) => ({ url: new URL(r.url()), cuerpo: await r.json() }));
 
 /** Abre como administrador la pantalla Opiniones sobre la app (reporte de usabilidad). */
