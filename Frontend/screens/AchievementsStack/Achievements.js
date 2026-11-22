@@ -78,6 +78,10 @@ const [currentLevel, setCurrentLevel] = useState('');
 
 
 
+    if (loading) {
+        return (<View style={styles.container}><ActivityIndicator size="large" color="#19e6e6" /></View>);
+    }
+
     return (
         <View style={styles.container}>
             <ScrollView>

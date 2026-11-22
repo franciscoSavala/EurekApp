@@ -8,6 +8,11 @@ function AchievementBar({ xp, currentLevelPoints, nextLevelPoints, color = "#76c
     const targetProgress = ((xp-currentLevelPoints) / (nextLevelPoints-currentLevelPoints)) * 100;
 
     useEffect(() => {
+        // Si el objetivo baja (por ejemplo, al cambiar de nivel), la barra se ajusta de inmediato.
+        if (progress > targetProgress) {
+            setProgress(Math.max(targetProgress, 0));
+            return;
+        }
         let timeout;
         // Animación de llenado progresivo
         if (progress < targetProgress) {
