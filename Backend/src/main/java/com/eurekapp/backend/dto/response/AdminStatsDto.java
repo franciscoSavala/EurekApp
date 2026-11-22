@@ -24,6 +24,9 @@ public class AdminStatsDto {
     private Long totalFoundObjects;
     private Long returnedFoundObjects;
 
+    private Long totalLostObjects;
+    private Long pendingFraudAlerts;
+
     private Long orgRequestsPending;
     private Long orgRequestsApproved;
     private Long orgRequestsRejected;

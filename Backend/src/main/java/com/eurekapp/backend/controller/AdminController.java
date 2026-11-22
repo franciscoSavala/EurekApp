@@ -59,6 +59,14 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getOrganizations(admin));
     }
 
+    @GetMapping("/organizations/{id}/members")
+    @Operation(summary = "Miembros de una organización", description = "Devuelve los miembros de una organización. Solo ADMIN.")
+    public ResponseEntity<List<AdminUserDto>> getOrganizationMembers(
+            @AuthenticationPrincipal UserEurekapp admin,
+            @PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getOrganizationMembers(admin, id));
+    }
+
     @PutMapping("/organizations/{id}/active")
     @Operation(summary = "Activar/desactivar organización", description = "Cambia el estado activo de una organización. Solo ADMIN.")
     public ResponseEntity<Void> toggleOrganizationActive(
