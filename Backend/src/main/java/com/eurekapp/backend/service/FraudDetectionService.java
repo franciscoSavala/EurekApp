@@ -422,7 +422,12 @@ public class FraudDetectionService {
      */
     public FraudReportResponseDto<FraudUserReportEntryDto> getFraudUserReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
+        return getFraudUserReport(user, from, to, status, null);
+    }
+
+    public FraudReportResponseDto<FraudUserReportEntryDto> getFraudUserReport(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
+        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status, organizationId);
 
         // Agrupa el conjunto del rango por usuario sospechoso (una alerta puede señalar a varios).
         Map<Long, List<FraudAlert>> inRangeByUser = new HashMap<>();
@@ -440,7 +445,8 @@ public class FraudDetectionService {
             UserEurekapp suspect = userRepository.findById(e.getKey()).orElse(null);
             if (suspect == null) return null;
             List<FraudAlert> inRange = e.getValue();
-            List<FraudAlert> all = alertRepository.findBySuspectUsers_Id(e.getKey()); // histórico completo
+            List<FraudAlert> all = deLaOrganizacion(
+                    alertRepository.findBySuspectUsers_Id(e.getKey()), organizationId); // histórico completo
 
             FraudUserReportEntryDto entry = FraudUserReportEntryDto.builder()
                     .userId(suspect.getId())
@@ -479,7 +485,12 @@ public class FraudDetectionService {
      */
     public FraudReportResponseDto<FraudDniReportEntryDto> getFraudDniReport(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
-        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status);
+        return getFraudDniReport(user, from, to, status, null);
+    }
+
+    public FraudReportResponseDto<FraudDniReportEntryDto> getFraudDniReport(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
+        List<FraudAlert> filtered = loadFilteredAlerts(user, from, to, status, organizationId);
 
         Map<String, List<FraudAlert>> inRangeByDni = filtered.stream()
                 .filter(a -> a.getDni() != null)
@@ -489,7 +500,7 @@ public class FraudDetectionService {
         List<FraudDniReportEntryDto> entries = inRangeByDni.entrySet().stream().map(e -> {
             String dni = e.getKey();
             List<FraudAlert> inRange = e.getValue();
-            List<FraudAlert> all = alertRepository.findByDni(dni); // histórico completo del DNI
+            List<FraudAlert> all = deLaOrganizacion(alertRepository.findByDni(dni), organizationId); // histórico completo del DNI
 
             FraudDniReportEntryDto entry = FraudDniReportEntryDto.builder()
                     .dni(dni)
@@ -538,13 +549,28 @@ public class FraudDetectionService {
     // Carga las alertas del rango (+ status opcional) que determinan quiénes entran al reporte.
     // Solo ADMIN: el fraude es global y lo gestiona el dueño de Eurekapp.
     private List<FraudAlert> loadFilteredAlerts(
-            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status) {
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
         validateAccess(user);
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
-        return status != null
+        List<FraudAlert> alerts = status != null
                 ? alertRepository.findByStatusAndCreatedAtBetween(status, fromDt, toDt)
                 : alertRepository.findByCreatedAtBetween(fromDt, toDt);
+        return deLaOrganizacion(alerts, organizationId);
+    }
+
+    /* EU-434: filtro por organizacion del reporte. Una alerta es de una organizacion si la trae asi o si
+     * alguna de las devoluciones que la dispararon se hizo en ella. Las alertas que no se pueden atribuir
+     * a ninguna organizacion solo aparecen cuando no se filtra (organizationId nulo = todas). */
+    private List<FraudAlert> deLaOrganizacion(List<FraudAlert> alerts, Long organizationId) {
+        if (organizationId == null) return alerts;
+        return alerts.stream().filter(a -> perteneceA(a, organizationId)).collect(Collectors.toList());
+    }
+
+    private boolean perteneceA(FraudAlert alert, Long organizationId) {
+        if (organizationId.toString().equals(alert.getOrganizationId())) return true;
+        return alert.getTriggeringReturns() != null && alert.getTriggeringReturns().stream()
+                .anyMatch(r -> organizationId.equals(r.getOrganizationId()));
     }
 
     // Alertas anteriores al período consultado: es lo que define la reincidencia (EU-226). No alcanza
@@ -581,10 +607,16 @@ public class FraudDetectionService {
 
     public byte[] exportFraudReportCsv(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, String groupBy) {
+        return exportFraudReportCsv(user, from, to, status, groupBy, null);
+    }
+
+    public byte[] exportFraudReportCsv(
+            UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, String groupBy,
+            Long organizationId) {
         StringBuilder sb = new StringBuilder();
         if ("DNI".equalsIgnoreCase(groupBy)) {
             sb.append("dni;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
-            for (FraudDniReportEntryDto e : getFraudDniReport(user, from, to, status).getEntries()) {
+            for (FraudDniReportEntryDto e : getFraudDniReport(user, from, to, status, organizationId).getEntries()) {
                 sb.append(csvField(e.getDni())).append(';')
                   .append(e.getFraudCount()).append(';')
                   .append(e.getActiveCount()).append(';')
@@ -594,7 +626,7 @@ public class FraudDetectionService {
             }
         } else {
             sb.append("userId;email;fullName;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons\n");
-            for (FraudUserReportEntryDto e : getFraudUserReport(user, from, to, status).getEntries()) {
+            for (FraudUserReportEntryDto e : getFraudUserReport(user, from, to, status, organizationId).getEntries()) {
                 sb.append(e.getUserId()).append(';')
                   .append(csvField(e.getEmail())).append(';')
                   .append(csvField(e.getFullName())).append(';')

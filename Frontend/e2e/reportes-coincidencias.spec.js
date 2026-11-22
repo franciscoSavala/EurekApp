@@ -5,6 +5,7 @@ const { test, expect } = require('@playwright/test');
 const { texto, sembrarFeedback } = require('./helpers/t11');
 const { casoContinuo } = require('./helpers/t17');
 const { abrirPrecisionAdmin } = require('./helpers/r09');
+const r8 = require('./helpers/r08');
 
 let sembrado;
 
@@ -31,6 +32,14 @@ test('casos 210 y 211: el reporte de precisión del administrador muestra el fee
         const { context, page } = await abrirPrecisionAdmin(browser);
         try {
             await expect(texto(page, 'Organización'), 'filtro por organización en el reporte').toBeVisible({ timeout: 3000 });
+            // Por defecto incluye todas las organizaciones; al elegir una, el reporte trae solo sus datos.
+            await expect(texto(page, 'Todas')).toBeVisible();
+            const alRegistro = r8.esperarJson(page, '/feedback/records?');
+            await texto(page, 'UNC Ciudad Universitaria').click();
+            const { url, cuerpo } = await alRegistro;
+            expect(url.searchParams.get('organizationId'), 'el pedido lleva la organización elegida').toBeTruthy();
+            expect(cuerpo.length, 'registros de la organización elegida').toBeGreaterThan(0);
+            expect(new Set(cuerpo.map((r) => r.organizationId)).size, 'una sola organización en los registros').toBe(1);
         } finally {
             await context.close();
         }

@@ -83,12 +83,13 @@ public class FraudAlertController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) FraudAlertStatus status,
-            @RequestParam(defaultValue = "USER") String groupBy) {
+            @RequestParam(defaultValue = "USER") String groupBy,
+            @RequestParam(required = false) Long organizationId) {
         if (from.isAfter(to)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
         if ("DNI".equalsIgnoreCase(groupBy)) {
-            return ResponseEntity.ok(service.getFraudDniReport(user, from, to, status));
+            return ResponseEntity.ok(service.getFraudDniReport(user, from, to, status, organizationId));
         }
-        return ResponseEntity.ok(service.getFraudUserReport(user, from, to, status));
+        return ResponseEntity.ok(service.getFraudUserReport(user, from, to, status, organizationId));
     }
 
     @GetMapping("/report/export")
@@ -98,9 +99,10 @@ public class FraudAlertController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required = false) FraudAlertStatus status,
-            @RequestParam(defaultValue = "USER") String groupBy) {
+            @RequestParam(defaultValue = "USER") String groupBy,
+            @RequestParam(required = false) Long organizationId) {
         if (from.isAfter(to)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
-        byte[] csv = service.exportFraudReportCsv(user, from, to, status, groupBy);
+        byte[] csv = service.exportFraudReportCsv(user, from, to, status, groupBy, organizationId);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"fraud-report.csv\"")
                 .contentType(MediaType.parseMediaType("text/csv"))

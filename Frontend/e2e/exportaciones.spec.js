@@ -48,7 +48,8 @@ test.describe('Exportaciones de reportes a CSV', () => {
         const csv = await descargar(page, exportar);
 
         expect(csv.nombre).toBe('fraud-report.csv');
-        expect(csv.lineas[0]).toBe('userId;email;fullName;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons');
+        // EU-438: el reporte abre agrupado por DNI.
+        expect(csv.lineas[0]).toBe('dni;fraudCount;activeCount;falsePositiveCount;historicalCount;reasons');
         expect(csv.lineas.length).toBeGreaterThan(1);
         await context.close();
     });
