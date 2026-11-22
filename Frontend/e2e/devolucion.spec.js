@@ -192,7 +192,14 @@ test.describe('Devolución de un objeto', () => {
     });
 
     test('caso 111: con más de 25 devoluciones el objeto recién devuelto aparece primero en Ver objetos devueltos @devolucion @serie', async ({ request }) => {
+        test.setTimeout(300000);
         const emp = await conSesion(USUARIOS.empleado);
+        // Precondición del caso: el test completa por su cuenta las devoluciones que falten hasta pasar de 25.
+        const faltan = 26 - (await devueltosApi(request, emp.token)).length;
+        for (let i = 0; i < faltan; i++) {
+            const relleno = await receptarApi(request, emp.token, emp.orgId, nombreUnico('Objeto relleno e2e'));
+            await devolverApi(request, emp.token, emp.orgId, relleno, dniUnico());
+        }
         const titulo = nombreUnico('Billetera orden e2e');
         const uuid = await receptarApi(request, emp.token, emp.orgId, titulo);
         await devolverApi(request, emp.token, emp.orgId, uuid, dniUnico());
