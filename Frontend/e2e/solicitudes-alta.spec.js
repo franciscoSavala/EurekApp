@@ -34,7 +34,7 @@ async function indicadorDelMenu(page) {
 
 /** Solicitudes pendientes según el servidor. */
 async function pendientesApi(request, token) {
-    const r = await request.get('http://localhost:8080/admin/stats', { headers: { Authorization: `Bearer ${token}` } });
+    const r = await request.get(`${URL_BACK}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
     return (await r.json()).orgRequestsPending;
 }
 
@@ -50,7 +50,7 @@ async function contadores(page, request, token) {
     await irAlMenu(page, 'Dashboard');
     await expect(vis(page, 'Organizaciones activas', { exact: true })).toBeVisible();
     const api = async () => {
-        const r = await request.get('http://localhost:8080/admin/stats', { headers: { Authorization: `Bearer ${token}` } });
+        const r = await request.get(`${URL_BACK}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } });
         const j = await r.json();
         return { pendientes: j.orgRequestsPending, activas: j.activeOrgs };
     };
@@ -72,7 +72,7 @@ async function irANotificaciones(page) {
 
 
 const ASUNTO_ADMIN = 'EurekApp — Nueva solicitud de registro de organización';
-const URL_BACK = 'http://localhost:8080';
+const URL_BACK = process.env.E2E_BACK_URL || 'http://localhost:8080';
 
 test.describe('Solicitudes de alta de organizaciones', () => {
     test('casos 269 y 270: el administrador accede a Solicitudes de alta y un usuario común no ve la opción @admin @solicitudes @serie', async ({ browser }) => {
