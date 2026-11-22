@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { buildUsageReportHtml, exportPdf } from "../../utils/pdfExport";
 import axiosInstance from "../../utils/axiosInstance";
-import { exportCsv } from "../../utils/exportCsv";
 import Constants from "expo-constants";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
@@ -46,10 +45,8 @@ const Reports = ({ navigation }) => {
     const [showFromPicker, setShowFromPicker] = useState(false);
     const [showToPicker, setShowToPicker] = useState(false);
     const [groupBy, setGroupBy] = useState("DAY");
-    const [wasFoundFilter, setWasFoundFilter] = useState(null); // null=todos, true=encontró, false=no encontró
     const [data, setData] = useState(null);
     const [feedbackData, setFeedbackData] = useState(null);
-    const [feedbackRecords, setFeedbackRecords] = useState([]);
     const [loadingMain, setLoadingMain] = useState(false);
     const [loadingFeedback, setLoadingFeedback] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
@@ -74,21 +71,16 @@ const Reports = ({ navigation }) => {
         }
     };
 
+    // EU-436: la precisión de las coincidencias pasó al administrador; el dueño conserva la calificación
+    // de la atención y los comentarios.
     const fetchFeedback = async () => {
         setLoadingFeedback(true);
         try {
             const params = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), groupBy };
-            const fbParams = { ...params, ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-            const recParams = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), ...(wasFoundFilter !== null && { wasFound: wasFoundFilter }) };
-            const [fbRes, recRes] = await Promise.all([
-                axiosInstance.get(`${BACK_URL}/feedback/report`, { params: fbParams }),
-                axiosInstance.get(`${BACK_URL}/feedback/records`, { params: recParams }),
-            ]);
+            const fbRes = await axiosInstance.get(`${BACK_URL}/feedback/report`, { params });
             setFeedbackData(fbRes.data);
-            setFeedbackRecords(recRes.data || []);
         } catch {
             setFeedbackData(null);
-            setFeedbackRecords([]);
         } finally {
             setLoadingFeedback(false);
         }
@@ -97,11 +89,10 @@ const Reports = ({ navigation }) => {
     const handleExportPdf = async () => {
         setExportingPdf(true);
         try {
-            const html = buildUsageReportHtml(data, feedbackData, feedbackRecords, {
+            const html = buildUsageReportHtml(data, feedbackData, {
                 fromDate: formatDateISO(appliedRange.from),
                 toDate: formatDateISO(appliedRange.to),
                 groupBy,
-                wasFoundFilter,
             });
             await exportPdf(html, `Reporte_Uso_${formatDateISO(new Date())}.pdf`);
         } catch (e) {
@@ -112,17 +103,11 @@ const Reports = ({ navigation }) => {
         }
     };
 
-    const handleExportCsv = async () => {
-        const wasFoundParam = wasFoundFilter !== null ? `&wasFound=${wasFoundFilter}` : '';
-        const url = `${BACK_URL}/feedback/report/export?from=${formatDateISO(appliedRange.from)}&to=${formatDateISO(appliedRange.to)}${wasFoundParam}`;
-        await exportCsv({ url, fileName: "feedback-report.csv", dialogTitle: "Exportar reporte de feedback" });
-    };
-
     useFocusEffect(
         React.useCallback(() => {
             fetchMainReport();
             fetchFeedback();
-        }, [appliedRange, groupBy, wasFoundFilter])
+        }, [appliedRange, groupBy])
     );
 
     const maxValue = data?.time_series
@@ -311,46 +296,8 @@ const Reports = ({ navigation }) => {
                         {loadingFeedback && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
                         {!loadingFeedback && feedbackData && (
                             <>
-                                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Feedback de búsquedas</Text>
-                                <View style={[styles.row, { marginBottom: 8 }]}>
-                                    {[
-                                        { label: 'Todos', value: null },
-                                        { label: 'Encontró objeto', value: true },
-                                        { label: 'No encontró', value: false },
-                                    ].map(({ label, value }) => (
-                                        <Pressable
-                                            key={String(value)}
-                                            style={[styles.groupBtn, wasFoundFilter === value && styles.groupBtnActive]}
-                                            onPress={() => setWasFoundFilter(value)}
-                                        >
-                                            <Text style={[styles.groupBtnText, wasFoundFilter === value && styles.groupBtnTextActive]}>
-                                                {label}
-                                            </Text>
-                                        </Pressable>
-                                    ))}
-                                </View>
                                 <View style={styles.cardsRow}>
-                                    <MetricCard label="Búsquedas registradas" value={feedbackData.total_feedback} color="#638888" />
                                     <MetricCard label="Atenciones calificadas" value={feedbackData.total_ratings} color="#f0a500" />
-                                </View>
-                                <View style={styles.cardsRow}>
-                                    <MetricCard label="Búsquedas exitosas" value={feedbackData.successful_searches} color="#4caf50" />
-                                    <MetricCard label="Búsquedas fallidas" value={feedbackData.unsuccessful_searches} color="#e53935" />
-                                </View>
-
-                                {/* Donut de precisión de coincidencias.
-                                    EU-336: se muestra aunque no haya búsquedas en el período. */}
-                                <View style={styles.tableContainer}>
-                                    <Text style={styles.sectionTitle}>Precisión de coincidencias</Text>
-                                    <DonutChart
-                                        recovered={feedbackData.successful_searches || 0}
-                                        total={feedbackData.total_feedback || 0}
-                                        primaryColor="#4caf50"
-                                        secondaryColor="#e53935"
-                                        primaryLabel="Exitosas"
-                                        secondaryLabel="Fallidas"
-                                        centerLabel="exitosas"
-                                    />
                                 </View>
 
                                 {/* EU-375: promedio POR ASPECTO de las calificaciones que la gente
@@ -397,42 +344,8 @@ const Reports = ({ navigation }) => {
                                     </View>
                                 )}
 
-                                {/* Tendencias de búsquedas */}
-                                {feedbackData.time_series && feedbackData.time_series.length > 0 && (
-                                    <View style={styles.tableContainer}>
-                                        <Text style={styles.sectionTitle}>Tendencias de búsquedas</Text>
-                                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                            <View>
-                                                <View style={styles.tableRow}>
-                                                    <Text style={[styles.tableCell, styles.tableHeader, { width: 110 }]}>Período</Text>
-                                                    {/* EU-372: no hay columna de calificación promedio porque esta serie
-                                                        cuenta búsquedas, y las estrellas dejaron de ser de la organización. */}
-                                                    <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Exitosas</Text>
-                                                    <Text style={[styles.tableCell, styles.tableHeader, { width: 80 }]}>Fallidas</Text>
-                                                </View>
-                                                {feedbackData.time_series.map(point => (
-                                                    <View key={point.label} style={styles.tableRow}>
-                                                        <Text style={[styles.tableCell, { width: 110 }]}>{point.label}</Text>
-                                                        <View style={[styles.tableCell, { width: 80 }]}>
-                                                            <Text style={styles.barValue}>{point.successful}</Text>
-                                                            <View style={[styles.bar, { width: `${(point.successful / (point.total || 1)) * 100}%`, backgroundColor: '#4caf50' }]} />
-                                                        </View>
-                                                        <View style={[styles.tableCell, { width: 80 }]}>
-                                                            <Text style={styles.barValue}>{point.unsuccessful}</Text>
-                                                            <View style={[styles.bar, { width: `${(point.unsuccessful / (point.total || 1)) * 100}%`, backgroundColor: '#e53935' }]} />
-                                                        </View>
-                                                    </View>
-                                                ))}
-                                            </View>
-                                        </ScrollView>
-                                    </View>
-                                )}
-
                                 {/* Botones de exportación */}
                                 <View style={styles.exportRow}>
-                                    <TouchableOpacity style={styles.exportBtn} onPress={handleExportCsv}>
-                                        <Text style={styles.exportBtnText}>Exportar CSV</Text>
-                                    </TouchableOpacity>
                                     <TouchableOpacity style={[styles.exportBtn, styles.exportBtnPdf]} onPress={handleExportPdf} disabled={exportingPdf}>
                                         {exportingPdf
                                             ? <ActivityIndicator color="white" size="small" />

@@ -39,43 +39,46 @@ public class FeedbackController {
     }
 
     @GetMapping("/report")
-    @Operation(summary = "Obtener reporte de feedback", description = "Devuelve métricas agregadas de feedback. Solo accesible para ORGANIZATION_OWNER.")
+    @Operation(summary = "Obtener reporte de feedback", description = "Devuelve métricas agregadas de feedback. Para el administrador (todas las organizaciones o una) y el responsable de su organización.")
     public ResponseEntity<FeedbackReportDto> getReport(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
             @RequestParam(required = false, defaultValue = "DAY") String groupBy,
-            @RequestParam(required = false) Boolean wasFound) {
+            @RequestParam(required = false) Boolean wasFound,
+            @RequestParam(required = false) String organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
-        return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy, wasFound));
+        return ResponseEntity.ok(feedbackService.getReport(user, fromDate, toDate, groupBy, wasFound, organizationId));
     }
 
     @GetMapping("/records")
-    @Operation(summary = "Obtener registros de feedback", description = "Devuelve registros individuales de feedback del período. Solo ORGANIZATION_OWNER.")
+    @Operation(summary = "Obtener registros de feedback", description = "Devuelve registros individuales de feedback del período. Para el administrador y el responsable de su organización.")
     public ResponseEntity<List<FeedbackRecordDto>> getRecords(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) Boolean wasFound) {
+            @RequestParam(required = false) Boolean wasFound,
+            @RequestParam(required = false) String organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
-        return ResponseEntity.ok(feedbackService.getRecords(user, fromDate, toDate, wasFound));
+        return ResponseEntity.ok(feedbackService.getRecords(user, fromDate, toDate, wasFound, organizationId));
     }
 
     @GetMapping("/report/export")
-    @Operation(summary = "Exportar reporte de feedback en CSV", description = "Descarga un CSV con todos los registros de feedback del período. Solo ORGANIZATION_OWNER.")
+    @Operation(summary = "Exportar reporte de feedback en CSV", description = "Descarga un CSV con todos los registros de feedback del período. Para el administrador y el responsable de su organización.")
     public ResponseEntity<byte[]> exportCsv(
             @AuthenticationPrincipal UserEurekapp user,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
-            @RequestParam(required = false) Boolean wasFound) {
+            @RequestParam(required = false) Boolean wasFound,
+            @RequestParam(required = false) String organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
-        byte[] csv = feedbackService.exportCsv(user, fromDate, toDate, wasFound);
+        byte[] csv = feedbackService.exportCsv(user, fromDate, toDate, wasFound, organizationId);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=feedback-report.csv")
                 .header("Content-Type", "text/csv; charset=UTF-8")

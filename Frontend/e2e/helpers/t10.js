@@ -17,12 +17,11 @@ function esperarJson(page, parte) {
 async function recargando(page, accion) {
     const uso = esperarJson(page, '/reports?');
     const feedback = esperarJson(page, '/feedback/report?');
-    const registros = esperarJson(page, '/feedback/records?');
     await accion();
-    const [u, f, r] = await Promise.all([uso, feedback, registros]);
+    const [u, f] = await Promise.all([uso, feedback]);
     // Deja que la pantalla termine de dibujar la respuesta.
     await page.waitForTimeout(500);
-    return { uso: u.cuerpo, feedback: f.cuerpo, registros: r.cuerpo, pedidoUso: u.url, pedidoFeedback: f.url, pedidoRegistros: r.url };
+    return { uso: u.cuerpo, feedback: f.cuerpo, pedidoUso: u.url, pedidoFeedback: f.url };
 }
 
 /** Abre la pantalla de reportes del dueño y devuelve las respuestas de la primera carga. */

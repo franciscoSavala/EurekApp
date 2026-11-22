@@ -161,11 +161,10 @@ const ASPECT_LABELS = [
     { key: 'pickup_security',      label: 'Seguridad del retiro' },
 ];
 
-export function buildUsageReportHtml(data, feedbackData, records, filters) {
-    const { fromDate, toDate, groupBy, wasFoundFilter } = filters;
+export function buildUsageReportHtml(data, feedbackData, filters) {
+    const { fromDate, toDate, groupBy } = filters;
     const generatedAt = formatDateTimeAR();
     const groupByLabel = { DAY: 'Día', WEEK: 'Semana', MONTH: 'Mes' }[groupBy] || groupBy;
-    const wasFoundLabel = wasFoundFilter === true ? 'Solo encontrados' : wasFoundFilter === false ? 'Solo no encontrados' : 'Todos';
 
     const recoveryRate = data && data.found_objects > 0
         ? ((data.returned_objects / data.found_objects) * 100).toFixed(1)
@@ -174,11 +173,6 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
     const pieRecovery = data ? makePieChart([
         { label: 'Devueltos', value: data.returned_objects || 0, color: '#4caf50' },
         { label: 'No devueltos', value: (data.found_objects || 0) - (data.returned_objects || 0), color: '#f0a500' },
-    ]) : '';
-
-    const pieSearches = feedbackData ? makePieChart([
-        { label: 'Exitosas', value: feedbackData.successful_searches || 0, color: '#4caf50' },
-        { label: 'Fallidas', value: feedbackData.unsuccessful_searches || 0, color: '#e53935' },
     ]) : '';
 
     /* EU-375: el reporte del responsable de organizacion muestra un promedio POR ASPECTO de las
@@ -211,27 +205,13 @@ export function buildUsageReportHtml(data, feedbackData, records, filters) {
         `<tr><td>${p.label}</td><td>${p.found_objects}</td><td>${p.lost_objects}</td><td>${p.returned_objects}</td><td>${p.avg_recovery_hours > 0 ? formatHoursHtml(p.avg_recovery_hours) : '—'}</td></tr>`
     ).join('') : '';
 
-    const fbTrendRows = feedbackData && feedbackData.time_series ? feedbackData.time_series.map(p =>
-        `<tr><td>${p.label}</td><td>${p.successful}</td><td>${p.unsuccessful}</td></tr>`
-    ).join('') : '';
-
-    const recordRows = records && records.length > 0 ? records.map(r =>
-        `<tr>
-            <td>${r.id}</td>
-            <td>${r.organizationId || '-'}</td>
-            <td>${r.foundObjectTitle || r.foundObjectDescription || 'Objeto no especificado'}</td>
-            <td>${r.wasFound ? 'Sí' : 'No'}</td>
-            <td>${r.createdAt ? formatDateTimeAR(r.createdAt) : '-'}</td>
-        </tr>`
-    ).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">Sin registros en el período</td></tr>';
-
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>Reporte de Uso</title><style>${baseStyle}</style></head>
 <body>
 <h1>Reporte de uso del sistema</h1>
 <div class="meta">
     Generado: ${generatedAt}<br>
-    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Agrupado por: ${groupByLabel} &nbsp;|&nbsp; Filtro: ${wasFoundLabel}
+    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Agrupado por: ${groupByLabel}
 </div>
 
 ${data ? `
@@ -262,19 +242,14 @@ ${lineChart ? `<h2>Evolución del tiempo de recuperación</h2>${lineChart}` : ''
 ` : ''}
 
 ${feedbackData ? `
-<h2>Métricas de feedback</h2>
+<h2>Atención de la organización</h2>
 <table>
     <tr><th>Indicador</th><th>Valor</th></tr>
-    <tr><td>Búsquedas registradas</td><td><b>${feedbackData.total_feedback}</b></td></tr>
-    <tr><td>Búsquedas exitosas</td><td><b>${feedbackData.successful_searches}</b></td></tr>
-    <tr><td>Búsquedas fallidas</td><td><b>${feedbackData.unsuccessful_searches}</b></td></tr>
     <tr><td>Atenciones calificadas</td><td><b>${feedbackData.total_ratings || 0}</b></td></tr>
 </table>
 
-<h2>Gráfico: Resultado de búsquedas</h2>
-${pieSearches}
-
-${aspectBars ? `<h2>Calificación de la atención</h2>${aspectBars}` : ''}
+<h2>Calificación de la atención</h2>
+${aspectBars || '<p>Todavía nadie calificó la atención en el período seleccionado.</p>'}
 
 ${commentRows ? `
 <h2>Comentarios</h2>
@@ -282,6 +257,59 @@ ${commentRows ? `
     <tr><th>Fecha</th><th>Comentario</th></tr>
     ${commentRows}
 </table>` : ''}
+
+` : ''}
+</body></html>`;
+}
+
+/* EU-436: PDF del reporte de precisión de las coincidencias, que lee el administrador. Lleva la
+   organización elegida en el encabezado junto con el período, la agrupación y el filtro de resultado. */
+export function buildPrecisionReportHtml(feedbackData, records, filters) {
+    const { fromDate, toDate, groupBy, wasFoundFilter, organizationName } = filters;
+    const generatedAt = formatDateTimeAR();
+    const groupByLabel = { DAY: 'Día', WEEK: 'Semana', MONTH: 'Mes' }[groupBy] || groupBy;
+    const wasFoundLabel = wasFoundFilter === true ? 'Solo encontrados' : wasFoundFilter === false ? 'Solo no encontrados' : 'Todos';
+    const escape = (v) => String(v ?? '').replace(/</g, '&lt;');
+
+    const pieSearches = feedbackData ? makePieChart([
+        { label: 'Exitosas', value: feedbackData.successful_searches || 0, color: '#4caf50' },
+        { label: 'Fallidas', value: feedbackData.unsuccessful_searches || 0, color: '#e53935' },
+    ]) : '';
+
+    const fbTrendRows = feedbackData && feedbackData.time_series ? feedbackData.time_series.map(p =>
+        `<tr><td>${p.label}</td><td>${p.successful}</td><td>${p.unsuccessful}</td></tr>`
+    ).join('') : '';
+
+    const recordRows = records && records.length > 0 ? records.map(r =>
+        `<tr>
+            <td>${r.id}</td>
+            <td>${escape(r.organizationId || '-')}</td>
+            <td>${escape(r.foundObjectTitle || r.foundObjectDescription || 'Objeto no especificado')}</td>
+            <td>${r.wasFound ? 'Sí' : 'No'}</td>
+            <td>${r.createdAt ? formatDateTimeAR(r.createdAt) : '-'}</td>
+        </tr>`
+    ).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">Sin registros en el período</td></tr>';
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Reporte de precisión de coincidencias</title><style>${baseStyle}</style></head>
+<body>
+<h1>Reporte de precisión de coincidencias</h1>
+<div class="meta">
+    Generado: ${generatedAt}<br>
+    Organización: ${escape(organizationName || 'Todas')} &nbsp;|&nbsp; Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Agrupado por: ${groupByLabel} &nbsp;|&nbsp; Filtro: ${wasFoundLabel}
+</div>
+
+${feedbackData ? `
+<h2>Métricas de feedback</h2>
+<table>
+    <tr><th>Indicador</th><th>Valor</th></tr>
+    <tr><td>Búsquedas registradas</td><td><b>${feedbackData.total_feedback}</b></td></tr>
+    <tr><td>Búsquedas exitosas</td><td><b>${feedbackData.successful_searches}</b></td></tr>
+    <tr><td>Búsquedas fallidas</td><td><b>${feedbackData.unsuccessful_searches}</b></td></tr>
+</table>
+
+<h2>Gráfico: Resultado de búsquedas</h2>
+${pieSearches}
 
 ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 <h2>Tendencias de búsquedas</h2>
@@ -298,6 +326,7 @@ ${feedbackData.time_series && feedbackData.time_series.length > 0 ? `
 </table>
 </body></html>`;
 }
+
 
 export function buildFraudReportHtml(entries, filters, summary, evolutionGranularity = 'month') {
     const { fromDate, toDate, statusFilter, groupBy } = filters;

@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const h = require('./helpers/t10');
 const { casoContinuo } = require('./helpers/t17');
 const { abrirPrecisionAdmin } = require('./helpers/r09');
+const r8 = require('./helpers/r08');
 
 const visible = (loc) => loc.locator('visible=true');
 const texto = (page, t) => visible(page.getByText(t, { exact: true })).first();
@@ -9,12 +10,12 @@ const texto = (page, t) => visible(page.getByText(t, { exact: true })).first();
 /** Valores de las tarjetas del feedback tal como los muestra la pantalla. */
 async function tarjetasFeedback(page) {
     const r = {};
-    for (const [clave, etiqueta] of [['total_feedback', 'Búsquedas registradas'], ['total_ratings', 'Atenciones calificadas'], ['successful_searches', 'Búsquedas exitosas'], ['unsuccessful_searches', 'Búsquedas fallidas']]) {
+    for (const [clave, etiqueta] of [['total_feedback', 'Búsquedas registradas'], ['successful_searches', 'Búsquedas exitosas'], ['unsuccessful_searches', 'Búsquedas fallidas']]) {
         r[clave] = Number(await h.valorDeTarjeta(page, etiqueta));
     }
     return r;
 }
-const delServidor = (f) => ({ total_feedback: f.total_feedback, total_ratings: f.total_ratings, successful_searches: f.successful_searches, unsuccessful_searches: f.unsuccessful_searches });
+const delServidor = (f) => ({ total_feedback: f.total_feedback, successful_searches: f.successful_searches, unsuccessful_searches: f.unsuccessful_searches });
 
 const porcentaje = (parte, total) => (total > 0 ? Math.round((parte / total) * 100) : 0);
 
@@ -124,7 +125,14 @@ test.describe('Reportes de opiniones: feedback de búsquedas', () => {
     });
 
     test('caso 353: el cálculo de búsquedas exitosas y no exitosas coincide con el feedback registrado @reportes @reportesuso @paralelo', async ({ browser }) => {
-        const { context, page, feedback, registros } = await h.abrirReportes(browser);
+        const { context, page } = await abrirPrecisionAdmin(browser);
+        // La precisión de las coincidencias la ve el administrador: se vuelve a pedir el reporte para tener lo que respondió el servidor.
+        const alFeedback = r8.esperarJson(page, '/feedback/report?');
+        const alRegistro = r8.esperarJson(page, '/feedback/records?');
+        await texto(page, 'Semana').click();
+        const feedback = (await alFeedback).cuerpo;
+        const registros = (await alRegistro).cuerpo;
+        await page.waitForTimeout(500);
         await test.step('caso 353: los valores del gráfico coinciden con los feedbacks registrados', async () => {
             const f = feedback;
             const a = await anillo(page);
