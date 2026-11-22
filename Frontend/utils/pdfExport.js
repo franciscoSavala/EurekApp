@@ -412,7 +412,7 @@ export function buildFraudReportHtml(entries, filters, summary, evolutionGranula
 <h1>Reporte de fraude</h1>
 <div class="meta">
     Generado: ${generatedAt}<br>
-    Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Estado: ${statusLabel} &nbsp;|&nbsp; Agrupado por: ${groupLabel}
+    Organización: ${String(filters.organizationName || 'Todas').replace(/</g, '&lt;')} &nbsp;|&nbsp; Período: ${fromDate} — ${toDate} &nbsp;|&nbsp; Estado: ${statusLabel} &nbsp;|&nbsp; Agrupado por: ${groupLabel}
 </div>
 
 <h2>Métricas del período</h2>

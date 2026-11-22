@@ -118,3 +118,16 @@ describe('torta de activas vs. falsas alarmas en el PDF', () => {
         expect(html).toContain('Falsas alarmas: <b>3</b> (43%)');
     });
 });
+
+// EU-434: el encabezado del PDF dice de qué organización es el reporte.
+describe('PDF del reporte de fraude: organización', () => {
+    test('muestra la organización elegida en el encabezado', () => {
+        const html = buildFraudReportHtml([], { ...filters, organizationId: 4, organizationName: 'UNC Ciudad Universitaria' }, summary);
+        expect(html).toContain('Organización: UNC Ciudad Universitaria');
+    });
+
+    test('sin organización elegida dice Todas', () => {
+        const html = buildFraudReportHtml([], filters, summary);
+        expect(html).toContain('Organización: Todas');
+    });
+});

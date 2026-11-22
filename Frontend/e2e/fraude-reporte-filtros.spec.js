@@ -19,23 +19,27 @@ const DESDE = '2026-01-01';
 const HASTA = '2026-10-31';
 
 test.describe('Reporte de fraude: filtros y generación', () => {
-    // El menú del dueño de organización no tiene Alertas de fraude: la pantalla es del administrador.
-    test('caso 215: el dueño de organización filtra el reporte por organización @fraude @reportefraude @paralelo', async ({ browser }) => {
-        test.setTimeout(120_000);
-        const { context, page } = await abrirComo(browser, DUENO);
+    // EU-434: el reporte de fraude es del administrador y trae el filtro Organización junto a fechas, estado y agrupamiento.
+    test('caso 215: el administrador filtra el reporte de fraude por organización @fraude @reportefraude @paralelo', async ({ browser }) => {
+        test.setTimeout(180_000);
+        const { context, page } = await abrirComo(browser, ADMIN);
         try {
-            await caso(215, 'el dueño ingresa al reporte, elige una organización y solo ve usuarios con fraude de esa organización', async () => {
-                let llego = false;
-                await abrirMenu(page);
-                const opcion = page.locator('a', { has: page.getByText('Alertas de fraude', { exact: true }) });
-                if (await opcion.count() > 0) {
-                    await opcion.click();
-                    await visible(page.getByText('Ver reporte', { exact: true })).click({ timeout: 10_000 }).catch(() => {});
-                    llego = await visible(page.getByText('Generar reporte', { exact: true })).isVisible().catch(() => false);
-                }
-                expect.soft(llego, 'el dueño de organización no ve Alertas de fraude en su menú, así que no llega al reporte').toBe(true);
-                if (!llego) return;
-                await expect.soft(visible(page.getByText(/^Organizaci[oó]n$/)).first(), 'el reporte no tiene filtro por organización').toBeVisible({ timeout: 3000 });
+            await irAlReporte(page);
+            const todas = await generarRango(page, DESDE, HASTA);
+            expect(todas.entries.length, 'el seed debería traer personas con fraude').toBeGreaterThan(0);
+
+            await caso(215, 'el administrador elige una organización, genera el reporte y solo ve las alertas de esa organización', async () => {
+                await abrirConfiguracion(page);
+                await expect(visible(page.getByText('Organización', { exact: true })).first(), 'filtro Organización en el panel').toBeVisible();
+                await expect(visible(page.getByText('Todas', { exact: true })).first(), 'por defecto incluye todas').toBeVisible();
+                const pedido = page.waitForRequest((r) => r.url().includes('/fraud-alerts/report?') && r.method() === 'GET');
+                await visible(page.getByText('UNC Ciudad Universitaria', { exact: true })).first().click();
+                const [req, filtrado] = await Promise.all([pedido, generar(page)]);
+                expect(new URL(req.url()).searchParams.get('organizationId'), 'el pedido lleva la organización elegida').toBeTruthy();
+                expect(filtrado.summary.totalAlerts, 'no puede haber más alertas que sin filtrar').toBeLessThanOrEqual(todas.summary.totalAlerts);
+                const dnisTodas = new Set(todas.entries.map((e) => e.dni ?? e.userId));
+                for (const e of filtrado.entries) expect(dnisTodas.has(e.dni ?? e.userId), 'solo personas que ya estaban en el reporte completo').toBe(true);
+                await expect(visible(page.getByText(/UNC Ciudad Universitaria/)).first(), 'el resumen nombra la organización').toBeVisible();
             });
         } finally {
             await context.close();

@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Toast from 'react-native-toast-message';
 import {
     ActivityIndicator,
+    Dimensions,
     FlatList,
     Platform,
+    ScrollView,
     StyleSheet,
     Text,
     TouchableOpacity,
@@ -76,6 +78,9 @@ const FraudReport = () => {
     const [showTo, setShowTo] = useState(false);
     const [statusFilter, setStatusFilter] = useState('');
     const [groupBy, setGroupBy] = useState('DNI'); // EU-438: abre agrupado por DNI
+    // EU-434: filtro por organización (null = todas). La lista trae activas e inactivas.
+    const [organizationId, setOrganizationId] = useState(null);
+    const [organizations, setOrganizations] = useState([]);
     const [entries, setEntries] = useState([]);
     // EU-395: la agrupación del gráfico de evolución vive acá, y no adentro del gráfico, porque el
     // PDF se exporta con la que esté elegida en pantalla (el PDF no tiene los botones).
@@ -108,6 +113,17 @@ const FraudReport = () => {
         });
     }, [entries, sortBy, isDniMode]);
 
+    useEffect(() => {
+        authFetch('get', `${BACK_URL}/admin/organizations`)
+            .then((data) => setOrganizations(Array.isArray(data) ? data : []))
+            .catch(() => setOrganizations([]));
+    }, []);
+
+    const organizationName = (id) => (id == null
+        ? 'Todas'
+        : (organizations.find((o) => String(o.id) === String(id))?.name || String(id)));
+    const orgParam = organizationId != null ? `&organizationId=${organizationId}` : '';
+
     const rangoInvertido = formatDateISO(fromDate) > formatDateISO(toDate);
 
     const fetchReport = async () => {
@@ -119,10 +135,12 @@ const FraudReport = () => {
             toDate: formatDateISO(toDate),
             statusFilter,
             groupBy,
+            organizationId,
+            organizationName: organizationName(organizationId),
         };
         try {
             const params = `from=${filters.fromDate}&to=${filters.toDate}`
-                + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
+                + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}${orgParam}`;
             const data = await authFetch('get', `${BACK_URL}/fraud-alerts/report?${params}`);
             setEntries(data?.entries ?? []);
             setSummary(data?.summary ?? null);
@@ -138,7 +156,7 @@ const FraudReport = () => {
     const exportCsv = async () => {
         setExporting(true);
         const params = `from=${formatDateISO(fromDate)}&to=${formatDateISO(toDate)}`
-            + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}`;
+            + `${statusFilter ? `&status=${statusFilter}` : ''}&groupBy=${groupBy}${orgParam}`;
         const url = `${BACK_URL}/fraud-alerts/report/export?${params}`;
         await descargarCsv({ url, fileName: 'fraud-report.csv' });
         setExporting(false);
@@ -235,6 +253,7 @@ const FraudReport = () => {
         || generatedFilters.toDate !== formatDateISO(toDate)
         || generatedFilters.statusFilter !== statusFilter
         || generatedFilters.groupBy !== groupBy
+        || (generatedFilters.organizationId ?? null) !== organizationId
     );
 
     // EU-390: los totales del período salen del resumen que arma el backend, igual que en el PDF.
@@ -321,13 +340,14 @@ const FraudReport = () => {
                     <Text style={styles.configSummary}>
                         {`${generatedFilters.fromDate} a ${generatedFilters.toDate} · `
                             + `${GROUP_OPTIONS.find(o => o.value === generatedFilters.groupBy)?.label ?? ''} · `
-                            + `${STATUS_OPTIONS.find(o => o.value === generatedFilters.statusFilter)?.label ?? ''}`}
+                            + `${STATUS_OPTIONS.find(o => o.value === generatedFilters.statusFilter)?.label ?? ''}`
+                            + (generatedFilters.organizationId != null ? ` · ${generatedFilters.organizationName}` : '')}
                     </Text>
                 )}
             </View>
 
             <BaseModal visible={showConfig} onClose={() => setShowConfig(false)}>
-              <View style={styles.filtersContainer}>
+              <ScrollView style={styles.filtersContainer}>
                 <Text style={styles.configTitle}>Configurar reporte</Text>
                 <View style={styles.dateRow}>
                     <View style={styles.dateBlock}>
@@ -382,6 +402,24 @@ const FraudReport = () => {
                     ))}
                 </View>
 
+                <Text style={styles.filterLabel}>Organización</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {[{ id: null, name: 'Todas' }, ...organizations].map(o => {
+                        const value = o.id == null ? null : String(o.id);
+                        const activo = organizationId === value;
+                        return (
+                            <TouchableOpacity
+                                key={String(o.id)}
+                                style={[styles.statusBtn, { marginRight: 8, flexShrink: 0 }, activo && styles.statusBtnActive]}
+                                onPress={() => setOrganizationId(value)}>
+                                <Text numberOfLines={1} style={[styles.statusBtnText, activo && styles.statusBtnTextActive]}>
+                                    {o.name}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+
                 <Text style={styles.filterLabel}>Estado</Text>
                 <View style={styles.statusRow}>
                     {STATUS_OPTIONS.map(opt => (
@@ -418,7 +456,7 @@ const FraudReport = () => {
                         <Text style={styles.closeConfigBtnText}>Cerrar</Text>
                     </TouchableOpacity>
                 )}
-              </View>
+              </ScrollView>
             </BaseModal>
 
             <FlatList
@@ -450,6 +488,8 @@ const styles = StyleSheet.create({
     },
     filtersContainer: {
         width: '100%',
+        // EU-434: con el filtro Organización el panel puede ser más alto que la pantalla.
+        maxHeight: Dimensions.get('window').height * 0.8,
     },
     configBar: {
         paddingHorizontal: 16,
