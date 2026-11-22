@@ -78,7 +78,8 @@ test.describe('Menú del administrador', () => {
         // Usuario nuevo con una búsqueda guardada: cuando un empleado recepta algo parecido, le llega un aviso.
         const u = await T.registrarUsuario(request, 'notif');
         const emp = await sesion.sesionDe(USUARIOS_PARALELO.empleadoAero);
-        const descripcion = nombreUnico('billetera marron indicador');
+        // Un objeto que ningún otro test recepta, para que no lleguen avisos ajenos mientras se prueba.
+        const descripcion = nombreUnico('ukelele celeste indicador');
         let falta = null;
         try {
             await T.guardarBusqueda(request, u.token, descripcion, emp.orgId);

@@ -66,6 +66,7 @@ test.describe('Mi perfil', () => {
             await casoContinuo(123, 'el nombre nuevo se guarda, se ve en Mi perfil y en el menú; un nombre vacío o de más de 50 caracteres se rechaza', async () => {
                 const nuevo = 'Nombrenuevo';
                 await editarCampo(page, 0, nuevo);
+                await expect(page.getByText('¡Datos actualizados!').locator('visible=true').first(), 'no se confirmó el cambio').toBeVisible({ timeout: 15000 });
                 await page.reload();
                 await irAMiPerfil(page, u.email);
                 await expect(camposPerfil(page).nth(0)).toHaveAttribute('placeholder', nuevo);
@@ -81,6 +82,7 @@ test.describe('Mi perfil', () => {
                 const nuevo = 'Apellidonuevo';
                 await irAMiPerfil(page, u.email);
                 await editarCampo(page, 1, nuevo);
+                await expect(page.getByText('¡Datos actualizados!').locator('visible=true').first(), 'no se confirmó el cambio').toBeVisible({ timeout: 15000 });
                 await page.reload();
                 await irAMiPerfil(page, u.email);
                 await expect(camposPerfil(page).nth(1)).toHaveAttribute('placeholder', nuevo);
