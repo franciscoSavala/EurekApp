@@ -248,6 +248,10 @@ const Notifications = ({ navigation, route }) => {
                 <Text style={styles.itemDate}>{formatDateTimeLocaleES(item.created_at)}</Text>
 
                 {isPendingInvitation && (
+                    <Text style={styles.statusLabel}>Pendiente</Text>
+                )}
+
+                {isPendingInvitation && (
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={styles.acceptButton}
@@ -430,6 +434,19 @@ const styles = StyleSheet.create({
         color: "#555",
         marginBottom: 6,
         lineHeight: 18,
+    },
+    statusLabel: {
+        alignSelf: "flex-start",
+        marginTop: 6,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#b45309",
+        backgroundColor: "#fef3c7",
+        color: "#b45309",
+        fontSize: 11,
+        fontFamily: "PlusJakartaSans-Bold",
     },
     itemDate: {
         fontSize: 11,
