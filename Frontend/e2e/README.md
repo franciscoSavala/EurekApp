@@ -44,6 +44,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | `feedback-app.spec.js` | Opinión sobre la app: modal, controles, omitir y envío completo. | 125 a 132 | @paralelo |
 | `feedback-roles.spec.js` | El botón de opinión sobre la app está en Mi perfil de cada rol (usa al encargado de la organización 1). | 265 | @serie |
 | `fraude-alertas.spec.js` | Alertas de fraude del administrador y del dueño de la organización. | 134 a 137, 141, 142, 202, 207, 209 | @serie |
+| `fraude-finder-bloqueado.spec.js` | Devolución de un objeto cuyo finder está bloqueado por fraude: la devolución se completa, no suma puntos y el aviso queda en la base. Crea un usuario propio, lo bloquea y al final marca como falsa alarma toda alerta que haya dejado. | 242 | @serie |
 | `fraude-reporte-filtros.spec.js` | Reporte de fraude: acceso del dueño, filtros por organización, fechas y estados, y generación. | 144 a 153, 215, 216 | @paralelo |
 | `fraude-reporte-graficos.spec.js` | Reporte de fraude: torta de activas contra falsas alarmas y gráfico de evolución. | 356 a 361 | @paralelo |
 | `fraude-reporte-usuarios.spec.js` | Reporte de fraude: usuarios con fraude, historial, reincidentes y orden. | 212 a 214, 217, 218, 354, 355 | @paralelo |
@@ -54,6 +55,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | `organizacion-empleados.spec.js` | Datos de la organización, alta de empleados por correo, asignar encargado y eliminar empleados. | 154 a 164, 174 a 178, 245 a 248 | @serie |
 | `organizacion-politicas.spec.js` | Políticas de la organización: pantalla, guardado, persistencia, historial y aplicación al devolver. | 165 a 173, 243, 244 | @serie |
 | `recepcion.spec.js` | Receptar un objeto: campos, éxito, título e imagen obligatorios, formato, tamaño y largo del título. | 064, 065, 067, 075 a 077, 079, 080, 113 | @paralelo |
+| `recepcion-camara.spec.js` | Recepción: sacar la foto con la cámara simulada de Chromium y ver la imagen capturada. | 070 | @paralelo |
 | `recepcion-confirmacion-feedback.spec.js` | Recepción: aviso de confirmación y que no aparezca pedido de opinión. | 081, 082 | @paralelo |
 | `recepcion-formulario.spec.js` | Recepción: objeto con todos los campos, interruptor de ubicación, usuarios inválidos y carga o reemplazo de imagen. | 066, 068 a 069, 071 a 073, 078 | @paralelo |
 | `recepcion-inventario.spec.js` | Inventario y detalle del objeto, vencimientos, error de conexión y organización sin objetos. | 083 a 089, 112 | @paralelo |
