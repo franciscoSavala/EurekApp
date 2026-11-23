@@ -137,26 +137,39 @@ class FraudBlockServiceTest {
 
     // isDniBlocked delega en el repositorio.
     @Test
-    void isDniBlocked_delegatesToRepository() {
+    void isDniBlocked_soloCuentaLosBloqueosQueTodaviaNoVencieron() {
         service = new FraudBlockService(blockRepository);
         when(blockRepository.existsByTargetDniAndExpiresAtAfter(eq("12345678"), any(LocalDateTime.class)))
                 .thenReturn(true);
 
+        LocalDateTime antes = LocalDateTime.now();
         assertThat(service.isDniBlocked("12345678")).isTrue();
+        LocalDateTime despues = LocalDateTime.now();
         assertThat(service.isDniBlocked("00000000")).isFalse();
         assertThat(service.isDniBlocked(null)).isFalse();   // null nunca consulta el repo
+
+        // El corte es el momento de la consulta: un bloqueo que ya venció no cuenta.
+        ArgumentCaptor<LocalDateTime> corte = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(blockRepository).existsByTargetDniAndExpiresAtAfter(eq("12345678"), corte.capture());
+        assertThat(corte.getValue()).isBetween(antes, despues);
     }
 
-    // isUserBlocked delega en el repositorio.
+    // Un usuario está bloqueado solo mientras su bloqueo no venció.
     @Test
-    void isUserBlocked_delegatesToRepository() {
+    void isUserBlocked_soloCuentaLosBloqueosQueTodaviaNoVencieron() {
         service = new FraudBlockService(blockRepository);
         when(blockRepository.existsByTargetUser_IdAndExpiresAtAfter(eq(10L), any(LocalDateTime.class)))
                 .thenReturn(true);
 
+        LocalDateTime antes = LocalDateTime.now();
         assertThat(service.isUserBlocked(10L)).isTrue();
+        LocalDateTime despues = LocalDateTime.now();
         assertThat(service.isUserBlocked(99L)).isFalse();
         assertThat(service.isUserBlocked(null)).isFalse();  // null nunca consulta el repo
+
+        ArgumentCaptor<LocalDateTime> corte = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(blockRepository).existsByTargetUser_IdAndExpiresAtAfter(eq(10L), corte.capture());
+        assertThat(corte.getValue()).isBetween(antes, despues);
     }
 
     // Mensaje humano de bloqueo (EU-288): motivo en lenguaje llano + hasta cuándo + correo de soporte.
