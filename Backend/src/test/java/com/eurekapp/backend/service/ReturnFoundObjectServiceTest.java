@@ -20,6 +20,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.util.Optional;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -340,13 +341,17 @@ class ReturnFoundObjectServiceTest {
 
     // EU-435: avisos de nivel nuevo y de logro desbloqueado.
     private void devolverConFinder(Long xp, Long devueltos) throws Exception {
+        devolverConFinder(xp, devueltos, Role.USER);
+    }
+
+    private UserEurekapp devolverConFinder(Long xp, Long devueltos, Role rolDelFinder) throws Exception {
         Organization org = Organization.builder().id(1L).name("TestOrg").build();
         UserEurekapp caller = UserEurekapp.builder()
                 .id(10L).username("employee@test.com").firstName("Emp").lastName("Loyee")
                 .role(Role.ORGANIZATION_EMPLOYEE).organization(org).build();
         UserEurekapp finder = UserEurekapp.builder()
                 .id(99L).username("finder@test.com").firstName("Fin").lastName("Der")
-                .role(Role.USER).XP(xp).returnedObjects(devueltos).build();
+                .role(rolDelFinder).XP(xp).returnedObjects(devueltos).build();
         FoundObject fo = FoundObject.builder()
                 .uuid("uuid-123").organizationId("1").title("Mochila azul")
                 .wasReturned(false).objectFinderUser(finder).build();
@@ -362,6 +367,38 @@ class ReturnFoundObjectServiceTest {
         when(fraudBlockService.isUserBlocked(99L)).thenReturn(false);
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class))).thenAnswer(inv -> inv.getArgument(0));
         service.returnFoundObject(command, caller);
+        return finder;
+    }
+
+    @Test
+    void finderUsuarioComun_suma10PuntosYUnaDevolucion() throws Exception {
+        UserEurekapp finder = devolverConFinder(30L, 3L, Role.USER);
+
+        assertThat(finder.getXP()).isEqualTo(40L);
+        assertThat(finder.getReturnedObjects()).isEqualTo(4L);
+        verify(userRepository).save(finder);
+    }
+
+    @Test
+    void finderEmpleadoOEncargado_noSumaPuntosPorIncompatibilidadDeFunciones() throws Exception {
+        for (Role rol : List.of(Role.ORGANIZATION_EMPLOYEE, Role.ENCARGADO, Role.ORGANIZATION_OWNER)) {
+            UserEurekapp finder = devolverConFinder(30L, 3L, rol);
+
+            assertThat(finder.getXP()).as("XP con rol %s", rol).isEqualTo(30L);
+            assertThat(finder.getReturnedObjects()).as("devoluciones con rol %s", rol).isEqualTo(3L);
+        }
+        verify(inAppNotificationService, never()).createNotification(any(), anyString(), anyString(), eq("REWARD_EARNED"), any());
+    }
+
+    @Test
+    void objetoConExclusionRegistrada_noSumaPuntosAunqueElFinderSeaUsuarioComun() throws Exception {
+        when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(true);
+
+        UserEurekapp finder = devolverConFinder(30L, 3L, Role.USER);
+
+        assertThat(finder.getXP()).isEqualTo(30L);
+        assertThat(finder.getReturnedObjects()).isEqualTo(3L);
+        verify(inAppNotificationService, never()).createNotification(any(), anyString(), anyString(), eq("REWARD_EARNED"), any());
     }
 
     @Test
