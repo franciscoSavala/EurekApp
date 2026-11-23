@@ -21,10 +21,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.model.Organization;
+
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -149,5 +160,44 @@ class AdminServiceTest {
 
         assertThatThrownBy(() -> adminService.getOrganizationMembers(owner, 5L))
                 .isInstanceOf(ForbiddenException.class);
+    }
+
+    @Test
+    void toggleUserActive_elAdministradorNoPuedeDesactivarseASiMismo() {
+        UserEurekapp admin = buildUser(Role.ADMIN, true);
+        admin.setId(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
+
+        assertThatThrownBy(() -> adminService.toggleUserActive(admin, 1L, false))
+                .isInstanceOf(BadRequestException.class);
+
+        assertThat(admin.isActive()).isTrue();
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void toggleOrganizationActive_soloLoPuedeHacerElAdministrador() {
+        UserEurekapp owner = buildUser(Role.ORGANIZATION_OWNER, true);
+
+        assertThatThrownBy(() -> adminService.toggleOrganizationActive(owner, 5L, false))
+                .isInstanceOf(ForbiddenException.class);
+
+        verifyNoInteractions(organizationRepository);
+    }
+
+    @Test
+    void toggleOrganizationActive_suspendeLaOrganizacionYAvisaACadaMiembro() {
+        Organization org = Organization.builder().id(5L).name("Terminal").active(true).build();
+        UserEurekapp dueno = buildUser(Role.ORGANIZATION_OWNER, true);
+        UserEurekapp empleado = buildUser(Role.ORGANIZATION_EMPLOYEE, true);
+        when(organizationRepository.findById(5L)).thenReturn(Optional.of(org));
+        when(userRepository.findByOrganizationAndRoleIn(eq(org), any())).thenReturn(List.of(dueno, empleado));
+
+        adminService.toggleOrganizationActive(buildUser(Role.ADMIN, true), 5L, false);
+
+        assertThat(org.isActive()).isFalse();
+        verify(organizationRepository).save(org);
+        verify(inAppNotificationService).createNotification(eq(dueno), eq("Tu organización fue suspendida"), anyString(), eq("ORG_DEACTIVATED"), isNull());
+        verify(inAppNotificationService).createNotification(eq(empleado), eq("Tu organización fue suspendida"), anyString(), eq("ORG_DEACTIVATED"), isNull());
     }
 }
