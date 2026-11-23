@@ -89,6 +89,56 @@ class UserServiceEmpleadosTest {
     }
 
     @Test
+    void quitarEncargado_loDevuelveAEmpleado() {
+        UserEurekapp encargado = usuario(5L, Role.ENCARGADO, utn);
+
+        service.revokeEncargado(dueno, 5L);
+
+        assertThat(encargado.getRole()).isEqualTo(Role.ORGANIZATION_EMPLOYEE);
+        assertThat(encargado.getOrganization()).isSameAs(utn);
+    }
+
+    @Test
+    void quitarEncargado_soloLoPuedeHacerElDuenoDeSuMismaOrganizacion() {
+        UserEurekapp encargadoAjeno = usuario(6L, Role.ENCARGADO, otra);
+        usuario(7L, Role.ENCARGADO, utn);
+        UserEurekapp empleado = UserEurekapp.builder().id(8L).role(Role.ORGANIZATION_EMPLOYEE).organization(utn).build();
+
+        assertThatThrownBy(() -> service.revokeEncargado(dueno, 6L)).isInstanceOf(ForbiddenException.class);
+        assertThatThrownBy(() -> service.revokeEncargado(empleado, 7L)).isInstanceOf(ForbiddenException.class);
+        assertThat(encargadoAjeno.getRole()).isEqualTo(Role.ENCARGADO);
+        verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void rechazarInvitacion_quedaRechazadaYElUsuarioSigueSinOrganizacion() {
+        UserEurekapp invitado = UserEurekapp.builder().id(8L).username("inv@mail.com").firstName("Leo").lastName("Ruiz").role(Role.USER).build();
+        AddEmployeeRequest solicitud = AddEmployeeRequest.builder().id(10L).user(invitado).organization(utn)
+                .status(AddEmployeeRequestStatus.PENDING).build();
+        when(requestRepository.findById(10L)).thenReturn(Optional.of(solicitud));
+
+        service.declineAddEmployeeRequest(invitado, 10L);
+
+        assertThat(solicitud.getStatus()).isEqualTo(AddEmployeeRequestStatus.DECLINED);
+        assertThat(invitado.getRole()).isEqualTo(Role.USER);
+        assertThat(invitado.getOrganization()).isNull();
+    }
+
+    @Test
+    void rechazarInvitacion_deOtraPersona_seRechazaSinCambiarNada() {
+        UserEurekapp invitado = UserEurekapp.builder().id(8L).username("inv@mail.com").role(Role.USER).build();
+        UserEurekapp intruso = UserEurekapp.builder().id(9L).username("intruso@mail.com").role(Role.USER).build();
+        AddEmployeeRequest solicitud = AddEmployeeRequest.builder().id(10L).user(invitado).organization(utn)
+                .status(AddEmployeeRequestStatus.PENDING).build();
+        when(requestRepository.findById(10L)).thenReturn(Optional.of(solicitud));
+
+        assertThatThrownBy(() -> service.declineAddEmployeeRequest(intruso, 10L)).isInstanceOf(ForbiddenException.class);
+
+        assertThat(solicitud.getStatus()).isEqualTo(AddEmployeeRequestStatus.PENDING);
+        verify(requestRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void invitar_aQuienYaPerteneceAUnaOrganizacion_seRechaza() {
         UserEurekapp ajeno = UserEurekapp.builder().username("ajeno@mail.com").role(Role.ORGANIZATION_EMPLOYEE).organization(otra).build();
         when(userRepository.existsByUsername("ajeno@mail.com")).thenReturn(true);
