@@ -26,6 +26,11 @@ const BACK_URL = Constants.expoConfig.extra.backUrl;
 
 const PAGE_SIZE = 20;
 
+const FILTERS = [
+    { label: 'Todos', value: 'all' },
+    { label: 'Vencidos', value: 'expired' },
+];
+
 const Inventory = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [selectedInstitute, setSelectedInstitute] = useState(null);
@@ -35,35 +40,16 @@ const Inventory = ({ navigation }) => {
     const [refreshing, setRefreshing] = useState(false);
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(false);
-    const [maxStorageDays, setMaxStorageDays] = useState(null);
     // EU-444: si la carga falla no se sabe qué hay en el inventario; no se puede decir que está vacío.
     const [loadFailed, setLoadFailed] = useState(false);
 
-    useEffect(() => {
-        const fetchPolicy = async () => {
-            try {
-                const data = await authFetch('get', `${BACK_URL}/organizations/policy`);
-                if (data.maxStorageDays != null) {
-                    setMaxStorageDays(data.maxStorageDays);
-                }
-            } catch (e) {
-                if (__DEV__) console.warn('fetchPolicy error:', e);
-            }
-        };
-        fetchPolicy();
-    }, []);
+    // EU-452: "all" lista todo el inventario; "expired" solo los objetos con el plazo de guarda vencido.
+    const [filter, setFilter] = useState('all');
 
-    const getStorageStatus = (foundDate) => {
-        if (!maxStorageDays || !foundDate) return null;
-        const days = (Date.now() - new Date(foundDate).getTime()) / (1000 * 60 * 60 * 24);
-        if (days >= maxStorageDays) return 'expired';
-        if (days >= maxStorageDays * 0.8) return 'expiring';
-        return null;
-    };
-
-    const fetchFoundObjectsFromOrganization = async (institute, pageNum = 0, append = false) => {
+    const fetchFoundObjectsFromOrganization = async (institute, pageNum = 0, append = false, activeFilter = filter) => {
         try {
-            const data = await authFetch('get', `${BACK_URL}/found-objects/organizations/all/${institute.id}?page=${pageNum}&pageSize=${PAGE_SIZE}`);
+            const expiredParam = activeFilter === 'expired' ? '&expired=true' : '';
+            const data = await authFetch('get', `${BACK_URL}/found-objects/organizations/all/${institute.id}?page=${pageNum}&pageSize=${PAGE_SIZE}${expiredParam}`);
             const { found_objects = [], has_more = false } = data;
             setInstitutesObject(prev => append ? [...prev, ...found_objects] : found_objects);
             setHasMore(has_more);
@@ -84,6 +70,16 @@ const Inventory = ({ navigation }) => {
         await fetchFoundObjectsFromOrganization(selectedInstitute, 0, false);
         setRefreshing(false);
     }
+
+    const changeFilter = async (newFilter) => {
+        if (newFilter === filter || !selectedInstitute) return;
+        setFilter(newFilter);
+        setLoading(true);
+        setInstitutesObject([]);
+        setHasMore(false);
+        setPage(0);
+        await fetchFoundObjectsFromOrganization(selectedInstitute, 0, false, newFilter);
+    };
 
     const loadMore = () => {
         if (!hasMore || loadingMore || loading) return;
@@ -106,7 +102,7 @@ const Inventory = ({ navigation }) => {
     );
 
     const renderItem = ({item}) => {
-        const storageStatus = getStorageStatus(item.found_date);
+        const storageStatus = item.storage_status;
         return (
             <Pressable style={styles.item}>
                 <View style={styles.itemTextContainer}>
@@ -116,12 +112,12 @@ const Inventory = ({ navigation }) => {
                     <Text style={styles.itemText}>
                         Encontrado el {formatDateES(item.found_date)}
                     </Text>
-                    {storageStatus === 'expired' && (
+                    {storageStatus === 'EXPIRED' && (
                         <View style={styles.expiredBadge}>
                             <Text style={styles.expiredBadgeText}>Vencido</Text>
                         </View>
                     )}
-                    {storageStatus === 'expiring' && (
+                    {storageStatus === 'EXPIRING' && (
                         <View style={styles.expiringBadge}>
                             <Text style={styles.expiringBadgeText}>Por vencer</Text>
                         </View>
@@ -156,12 +152,28 @@ const Inventory = ({ navigation }) => {
         return (
             loadFailed
                 ? <EmptyState icon="wifi" title="No se pudo cargar el inventario. Verificá tu conexión." />
-                : <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />
+                : filter === 'expired'
+                    ? <EmptyState icon="box-open" title="No hay objetos vencidos." />
+                    : <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />
         );
     }
     return (
         <View style={styles.container}>
             <View style={styles.organizationObjectsContainer}>
+                <View style={styles.filtersRow}>
+                    {FILTERS.map((f) => (
+                        <TouchableOpacity
+                            key={f.value}
+                            accessibilityRole="button"
+                            style={[styles.chip, filter === f.value && styles.chipActive]}
+                            onPress={() => changeFilter(f.value)}
+                        >
+                            <Text style={[styles.chipText, filter === f.value && styles.chipTextActive]}>
+                                {f.label}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
                 { loading ?
                     <View style={{flex: 1, justifyContent: 'center'}}>
                         <ActivityIndicator size="large" style={{alignSelf: 'center'}} color="#111818" />
@@ -201,6 +213,20 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
     },
+    filtersRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        alignItems: 'center',
+    },
+    chip: {
+        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+        backgroundColor: '#fff', borderWidth: 1, borderColor: '#dde8e8',
+        marginRight: 8,
+    },
+    chipActive: { backgroundColor: '#4A9999', borderColor: '#4A9999' },
+    chipText: { fontSize: 13, fontFamily: 'PlusJakartaSans-Regular', color: '#555' },
+    chipTextActive: { color: '#fff', fontFamily: 'PlusJakartaSans-Bold' },
     item: {
         height: 150,
         backgroundColor: colors.surface,

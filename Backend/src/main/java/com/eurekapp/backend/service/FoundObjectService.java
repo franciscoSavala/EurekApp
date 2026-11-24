@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -67,6 +68,8 @@ public class FoundObjectService implements IFoundObjectService {
     private final EmailTemplateService emailTemplateService;
     private final FraudBlockService fraudBlockService;
     private final FoundObjectDtoMapper dtoMapper;
+    private final StoragePeriodService storagePeriodService;
+    private final Clock clock;
 
     public FoundObjectService(ObjectStorage s3Service,
                               ImageDescriptionService descriptionService,
@@ -84,7 +87,9 @@ public class FoundObjectService implements IFoundObjectService {
                               NotificationService notificationService,
                               EmailTemplateService emailTemplateService,
                               FraudBlockService fraudBlockService,
-                              FoundObjectDtoMapper dtoMapper) {
+                              FoundObjectDtoMapper dtoMapper,
+                              StoragePeriodService storagePeriodService,
+                              Clock clock) {
         this.s3Service = s3Service;
         this.descriptionService = descriptionService;
         this.embeddingService = embeddingService;
@@ -102,6 +107,8 @@ public class FoundObjectService implements IFoundObjectService {
         this.emailTemplateService = emailTemplateService;
         this.fraudBlockService = fraudBlockService;
         this.dtoMapper = dtoMapper;
+        this.storagePeriodService = storagePeriodService;
+        this.clock = clock;
     }
 
     /* El propósito de este método es postear un objeto encontrado. Toma como parámetros la foto del objeto encontrado,
@@ -332,7 +339,15 @@ public class FoundObjectService implements IFoundObjectService {
         String foundObjectUuid = command.getFoundObjectUUID();
         FoundObject fo = foundObjectRepository.getByUuid(foundObjectUuid);
         if(fo == null){ throw new BadRequestException("found_object_detail", String.format("Found object with uuid '%s' not found", foundObjectUuid)); }
-        return dtoMapper.toDto(fo);
+        FoundObjectDto dto = dtoMapper.toDto(fo);
+        fillStorage(dto, fo, storagePeriodService.getMaxStorageDays(fo.getOrganizationId()));
+        return dto;
+    }
+
+    /* EU-452: completa estado y vencimiento del plazo de guarda en el DTO. */
+    private void fillStorage(FoundObjectDto dto, FoundObject fo, Integer maxStorageDays) {
+        dto.setStorageStatus(storagePeriodService.getStatus(fo, maxStorageDays));
+        dto.setStorageExpiresAt(storagePeriodService.getExpirationDate(fo, maxStorageDays));
     }
 
     /**
@@ -347,12 +362,24 @@ public class FoundObjectService implements IFoundObjectService {
         int pageSize = command.getPageSize() != null ? command.getPageSize() : 20;
         int offset = page * pageSize;
 
+        Integer maxStorageDays = storagePeriodService.getMaxStorageDays(orgId);
+        LocalDateTime foundDateTo = null;
+        if (Boolean.TRUE.equals(command.getExpiredOnly())) {
+            if (maxStorageDays == null) {
+                return FoundObjectsListDto.builder()
+                        .foundObjects(List.of())
+                        .hasMore(false)
+                        .build();
+            }
+            foundDateTo = LocalDateTime.now(clock).minusDays(maxStorageDays);
+        }
+
         // Pedimos pageSize+1 para saber si hay más sin hacer una query extra de conteo.
         List<FoundObject> foundObjects = foundObjectRepository.query(null,
                 orgId,
                 null,
                 null,
-                null,
+                foundDateTo,
                 false,
                 null,
                 pageSize + 1,
@@ -361,7 +388,11 @@ public class FoundObjectService implements IFoundObjectService {
         boolean hasMore = foundObjects.size() > pageSize;
         List<FoundObjectDto> result = foundObjects.stream()
                 .limit(pageSize)
-                .map(dtoMapper::toDto)
+                .map(fo -> {
+                    FoundObjectDto dto = dtoMapper.toDto(fo);
+                    fillStorage(dto, fo, maxStorageDays);
+                    return dto;
+                })
                 .toList();
 
         return FoundObjectsListDto.builder()

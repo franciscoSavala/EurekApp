@@ -55,6 +55,7 @@ class FoundObjectSearchServiceTest {
     @Mock OrganizationService organizationService;
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock SearchScoringService searchScoringService;
+    @Mock StoragePeriodService storagePeriodService;
 
     FoundObjectSearchService service;
 
@@ -64,7 +65,9 @@ class FoundObjectSearchServiceTest {
         FoundObjectDtoMapper dtoMapper = new FoundObjectDtoMapper(s3Service, organizationRepository, organizationService);
         service = new FoundObjectSearchService(embeddingService, imageEmbeddingService,
                 imageClassificationService, textClassificationService, organizationRepository,
-                foundObjectRepository, searchScoringService, dtoMapper);
+                foundObjectRepository, searchScoringService, dtoMapper, storagePeriodService);
+        when(storagePeriodService.excludeExpired(org.mockito.ArgumentMatchers.anyList()))
+                .thenAnswer(i -> i.getArgument(0));
     }
 
     private static final GeoCoordinates CORDOBA =
@@ -381,4 +384,51 @@ class FoundObjectSearchServiceTest {
                 eq(false), eq(ObjectCategory.BILLETERA.name()), anyInt(), any());
     }
 
+
+    // ---- EU-452: plazo de guarda ----
+
+    @Test
+    void busquedaSoloTexto_unObjetoVencidoNoAparece() {
+        stubOrganizacionYBusqueda();
+        stubScoringPorModo();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        FoundObject vigente = candidato("vigente", 0.9f, CORDOBA);
+        FoundObject vencido = candidato("vencido", 0.95f, CORDOBA);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any()))
+                .thenReturn(List.of(vigente, vencido));
+        when(storagePeriodService.excludeExpired(List.of(vigente, vencido))).thenReturn(List.of(vigente));
+
+        FoundObjectsListDto result = service.getFoundObjectByTextDescription(
+                SimilarObjectsCommand.builder().organizationId(1L).query("billetera").build());
+
+        verify(storagePeriodService).excludeExpired(List.of(vigente, vencido));
+        assertThat(result.getFoundObjects()).extracting(o -> o.getId()).containsExactly("vigente");
+    }
+
+    @Test
+    void busquedaConFoto_unObjetoVencidoNoAparece() {
+        Organization org = mock(Organization.class);
+        when(org.getCoordinates()).thenReturn(CORDOBA);
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(searchScoringService.combinedScore(any(), any(), any(), any(), any())).thenReturn(0.9);
+        when(searchScoringService.isCombinedMatch(anyDouble(), any())).thenReturn(true);
+        when(searchScoringService.displayScore(anyDouble(), any())).thenReturn(0.95);
+        when(s3Service.generatePresignedUrl(anyString(), any())).thenReturn("http://img/x.jpg");
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.2f));
+        FoundObject vigente = candidato("vigente", 0.9f, CORDOBA);
+        FoundObject vencido = candidato("vencido", 0.95f, CORDOBA);
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of(vigente, vencido));
+        when(storagePeriodService.excludeExpired(List.of(vigente, vencido))).thenReturn(List.of(vigente));
+
+        FoundObjectsListDto result = service.searchByPhoto(new MockMultipartFile("file", new byte[]{1, 2, 3}),
+                "billetera", SimilarObjectsCommand.builder().organizationId(1L).build());
+
+        verify(storagePeriodService).excludeExpired(List.of(vigente, vencido));
+        assertThat(result.getFoundObjects()).extracting(o -> o.getId()).containsExactly("vigente");
+    }
 }

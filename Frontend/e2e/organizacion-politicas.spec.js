@@ -51,10 +51,10 @@ test.describe('políticas de la organización', () => {
         });
 
         await caso(166, 'el tiempo de almacenamiento se puede ingresar y modificar', async () => {
-            await campoDias(page).fill('30');
-            await expect(campoDias(page)).toHaveValue('30');
-            await campoDias(page).fill('45');
-            await expect(campoDias(page)).toHaveValue('45');
+            await campoDias(page).fill('3000');
+            await expect(campoDias(page)).toHaveValue('3000');
+            await campoDias(page).fill('3650');
+            await expect(campoDias(page)).toHaveValue('3650');
         });
 
         await caso(167, 'el selector muestra solo la última opción elegida y lista los tipos', async () => {
@@ -99,7 +99,7 @@ test.describe('políticas de la organización', () => {
         await caso(170, 'guardar las políticas muestra el aviso de éxito y queda en el servidor', async () => {
             await guardar(page);
             const p = await leerPoliticas(request, tokenDueno);
-            expect(p.maxStorageDays).toBe(45);
+            expect(p.maxStorageDays).toBe(3650);
             expect(p.requiresIdentityValidation).toBe(true);
             expect(p.requiresAdditionalEvidence).toBe(true);
             expect(p.organizationType).toBe('UNIVERSITY');
@@ -108,16 +108,16 @@ test.describe('políticas de la organización', () => {
 
         await caso(171, 'guardar sin cambios no rompe y mantiene los valores', async () => {
             await guardar(page);
-            await expect(campoDias(page)).toHaveValue('45');
+            await expect(campoDias(page)).toHaveValue('3650');
             const p = await leerPoliticas(request, tokenDueno);
-            expect(p.maxStorageDays).toBe(45);
+            expect(p.maxStorageDays).toBe(3650);
             expect(p.organizationType).toBe('UNIVERSITY');
         });
 
         await caso(172, 'al salir y volver a entrar se mantienen los valores guardados', async () => {
             await irAlMenu(page, 'Ver inventario');
             await abrirPoliticas(page);
-            await expect(campoDias(page)).toHaveValue('45');
+            await expect(campoDias(page)).toHaveValue('3650');
             await expect(visible(page.getByText('Universidad', { exact: true }))).toHaveCount(1);
             await expect(interruptores(page).first()).toBeChecked();
             await expect(interruptores(page).nth(1)).toBeChecked();

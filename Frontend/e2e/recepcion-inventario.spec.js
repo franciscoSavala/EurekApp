@@ -6,9 +6,6 @@ const { abrirComo } = require('./helpers/t02');
 const { MENSAJE_EXITO, EMPLEADO_AERO, abrirRecepcion, cargarImagen, vistaPrevia, enviarRecepcion } = require('./helpers/t03');
 const { irPorMenu, tarjetas, tarjetaDe, bajarHastaVer } = require('./helpers/r03');
 
-const DUENO_UNC = 'owner.unc@eurekapp.com';
-const DIA = 24 * 3600 * 1000;
-
 test.describe('Inventario y detalle del objeto', () => {
     let context;
     let page;
@@ -138,22 +135,21 @@ test.describe('Inventario y detalle del objeto', () => {
     });
 });
 
-test.describe('Inventario: etiquetas de vencimiento (dueño de la organización)', () => {
+test.describe('Inventario: etiquetas de vencimiento (empleado de la organización)', () => {
     test('caso 084: los objetos pasados de plazo muestran Vencido y los próximos a vencer Por vencer @recepcion @paralelo', async ({ browser }) => {
-        // Solo el responsable de la organización recibe el plazo de guarda; el seed no tiene política ni objetos viejos:
-        // se simulan el plazo (90 días) y las fechas de hallazgo.
-        const { context, page } = await abrirComo(browser, DUENO_UNC);
+        // El servidor calcula el estado del plazo de guarda (storage_status) y lo manda a todos los roles:
+        // se simula la respuesta del inventario con un objeto vencido y otro por vencer, y se entra como empleado.
+        const { context, page } = await abrirComo(browser, EMPLEADO_AERO);
         try {
-            await page.route('**/organizations/policy', (route) => route.fulfill({ json: { maxStorageDays: 90, history: [] } }));
             await page.route('**/found-objects/organizations/all/**', async (route) => {
                 const respuesta = await route.fetch();
                 const cuerpo = await respuesta.json();
-                const dias = [100, 80];
+                const estados = ['EXPIRED', 'EXPIRING'];
                 cuerpo.found_objects = cuerpo.found_objects.map((o, i) => (
-                    i < dias.length ? { ...o, found_date: new Date(Date.now() - dias[i] * DIA).toISOString().slice(0, 19) } : o));
+                    i < estados.length ? { ...o, storage_status: estados[i] } : { ...o, storage_status: null }));
                 await route.fulfill({ response: respuesta, json: cuerpo });
             });
-            await caso(84, 'el objeto de 100 días muestra "Vencido" y el de 80 días muestra "Por vencer" (servidor simulado con plazo y fechas)', async () => {
+            await caso(84, 'la primera tarjeta (EXPIRED) muestra "Vencido" y la segunda (EXPIRING) muestra "Por vencer" para un empleado (inventario simulado con storage_status)', async () => {
                 await irPorMenu(page, 'Ver inventario');
                 await expect(tarjetas(page).first()).toBeVisible();
                 await expect(tarjetas(page).nth(0).getByText('Vencido', { exact: true })).toBeVisible();

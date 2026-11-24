@@ -111,11 +111,13 @@ public class FoundObjectController {
     public ResponseEntity<FoundObjectsListDto> getAllUnreturnedFoundObjectsByOrganization(
             @PathVariable(name = "organizationId", required = false) Long organizationId,
             @RequestParam(name = "page", defaultValue = "0") int page,
-            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize) {
+            @RequestParam(name = "pageSize", defaultValue = "20") int pageSize,
+            @RequestParam(name = "expired", required = false) Boolean expired) {
         SimilarObjectsCommand command = SimilarObjectsCommand.builder()
                 .organizationId(organizationId)
                 .page(page)
                 .pageSize(pageSize)
+                .expiredOnly(expired)
                 .build();
         return ResponseEntity.ok(foundObjectService.getAllUnreturnedFoundObjectsByOrganization(command));
     }
