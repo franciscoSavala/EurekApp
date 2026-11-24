@@ -71,9 +71,9 @@ async function notificacionesApi(request, token) {
     return r.json();
 }
 
-/** Espera (hasta 60 s) a que el usuario tenga una notificación de ese tipo. */
-async function esperarNotificacion(request, token, tipo) {
-    await expect.poll(async () => (await notificacionesApi(request, token)).some((n) => n.type === tipo), { timeout: 60000, intervals: [1000, 2000, 3000] }).toBe(true);
+/** Espera (hasta 60 s) a que el usuario tenga una notificación de ese tipo; `filtro` (opcional) la acota. */
+async function esperarNotificacion(request, token, tipo, filtro) {
+    await expect.poll(async () => (await notificacionesApi(request, token)).some((n) => n.type === tipo && (!filtro || filtro(n))), { timeout: 60000, intervals: [1000, 2000, 3000] }).toBe(true);
 }
 
 /** El dueño invita por la API a un usuario como empleado de su organización. */
@@ -95,6 +95,21 @@ function tarjeta(page, ...textos) {
     return l.locator('visible=true').last();
 }
 
+/**
+ * La tarjeta de un aviso de coincidencia solo muestra la búsqueda, no el objeto: los avisos de objetos
+ * ajenos que coinciden con la misma búsqueda se ven igual. Se quitan del listado que recibe la app,
+ * para que quede solo el aviso del objeto `uuid`.
+ */
+async function soloAvisoDeObjeto(context, uuid) {
+    await context.route(`${URL_BACK}/notifications`, async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const resp = await route.fetch();
+        const lista = await resp.json();
+        const filtrada = Array.isArray(lista) ? lista.filter((n) => n.type !== 'MATCH_FOUND' || n.related_object_uuid === uuid) : lista;
+        await route.fulfill({ response: resp, json: filtrada });
+    });
+}
+
 /** Color de fondo de un elemento (las no leídas llevan fondo celeste). */
 const fondoDe = (loc) => loc.evaluate((e) => getComputedStyle(e).backgroundColor);
 
@@ -104,5 +119,5 @@ const abrirComo = (browser, email) => sesion.abrirComo(browser, email);
 module.exports = {
     abrirComo,
     registrarUsuario, loginConOrg, receptarConFinder, guardarBusqueda, devolver, notificacionesApi,
-    esperarNotificacion, invitarApi, asignarEncargadoApi, tarjeta, fondoDe, pausa,
+    esperarNotificacion, soloAvisoDeObjeto, invitarApi, asignarEncargadoApi, tarjeta, fondoDe, pausa,
 };
