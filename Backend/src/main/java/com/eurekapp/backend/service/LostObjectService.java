@@ -368,8 +368,15 @@ public class LostObjectService {
             String message = emailTemplateService.buildObjectMatchFoundEmail(
                     organization.getName(), OrganizationAddress.format(organization),
                     matchingSearchDescriptions, imageUrl);
-            notificationService.sendNotification(username,
-                    "¡Alguien podría haber encontrado tu objeto! — EurekApp", message);
+            // Un correo que no sale no puede cortar el resto: el aviso in-app de este usuario y
+            // los avisos de los usuarios que siguen se mandan igual.
+            try {
+                notificationService.sendNotification(username,
+                        "¡Alguien podría haber encontrado tu objeto! — EurekApp", message);
+            } catch (RuntimeException e) {
+                log.warn("LostObjectService: no se pudo enviar el correo de coincidencia a '{}'. "
+                        + "Se sigue con el aviso in-app y con los demás usuarios.", username, e);
+            }
 
             // Notificación in-app.
             String inAppDescription = "Este objeto coincide con estas búsquedas abiertas: "

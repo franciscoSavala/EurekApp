@@ -162,6 +162,29 @@ class LostObjectServiceTest {
     }
 
     @Test
+    void correoQueFalla_noCortaLosAvisosDeEseUsuarioNiDeLosDemas() {
+        FoundObject found = foundObjectAt(CORDOBA);
+        LostObject s1 = savedSearch("u1@test.com", "mochila", 1.0f, CORDOBA);
+        LostObject s2 = savedSearch("u2@test.com", "cartera", 1.0f, CORDOBA);
+        when(lostObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any())).thenReturn(List.of(s1, s2));
+        UserEurekapp u1 = user("u1@test.com", Role.USER);
+        UserEurekapp u2 = user("u2@test.com", Role.USER);
+        when(userRepository.findByUsername("u1@test.com")).thenReturn(Optional.of(u1));
+        when(userRepository.findByUsername("u2@test.com")).thenReturn(Optional.of(u2));
+        doThrow(new RuntimeException("dirección inexistente"))
+                .when(notificationService).sendNotification(eq("u1@test.com"), anyString(), anyString());
+
+        service.notifyMatchingSavedSearches(found);
+
+        // El otro usuario igual recibe el correo, y los dos reciben el aviso dentro de la app.
+        verify(notificationService).sendNotification(eq("u2@test.com"), anyString(), anyString());
+        verify(inAppNotificationService).createNotification(eq(u1), any(), any(), eq("MATCH_FOUND"), isNull(),
+                any(MatchNotificationDetails.class));
+        verify(inAppNotificationService).createNotification(eq(u2), any(), any(), eq("MATCH_FOUND"), isNull(),
+                any(MatchNotificationDetails.class));
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void sameUser_multipleMatches_singleNotificationListingAll() {
         FoundObject found = foundObjectAt(CORDOBA);
