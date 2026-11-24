@@ -44,7 +44,8 @@ async function bajarHastaVer(page, titulo) {
         if (estado.alFinal) {
             // Al final se espera la carga de la página siguiente; si la altura no crece, no hay más.
             await page.waitForTimeout(700);
-            sinCambios = estado.alto === alturaPrevia ? sinCambios + 1 : 0;
+            // Alto 0: todavía no hay listado desplazable (la primera página sigue cargando); no cuenta como final.
+            sinCambios = estado.alto !== 0 && estado.alto === alturaPrevia ? sinCambios + 1 : 0;
             if (sinCambios >= 10) break;
         } else {
             sinCambios = 0;

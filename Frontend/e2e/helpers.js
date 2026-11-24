@@ -156,11 +156,13 @@ async function bajarHastaVer(page, titulo) {
         if (await objetivo.count() > 0) return;
         const altura = await bajarListado(page);
         await page.waitForTimeout(700);
-        sinCambios = altura === alturaPrevia ? sinCambios + 1 : 0;
+        // Altura 0: todavía no hay listado desplazable (la primera página sigue cargando o es corta). No cuenta
+        // como "listado completo"; si nunca aparece, el tope de bajadas corta igual.
+        sinCambios = altura !== 0 && altura === alturaPrevia ? sinCambios + 1 : 0;
         alturaPrevia = altura;
         if (sinCambios >= 3) break;
     }
-    await expect(objetivo, `el objeto "${titulo}" no apareció al recorrer el listado completo`).toHaveCount(1, { timeout: 2000 });
+    await expect(objetivo, `el objeto "${titulo}" no apareció al recorrer el listado completo`).toHaveCount(1, { timeout: 5000 });
 }
 
 /** Baja por el listado hasta que ya no carga más páginas (el listado queda completo). */
