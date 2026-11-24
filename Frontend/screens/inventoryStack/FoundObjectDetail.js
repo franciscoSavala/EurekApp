@@ -23,7 +23,7 @@ import useAuthFetch from "../../utils/useAuthFetch";
 import { colors } from "../../styles/globalStyles";
 import MapViewComponent from "../components/MapViewComponent";
 import { ROLE_LABELS } from "../../utils/constants";
-import { formatDateTimeES } from "../../utils/dateFormatter";
+import { formatDateES, formatDateTimeES } from "../../utils/dateFormatter";
 import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -115,6 +115,24 @@ const FoundObjectDetail = ({route}) => {
                     <Text style={styles.label}>Encontrado el {formatDateTimeES(fo.found_date)}</Text>
                 </View>
 
+                {fo.storage_expires_at != null && (
+                    <View style={[styles.textAreaContainer, {flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}]}>
+                        <Text style={styles.label}>
+                            {fo.storage_status === 'EXPIRED' ? 'Venció' : 'Vence'} el {formatDateES(fo.storage_expires_at)}
+                        </Text>
+                        {fo.storage_status === 'EXPIRED' && (
+                            <View style={[styles.storageBadge, {backgroundColor: '#ED4337'}]}>
+                                <Text style={styles.storageBadgeText}>Vencido</Text>
+                            </View>
+                        )}
+                        {fo.storage_status === 'EXPIRING' && (
+                            <View style={[styles.storageBadge, {backgroundColor: '#f59e0b'}]}>
+                                <Text style={styles.storageBadgeText}>Por vencer</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
                 <View style={styles.mapContainer}>
                     <Text style={styles.label}>Lugar donde fue encontrado: </Text>
                     {isLoading?
@@ -148,6 +166,17 @@ const FoundObjectDetail = ({route}) => {
 };
 
 const styles = StyleSheet.create({
+    storageBadge: {
+        borderRadius: 8,
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        marginLeft: 8,
+    },
+    storageBadgeText: {
+        color: "#fff",
+        fontSize: 11,
+        fontFamily: "PlusJakartaSans-Bold",
+    },
     container: {
         flex: 1,
         alignItems: 'center',
