@@ -20,15 +20,16 @@ test.describe('Notificaciones del usuario', () => {
         // Si un aviso no llega, solo los casos que lo necesitan quedan como "no se pudo probar".
         let faltaMatch = null;
         let faltaReward = null;
+        let uuidMatch = null;
         try {
             await T.guardarBusqueda(request, u.token, descripcion, emp.orgId);
-            await T.receptarConFinder(request, emp.token, emp.orgId, descripcion);
+            uuidMatch = await T.receptarConFinder(request, emp.token, emp.orgId, descripcion);
         } catch (e) {
             faltaMatch = `no se pudo preparar la coincidencia (${primeraLinea(e)})`;
         }
         if (!faltaMatch) {
             try {
-                await T.esperarNotificacion(request, u.token, 'MATCH_FOUND');
+                await T.esperarNotificacion(request, u.token, 'MATCH_FOUND', (n) => n.related_object_uuid === uuidMatch);
             } catch (e) {
                 faltaMatch = 'el aviso de coincidencia no llegó a la app en 60 segundos';
             }
@@ -52,6 +53,8 @@ test.describe('Notificaciones del usuario', () => {
         const sinAmbos = () => (faltaMatch || faltaReward) && noSePudoProbar(`${faltaMatch || ''} ${faltaReward || ''}`.trim());
 
         const { context, page } = await abrirComo(browser, u.email);
+        // Otros tests receptan billeteras que también coinciden: el listado muestra solo el aviso de este objeto.
+        if (uuidMatch) await T.soloAvisoDeObjeto(context, uuidMatch);
         try {
             await abrirMenu(page);
             await caso(256, 'con notificaciones sin leer el menú muestra un indicador con la cantidad', async () => {
