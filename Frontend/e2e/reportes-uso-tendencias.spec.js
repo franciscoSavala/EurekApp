@@ -51,18 +51,21 @@ test.describe('Reportes: tendencias de búsquedas (reporte de precisión)', () =
         await casoContinuo(200, 'al modificar el rango de fechas la tabla se actualiza según el rango', async () => {
             await r8.abrirPrecision(page);
             await r8.escribirFecha(page, 'Desde', h.DESDE_AMPLIO);
-            const amplia = (await leerTendencias(page)).filas;
-            expect(amplia.length).toBeGreaterThan(0);
+            expect((await leerTendencias(page)).filas.length).toBeGreaterThan(0);
             // Un rango sin feedbacks: la tabla desaparece o queda sin filas.
             await r8.escribirFecha(page, 'Desde', '2020-01-01');
             await r8.escribirFecha(page, 'Hasta', '2020-01-31');
             await page.waitForTimeout(1000);
             await expect(page.getByText('Tendencias de búsquedas', { exact: true }).locator('visible=true')).toHaveCount(0);
-            // Al volver al rango amplio, vuelven las filas.
+            // Al volver al rango amplio, la tabla dibuja lo que devuelve el servidor en ese momento. Se compara con
+            // esa respuesta y no con la lectura anterior: otros specs en paralelo pueden registrar feedbacks en el medio.
+            const pedido = r8.esperarJson(page, '/feedback/report?', (u) => (u.searchParams.get('from') || '').startsWith(h.DESDE_AMPLIO) && !(u.searchParams.get('to') || '').startsWith('2020-'));
             await r8.escribirFecha(page, 'Desde', h.DESDE_AMPLIO);
             await r8.escribirFecha(page, 'Hasta', h.HOY());
-            await page.waitForTimeout(1000);
-            expect((await leerTendencias(page)).filas).toEqual(amplia);
+            const { cuerpo: reporte } = await pedido;
+            expect(reporte.time_series.length).toBeGreaterThan(0);
+            const esperadas = reporte.time_series.map((p) => [p.label, p.successful, p.unsuccessful]);
+            await expect.poll(async () => (await leerTendencias(page)).filas, { timeout: 10000 }).toEqual(esperadas);
         });
         await context.close();
     });
