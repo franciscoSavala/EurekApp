@@ -21,4 +21,6 @@ public class SimilarObjectsCommand {
     private String category;
     private Integer page;
     private Integer pageSize;
+    // EU-452: si es TRUE, el inventario devuelve sólo los objetos vencidos según el plazo de guarda.
+    private Boolean expiredOnly;
 }

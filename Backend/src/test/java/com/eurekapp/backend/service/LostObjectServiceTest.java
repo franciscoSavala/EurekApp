@@ -83,6 +83,7 @@ class LostObjectServiceTest {
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock IUserRepository userRepository;
     @Mock InAppNotificationService inAppNotificationService;
+    @Mock StoragePeriodService storagePeriodService;
 
     LostObjectService service;
 
@@ -94,7 +95,9 @@ class LostObjectServiceTest {
                 emailTemplateService, notificationService, organizationRepository,
                 objectStorage, lostObjectRepository, foundObjectRepository, userRepository,
                 inAppNotificationService,
-                new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0));
+                new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0),
+                storagePeriodService);
+        when(storagePeriodService.isExpired(any())).thenReturn(false);
 
         Organization organization = mock(Organization.class);
         when(organization.getName()).thenReturn("Org Test");
@@ -1065,5 +1068,17 @@ class LostObjectServiceTest {
         return UserEurekapp.builder()
                 .id(1L).username(username).firstName("Nombre").lastName("Apellido").role(role)
                 .build();
+    }
+
+    @Test
+    void objetoVencido_noConsultaLasBusquedasGuardadasNiEnviaAvisos() {
+        FoundObject found = foundObjectAt(CORDOBA);
+        when(storagePeriodService.isExpired(found)).thenReturn(true);
+
+        service.notifyMatchingSavedSearches(found);
+
+        verify(lostObjectRepository, never()).queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any());
+        verify(notificationService, never()).sendNotification(any(), any(), any());
+        verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
     }
 }

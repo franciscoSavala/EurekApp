@@ -1,6 +1,7 @@
 package com.eurekapp.backend.dto;
 
 import com.eurekapp.backend.dto.response.PublicOrganizationDto;
+import com.eurekapp.backend.model.StorageStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,6 +25,12 @@ public class FoundObjectDto {
     private PublicOrganizationDto organization;
     @JsonProperty("found_date")
     private LocalDateTime foundDate;
+    /* EU-452: estado frente al plazo de guarda de la organización y fecha de vencimiento. Se calculan
+     * en el momento; son null si la organización no tiene plazo o el objeto ya fue devuelto. */
+    @JsonProperty("storage_status")
+    private StorageStatus storageStatus;
+    @JsonProperty("storage_expires_at")
+    private LocalDateTime storageExpiresAt;
     /* EU-348: fecha en que el objeto se devolvió a su dueño. Null salvo en el listado de objetos
      * devueltos: no vive en Weaviate junto al resto del objeto, sino en MySQL (return_found_objects),
      * así que sólo se completa donde se cruzan las dos. */

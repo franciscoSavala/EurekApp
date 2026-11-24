@@ -44,6 +44,7 @@ public class FoundObjectSearchService {
     private final FoundObjectRepository foundObjectRepository;
     private final SearchScoringService searchScoringService;
     private final FoundObjectDtoMapper dtoMapper;
+    private final StoragePeriodService storagePeriodService;
 
     public FoundObjectSearchService(EmbeddingService embeddingService,
                                     ImageEmbeddingService imageEmbeddingService,
@@ -52,7 +53,8 @@ public class FoundObjectSearchService {
                                     IOrganizationRepository organizationRepository,
                                     FoundObjectRepository foundObjectRepository,
                                     SearchScoringService searchScoringService,
-                                    FoundObjectDtoMapper dtoMapper) {
+                                    FoundObjectDtoMapper dtoMapper,
+                                    StoragePeriodService storagePeriodService) {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
@@ -61,6 +63,7 @@ public class FoundObjectSearchService {
         this.foundObjectRepository = foundObjectRepository;
         this.searchScoringService = searchScoringService;
         this.dtoMapper = dtoMapper;
+        this.storagePeriodService = storagePeriodService;
     }
 
     /**
@@ -136,13 +139,14 @@ public class FoundObjectSearchService {
         ObjectCategory category = textClassificationService.classify(command.getQuery());
         log.debug("getFoundObjectByTextDescription: categoria deducida del texto={}", category);
 
-        List<FoundObject> foundObjects = foundObjectRepository.query(embeddings,
+        // EU-452: los objetos vencidos según el plazo de guarda de su organización no se ofrecen.
+        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(foundObjectRepository.query(embeddings,
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
                                                                     command.getLostDateTo(),
                                                                     false,
-                                                                    category != null ? category.name() : null);
+                                                                    category != null ? category.name() : null));
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -231,9 +235,11 @@ public class FoundObjectSearchService {
 
         // Filtro DURO por categoría: la decide la IA desde la foto (no la elige el usuario). Sin poda
         // por límite ni umbral en la recuperación (limit alto, ver "Poda del universo" en EU-324).
-        List<FoundObject> foundObjects = foundObjectRepository.queryDual(imageEmbedding, textEmbedding,
+        // EU-452: los objetos vencidos según el plazo de guarda de su organización no se ofrecen.
+        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(foundObjectRepository.queryDual(
+                imageEmbedding, textEmbedding,
                 orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
-                category.name(), SEARCH_CANDIDATE_LIMIT, null);
+                category.name(), SEARCH_CANDIDATE_LIMIT, null));
 
         log.debug("searchByPhoto: categoria={} candidatos recuperados={}", category, foundObjects.size());
 

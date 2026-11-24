@@ -57,6 +57,7 @@ public class LostObjectService {
     private final IUserRepository userRepository;
     private final InAppNotificationService inAppNotificationService;
     private final SearchScoringService searchScoringService;
+    private final StoragePeriodService storagePeriodService;
     /** EU-402: reclamos en curso, como "usuario|objeto". */
     private final Set<String> claimsInFlight = ConcurrentHashMap.newKeySet();
 
@@ -73,7 +74,8 @@ public class LostObjectService {
             FoundObjectRepository foundObjectRepository,
             IUserRepository userRepository,
             InAppNotificationService inAppNotificationService,
-            SearchScoringService searchScoringService) {
+            SearchScoringService searchScoringService,
+            StoragePeriodService storagePeriodService) {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
@@ -87,6 +89,7 @@ public class LostObjectService {
         this.userRepository = userRepository;
         this.inAppNotificationService = inAppNotificationService;
         this.searchScoringService = searchScoringService;
+        this.storagePeriodService = storagePeriodService;
     }
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
@@ -279,6 +282,12 @@ public class LostObjectService {
      * @param foundObject objeto encontrado recién cargado (con embeddings, coordenadas y fecha).
      */
     public void notifyMatchingSavedSearches(FoundObject foundObject) {
+        // EU-452: un objeto que ya venció según el plazo de guarda no se ofrece, tampoco por aviso.
+        if (storagePeriodService.isExpired(foundObject)) {
+            log.info("notifyMatchingSavedSearches: se omite el objeto {} porque ya está vencido según el plazo de guarda de su organización",
+                    foundObject.getUuid());
+            return;
+        }
         // EU-324: la búsqueda inversa (found→lost) espeja la búsqueda en vivo: combina las DOS
         // modalidades (vector "image" de CLIP + vector "text" de OpenAI) y puntúa con combinedScore.
         List<Float> imageEmbedding = foundObject.getImageEmbedding();

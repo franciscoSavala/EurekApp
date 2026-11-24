@@ -78,11 +78,17 @@ class FoundObjectServiceTest {
     @Mock EmailTemplateService emailTemplateService;
     @Mock FraudBlockService fraudBlockService;
     @Mock OrganizationService organizationService;
+    @Mock com.eurekapp.backend.repository.IOrganizationPolicyRepository policyRepository;
+
+    static final java.time.ZoneId ZONA = java.time.ZoneId.of("America/Argentina/Cordoba");
+    static final LocalDateTime AHORA = LocalDateTime.of(2026, 11, 24, 12, 0);
+    java.time.Clock reloj;
 
     FoundObjectService service;
 
     @BeforeEach
     void setUp() {
+        reloj = java.time.Clock.fixed(AHORA.atZone(ZONA).toInstant(), ZONA);
         FoundObjectDtoMapper dtoMapper = new FoundObjectDtoMapper(s3Service, organizationRepository, organizationService);
         service = new FoundObjectService(
                 s3Service, descriptionService, embeddingService, imageEmbeddingService,
@@ -90,7 +96,8 @@ class FoundObjectServiceTest {
                 lostObjectService, executorService, foundObjectRepository,
                 userRepository, rewardExclusionRepository, returnFoundObjectRepository,
                 notificationService,
-                emailTemplateService, fraudBlockService, dtoMapper);
+                emailTemplateService, fraudBlockService, dtoMapper,
+                new StoragePeriodService(policyRepository, reloj), reloj);
     }
 
     @Test
@@ -260,4 +267,72 @@ class FoundObjectServiceTest {
         assertThat(result.getFoundObjects()).extracting("id").containsExactly("uuid-ok");
     }
 
+
+    // ---- EU-452: plazo de guarda ----
+
+    private void plazoDeLaOrganizacion(Integer dias) {
+        when(policyRepository.findByOrganization_Id(1L)).thenReturn(java.util.Optional.of(
+                com.eurekapp.backend.model.OrganizationPolicy.builder().maxStorageDays(dias).build()));
+    }
+
+    private FoundObject guardado(String uuid, LocalDateTime encontrado) {
+        return FoundObject.builder().uuid(uuid).title(uuid).humanDescription("d").organizationId("1")
+                .foundDate(encontrado).wasReturned(false).build();
+    }
+
+    @Test
+    void detalle_traeElEstadoYLaFechaDeVencimientoDelPlazoDeGuarda() {
+        plazoDeLaOrganizacion(30);
+        LocalDateTime hallazgo = AHORA.minusDays(25);
+        when(foundObjectRepository.getByUuid("fo-1")).thenReturn(guardado("fo-1", hallazgo));
+
+        com.eurekapp.backend.dto.FoundObjectDto dto = service.getFoundObjectDetail(
+                com.eurekapp.backend.dto.command.FoundObjectDetailCommand.builder().foundObjectUUID("fo-1").build());
+
+        assertThat(dto.getStorageStatus()).isEqualTo(com.eurekapp.backend.model.StorageStatus.EXPIRING);
+        assertThat(dto.getStorageExpiresAt()).isEqualTo(hallazgo.plusDays(30));
+    }
+
+    @Test
+    void inventario_completaEstadoYVencimientoEnCadaObjeto() {
+        plazoDeLaOrganizacion(30);
+        LocalDateTime enPlazo = AHORA.minusDays(2);
+        LocalDateTime vencido = AHORA.minusDays(40);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), anyInt()))
+                .thenReturn(List.of(guardado("a", enPlazo), guardado("b", vencido)));
+
+        FoundObjectsListDto result = service.getAllUnreturnedFoundObjectsByOrganization(
+                SimilarObjectsCommand.builder().organizationId(1L).build());
+
+        assertThat(result.getFoundObjects()).extracting(o -> o.getStorageStatus())
+                .containsExactly(com.eurekapp.backend.model.StorageStatus.IN_TERM,
+                        com.eurekapp.backend.model.StorageStatus.EXPIRED);
+        assertThat(result.getFoundObjects().get(0).getStorageExpiresAt()).isEqualTo(enPlazo.plusDays(30));
+    }
+
+    @Test
+    void inventarioSoloVencidos_sinPlazoDevuelveVacioYNoConsultaWeaviate() {
+        when(policyRepository.findByOrganization_Id(1L)).thenReturn(java.util.Optional.empty());
+
+        FoundObjectsListDto result = service.getAllUnreturnedFoundObjectsByOrganization(
+                SimilarObjectsCommand.builder().organizationId(1L).expiredOnly(true).build());
+
+        assertThat(result.getFoundObjects()).isEmpty();
+        assertThat(result.getHasMore()).isFalse();
+        verify(foundObjectRepository, never()).query(any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), anyInt());
+    }
+
+    @Test
+    void inventarioSoloVencidos_conPlazoDe30Dias_pideObjetosEncontradosAntesDeAhoraMenos30Dias() {
+        plazoDeLaOrganizacion(30);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), anyInt()))
+                .thenReturn(List.of());
+
+        service.getAllUnreturnedFoundObjectsByOrganization(
+                SimilarObjectsCommand.builder().organizationId(1L).expiredOnly(true).build());
+
+        ArgumentCaptor<LocalDateTime> hasta = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(foundObjectRepository).query(any(), eq("1"), any(), any(), hasta.capture(), eq(false), any(), anyInt(), anyInt());
+        assertThat(hasta.getValue()).isEqualTo(AHORA.minusDays(30));
+    }
 }
