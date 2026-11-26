@@ -39,6 +39,6 @@ public class RewardExclusion {
     private LocalDateTime excludedAt;
 
     @ManyToOne
-    @JoinColumn(name = "organization_id", nullable = false)
+    @JoinColumn(name = "organization_id", nullable = false, foreignKey = @ForeignKey(name = "fk_reward_exclusions_organization"))
     private Organization organization;
 }

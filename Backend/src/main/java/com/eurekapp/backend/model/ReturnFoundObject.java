@@ -73,7 +73,7 @@ public class ReturnFoundObject {
        retiro se atribuye a esta organización, así que conviene tenerla acá y no reconstruirla.
        Toda devolución tiene organización. */
     @ManyToOne
-    @JoinColumn(name = "organization_id", nullable = false)
+    @JoinColumn(name = "organization_id", nullable = false, foreignKey = @ForeignKey(name = "fk_return_found_objects_organization"))
     private Organization organization;
 
     /* EU-374: identificador de la encuesta de atencion que viaja en el enlace del correo. Es un

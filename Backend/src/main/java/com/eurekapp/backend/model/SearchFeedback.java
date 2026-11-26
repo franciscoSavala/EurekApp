@@ -18,7 +18,7 @@ public class SearchFeedback {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "organization_id", nullable = true)
+    @JoinColumn(name = "organization_id", nullable = true, foreignKey = @ForeignKey(name = "fk_search_feedback_organization"))
     private Organization organization;
 
     @Column(name = "found_object_uuid", nullable = true, length = 36)

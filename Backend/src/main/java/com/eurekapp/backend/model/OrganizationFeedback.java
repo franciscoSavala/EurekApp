@@ -34,7 +34,7 @@ public class OrganizationFeedback {
     /* Se copia de la devolución en vez de recorrerla en cada consulta: el reporte del responsable
      * de organización filtra por acá, y así no depende de la base vectorial ni de un join extra. */
     @ManyToOne
-    @JoinColumn(name = "organization_id", nullable = false)
+    @JoinColumn(name = "organization_id", nullable = false, foreignKey = @ForeignKey(name = "fk_organization_feedback_organization"))
     private Organization organization;
 
     // Quien retiró el objeto. Siempre tiene cuenta: a la encuesta se llega desde su propio correo.
