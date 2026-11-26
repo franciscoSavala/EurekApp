@@ -71,7 +71,7 @@ class ReturnFoundObjectServiceTest {
 
     @Test
     void devolucion_conValidacionDeIdentidadExigidaSinConfirmar_seRechaza() {
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(
                 FoundObject.builder().uuid("uuid-123").organizationId("1").wasReturned(false).build());
         when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
@@ -85,7 +85,7 @@ class ReturnFoundObjectServiceTest {
 
     @Test
     void devolucion_conEvidenciaExigidaSinConfirmar_seRechaza() {
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(
                 FoundObject.builder().uuid("uuid-123").organizationId("1").wasReturned(false).build());
         when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
@@ -100,7 +100,7 @@ class ReturnFoundObjectServiceTest {
 
     @Test
     void devolucion_conRequisitosConfirmados_noSeRechazaPorPolitica() {
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(policyRepository.findByOrganization_Id(1L)).thenReturn(Optional.of(
                 OrganizationPolicy.builder().requiresIdentityValidation(true).requiresAdditionalEvidence(true).build()));
         // Sin el objeto en Weaviate el flujo sigue hasta ahí: la política ya no es lo que lo frena.
@@ -143,7 +143,7 @@ class ReturnFoundObjectServiceTest {
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -195,7 +195,7 @@ class ReturnFoundObjectServiceTest {
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -243,7 +243,7 @@ class ReturnFoundObjectServiceTest {
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -277,7 +277,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         // El DNI ingresado está bloqueado por sospecha de fraude (con mensaje humano).
         when(fraudBlockService.describeActiveDniBlock(eq("12345678"), anyString()))
@@ -316,7 +316,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(userRepository.findById(99L)).thenReturn(Optional.of(finder));
         // El DNI/retirador NO están bloqueados; solo el finder (reward-skip, sigue usando isUserBlocked).
@@ -360,7 +360,7 @@ class ReturnFoundObjectServiceTest {
                 .DNI("12345678").phoneNumber("3511234567").foundObjectUUID("uuid-123")
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(userRepository.findById(99L)).thenReturn(Optional.of(finder));
         when(fraudBlockService.describeActiveDniBlock(eq("12345678"), anyString())).thenReturn(Optional.empty());
@@ -450,7 +450,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -489,7 +489,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -500,7 +500,7 @@ class ReturnFoundObjectServiceTest {
 
         ArgumentCaptor<ReturnFoundObject> savedCaptor = ArgumentCaptor.forClass(ReturnFoundObject.class);
         verify(returnFoundObjectRepository, atLeastOnce()).save(savedCaptor.capture());
-        assertThat(savedCaptor.getAllValues().get(0).getOrganizationId()).isEqualTo(1L);
+        assertThat(savedCaptor.getAllValues().get(0).getOrganization().getId()).isEqualTo(1L);
         // La devolucion nace con su token de encuesta: es lo unico que despues abre el enlace.
         assertThat(savedCaptor.getAllValues().get(0).getFeedbackToken()).isNotBlank();
     }
@@ -529,7 +529,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username("julia@mail.com")
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(userRepository.existsByUsername("julia@mail.com")).thenReturn(true);
         when(userRepository.getByUsername("julia@mail.com")).thenReturn(retirador);
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
@@ -575,7 +575,7 @@ class ReturnFoundObjectServiceTest {
                 .organizationId(1L).username(null)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3})).build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(rewardExclusionRepository.existsByFoundObjectUUID("uuid-123")).thenReturn(false);
 
@@ -691,7 +691,7 @@ class ReturnFoundObjectServiceTest {
     private void devolucionEnCurso(Organization org) {
         FoundObject fo = FoundObject.builder()
                 .uuid("uuid-123").organizationId("1").wasReturned(false).objectFinderUser(null).build();
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-123")).thenReturn(fo);
         when(returnFoundObjectRepository.save(any(ReturnFoundObject.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
@@ -822,5 +822,18 @@ class ReturnFoundObjectServiceTest {
         assertThat(dto.getPersonPhoto_b64Json()).isNull();
         assertThat(dto.getFirstName()).isEqualTo("Marina");
         assertThat(output).contains("WARN").contains("foto-persona-777");
+    }
+
+    // -- EU-458: la devolucion exige una organizacion que exista ---
+
+    @Test
+    void devolucion_conUnaOrganizacionInexistente_seRechazaYNoSeGuardaNada() {
+        when(organizationRepository.findById(1L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.returnFoundObject(comandoBase().build(), empleadoDeOrg1()))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("not found");
+        verify(returnFoundObjectRepository, never()).save(any());
+        verify(rewardExclusionRepository, never()).save(any());
     }
 }

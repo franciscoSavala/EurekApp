@@ -123,9 +123,10 @@ public class FoundObjectService implements IFoundObjectService {
 
                     // 1- ORGANIZACIÓN
         // Chequeamos que el ID de organización provisto corresponda a una organización que existe.
-        if(command.getOrganizationId() == null
-                || !organizationRepository.existsById(command.getOrganizationId()))
-            throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
+        final Organization organization = command.getOrganizationId() == null ? null
+                : organizationRepository.findById(command.getOrganizationId()).orElse(null);
+        if(organization == null)
+            throw new BadRequestException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         if(command.getFoundDate().isAfter(LocalDateTime.now()))
             throw new BadRequestException(ValidationError.FOUND_DATE_ERROR);
         // EU-443: la anotación @Length del controlador no se ejecuta (no está @Validated), así que el largo se controla acá.
@@ -176,7 +177,7 @@ public class FoundObjectService implements IFoundObjectService {
             objectLongitude = command.getLongitude();
         } else {
             // Llegados a esta instancia, la organización si o sí existe, así que no chequeamos que exista antes de obtenerla.
-            Organization org = organizationRepository.findById(command.getOrganizationId()).get();
+            Organization org = organization;
             objectLatitude = org.getCoordinates().getLatitude();
             objectLongitude = org.getCoordinates().getLongitude();
         }
@@ -261,7 +262,7 @@ public class FoundObjectService implements IFoundObjectService {
                     .userRole(objectFinderUser.getRole())
                     .reason("INCOMPATIBLE_ROLE")
                     .excludedAt(LocalDateTime.now())
-                    .organizationId(String.valueOf(command.getOrganizationId()))
+                    .organization(organization)
                     .build());
             log.info("Reward excluded at upload for finder id={} role={} uuid={}",
                     objectFinderUser.getId(), objectFinderUser.getRole(), foundObjectId);
@@ -278,7 +279,7 @@ public class FoundObjectService implements IFoundObjectService {
         // Email de agradecimiento al finder (solo si es usuario EurekApp registrado)
         if (objectFinderUser != null) {
             try {
-                Organization finderOrg = organizationRepository.findById(command.getOrganizationId()).get();
+                Organization finderOrg = organization;
                 notificationService.sendNotification(
                         objectFinderUser.getUsername(),
                         "¡Gracias por tu colaboración! — EurekApp",

@@ -46,7 +46,7 @@ public class FeedbackController {
             @RequestParam(required = false) String to,
             @RequestParam(required = false, defaultValue = "DAY") String groupBy,
             @RequestParam(required = false) Boolean wasFound,
-            @RequestParam(required = false) String organizationId) {
+            @RequestParam(required = false) Long organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
@@ -60,7 +60,7 @@ public class FeedbackController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
             @RequestParam(required = false) Boolean wasFound,
-            @RequestParam(required = false) String organizationId) {
+            @RequestParam(required = false) Long organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);
@@ -74,7 +74,7 @@ public class FeedbackController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
             @RequestParam(required = false) Boolean wasFound,
-            @RequestParam(required = false) String organizationId) {
+            @RequestParam(required = false) Long organizationId) {
         LocalDate fromDate = from != null ? LocalDate.parse(from) : LocalDate.now().minusDays(30);
         LocalDate toDate = to != null ? LocalDate.parse(to) : LocalDate.now();
         if (fromDate.isAfter(toDate)) throw new com.eurekapp.backend.exception.BadRequestException(com.eurekapp.backend.exception.ValidationError.INVALID_DATE_RANGE);

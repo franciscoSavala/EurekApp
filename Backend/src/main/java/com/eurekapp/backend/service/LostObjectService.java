@@ -102,6 +102,8 @@ public class LostObjectService {
             throw new BadRequestException("description_required", "La descripción es obligatoria para guardar la búsqueda.");
         }
 
+        validateOrganization(command.getOrganizationId());
+
         String matched = command.getMatchedObjectUuid();
         if (matched == null || matched.isBlank()) {
             saveLostObject(command);
@@ -131,6 +133,21 @@ public class LostObjectService {
             saveLostObject(command);
         } finally {
             claimsInFlight.remove(claimKey);
+        }
+    }
+
+    /* Si la búsqueda trae una organización, tiene que ser un número y existir: en la base vectorial
+     * la organización se guarda como texto y no hay clave foránea que lo garantice. */
+    private void validateOrganization(String organizationId) {
+        if (organizationId == null || organizationId.isBlank()) return;
+        Long id;
+        try {
+            id = Long.valueOf(organizationId.trim());
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("org_not_found", "Organization not found");
+        }
+        if (!organizationRepository.existsById(id)) {
+            throw new BadRequestException("org_not_found", "Organization not found");
         }
     }
 

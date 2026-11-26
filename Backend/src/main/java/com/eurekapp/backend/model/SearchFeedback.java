@@ -17,8 +17,9 @@ public class SearchFeedback {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "organization_id", nullable = true, length = 36)
-    private String organizationId;
+    @ManyToOne
+    @JoinColumn(name = "organization_id", nullable = true)
+    private Organization organization;
 
     @Column(name = "found_object_uuid", nullable = true, length = 36)
     private String foundObjectUUID;     // null si el usuario no encontró su objeto

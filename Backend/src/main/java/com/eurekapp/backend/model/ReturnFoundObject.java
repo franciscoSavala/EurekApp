@@ -71,9 +71,10 @@ public class ReturnFoundObject {
     /* EU-371: organización donde se retiró el objeto. La devolución ya la conocía al registrarse,
        pero no la guardaba: había que ir a buscarla a la base vectorial. La calificación posterior al
        retiro se atribuye a esta organización, así que conviene tenerla acá y no reconstruirla.
-       Nullable porque las devoluciones anteriores al ticket no la tienen. */
-    @Column(name = "organization_id")
-    private Long organizationId;
+       Toda devolución tiene organización. */
+    @ManyToOne
+    @JoinColumn(name = "organization_id", nullable = false)
+    private Organization organization;
 
     /* EU-374: identificador de la encuesta de atencion que viaja en el enlace del correo. Es un
        token opaco y no el id de la devolucion: el id es secuencial, se puede tantear cambiando un

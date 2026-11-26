@@ -47,6 +47,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -172,7 +173,7 @@ class FraudDetectionServiceTest {
         service.detectFraudForReturn(returns.get(4));
 
         FraudAlert alert = captureSavedAlert();
-        assertThat(alert.getOrganizationId()).isNull();           // alerta global / ADMIN
+        assertThat(alert.getOrganization()).isNull();           // alerta global / ADMIN
         assertThat(alert.getDni()).isEqualTo(dni);
         assertThat(alert.getReason()).isEqualTo("CASE_1");
         assertThat(alert.getStatus()).isEqualTo(FraudAlertStatus.ACTIVE);
@@ -339,7 +340,7 @@ class FraudDetectionServiceTest {
 
         FraudAlert alert = FraudAlert.builder()
                 .id(1L)
-                .organizationId(null)
+                .organization(null)
                 .dni("12345678")
                 .suspectUsers(new LinkedHashSet<>(Set.of(suspect)))
                 .returnedByEmployee(employee)
@@ -375,7 +376,7 @@ class FraudDetectionServiceTest {
 
         FraudAlert alert = FraudAlert.builder()
                 .id(2L)
-                .organizationId(null)
+                .organization(null)
                 .dni("30111222")
                 .suspectUsers(suspects)
                 .reason("CASE_2")
@@ -901,11 +902,11 @@ class FraudDetectionServiceTest {
         UserEurekapp employee = user(9, "emp@test.com", "Emilia", "Pérez");
         ReturnFoundObject nueva = ret("u2", "13131313", null, employee);
         nueva.setId(2L);
-        nueva.setOrganizationId(20L);
+        nueva.setOrganization(Organization.builder().id(20L).name("Terminal").build());
         nueva.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 42));
         ReturnFoundObject vieja = ret("u1", "13131313", null, null);
         vieja.setId(1L);
-        vieja.setOrganizationId(10L);
+        vieja.setOrganization(Organization.builder().id(10L).name("UTN FRC").build());
         vieja.setDatetimeOfReturn(LocalDateTime.of(2026, 9, 28, 17, 30));
         FraudAlert alert = FraudAlert.builder().id(5L).dni("13131313").reason("CASE_1")
                 .status(FraudAlertStatus.ACTIVE).createdAt(LocalDateTime.now())
@@ -914,8 +915,6 @@ class FraudDetectionServiceTest {
         stubObjetos(Map.of(
                 "u1", FoundObject.builder().uuid("u1").title("Billetera").build(),
                 "u2", FoundObject.builder().uuid("u2").title("Auriculares").build()));
-        when(organizationRepository.findById(10L)).thenReturn(java.util.Optional.of(Organization.builder().id(10L).name("UTN FRC").build()));
-        when(organizationRepository.findById(20L)).thenReturn(java.util.Optional.of(Organization.builder().id(20L).name("Terminal").build()));
 
         FraudAlertDto dto = service.getAlertDetail(5L, admin());
 
@@ -1280,7 +1279,9 @@ class FraudDetectionServiceTest {
 
     private FraudAlert alertaDeOrganizacion(long id, String dni, Long organizacionDeLaDevolucion, UserEurekapp sospechoso) {
         ReturnFoundObject devolucion = new ReturnFoundObject();
-        devolucion.setOrganizationId(organizacionDeLaDevolucion);
+        if (organizacionDeLaDevolucion != null) {
+            devolucion.setOrganization(Organization.builder().id(organizacionDeLaDevolucion).build());
+        }
         FraudAlert a = FraudAlert.builder()
                 .id(id).dni(dni).reason("CASE_1").status(FraudAlertStatus.ACTIVE)
                 .suspectUsers(new LinkedHashSet<>(sospechoso == null ? Set.of() : Set.of(sospechoso)))
@@ -1291,6 +1292,7 @@ class FraudDetectionServiceTest {
 
     @Test
     void getFraudDniReport_conOrganizacion_muestraSoloLasAlertasDeEsaOrganizacion() {
+        lenient().when(organizationRepository.existsById(any())).thenReturn(true);
         FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
         FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
         FraudAlert sinOrganizacion = alertaDeOrganizacion(3L, "333", null, null);
@@ -1305,6 +1307,7 @@ class FraudDetectionServiceTest {
 
     @Test
     void getFraudDniReport_sinOrganizacion_incluyeTodasLasAlertasTambienLasSinOrganizacion() {
+        lenient().when(organizationRepository.existsById(any())).thenReturn(true);
         FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
         FraudAlert sinOrganizacion = alertaDeOrganizacion(3L, "333", null, null);
         when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, sinOrganizacion));
@@ -1319,6 +1322,7 @@ class FraudDetectionServiceTest {
 
     @Test
     void getFraudUserReport_conOrganizacion_cuentaSoloLasAlertasDeEsaOrganizacion() {
+        lenient().when(organizationRepository.existsById(any())).thenReturn(true);
         UserEurekapp sospechoso = user(7L, "sus@test.com", "Sus", "Pect");
         FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, sospechoso);
         FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, sospechoso);
@@ -1336,6 +1340,7 @@ class FraudDetectionServiceTest {
 
     @Test
     void getFraudUserReport_organizacionSinAlertas_devuelveElReporteVacio() {
+        lenient().when(organizationRepository.existsById(any())).thenReturn(true);
         FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
         when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deOtra));
 
@@ -1347,6 +1352,7 @@ class FraudDetectionServiceTest {
 
     @Test
     void exportFraudReportCsv_conOrganizacion_exportaSoloLasAlertasDeEsaOrganizacion() {
+        lenient().when(organizationRepository.existsById(any())).thenReturn(true);
         FraudAlert deUnc = alertaDeOrganizacion(1L, "111", 4L, null);
         FraudAlert deOtra = alertaDeOrganizacion(2L, "222", 9L, null);
         when(alertRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of(deUnc, deOtra));
@@ -1357,5 +1363,34 @@ class FraudDetectionServiceTest {
                 java.nio.charset.StandardCharsets.UTF_8);
 
         assertThat(csv).contains("111").doesNotContain("222");
+    }
+
+    // -- EU-458: el filtro por organizacion exige una organizacion que exista ---
+
+    @Test
+    void getFraudDniReport_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getFraudDniReport(
+                admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, 999L))
+                .isInstanceOf(com.eurekapp.backend.exception.BadRequestException.class);
+    }
+
+    @Test
+    void getFraudUserReport_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getFraudUserReport(
+                admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, 999L))
+                .isInstanceOf(com.eurekapp.backend.exception.BadRequestException.class);
+    }
+
+    @Test
+    void exportFraudReportCsv_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.exportFraudReportCsv(
+                admin(), LocalDate.now().minusDays(7), LocalDate.now(), null, "DNI", 999L))
+                .isInstanceOf(com.eurekapp.backend.exception.BadRequestException.class);
     }
 }

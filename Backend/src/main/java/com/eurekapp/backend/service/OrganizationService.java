@@ -1,6 +1,7 @@
 package com.eurekapp.backend.service;
 
 import com.eurekapp.backend.dto.response.*;
+import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.exception.ForbiddenException;
 import com.eurekapp.backend.model.*;
 import com.eurekapp.backend.repository.*;
@@ -66,7 +67,7 @@ public class OrganizationService {
         Optional<OrganizationPolicy> policyOpt = policyRepository.findByOrganization_Id(orgId);
 
         List<OrganizationPolicyHistoryDto> history = !isOwner ? List.of() : historyRepository
-                .findByOrganizationIdOrderByChangedAtDesc(orgId)
+                .findByOrganization_IdOrderByChangedAtDesc(orgId)
                 .stream()
                 .map(h -> OrganizationPolicyHistoryDto.builder()
                         .id(h.getId())
@@ -99,7 +100,7 @@ public class OrganizationService {
         }
         Long orgId = user.getOrganization().getId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ForbiddenException("forbidden", "Organización no encontrada"));
+                .orElseThrow(() -> new BadRequestException("org_not_found", "Organization not found"));
 
         Optional<OrganizationPolicy> existing = policyRepository.findByOrganization_Id(orgId);
 
@@ -109,7 +110,7 @@ public class OrganizationService {
                 previousDto.setHistory(Collections.emptyList());
                 String snapshot = objectMapper.writeValueAsString(previousDto);
                 OrganizationPolicyHistory histEntry = OrganizationPolicyHistory.builder()
-                        .organizationId(orgId)
+                        .organization(org)
                         .changedAt(LocalDateTime.now())
                         .changedBy(user)
                         .previousSnapshot(snapshot)

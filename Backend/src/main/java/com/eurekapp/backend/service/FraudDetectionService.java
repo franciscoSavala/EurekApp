@@ -144,7 +144,7 @@ public class FraudDetectionService {
                 .collect(Collectors.joining(","));
 
         FraudAlert alert = FraudAlert.builder()
-                .organizationId(null)            // alerta global / dueño de Eurekapp (detección cross-org)
+                .organization(null)              // alerta global / dueño de Eurekapp (detección cross-org)
                 .dni(dni)
                 .suspectUsers(new LinkedHashSet<>(suspects))
                 .triggeringReturns(new LinkedHashSet<>(returns))
@@ -363,9 +363,8 @@ public class FraudDetectionService {
                 .map(r -> {
                     FoundObject fo = r.getFoundObjectUUID() == null ? null : objects.get(r.getFoundObjectUUID());
                     String title = fo != null ? fo.getTitle() : null;
-                    String orgName = r.getOrganizationId() == null ? null
-                            : orgNames.computeIfAbsent(r.getOrganizationId(), id ->
-                                    organizationRepository.findById(id).map(Organization::getName).orElse(null));
+                    String orgName = r.getOrganization() == null ? null
+                            : orgNames.computeIfAbsent(r.getOrganization().getId(), id -> r.getOrganization().getName());
                     UserEurekapp employee = r.getReturnedByEmployee();
                     return FraudAlertReturnDto.builder()
                             .objectTitle(title)
@@ -551,6 +550,9 @@ public class FraudDetectionService {
     private List<FraudAlert> loadFilteredAlerts(
             UserEurekapp user, LocalDate from, LocalDate to, FraudAlertStatus status, Long organizationId) {
         validateAccess(user);
+        if (organizationId != null && !organizationRepository.existsById(organizationId)) {
+            throw new BadRequestException("org_not_found", "Organization not found");
+        }
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
         List<FraudAlert> alerts = status != null
@@ -568,9 +570,9 @@ public class FraudDetectionService {
     }
 
     private boolean perteneceA(FraudAlert alert, Long organizationId) {
-        if (organizationId.toString().equals(alert.getOrganizationId())) return true;
+        if (alert.getOrganization() != null && organizationId.equals(alert.getOrganization().getId())) return true;
         return alert.getTriggeringReturns() != null && alert.getTriggeringReturns().stream()
-                .anyMatch(r -> organizationId.equals(r.getOrganizationId()));
+                .anyMatch(r -> r.getOrganization() != null && organizationId.equals(r.getOrganization().getId()));
     }
 
     // Alertas anteriores al período consultado: es lo que define la reincidencia (EU-226). No alcanza
@@ -713,7 +715,7 @@ public class FraudDetectionService {
 
         return FraudAlertDto.builder()
                 .id(a.getId())
-                .organizationId(a.getOrganizationId())
+                .organizationId(a.getOrganization() == null ? null : a.getOrganization().getId())
                 .foundObjectUUID(a.getFoundObjectUUID())
                 .foundObjectTitle(objectTitle)
                 .foundObjectDescription(objectDescription)

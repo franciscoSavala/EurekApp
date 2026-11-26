@@ -16,7 +16,7 @@ public class RewardExclusionDto {
     private String userRole;
     private String reason;
     private LocalDateTime excludedAt;
-    private String organizationId;
+    private Long organizationId;
 
     public static RewardExclusionDto from(RewardExclusion exclusion) {
         return RewardExclusionDto.builder()
@@ -26,7 +26,7 @@ public class RewardExclusionDto {
                 .userRole(exclusion.getUserRole().name())
                 .reason(exclusion.getReason())
                 .excludedAt(exclusion.getExcludedAt())
-                .organizationId(exclusion.getOrganizationId())
+                .organizationId(exclusion.getOrganization().getId())
                 .build();
     }
 }

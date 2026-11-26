@@ -8,15 +8,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ISearchFeedbackRepository extends JpaRepository<SearchFeedback, Long> {
-    List<SearchFeedback> findByOrganizationIdAndCreatedAtBetween(
-            String organizationId, LocalDateTime from, LocalDateTime to);
+    List<SearchFeedback> findByOrganization_IdAndCreatedAtBetween(
+            Long organizationId, LocalDateTime from, LocalDateTime to);
 
     List<SearchFeedback> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 
-    long countByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);
+    long countByOrganization_IdAndFoundObjectUUIDAndWasFoundTrue(Long organizationId, String foundObjectUUID);
 
-    List<SearchFeedback> findByOrganizationIdAndFoundObjectUUIDAndWasFoundTrue(String organizationId, String foundObjectUUID);
+    List<SearchFeedback> findByOrganization_IdAndFoundObjectUUIDAndWasFoundTrue(Long organizationId, String foundObjectUUID);
 
-    long countByOrganizationIdAndUserAndWasFoundTrueAndCreatedAtAfter(
-            String organizationId, UserEurekapp user, LocalDateTime after);
+    long countByOrganization_IdAndUserAndWasFoundTrueAndCreatedAtAfter(
+            Long organizationId, UserEurekapp user, LocalDateTime after);
 }

@@ -92,8 +92,10 @@ public class ReturnFoundObjectService {
 
                         // 1- ORGANIZACIÓN
         // Verificamos si la organización existe
-        if (command.getOrganizationId() == null || !organizationRepository.existsById(command.getOrganizationId())) {
-            throw new NotFoundException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
+        Organization organization = command.getOrganizationId() == null ? null
+                : organizationRepository.findById(command.getOrganizationId()).orElse(null);
+        if (organization == null) {
+            throw new BadRequestException("org_not_found", String.format("Organization with id '%d' not found", command.getOrganizationId()));
         }
         // Verificamos que el llamante pertenezca a la organización
         if (caller == null || caller.getOrganization() == null
@@ -186,7 +188,7 @@ public class ReturnFoundObjectService {
         rfo.setReturnedByEmployee(caller);
         // EU-371: la organización queda asentada en la devolución, que es de donde cuelga la
         // calificación que la persona puede dejar después de retirar.
-        rfo.setOrganizationId(command.getOrganizationId());
+        rfo.setOrganization(organization);
         // EU-374: token de la encuesta. Se genera aca, con la devolucion, porque es lo unico que
         // despues permite abrirla desde el correo sin exponer el id.
         rfo.setFeedbackToken(UUID.randomUUID().toString());
@@ -417,8 +419,8 @@ public class ReturnFoundObjectService {
         if (user.getOrganization() == null) {
             throw new ForbiddenException("forbidden", "No pertenece a ninguna organización");
         }
-        String orgId = user.getOrganization().getId().toString();
-        List<RewardExclusion> exclusions = rewardExclusionRepository.findByOrganizationId(orgId);
+        Long orgId = user.getOrganization().getId();
+        List<RewardExclusion> exclusions = rewardExclusionRepository.findByOrganization_Id(orgId);
         List<RewardExclusionDto> dtos = exclusions.stream().map(RewardExclusionDto::from).toList();
         return new RewardExclusionListDto(dtos);
     }

@@ -17,6 +17,6 @@ public interface IOrganizationFeedbackRepository extends JpaRepository<Organizat
     Optional<OrganizationFeedback> findByReturnFoundObject_Id(Long returnFoundObjectId);
 
     // Fuente del reporte del responsable de organizacion (EU-375): solo su propia organizacion.
-    List<OrganizationFeedback> findByOrganizationIdAndCreatedAtBetween(
+    List<OrganizationFeedback> findByOrganization_IdAndCreatedAtBetween(
             Long organizationId, LocalDateTime from, LocalDateTime to);
 }

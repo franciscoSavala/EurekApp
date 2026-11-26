@@ -6,6 +6,7 @@ import com.eurekapp.backend.dto.response.FeedbackReportDto;
 import com.eurekapp.backend.dto.response.FeedbackTimeSeriesPointDto;
 import com.eurekapp.backend.dto.response.OrganizationFeedbackCommentDto;
 import com.eurekapp.backend.exception.BadRequestException;
+import com.eurekapp.backend.model.Organization;
 import com.eurekapp.backend.model.FoundObject;
 import com.eurekapp.backend.model.Role;
 import com.eurekapp.backend.model.OrganizationFeedback;
@@ -54,35 +55,34 @@ public class FeedbackService {
 
     /* EU-436: la precision de las coincidencias la ve el administrador, de todas las organizaciones o de
      * una. El responsable de organizacion sigue viendo solo lo suyo y el filtro que mande se ignora.
-     * Devuelve el id de la organizacion a consultar, o null si el administrador pidio todas. */
-    private String organizacionConsultada(UserEurekapp user, String organizationId, String accion) {
+     * Devuelve el id de la organizacion a consultar, o null si el administrador pidio todas.
+     * Si el administrador pide una organizacion que no existe, se rechaza el pedido. */
+    private Long organizacionConsultada(UserEurekapp user, Long organizationId, String accion) {
         if (user.getRole() == Role.ADMIN) {
-            return (organizationId == null || organizationId.isBlank()) ? null : organizationId.trim();
+            if (organizationId == null) return null;
+            if (!organizationRepository.existsById(organizationId)) {
+                throw new BadRequestException("org_not_found", "Organization not found");
+            }
+            return organizationId;
         }
         if (user.getRole() == Role.ORGANIZATION_OWNER) {
-            return user.getOrganization().getId().toString();
+            return user.getOrganization().getId();
         }
         throw new BadRequestException("forbidden", "Solo el administrador o el responsable de la organización pueden " + accion);
     }
 
-    private List<SearchFeedback> buscarFeedback(String orgId, LocalDateTime from, LocalDateTime to) {
+    private List<SearchFeedback> buscarFeedback(Long orgId, LocalDateTime from, LocalDateTime to) {
         return orgId == null
                 ? feedbackRepository.findByCreatedAtBetween(from, to)
-                : feedbackRepository.findByOrganizationIdAndCreatedAtBetween(orgId, from, to);
+                : feedbackRepository.findByOrganization_IdAndCreatedAtBetween(orgId, from, to);
     }
 
-    private Map<String, String> nombresDeOrganizaciones(List<SearchFeedback> feedbacks) {
-        Map<String, String> nombres = new HashMap<>();
+    private Map<Long, String> nombresDeOrganizaciones(List<SearchFeedback> feedbacks) {
+        Map<Long, String> nombres = new HashMap<>();
         for (SearchFeedback f : feedbacks) {
-            String id = f.getOrganizationId();
-            if (id == null || nombres.containsKey(id)) continue;
-            String nombre = id;
-            try {
-                nombre = organizationRepository.findById(Long.valueOf(id)).map(o -> o.getName()).orElse(id);
-            } catch (NumberFormatException ignorado) {
-                // el id no es numerico: se muestra tal cual
-            }
-            nombres.put(id, nombre);
+            Organization org = f.getOrganization();
+            if (org == null) continue;
+            nombres.putIfAbsent(org.getId(), org.getName());
         }
         return nombres;
     }
@@ -93,9 +93,15 @@ public class FeedbackService {
             fo = foundObjectRepository.getByUuid(dto.getFoundObjectUUID());
         }
 
-        String orgId = (dto.getOrganizationId() != null && !dto.getOrganizationId().isBlank())
-                ? dto.getOrganizationId()
-                : (fo != null ? fo.getOrganizationId() : null);
+        Long orgId = dto.getOrganizationId();
+        if (orgId == null && fo != null && fo.getOrganizationId() != null && !fo.getOrganizationId().isBlank()) {
+            orgId = Long.valueOf(fo.getOrganizationId().trim());
+        }
+        Organization organization = null;
+        if (orgId != null) {
+            organization = organizationRepository.findById(orgId)
+                    .orElseThrow(() -> new BadRequestException("org_not_found", "Organization not found"));
+        }
 
         LocalDateTime now = LocalDateTime.now();
 
@@ -104,7 +110,7 @@ public class FeedbackService {
          * Las estrellas y el comentario NO, porque en ese momento la persona todavia no fue a
          * retirar nada ni trato con nadie. */
         SearchFeedback fb = SearchFeedback.builder()
-                .organizationId(orgId)
+                .organization(organization)
                 .foundObjectUUID(dto.getFoundObjectUUID())
                 .wasFound(dto.getWasFound())
                 .lostObjectText(dto.getLostObjectText())
@@ -131,8 +137,8 @@ public class FeedbackService {
         return getReport(user, from, to, groupBy, wasFound, null);
     }
 
-    public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound, String organizationId) {
-        String orgId = organizacionConsultada(user, organizationId, "acceder a los reportes de feedback");
+    public FeedbackReportDto getReport(UserEurekapp user, LocalDate from, LocalDate to, String groupBy, Boolean wasFound, Long organizationId) {
+        Long orgId = organizacionConsultada(user, organizationId, "acceder a los reportes de feedback");
         LocalDateTime fromDt = from.atStartOfDay();
         LocalDateTime toDt = to.plusDays(1).atStartOfDay();
 
@@ -149,7 +155,7 @@ public class FeedbackService {
          * por aspecto: asi el responsable sabe QUE corregir, y no solo que algo anda mal. */
         // La calificacion de la atencion es del responsable de cada organizacion: el administrador no la ve aca.
         List<OrganizationFeedback> ratings = user.getRole() == Role.ORGANIZATION_OWNER
-                ? organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(
+                ? organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(
                         user.getOrganization().getId(), fromDt, toDt)
                 : List.of();
 
@@ -193,8 +199,8 @@ public class FeedbackService {
         return getRecords(user, from, to, wasFound, null);
     }
 
-    public List<FeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, String organizationId) {
-        String orgId = organizacionConsultada(user, organizationId, "acceder a los registros de feedback");
+    public List<FeedbackRecordDto> getRecords(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, Long organizationId) {
+        Long orgId = organizacionConsultada(user, organizationId, "acceder a los registros de feedback");
         List<SearchFeedback> feedbacks = buscarFeedback(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
         if (wasFound != null) {
@@ -225,7 +231,7 @@ public class FeedbackService {
             if (foTitle == null) foTitle = f.getLostObjectText();
             return FeedbackRecordDto.builder()
                     .id(f.getId())
-                    .organizationId(f.getOrganizationId())
+                    .organizationId(f.getOrganization() == null ? null : f.getOrganization().getId())
                     .foundObjectUUID(f.getFoundObjectUUID())
                     .foundObjectTitle(foTitle)
                     .foundObjectDescription(foDescription)
@@ -241,12 +247,12 @@ public class FeedbackService {
         return exportCsv(user, from, to, wasFound, null);
     }
 
-    public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, String organizationId) {
-        String orgId = organizacionConsultada(user, organizationId, "exportar reportes");
+    public byte[] exportCsv(UserEurekapp user, LocalDate from, LocalDate to, Boolean wasFound, Long organizationId) {
+        Long orgId = organizacionConsultada(user, organizationId, "exportar reportes");
 
         List<SearchFeedback> feedbacks = buscarFeedback(
                 orgId, from.atStartOfDay(), to.plusDays(1).atStartOfDay());
-        Map<String, String> nombres = user.getRole() == Role.ORGANIZATION_OWNER
+        Map<Long, String> nombres = user.getRole() == Role.ORGANIZATION_OWNER
                 ? Map.of(orgId, String.valueOf(user.getOrganization().getName()))
                 : nombresDeOrganizaciones(feedbacks);
         if (wasFound != null) {
@@ -274,7 +280,7 @@ public class FeedbackService {
                aplicacion y viven en el reporte del administrador. Lo que queda es lo que si es de
                la organizacion: si la persona encontro su objeto. */
             sb.append(f.getId()).append(';')
-              .append(csvField(nombres.getOrDefault(f.getOrganizationId(), ""))).append(';')
+              .append(csvField(nombres.getOrDefault(f.getOrganization() == null ? null : f.getOrganization().getId(), ""))).append(';')
               .append(csvField(objTitle)).append(';')
               .append(encontroStr).append(';')
               .append(fechaStr).append('\n');

@@ -97,6 +97,7 @@ class LostObjectServiceTest {
                 inAppNotificationService,
                 new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0),
                 storagePeriodService);
+        org.mockito.Mockito.lenient().when(organizationRepository.existsById(1L)).thenReturn(true);
         when(storagePeriodService.isExpired(any())).thenReturn(false);
 
         Organization organization = mock(Organization.class);
@@ -1080,5 +1081,35 @@ class LostObjectServiceTest {
         verify(lostObjectRepository, never()).queryDual(any(), any(), any(), any(), any(), any(), any(), any(), any());
         verify(notificationService, never()).sendNotification(any(), any(), any());
         verify(inAppNotificationService, never()).createNotification(any(), any(), any(), any(), any(), any());
+    }
+
+    // -- EU-458: la busqueda abierta exige una organizacion numerica y existente ---
+
+    private ReportLostObjectCommand busquedaConOrganizacion(String organizationId) {
+        return ReportLostObjectCommand.builder()
+                .description("billetera de cuero marron")
+                .username("u1@test.com")
+                .geoCoordinates(CORDOBA)
+                .organizationId(organizationId)
+                .lostDate(LocalDateTime.now().minusDays(1))
+                .build();
+    }
+
+    @Test
+    void reportLostObject_conUnaOrganizacionInexistente_seRechazaYNoSeGuardaNada() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.reportLostObject(busquedaConOrganizacion("999")))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).add(any());
+    }
+
+    @Test
+    void reportLostObject_conUnaOrganizacionNoNumerica_seRechazaYNoSeGuardaNada() {
+        assertThatThrownBy(() -> service.reportLostObject(busquedaConOrganizacion("abc")))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(lostObjectRepository, never()).add(any());
     }
 }

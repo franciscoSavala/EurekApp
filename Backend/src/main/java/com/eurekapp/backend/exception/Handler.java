@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.ErrorResponse;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
@@ -106,6 +107,19 @@ public class Handler {
                 .details(errorDetails)
                 .build();
 
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    /** Un parámetro con un valor que no tiene el formato esperado (por ejemplo una organización no numérica) es un pedido inválido. */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        String message = "El valor del parámetro '" + e.getName() + "' no es válido.";
+        ApiError apiError = ApiError.builder()
+                .error("invalid_parameter")
+                .message(message)
+                .status(HttpStatus.BAD_REQUEST.value())
+                .details(List.of(message))
+                .build();
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 
