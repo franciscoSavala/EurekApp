@@ -85,7 +85,7 @@ const FoundObjects = ({ route, navigation }) => {
         const shouldSubmit = pendingWasFound || (!skip && starRating > 0);
         if (shouldSubmit) {
             const selected = foundObjectsMap.get(objectSelectedId);
-            const orgId = selected?.organization?.id?.toString() || organizationId || null;
+            const orgId = selected?.organization?.id ?? organizationId ?? null;
             try {
                 await submitFeedback({
                     organizationId: orgId,
