@@ -23,9 +23,10 @@ public class FraudAlert {
     private Long id;
 
     // Nulo en las alertas nuevas (EU-284): la detección es global (cross-organización) y la alerta
-    // pertenece al dueño de Eurekapp, no a una organización. Las alertas legacy pueden traer un valor.
-    @Column(name = "organization_id", nullable = true, length = 36)
-    private String organizationId;
+    // pertenece al dueño de Eurekapp, no a una organización.
+    @ManyToOne
+    @JoinColumn(name = "organization_id", nullable = true, foreignKey = @ForeignKey(name = "fk_fraud_alert_organization"))
+    private Organization organization;
 
     @Column(name = "found_object_uuid", nullable = true, length = 36)
     private String foundObjectUUID;

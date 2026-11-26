@@ -46,7 +46,7 @@ public class OrganizationFeedbackService {
         ReturnFoundObject rfo = requireOwnReturn(user, surveyToken);
 
         return OrganizationFeedbackSurveyDto.builder()
-                .organizationName(organizationName(rfo.getOrganizationId()))
+                .organizationName(organizationName(rfo.getOrganization()))
                 .objectTitle(objectTitle(rfo.getFoundObjectUUID()))
                 .alreadyRated(repository.existsByReturnFoundObject_Id(rfo.getId()))
                 .build();
@@ -65,7 +65,7 @@ public class OrganizationFeedbackService {
 
         OrganizationFeedback feedback = OrganizationFeedback.builder()
                 .returnFoundObject(rfo)
-                .organizationId(rfo.getOrganizationId())
+                .organization(rfo.getOrganization())
                 .user(user)
                 .staffTreatment(dto.getStaffTreatment())
                 .waitingTime(dto.getWaitingTime())
@@ -106,20 +106,16 @@ public class OrganizationFeedbackService {
                     "Esta devolución no es tuya, así que no podés calificarla.");
         }
 
-        /* Las devoluciones anteriores a EU-371 no guardaron su organización, y sin ella la
-         * calificación no se le podría atribuir a nadie. No se inventa: se rechaza. */
-        if (rfo.getOrganizationId() == null) {
-            throw new BadRequestException("return_without_organization",
-                    "Esta devolución es anterior a la encuesta de atención y no se puede calificar.");
+        /* Sin organización la calificación no se le podría atribuir a nadie. No se inventa: se rechaza. */
+        if (rfo.getOrganization() == null) {
+            throw new BadRequestException("org_not_found", "Organization not found");
         }
 
         return rfo;
     }
 
-    private String organizationName(Long organizationId) {
-        return organizationRepository.findById(organizationId)
-                .map(Organization::getName)
-                .orElse(null);
+    private String organizationName(Organization organization) {
+        return organization == null ? null : organization.getName();
     }
 
     /* El título del objeto es contexto para que la persona sepa de qué retiro le están hablando.

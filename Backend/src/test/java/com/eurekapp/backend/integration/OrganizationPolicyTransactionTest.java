@@ -43,7 +43,7 @@ class OrganizationPolicyTransactionTest {
     @AfterEach
     void limpiar() {
         if (organizacion != null) {
-            historyRepository.deleteAll(historyRepository.findByOrganizationIdOrderByChangedAtDesc(organizacion.getId()));
+            historyRepository.deleteAll(historyRepository.findByOrganization_IdOrderByChangedAtDesc(organizacion.getId()));
         }
         if (politica != null) {
             policyRepository.deleteById(politica.getId());
@@ -91,7 +91,7 @@ class OrganizationPolicyTransactionTest {
         assertThatThrownBy(() -> organizationService.updatePolicy(responsable, dto))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        assertThat(historyRepository.findByOrganizationIdOrderByChangedAtDesc(organizacion.getId()).size())
+        assertThat(historyRepository.findByOrganization_IdOrderByChangedAtDesc(organizacion.getId()).size())
                 .as("no debe quedar historial de un cambio que falló")
                 .isZero();
         OrganizationPolicy recargada = policyRepository.findById(politica.getId()).orElseThrow();

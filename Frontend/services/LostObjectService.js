@@ -32,7 +32,7 @@ export async function saveLostObject({ description, lostDate, coordinates, organ
         params.append('latitude', coordinates.latitude);
         params.append('longitude', coordinates.longitude);
     }
-    if (organizationId != null) params.append('organization_id', String(organizationId));
+    if (organizationId != null && organizationId !== '' && Number.isFinite(Number(organizationId))) params.append('organization_id', String(Number(organizationId)));
     if (matchedObjectUuid) params.append('matched_object_uuid', matchedObjectUuid);
     const url = `${BACK_URL}/lost-objects?${params.toString()}`;
 

@@ -40,10 +40,9 @@ public interface IReturnFoundObjectRepository extends JpaRepository<ReturnFoundO
     List<ReturnFoundObject> findByDniInWindow(@Param("dni") String dni, @Param("from") LocalDateTime from);
 
     /**
-     * EU-441: las devoluciones más recientes de una organización. Las anteriores al EU-371 no guardan
-     * la organización, así que también se reconoce por la del empleado que las registró.
+     * EU-441: las devoluciones más recientes de una organización.
      */
-    @Query("SELECT r FROM ReturnFoundObject r WHERE r.organizationId = :orgId "
-            + "OR r.returnedByEmployee.organization.id = :orgId ORDER BY r.datetimeOfReturn DESC")
+    @Query("SELECT r FROM ReturnFoundObject r WHERE r.organization.id = :orgId "
+            + "ORDER BY r.datetimeOfReturn DESC")
     List<ReturnFoundObject> findMostRecentByOrganization(@Param("orgId") Long orgId, Pageable pageable);
 }

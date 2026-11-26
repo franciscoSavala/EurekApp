@@ -115,7 +115,7 @@ class FoundObjectServiceTest {
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(userRepository.existsByUsername("finder@test.com")).thenReturn(true);
         when(userRepository.getByUsername("finder@test.com")).thenReturn(finder);
         // El finder está bloqueado por sospecha de fraude (con mensaje humano).
@@ -137,7 +137,7 @@ class FoundObjectServiceTest {
                 .organizationId(1L)
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
 
         assertThatThrownBy(() -> service.uploadFoundObject(command))
                 .isInstanceOf(BadRequestException.class)
@@ -160,7 +160,7 @@ class FoundObjectServiceTest {
                 .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
                 .build();
 
-        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(Organization.builder().id(1L).name("UTN FRC").build()));
         when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f, 0.5f));
         when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
         when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f, 0.2f));
@@ -334,5 +334,26 @@ class FoundObjectServiceTest {
         ArgumentCaptor<LocalDateTime> hasta = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(foundObjectRepository).query(any(), eq("1"), any(), any(), hasta.capture(), eq(false), any(), anyInt(), anyInt());
         assertThat(hasta.getValue()).isEqualTo(AHORA.minusDays(30));
+    }
+
+    // -- EU-458: el hallazgo (y la exclusion de puntos que puede generar) exige una organizacion que exista ---
+
+    @Test
+    void upload_conUnaOrganizacionInexistente_seRechazaYNoSeGuardaNada() {
+        UploadFoundObjectCommand command = UploadFoundObjectCommand.builder()
+                .title("Mochila azul")
+                .objectFinderUsername("finder@test.com")
+                .foundDate(LocalDateTime.now().minusDays(1))
+                .detailedDescription("desc")
+                .organizationId(999L)
+                .image(new MockMultipartFile("img", new byte[]{1, 2, 3}))
+                .build();
+        when(organizationRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.uploadFoundObject(command))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(foundObjectRepository, never()).add(any());
+        verify(rewardExclusionRepository, never()).save(any());
     }
 }

@@ -186,6 +186,102 @@ SET FOREIGN_KEY_CHECKS = 1;
 SQL
 success "MySQL limpio"
 
+# EU-458: la organizacion de cada registro es una clave foranea a organizations(id). Hibernate con
+# ddl-auto update solo agrega: no cambia el tipo de una columna que ya existe ni le pone clave
+# foranea. En una base vieja esas columnas son VARCHAR o BIGINT sueltas, sin clave. Las tablas ya
+# estan vacias en este punto, asi que se ajusta el tipo, se agrega la clave con el mismo nombre que
+# le da el backend y se borra cualquier otra clave que haya quedado sobre la misma columna.
+# Si la tabla todavia no existe (el backend nunca arranco), la crea Hibernate con todo esto.
+header "Verificando la clave foranea de organizacion"
+
+fk_organizacion() {
+  local TABLA="$1" NULABLE="$2"   # NULABLE: YES o NO
+  local FK="fk_${TABLA}_organization"
+  local EXISTE
+  EXISTE=$($MYSQL_EXEC -N 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = '$TABLA';
+SQL
+)
+  if ! echo "$EXISTE" | grep -q "^1$"; then
+    warn "'$TABLA' todavia no existe — la crea el backend al arrancar"
+    return
+  fi
+  $MYSQL_EXEC 2>/dev/null <<SQL
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE $TABLA;
+SET FOREIGN_KEY_CHECKS = 1;
+SQL
+  local COL
+  COL=$($MYSQL_EXEC -N 2>/dev/null <<SQL
+SELECT CONCAT(DATA_TYPE, '/', IS_NULLABLE) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = '$TABLA' AND COLUMN_NAME = 'organization_id';
+SQL
+)
+  local NULL_SQL="NULL"; [[ "$NULABLE" == "NO" ]] && NULL_SQL="NOT NULL"
+  if [[ -z "$COL" ]]; then
+    warn "Falta 'organization_id' en $TABLA. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE $TABLA ADD COLUMN organization_id BIGINT $NULL_SQL;
+SQL
+    success "'organization_id' agregada a $TABLA"
+  elif [[ "$COL" != "bigint/$NULABLE" ]]; then
+    warn "'organization_id' de $TABLA es $COL y debe ser bigint/$NULABLE. Aplicando ALTER TABLE..."
+    # Las claves que ya cuelgan de la columna impiden cambiarle el tipo: se sueltan primero.
+    soltar_claves "$TABLA" ""
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE $TABLA MODIFY organization_id BIGINT $NULL_SQL;
+SQL
+    success "'organization_id' de $TABLA ajustada a BIGINT $NULL_SQL"
+  else
+    success "'organization_id' de $TABLA es bigint/$NULABLE — OK"
+  fi
+
+  # Claves sobre la columna con un nombre distinto del esperado (por ejemplo, una que armo Hibernate).
+  soltar_claves "$TABLA" "$FK"
+
+  local TIENE
+  TIENE=$($MYSQL_EXEC -N 2>/dev/null <<SQL
+SELECT COUNT(*) FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = '$TABLA' AND COLUMN_NAME = 'organization_id'
+  AND CONSTRAINT_NAME = '$FK' AND REFERENCED_TABLE_NAME = 'organizations';
+SQL
+)
+  if echo "$TIENE" | grep -q "^1$"; then
+    success "$FK ya existe — OK"
+  else
+    warn "Falta $FK. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE $TABLA ADD CONSTRAINT $FK FOREIGN KEY (organization_id) REFERENCES organizations(id);
+SQL
+    success "$FK agregada a $TABLA"
+  fi
+}
+
+# Borra las claves foraneas de organization_id de la tabla cuyo nombre no sea $2 (vacio = todas).
+soltar_claves() {
+  local TABLA="$1" CONSERVAR="$2" NOMBRE
+  while read -r NOMBRE; do
+    [[ -z "$NOMBRE" ]] && continue
+    warn "Sobra la clave $NOMBRE en $TABLA. Aplicando ALTER TABLE..."
+    $MYSQL_EXEC 2>/dev/null <<SQL
+ALTER TABLE $TABLA DROP FOREIGN KEY $NOMBRE;
+SQL
+    success "Clave $NOMBRE borrada de $TABLA"
+  done < <($MYSQL_EXEC -N 2>/dev/null <<SQL
+SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE
+WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = '$TABLA' AND COLUMN_NAME = 'organization_id'
+  AND REFERENCED_TABLE_NAME IS NOT NULL AND CONSTRAINT_NAME <> '$CONSERVAR';
+SQL
+)
+}
+
+fk_organizacion fraud_alert YES
+fk_organizacion search_feedback YES
+fk_organizacion reward_exclusions NO
+fk_organizacion organization_feedback NO
+fk_organizacion organization_policy_history NO
+fk_organizacion return_found_objects NO
+
 # ─── 7. Limpiar Weaviate (nuke total) ────────────────────────────────────────
 header "Limpiando Weaviate (nuke total)"
 
@@ -421,24 +517,6 @@ SQL
   fi
 done
 
-# EU-371: la devolucion asienta en que organizacion ocurrio; de ahi cuelga la calificacion de la
-# atencion. Hibernate agrega la columna sola en una DB que ya existia, pero el seed inserta las
-# devoluciones a mano y necesita que este.
-ORG_COL_EXISTS=$($MYSQL_EXEC 2>/dev/null <<SQL
-SELECT COUNT(*) FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = 'eurekapp' AND TABLE_NAME = 'return_found_objects' AND COLUMN_NAME = 'organization_id';
-SQL
-)
-if echo "$ORG_COL_EXISTS" | grep -q "^1$"; then
-  success "'organization_id' ya existe en return_found_objects — OK"
-else
-  warn "Falta 'organization_id' en return_found_objects. Aplicando ALTER TABLE..."
-  $MYSQL_EXEC 2>/dev/null <<SQL
-ALTER TABLE return_found_objects ADD COLUMN organization_id BIGINT NULL;
-SQL
-  success "'organization_id' agregada"
-fi
-
 # EU-410: el empleado que entrega el objeto es el prerrequisito de la regla de fraude por
 # complicidad de un empleado. El seed lo escribe, asi que la columna tiene que estar aunque el
 # backend todavia no haya arrancado nunca contra esta base.
@@ -566,9 +644,9 @@ $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO reward_exclusions
   (found_objectuuid, user_id, user_role, reason, excluded_at, organization_id)
 VALUES
-('$FO_MOCHILA',  6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 10:00:00', '1'),
-('$FO_PARAGUAS', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 10:00:00', '1'),
-('$FO_ANTEOJOS', 4, 'ENCARGADO',             'INCOMPATIBLE_ROLE', '2026-05-20 10:00:00', '1');
+('$FO_MOCHILA',  6, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-05-07 10:00:00', 1),
+('$FO_PARAGUAS', 5, 'ORGANIZATION_EMPLOYEE', 'INCOMPATIBLE_ROLE', '2026-04-15 10:00:00', 1),
+('$FO_ANTEOJOS', 4, 'ENCARGADO',             'INCOMPATIBLE_ROLE', '2026-05-20 10:00:00', 1);
 SQL
 success "3 exclusiones de puntos registradas (personal de la organizacion)"
 
@@ -577,16 +655,16 @@ header "Insertando SearchFeedback"
 
 $MYSQL_EXEC 2>/dev/null <<SQL
 INSERT INTO search_feedback (organization_id, found_object_uuid, was_found, created_at, user_id) VALUES
-('1', '$FO_BILLETERA',   1, '2026-04-29 11:00:00', 7),
-('1', NULL,              0, '2026-05-03 09:30:00', 8),
-('2', '$FO_AURICULARES', 1, '2026-05-06 15:00:00', 8),
-('1', NULL,              0, '2026-05-07 10:00:00', 9),
-('1', '$FO_MOCHILA',     1, '2026-05-08 14:00:00', 9),
-('3', NULL,              0, '2026-05-10 08:00:00', 7),
-('1', '$FO_PARAGUAS',    1, '2026-05-11 16:00:00', 7),
-('2', NULL,              0, '2026-05-12 12:00:00', 9),
-('2', '$FO_NOTEBOOK',    1, '2026-05-13 10:00:00', 7),
-('1', NULL,              0, '2026-05-15 09:00:00', 8);
+(1, '$FO_BILLETERA',   1, '2026-04-29 11:00:00', 7),
+(1, NULL,              0, '2026-05-03 09:30:00', 8),
+(2, '$FO_AURICULARES', 1, '2026-05-06 15:00:00', 8),
+(1, NULL,              0, '2026-05-07 10:00:00', 9),
+(1, '$FO_MOCHILA',     1, '2026-05-08 14:00:00', 9),
+(3, NULL,              0, '2026-05-10 08:00:00', 7),
+(1, '$FO_PARAGUAS',    1, '2026-05-11 16:00:00', 7),
+(2, NULL,              0, '2026-05-12 12:00:00', 9),
+(2, '$FO_NOTEBOOK',    1, '2026-05-13 10:00:00', 7),
+(1, NULL,              0, '2026-05-15 09:00:00', 8);
 SQL
 success "10 registros de search_feedback insertados"
 

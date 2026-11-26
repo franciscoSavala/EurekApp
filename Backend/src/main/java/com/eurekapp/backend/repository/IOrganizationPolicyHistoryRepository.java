@@ -10,5 +10,5 @@ import java.util.List;
 @Repository
 public interface IOrganizationPolicyHistoryRepository extends JpaRepository<OrganizationPolicyHistory, Long> {
     @EntityGraph(attributePaths = "changedBy")
-    List<OrganizationPolicyHistory> findByOrganizationIdOrderByChangedAtDesc(Long organizationId);
+    List<OrganizationPolicyHistory> findByOrganization_IdOrderByChangedAtDesc(Long organizationId);
 }

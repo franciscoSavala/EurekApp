@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 @Builder
 public class FeedbackRecordDto {
     private Long id;
-    private String organizationId;
+    private Long organizationId;
     private String foundObjectUUID;
     private String foundObjectTitle;
     private String foundObjectDescription;

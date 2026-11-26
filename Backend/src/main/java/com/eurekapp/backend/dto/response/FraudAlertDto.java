@@ -10,7 +10,7 @@ import java.util.List;
 @Builder
 public class FraudAlertDto {
     private Long id;
-    private String organizationId;
+    private Long organizationId;
     private String foundObjectUUID;
     private String foundObjectTitle;
     private String foundObjectDescription;

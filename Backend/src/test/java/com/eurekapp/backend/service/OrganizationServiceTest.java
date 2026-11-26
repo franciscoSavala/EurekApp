@@ -99,13 +99,13 @@ class OrganizationServiceTest {
                 .build();
         when(organizationRepository.findById(5L)).thenReturn(Optional.of(owner.getOrganization()));
         when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.of(previa));
-        when(historyRepository.findByOrganizationIdOrderByChangedAtDesc(5L)).thenReturn(List.of());
+        when(historyRepository.findByOrganization_IdOrderByChangedAtDesc(5L)).thenReturn(List.of());
 
         service.updatePolicy(owner, policyDto());
 
         ArgumentCaptor<OrganizationPolicyHistory> hist = ArgumentCaptor.forClass(OrganizationPolicyHistory.class);
         verify(historyRepository).save(hist.capture());
-        assertThat(hist.getValue().getOrganizationId()).isEqualTo(5L);
+        assertThat(hist.getValue().getOrganization().getId()).isEqualTo(5L);
         assertThat(hist.getValue().getChangedBy()).isSameAs(owner);
         assertThat(hist.getValue().getPreviousSnapshot()).contains("\"maxStorageDays\":10");
         verify(policyRepository).save(previa);
@@ -143,7 +143,7 @@ class OrganizationServiceTest {
     void getPolicy_sinPoliticaCargada_devuelveSoloElHistorial() {
         UserEurekapp owner = owner();
         when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.empty());
-        when(historyRepository.findByOrganizationIdOrderByChangedAtDesc(5L)).thenReturn(List.of());
+        when(historyRepository.findByOrganization_IdOrderByChangedAtDesc(5L)).thenReturn(List.of());
 
         OrganizationPolicyDto resultado = service.getPolicy(owner);
 
@@ -157,7 +157,7 @@ class OrganizationServiceTest {
         OrganizationPolicy politica = OrganizationPolicy.builder().organization(owner.getOrganization())
                 .maxStorageDays(15).organizationType(OrganizationType.CLUB).build();
         when(policyRepository.findByOrganization_Id(5L)).thenReturn(Optional.of(politica));
-        when(historyRepository.findByOrganizationIdOrderByChangedAtDesc(5L)).thenReturn(List.of());
+        when(historyRepository.findByOrganization_IdOrderByChangedAtDesc(5L)).thenReturn(List.of());
 
         OrganizationPolicyDto resultado = service.getPolicy(owner);
 
@@ -187,5 +187,19 @@ class OrganizationServiceTest {
         assertThat(resultado.getAdditionalEvidenceDetails()).isEqualTo("foto con el dueño");
         assertThat(resultado.getHistory()).isEmpty();
         verifyNoInteractions(historyRepository);
+    }
+
+    // -- EU-458: el historial de politicas exige una organizacion que exista ---
+
+    @Test
+    void updatePolicy_conUnaOrganizacionInexistente_seRechazaYNoSeGuardaNada() {
+        UserEurekapp owner = owner();
+        when(organizationRepository.findById(5L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.updatePolicy(owner, policyDto()))
+                .isInstanceOf(com.eurekapp.backend.exception.BadRequestException.class);
+
+        verify(historyRepository, never()).save(any());
+        verify(policyRepository, never()).save(any());
     }
 }

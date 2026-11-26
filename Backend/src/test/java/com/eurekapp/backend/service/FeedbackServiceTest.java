@@ -48,6 +48,7 @@ class FeedbackServiceTest {
     FeedbackService service;
 
     private static final Long ORG_ID = 3L;
+    private static final Organization ORG = Organization.builder().id(ORG_ID).name("UTN FRC").build();
     private static final LocalDate FROM = LocalDate.of(2026, 5, 1);
     private static final LocalDate TO = LocalDate.of(2026, 5, 31);
 
@@ -71,7 +72,8 @@ class FeedbackServiceTest {
 
     private SubmitFeedbackRequestDto respuestaDeBusqueda(Integer estrellas, boolean encontro, String comentario) {
         SubmitFeedbackRequestDto dto = new SubmitFeedbackRequestDto();
-        dto.setOrganizationId(String.valueOf(ORG_ID));
+        dto.setOrganizationId(ORG_ID);
+        lenient().when(organizationRepository.findById(ORG_ID)).thenReturn(java.util.Optional.of(ORG));
         dto.setFoundObjectUUID(encontro ? "uuid-objeto" : null);
         dto.setStarRating(estrellas);
         dto.setWasFound(encontro);
@@ -83,7 +85,7 @@ class FeedbackServiceTest {
     private OrganizationFeedback calificacion(int trato, int espera, int claridad, int estado,
                                               int seguridad, String comentario, LocalDateTime cuando) {
         return OrganizationFeedback.builder()
-                .organizationId(ORG_ID)
+                .organization(ORG)
                 .staffTreatment(trato)
                 .waitingTime(espera)
                 .instructionsClarity(claridad)
@@ -107,7 +109,7 @@ class FeedbackServiceTest {
         verify(feedbackRepository).save(guardado.capture());
         SearchFeedback fb = guardado.getValue();
         assertThat(fb.getWasFound()).isTrue();
-        assertThat(fb.getOrganizationId()).isEqualTo("3");
+        assertThat(fb.getOrganization().getId()).isEqualTo(3L);
         assertThat(fb.getStarRating()).isNull();
         assertThat(fb.getComment()).isNull();
     }
@@ -142,9 +144,9 @@ class FeedbackServiceTest {
 
     @Test
     void getReport_muestraUnPromedioPorAspectoYNoUnoSolo() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(
                         calificacion(5, 3, 4, 5, 4, null, LocalDateTime.of(2026, 5, 2, 10, 0)),
                         calificacion(4, 1, 4, 5, 4, null, LocalDateTime.of(2026, 5, 3, 10, 0))
@@ -168,9 +170,9 @@ class FeedbackServiceTest {
     // Los comentarios libres se muestran, del mas nuevo al mas viejo, y sin los vacios.
     @Test
     void getReport_muestraLosComentariosLibresDelMasNuevoAlMasViejo() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(
                         calificacion(5, 5, 5, 5, 5, "Muy amables", LocalDateTime.of(2026, 5, 2, 10, 0)),
                         calificacion(2, 2, 2, 2, 2, "   ", LocalDateTime.of(2026, 5, 3, 10, 0)),
@@ -187,13 +189,13 @@ class FeedbackServiceTest {
     // Se conserva cuantas busquedas terminaron encontrando el objeto en esa organizacion.
     @Test
     void getReport_conservaElRecuentoDeBusquedasQueTerminaronEncontrandoElObjeto() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(
                         SearchFeedback.builder().wasFound(true).createdAt(LocalDateTime.of(2026, 5, 2, 9, 0)).build(),
                         SearchFeedback.builder().wasFound(true).createdAt(LocalDateTime.of(2026, 5, 2, 10, 0)).build(),
                         SearchFeedback.builder().wasFound(false).createdAt(LocalDateTime.of(2026, 5, 4, 9, 0)).build()
                 ));
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
 
         FeedbackReportDto report = service.getReport(responsable(), FROM, TO, "DAY", null);
@@ -207,23 +209,23 @@ class FeedbackServiceTest {
     // Cada responsable ve solo su propia organizacion.
     @Test
     void getReport_pideLasCalificacionesDeSuPropiaOrganizacion() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
 
         service.getReport(responsable(), FROM, TO, "DAY", null);
 
-        verify(organizationFeedbackRepository).findByOrganizationIdAndCreatedAtBetween(
+        verify(organizationFeedbackRepository).findByOrganization_IdAndCreatedAtBetween(
                 ORG_ID, FROM.atStartOfDay(), TO.plusDays(1).atStartOfDay());
     }
 
     // Sin calificaciones todavia, el reporte se muestra en cero en lugar de romperse.
     @Test
     void getReport_sinCalificacionesMuestraCerosYNingunComentario() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
 
         FeedbackReportDto report = service.getReport(responsable(), FROM, TO, "DAY", null);
@@ -246,9 +248,9 @@ class FeedbackServiceTest {
     @Test
     void getRecords_siFallaLaBusquedaDelObjeto_respondeConElTextoDeLaBusquedaYDejaAdvertencia(CapturedOutput output) {
         SearchFeedback fb = SearchFeedback.builder()
-                .id(1L).organizationId(String.valueOf(ORG_ID)).foundObjectUUID("uuid-objeto-555")
+                .id(1L).organization(ORG).foundObjectUUID("uuid-objeto-555")
                 .wasFound(true).lostObjectText("billetera negra").createdAt(FROM.atStartOfDay()).build();
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(fb));
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(fb));
         when(foundObjectRepository.getByUuids(any())).thenThrow(new RuntimeException("Weaviate caido"));
 
         List<FeedbackRecordDto> registros = service.getRecords(responsable(), FROM, TO, null);
@@ -267,7 +269,7 @@ class FeedbackServiceTest {
 
     private SearchFeedback registro(long id, String uuid, String textoBuscado) {
         return SearchFeedback.builder()
-                .id(id).organizationId(String.valueOf(ORG_ID)).foundObjectUUID(uuid)
+                .id(id).organization(ORG).foundObjectUUID(uuid)
                 .wasFound(uuid != null).lostObjectText(textoBuscado).createdAt(FROM.atStartOfDay()).build();
     }
 
@@ -283,7 +285,7 @@ class FeedbackServiceTest {
     // escribio al buscar, y sin descripcion.
     @Test
     void getRecords_siElObjetoNoExiste_respondeConElTextoDeLaBusqueda() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(registro(1L, "uuid-borrado", "billetera negra")));
         stubObjetos(java.util.Map.of());
 
@@ -297,7 +299,7 @@ class FeedbackServiceTest {
     // Un registro sin objeto (la persona no encontro nada) sale con el texto buscado.
     @Test
     void getRecords_siElRegistroNoTieneObjeto_respondeConElTextoDeLaBusqueda() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(registro(1L, null, "paraguas")));
         stubObjetos(java.util.Map.of());
 
@@ -311,7 +313,7 @@ class FeedbackServiceTest {
     // objeto; un objeto inexistente solo afecta a su propia fila.
     @Test
     void getRecords_cadaFilaLlevaLosDatosDeSuObjetoYConservaElOrden() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
                 registro(1L, "uuid-a", "texto a"),
                 registro(2L, "uuid-borrado", "texto b"),
                 registro(3L, "uuid-c", "texto c")));
@@ -331,7 +333,7 @@ class FeedbackServiceTest {
     // Si dos registros son del mismo objeto, los dos salen con su titulo.
     @Test
     void getRecords_siElMismoObjetoApareceEnVariosRegistros_todosSalenConTitulo() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
                 registro(1L, "uuid-a", "texto 1"),
                 registro(2L, "uuid-a", "texto 2")));
         stubObjetos(java.util.Map.of("uuid-a", objeto("uuid-a", "Billetera", "Cuero negro")));
@@ -344,7 +346,7 @@ class FeedbackServiceTest {
 
     @Test
     void exportCsv_ponePorCadaFilaElTituloDelObjetoOElTextoDeRespaldo() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
                 registro(1L, "uuid-a", "texto a"),
                 registro(2L, "uuid-borrado", "texto b"),
                 registro(3L, null, "paraguas"),
@@ -367,7 +369,7 @@ class FeedbackServiceTest {
     // Si el objeto no se puede convertir, la exportacion falla entera (no se entrega un CSV a medias).
     @Test
     void exportCsv_siUnObjetoVieneRoto_laExportacionFalla() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(registro(1L, "uuid-roto", "texto")));
         when(foundObjectRepository.getByUuidsOrFail(any())).thenThrow(new RuntimeException("objeto roto"));
 
@@ -379,7 +381,7 @@ class FeedbackServiceTest {
     // el mismo objeto se pide una sola vez aunque aparezca en varios registros.
     @Test
     void getRecords_pideTodosLosObjetosEnUnaSolaConsultaYSinRepetidos() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
                 registro(1L, "uuid-a", "t1"), registro(2L, "uuid-b", "t2"),
                 registro(3L, "uuid-a", "t3"), registro(4L, null, "t4")));
         stubObjetos(java.util.Map.of());
@@ -393,7 +395,7 @@ class FeedbackServiceTest {
     // Sin ningun objeto que pedir (listado vacio o registros sin objeto) no se molesta a la base vectorial.
     @Test
     void getRecords_sinObjetosParaPedir_noConsultaLaBaseVectorial() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of(registro(1L, null, "paraguas")));
         when(foundObjectRepository.getByUuids(List.of())).thenReturn(java.util.Map.of());
 
@@ -405,7 +407,7 @@ class FeedbackServiceTest {
 
     @Test
     void exportCsv_pideTodosLosObjetosEnUnaSolaConsulta() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of(
                 registro(1L, "uuid-a", "t1"), registro(2L, "uuid-b", "t2"), registro(3L, "uuid-a", "t3")));
         stubObjetos(java.util.Map.of());
 
@@ -421,31 +423,32 @@ class FeedbackServiceTest {
         return UserEurekapp.builder().id(1L).role(Role.ADMIN).build();
     }
 
-    private SearchFeedback busqueda(String org, boolean encontro) {
-        return SearchFeedback.builder().id(1L).organizationId(org).wasFound(encontro)
+    private SearchFeedback busqueda(long org, boolean encontro) {
+        return SearchFeedback.builder().id(1L).organization(Organization.builder().id(org).name(org == 3L ? "UTN FRC" : "UNC").build()).wasFound(encontro)
                 .createdAt(LocalDateTime.of(2026, 5, 2, 9, 0)).build();
     }
 
     @Test
     void getReport_elAdministradorSinOrganizacionVeLasBusquedasDeTodas() {
         when(feedbackRepository.findByCreatedAtBetween(any(), any()))
-                .thenReturn(List.of(busqueda("3", true), busqueda("4", false), busqueda("4", false)));
+                .thenReturn(List.of(busqueda(3L, true), busqueda(4L, false), busqueda(4L, false)));
 
         FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", null, null);
 
         assertThat(report.getTotalFeedback()).isEqualTo(3L);
         assertThat(report.getSuccessfulSearches()).isEqualTo(1L);
         assertThat(report.getUnsuccessfulSearches()).isEqualTo(2L);
-        verify(feedbackRepository, never()).findByOrganizationIdAndCreatedAtBetween(any(), any(), any());
+        verify(feedbackRepository, never()).findByOrganization_IdAndCreatedAtBetween(any(), any(), any());
         verifyNoInteractions(organizationFeedbackRepository);
     }
 
     @Test
     void getReport_elAdministradorConOrganizacionVeSoloLasBusquedasDeEsa() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("4"), any(), any()))
-                .thenReturn(List.of(busqueda("4", false)));
+        when(organizationRepository.existsById(4L)).thenReturn(true);
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(eq(4L), any(), any()))
+                .thenReturn(List.of(busqueda(4L, false)));
 
-        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", null, "4");
+        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", null, 4L);
 
         assertThat(report.getTotalFeedback()).isEqualTo(1L);
         verify(feedbackRepository, never()).findByCreatedAtBetween(any(), any());
@@ -454,9 +457,9 @@ class FeedbackServiceTest {
     @Test
     void getReport_elAdministradorPuedeFiltrarPorEncontroONoEncontro() {
         when(feedbackRepository.findByCreatedAtBetween(any(), any()))
-                .thenReturn(List.of(busqueda("3", true), busqueda("4", false), busqueda("4", false)));
+                .thenReturn(List.of(busqueda(3L, true), busqueda(4L, false), busqueda(4L, false)));
 
-        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", false, "");
+        FeedbackReportDto report = service.getReport(administrador(), FROM, TO, "DAY", false, null);
 
         assertThat(report.getTotalFeedback()).isEqualTo(2L);
         assertThat(report.getSuccessfulSearches()).isZero();
@@ -464,33 +467,31 @@ class FeedbackServiceTest {
 
     @Test
     void getReport_elResponsableIgnoraLaOrganizacionQueMandeYVeSoloLaSuya() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("3"), any(), any()))
-                .thenReturn(List.of(busqueda("3", true)));
-        when(organizationFeedbackRepository.findByOrganizationIdAndCreatedAtBetween(any(), any(), any()))
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(eq(3L), any(), any()))
+                .thenReturn(List.of(busqueda(3L, true)));
+        when(organizationFeedbackRepository.findByOrganization_IdAndCreatedAtBetween(any(), any(), any()))
                 .thenReturn(List.of());
 
-        FeedbackReportDto report = service.getReport(responsable(), FROM, TO, "DAY", null, "99");
+        FeedbackReportDto report = service.getReport(responsable(), FROM, TO, "DAY", null, 99L);
 
         assertThat(report.getTotalFeedback()).isEqualTo(1L);
-        verify(feedbackRepository, never()).findByOrganizationIdAndCreatedAtBetween(eq("99"), any(), any());
+        verify(feedbackRepository, never()).findByOrganization_IdAndCreatedAtBetween(eq(99L), any(), any());
     }
 
     @Test
     void getRecords_elAdministradorSinOrganizacionRecibeLosRegistrosDeTodas() {
         when(feedbackRepository.findByCreatedAtBetween(any(), any()))
-                .thenReturn(List.of(busqueda("3", true), busqueda("4", false)));
+                .thenReturn(List.of(busqueda(3L, true), busqueda(4L, false)));
 
         List<FeedbackRecordDto> registros = service.getRecords(administrador(), FROM, TO, null, null);
 
-        assertThat(registros).extracting(FeedbackRecordDto::getOrganizationId).containsExactly("3", "4");
+        assertThat(registros).extracting(FeedbackRecordDto::getOrganizationId).containsExactly(3L, 4L);
     }
 
     @Test
     void exportCsv_elAdministradorRecibeElNombreDeLaOrganizacionDeCadaFila() {
         when(feedbackRepository.findByCreatedAtBetween(any(), any()))
-                .thenReturn(List.of(busqueda("3", true), busqueda("4", false)));
-        when(organizationRepository.findById(3L)).thenReturn(java.util.Optional.of(Organization.builder().id(3L).name("UTN FRC").build()));
-        when(organizationRepository.findById(4L)).thenReturn(java.util.Optional.of(Organization.builder().id(4L).name("UNC").build()));
+                .thenReturn(List.of(busqueda(3L, true), busqueda(4L, false)));
         stubObjetos(java.util.Map.of());
 
         String contenido = csv(service.exportCsv(administrador(), FROM, TO, null, null));
@@ -500,14 +501,108 @@ class FeedbackServiceTest {
 
     @Test
     void exportCsv_elAdministradorConOrganizacionExportaSoloEsa() {
-        when(feedbackRepository.findByOrganizationIdAndCreatedAtBetween(eq("4"), any(), any()))
-                .thenReturn(List.of(busqueda("4", false)));
-        when(organizationRepository.findById(4L)).thenReturn(java.util.Optional.of(Organization.builder().id(4L).name("UNC").build()));
+        when(organizationRepository.existsById(4L)).thenReturn(true);
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(eq(4L), any(), any()))
+                .thenReturn(List.of(busqueda(4L, false)));
         stubObjetos(java.util.Map.of());
 
-        String contenido = csv(service.exportCsv(administrador(), FROM, TO, null, "4"));
+        String contenido = csv(service.exportCsv(administrador(), FROM, TO, null, 4L));
 
         assertThat(contenido.split("\\n")).hasSize(2);
         assertThat(contenido).contains(";UNC;");
+    }
+
+    // -- EU-458: cada registro queda vinculado a una organizacion que existe ---
+
+    @Test
+    void submit_conUnaOrganizacionInexistente_seRechazaYNoSeGuardaNada() {
+        SubmitFeedbackRequestDto dto = respuestaDeBusqueda(4, true, "Muy buena la app");
+        dto.setOrganizationId(999L);
+        when(organizationRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.submit(usuarioFinal(), dto))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(feedbackRepository, never()).save(any());
+        verify(usabilityFeedbackRepository, never()).save(any());
+    }
+
+    @Test
+    void submit_sinOrganizacionElegida_guardaLaOpinionSinOrganizacion() {
+        SubmitFeedbackRequestDto dto = respuestaDeBusqueda(4, true, "Muy buena la app");
+        dto.setOrganizationId(null);
+
+        service.submit(usuarioFinal(), dto);
+
+        ArgumentCaptor<SearchFeedback> guardado = ArgumentCaptor.forClass(SearchFeedback.class);
+        verify(feedbackRepository).save(guardado.capture());
+        assertThat(guardado.getValue().getOrganization()).isNull();
+    }
+
+    @Test
+    void submit_sinOrganizacionPeroConObjetoEncontrado_usaLaOrganizacionDelObjeto() {
+        SubmitFeedbackRequestDto dto = respuestaDeBusqueda(4, true, null);
+        dto.setOrganizationId(null);
+        dto.setFoundObjectUUID("uuid-1");
+        FoundObject objeto = FoundObject.builder().organizationId("3").build();
+        when(foundObjectRepository.getByUuid("uuid-1")).thenReturn(objeto);
+
+        service.submit(usuarioFinal(), dto);
+
+        ArgumentCaptor<SearchFeedback> guardado = ArgumentCaptor.forClass(SearchFeedback.class);
+        verify(feedbackRepository).save(guardado.capture());
+        assertThat(guardado.getValue().getOrganization().getId()).isEqualTo(3L);
+    }
+
+    @Test
+    void submit_siLaOrganizacionDelObjetoEncontradoNoExiste_seRechazaYNoSeGuardaNada() {
+        SubmitFeedbackRequestDto dto = respuestaDeBusqueda(4, true, null);
+        dto.setOrganizationId(null);
+        dto.setFoundObjectUUID("uuid-1");
+        FoundObject objeto = FoundObject.builder().organizationId("999").build();
+        when(foundObjectRepository.getByUuid("uuid-1")).thenReturn(objeto);
+        when(organizationRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+
+        assertThatThrownBy(() -> service.submit(usuarioFinal(), dto))
+                .isInstanceOf(BadRequestException.class);
+
+        verify(feedbackRepository, never()).save(any());
+    }
+
+    @Test
+    void getReport_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getReport(administrador(), FROM, TO, "DAY", null, 999L))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void getRecords_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.getRecords(administrador(), FROM, TO, null, 999L))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void exportCsv_conUnaOrganizacionInexistente_seRechazaElPedido() {
+        when(organizationRepository.existsById(999L)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.exportCsv(administrador(), FROM, TO, null, 999L))
+                .isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void getRecords_conUnaOrganizacionExistente_devuelveSoloLosRegistrosDeEsaOrganizacion() {
+        when(organizationRepository.existsById(4L)).thenReturn(true);
+        when(feedbackRepository.findByOrganization_IdAndCreatedAtBetween(eq(4L), any(), any()))
+                .thenReturn(List.of(busqueda(4L, false)));
+        stubObjetos(java.util.Map.of());
+
+        List<FeedbackRecordDto> registros = service.getRecords(administrador(), FROM, TO, null, 4L);
+
+        assertThat(registros).extracting(FeedbackRecordDto::getOrganizationId).containsExactly(4L);
+        verify(feedbackRepository, never()).findByCreatedAtBetween(any(), any());
     }
 }

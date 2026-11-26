@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface IRewardExclusionRepository extends JpaRepository<RewardExclusion, Long> {
 
-    List<RewardExclusion> findByOrganizationId(String organizationId);
+    List<RewardExclusion> findByOrganization_Id(Long organizationId);
 
     boolean existsByFoundObjectUUID(String foundObjectUUID);
 

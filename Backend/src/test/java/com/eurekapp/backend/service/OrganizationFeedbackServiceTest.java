@@ -65,7 +65,7 @@ class OrganizationFeedbackServiceTest {
         ReturnFoundObject rfo = new ReturnFoundObject();
         rfo.setId(RETURN_ID);
         rfo.setUserEurekapp(retirador);
-        rfo.setOrganizationId(organizationId);
+        rfo.setOrganization(organizationId == null ? null : Organization.builder().id(organizationId).name("UTN FRC").build());
         rfo.setFoundObjectUUID("uuid-objeto");
         rfo.setFeedbackToken(TOKEN);
         return rfo;
@@ -98,7 +98,7 @@ class OrganizationFeedbackServiceTest {
         OrganizationFeedback fb = guardado.getValue();
         assertThat(fb.getReturnFoundObject()).isSameAs(rfo);
         // La organizacion sale de la devolucion, no de lo que mande el cliente.
-        assertThat(fb.getOrganizationId()).isEqualTo(ORG_ID);
+        assertThat(fb.getOrganization().getId()).isEqualTo(ORG_ID);
         assertThat(fb.getUser()).isSameAs(usuario);
         assertThat(fb.getStaffTreatment()).isEqualTo(5);
         assertThat(fb.getWaitingTime()).isEqualTo(4);
@@ -185,7 +185,7 @@ class OrganizationFeedbackServiceTest {
         verifyNoInteractions(returnFoundObjectRepository);
     }
 
-    // Las devoluciones anteriores al ticket no guardaron organizacion: no se les inventa una.
+    // Sin organizacion la calificacion no se le puede atribuir a nadie: se rechaza y no se guarda nada.
     @Test
     void submit_rechazaUnaDevolucionSinOrganizacion() {
         UserEurekapp usuario = quienRetiro();
@@ -194,7 +194,7 @@ class OrganizationFeedbackServiceTest {
 
         assertThatThrownBy(() -> service.submit(usuario, TOKEN, respuesta()))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessageContaining("anterior a la encuesta");
+                .hasMessageContaining("Organization not found");
         verify(repository, never()).save(any());
     }
 
@@ -205,8 +205,6 @@ class OrganizationFeedbackServiceTest {
         UserEurekapp usuario = quienRetiro();
         when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
-        when(organizationRepository.findById(ORG_ID))
-                .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid("uuid-objeto"))
                 .thenReturn(FoundObject.builder().title("Billetera negra").build());
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);
@@ -224,8 +222,6 @@ class OrganizationFeedbackServiceTest {
         UserEurekapp usuario = quienRetiro();
         when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
-        when(organizationRepository.findById(ORG_ID))
-                .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid(anyString()))
                 .thenReturn(FoundObject.builder().title("Billetera negra").build());
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(true);
@@ -240,8 +236,6 @@ class OrganizationFeedbackServiceTest {
         UserEurekapp usuario = quienRetiro();
         when(returnFoundObjectRepository.findByFeedbackToken(TOKEN))
                 .thenReturn(Optional.of(devolucion(usuario, ORG_ID)));
-        when(organizationRepository.findById(ORG_ID))
-                .thenReturn(Optional.of(Organization.builder().id(ORG_ID).name("UTN FRC").build()));
         when(foundObjectRepository.getByUuid(anyString()))
                 .thenThrow(new RuntimeException("weaviate caido"));
         when(repository.existsByReturnFoundObject_Id(RETURN_ID)).thenReturn(false);

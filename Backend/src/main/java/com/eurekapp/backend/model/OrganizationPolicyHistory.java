@@ -20,7 +20,9 @@ public class OrganizationPolicyHistory {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long organizationId;
+    @ManyToOne
+    @JoinColumn(name = "organization_id", nullable = false, foreignKey = @ForeignKey(name = "fk_organization_policy_history_organization"))
+    private Organization organization;
 
     private LocalDateTime changedAt;
 
