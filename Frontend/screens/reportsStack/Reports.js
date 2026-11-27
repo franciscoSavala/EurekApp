@@ -20,6 +20,7 @@ import { isWeb, isIOS } from "../../utils/platform";
 import DonutChart from "../components/DonutChart";
 import RecoveryTimeChart, { formatHours } from "../components/RecoveryTimeChart";
 import WebDateInput from "../components/WebDateInput";
+import ErrorRetry from "../components/ErrorRetry";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -51,6 +52,7 @@ const Reports = ({ navigation }) => {
     const [loadingFeedback, setLoadingFeedback] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [error, setError] = useState(null);
+    const [feedbackError, setFeedbackError] = useState(false);
 
     const fetchMainReport = async () => {
         setLoadingMain(true);
@@ -75,12 +77,14 @@ const Reports = ({ navigation }) => {
     // de la atención y los comentarios.
     const fetchFeedback = async () => {
         setLoadingFeedback(true);
+        setFeedbackError(false);
         try {
             const params = { from: formatDateISO(appliedRange.from), to: formatDateISO(appliedRange.to), groupBy };
             const fbRes = await axiosInstance.get(`${BACK_URL}/feedback/report`, { params });
             setFeedbackData(fbRes.data);
         } catch {
             setFeedbackData(null);
+            setFeedbackError(true);
         } finally {
             setLoadingFeedback(false);
         }
@@ -223,7 +227,9 @@ const Reports = ({ navigation }) => {
                 </View>
 
                 {loadingMain && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error && (error === "No se pudieron cargar los reportes."
+                    ? <ErrorRetry message="No pudimos cargar los reportes. Intentá de nuevo." onRetry={fetchMainReport} />
+                    : <Text style={styles.errorText}>{error}</Text>)}
 
                 {data && (
                     <>
@@ -294,6 +300,9 @@ const Reports = ({ navigation }) => {
 
                         {/* Sección de feedback (solo para ORGANIZATION_OWNER) */}
                         {loadingFeedback && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
+                        {!loadingFeedback && feedbackError && (
+                            <ErrorRetry message="No pudimos cargar las calificaciones de la atención. Intentá de nuevo." onRetry={fetchFeedback} />
+                        )}
                         {!loadingFeedback && feedbackData && (
                             <>
                                 <View style={styles.cardsRow}>

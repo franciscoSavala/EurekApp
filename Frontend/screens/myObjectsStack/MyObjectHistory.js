@@ -14,6 +14,7 @@ import useAuthFetch from '../../utils/useAuthFetch';
 import { colors } from '../../styles/globalStyles';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import EmptyState from '../components/EmptyState';
+import ErrorRetry from '../components/ErrorRetry';
 import { formatDateLocaleES } from '../../utils/dateFormatter';
 import AppImage from '../components/AppImage';
 
@@ -44,14 +45,17 @@ const MyObjectHistory = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [lostObjects, setLostObjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     const fetchData = async () => {
         setLoading(true);
         try {
             const data = await authFetch('get', `${BACK_URL}/lost-objects/my`);
             setLostObjects(data || []);
+            setLoadFailed(false);
         } catch (e) {
             console.warn('Error cargando búsquedas:', e);
+            setLoadFailed(true);
         } finally {
             setLoading(false);
         }
@@ -118,6 +122,14 @@ const MyObjectHistory = ({ navigation }) => {
         return (
             <View style={styles.centered}>
                 <ActivityIndicator size="large" color="#0d9e9e" />
+            </View>
+        );
+    }
+
+    if (lostObjects.length === 0 && loadFailed) {
+        return (
+            <View style={styles.container}>
+                <ErrorRetry message="No pudimos cargar tus búsquedas. Intentá de nuevo." onRetry={fetchData} />
             </View>
         );
     }

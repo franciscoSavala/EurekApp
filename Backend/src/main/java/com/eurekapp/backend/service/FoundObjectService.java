@@ -274,7 +274,14 @@ public class FoundObjectService implements IFoundObjectService {
         *   existentes y notificamos a los dueños cuyas búsquedas coinciden. Le pasamos el FoundObject
         *   completo para puntuar con el MISMO algoritmo que la búsqueda regular (texto + geografía).
         * */
-        executorService.execute(() -> lostObjectService.notifyMatchingSavedSearches(foundObject));
+        executorService.execute(() -> {
+            try {
+                lostObjectService.notifyMatchingSavedSearches(foundObject);
+            } catch (RuntimeException e) {
+                // El objeto ya quedó cargado: un fallo del aviso (p. ej. la base de vectores) no lo deshace.
+                log.error("No se pudo completar el aviso de coincidencias del objeto {}", foundObjectId, e);
+            }
+        });
 
         // Email de agradecimiento al finder (solo si es usuario EurekApp registrado)
         if (objectFinderUser != null) {

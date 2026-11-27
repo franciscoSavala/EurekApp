@@ -20,6 +20,7 @@ import useAuthFetch from "../../utils/useAuthFetch";
 import { colors } from "../../styles/globalStyles";
 import { formatDateES } from "../../utils/dateFormatter";
 import EmptyState from "../components/EmptyState";
+import ErrorRetry from "../components/ErrorRetry";
 import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -151,7 +152,7 @@ const Inventory = ({ navigation }) => {
     const NotFoundComponent = () => {
         return (
             loadFailed
-                ? <EmptyState icon="wifi" title="No se pudo cargar el inventario. Verificá tu conexión." />
+                ? <ErrorRetry message="No pudimos cargar el inventario. Intentá de nuevo." onRetry={() => fetchFoundObjectsFromOrganization(selectedInstitute, 0, false)} />
                 : filter === 'expired'
                     ? <EmptyState icon="box-open" title="No hay objetos vencidos." />
                     : <EmptyState icon="box-open" title="¡Tu organización no tiene objetos!" />

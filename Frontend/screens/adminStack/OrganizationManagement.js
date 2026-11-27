@@ -15,6 +15,7 @@ import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import Toast from "react-native-toast-message";
 import InfoModal from "../components/InfoModal";
+import ErrorRetry from "../components/ErrorRetry";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -40,6 +41,7 @@ const ORG_TYPE_LABELS = {
 const OrganizationManagement = () => {
     const [orgs, setOrgs] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [toggling, setToggling] = useState(null);
     const [selectedOrg, setSelectedOrg] = useState(null);
     const [orgConfirmVisible, setOrgConfirmVisible] = useState(false);
@@ -60,11 +62,12 @@ const OrganizationManagement = () => {
 
     const fetchOrgs = async () => {
         setLoading(true);
+        setLoadError(false);
         try {
             const res = await axiosInstance.get(BACK_URL + `/admin/organizations`);
             setOrgs(res.data);
         } catch (e) {
-            Toast.show({ type: "error", text1: "No se pudo cargar la lista de organizaciones." });
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -204,6 +207,10 @@ const OrganizationManagement = () => {
             {loading && orgs.length === 0 ? (
                 <View style={styles.centered}>
                     <ActivityIndicator size="large" color="#4A9999" />
+                </View>
+            ) : loadError ? (
+                <View style={styles.centered}>
+                    <ErrorRetry message="No pudimos cargar las organizaciones. Intentá de nuevo." onRetry={fetchOrgs} />
                 </View>
             ) : (
                 <FlatList

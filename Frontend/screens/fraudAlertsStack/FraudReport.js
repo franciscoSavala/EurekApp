@@ -17,6 +17,7 @@ import FraudEvolutionChart from '../components/FraudEvolutionChart';
 import DonutChart from '../components/DonutChart';
 import WebDateInput from '../components/WebDateInput';
 import BaseModal from '../components/BaseModal';
+import ErrorRetry from '../components/ErrorRetry';
 import Constants from 'expo-constants';
 import { exportCsv as descargarCsv } from '../../utils/exportCsv';
 import useAuthFetch from '../../utils/useAuthFetch';
@@ -81,6 +82,8 @@ const FraudReport = () => {
     // EU-434: filtro por organización (null = todas). La lista trae activas e inactivas.
     const [organizationId, setOrganizationId] = useState(null);
     const [organizations, setOrganizations] = useState([]);
+    const [orgsError, setOrgsError] = useState(false);
+    const [reportError, setReportError] = useState(false);
     const [entries, setEntries] = useState([]);
     // EU-395: la agrupación del gráfico de evolución vive acá, y no adentro del gráfico, porque el
     // PDF se exporta con la que esté elegida en pantalla (el PDF no tiene los botones).
@@ -113,10 +116,15 @@ const FraudReport = () => {
         });
     }, [entries, sortBy, isDniMode]);
 
-    useEffect(() => {
+    const loadOrganizations = () => {
+        setOrgsError(false);
         authFetch('get', `${BACK_URL}/admin/organizations`)
             .then((data) => setOrganizations(Array.isArray(data) ? data : []))
-            .catch(() => setOrganizations([]));
+            .catch(() => { setOrganizations([]); setOrgsError(true); });
+    };
+
+    useEffect(() => {
+        loadOrganizations();
     }, []);
 
     const organizationName = (id) => (id == null
@@ -130,6 +138,7 @@ const FraudReport = () => {
         // EU-431: con el rango invertido el reporte no se genera hasta corregirlo.
         if (rangoInvertido) return;
         setLoading(true);
+        setReportError(false);
         const filters = {
             fromDate: formatDateISO(fromDate),
             toDate: formatDateISO(toDate),
@@ -148,6 +157,7 @@ const FraudReport = () => {
             setShowConfig(false);
         } catch (error) {
             console.log(error);
+            setReportError(true);
         } finally {
             setLoading(false);
         }
@@ -403,6 +413,7 @@ const FraudReport = () => {
                 </View>
 
                 <Text style={styles.filterLabel}>Organización</Text>
+                {orgsError && <ErrorRetry message="No pudimos cargar las organizaciones. Intentá de nuevo." onRetry={loadOrganizations} />}
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {[{ id: null, name: 'Todas' }, ...organizations].map(o => {
                         const value = o.id == null ? null : String(o.id);
@@ -451,6 +462,7 @@ const FraudReport = () => {
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
+                {reportError && <ErrorRetry message="No pudimos generar el reporte. Intentá de nuevo." onRetry={fetchReport} />}
                 {generatedFilters && (
                     <TouchableOpacity style={styles.closeConfigBtn} onPress={() => setShowConfig(false)}>
                         <Text style={styles.closeConfigBtnText}>Cerrar</Text>

@@ -14,6 +14,7 @@ import { colors } from '../../styles/globalStyles';
 import { STATUS_COLORS, STATUS_LABELS, humanizeReason } from '../../utils/fraudLabels';
 import { useFocusEffect } from '@react-navigation/native';
 import EmptyState from '../components/EmptyState';
+import ErrorRetry from '../components/ErrorRetry';
 import { formatDateTimeAR } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -22,14 +23,17 @@ const FraudAlerts = ({ navigation }) => {
     const { authFetch } = useAuthFetch();
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     const fetchAlerts = async () => {
         setLoading(true);
         try {
             const alertsData = await authFetch('get', `${BACK_URL}/fraud-alerts`);
             setAlerts(alertsData);
+            setLoadFailed(false);
         } catch (error) {
             console.log(error);
+            setLoadFailed(true);
         } finally {
             setLoading(false);
         }
@@ -71,7 +75,9 @@ const FraudAlerts = ({ navigation }) => {
     };
 
     const EmptyComponent = () => (
-        <EmptyState icon="triangle-exclamation" title="No hay alertas de fraude" />
+        loadFailed
+            ? <ErrorRetry message="No pudimos cargar las alertas. Intentá de nuevo." onRetry={fetchAlerts} />
+            : <EmptyState icon="triangle-exclamation" title="No hay alertas de fraude" />
     );
 
     return (

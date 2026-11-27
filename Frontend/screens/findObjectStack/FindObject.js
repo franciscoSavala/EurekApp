@@ -19,6 +19,7 @@ import Constants from "expo-constants";
 import * as ImagePicker from 'expo-image-picker';
 import { Buffer } from 'buffer';
 import EurekappButton from "../components/Button";
+import ErrorRetry from "../components/ErrorRetry";
 import InstitutePicker from "../components/InstitutePicker";
 import useAuthFetch from "../../utils/useAuthFetch";
 import { fetchWithAuth, blobFetchWithAuth } from "../../utils/fetchWithAuth";
@@ -53,6 +54,7 @@ const FindObject = ({ navigation, route }) => {
     const [selectedInstitute, setSelectedInstitution] = useState(null);
     const [queryObjects, setQueryObjects] = useState("");
     const [loading, setLoading] = useState(false);
+    const [searchFailed, setSearchFailed] = useState(false);
     const [buttonWasPressed, setButtonWasPressed] = useState(false);
     const [lostDate, setLostDate] = useState(() => {
         let curDate = new Date(Date.now() - THREE_HOURS_MS);
@@ -179,6 +181,7 @@ const FindObject = ({ navigation, route }) => {
         if(!validateInputConstraints()) return;
         setLoading(true);
         setButtonWasPressed(true);
+        setSearchFailed(false);
         try {
             const withPhoto = image != null;
             const routeParams = {
@@ -217,7 +220,8 @@ const FindObject = ({ navigation, route }) => {
             if (motivo) {
                 Toast.show({ type: 'error', text1: 'Revisá la fecha de pérdida', text2: motivo });
             } else {
-                Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo realizar la búsqueda. Verificá tu conexión.' });
+                // EU-338: un fallo no es "sin coincidencias": se avisa y se ofrece reintentar.
+                setSearchFailed(true);
             }
         } finally {
             setLoading(false);
@@ -332,6 +336,9 @@ const FindObject = ({ navigation, route }) => {
                     loading ? <ActivityIndicator size="large" color={colors.text} />: null
                 ) : null
                 }
+                {searchFailed && !loading && (
+                    <ErrorRetry message="No pudimos completar la búsqueda. Intentá de nuevo." onRetry={queryLostObject} />
+                )}
             </ScrollView>
             <EurekappButton text="Buscar objeto" onPress={queryLostObject} />
         </View>

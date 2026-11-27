@@ -13,6 +13,7 @@ import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import Toast from "react-native-toast-message";
 import InfoModal from "../components/InfoModal";
+import ErrorRetry from "../components/ErrorRetry";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -92,16 +93,18 @@ const RequestCard = ({ request, onCancel }) => {
 const MyOrganizationRequest = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [cancelling, setCancelling] = useState(false);
     const [cancelTargetId, setCancelTargetId] = useState(null);
 
     const fetchRequests = async () => {
         setLoading(true);
+        setLoadError(false);
         try {
             const res = await axiosInstance.get(BACK_URL + "/organizations/requests/my");
             setRequests(res.data);
         } catch {
-            setRequests([]);
+            setLoadError(true);
         } finally {
             setLoading(false);
         }
@@ -127,6 +130,14 @@ const MyOrganizationRequest = () => {
         return (
             <View style={styles.centered}>
                 <ActivityIndicator size="large" color="#4A9999" />
+            </View>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <View style={styles.centered}>
+                <ErrorRetry message="No pudimos cargar tus solicitudes. Intentá de nuevo." onRetry={fetchRequests} />
             </View>
         );
     }

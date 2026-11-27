@@ -14,6 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome6';
 import { ROLE_LABELS } from '../../utils/constants';
 import EmptyState from '../components/EmptyState';
+import ErrorRetry from '../components/ErrorRetry';
 import { formatDateTimeLocaleES } from '../../utils/dateFormatter';
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -23,13 +24,16 @@ const RewardExclusionsList = () => {
     const [exclusions, setExclusions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     const fetchExclusions = async () => {
         try {
             const data = await authFetch('get', `${BACK_URL}/found-objects/reward-exclusions`);
             setExclusions(data?.exclusions ?? data ?? []);
+            setLoadFailed(false);
         } catch (e) {
             console.warn('Error cargando exclusiones:', e);
+            setLoadFailed(true);
         }
     };
 
@@ -88,7 +92,9 @@ const RewardExclusionsList = () => {
             <Text style={styles.subheading}>
                 Registros de objetos cargados por encargados, empleados o responsables que no reciben puntos.
             </Text>
-            {exclusions.length === 0 ? (
+            {exclusions.length === 0 && loadFailed ? (
+                <ErrorRetry message="No pudimos cargar las exclusiones. Intentá de nuevo." onRetry={load} />
+            ) : exclusions.length === 0 ? (
                 <EmptyState
                     icon="circle-check"
                     title="Sin exclusiones registradas"
