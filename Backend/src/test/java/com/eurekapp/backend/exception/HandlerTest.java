@@ -5,6 +5,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -75,5 +76,17 @@ class HandlerTest {
 
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
         assertEquals("internal_error", response.getBody().getError());
+    }
+
+    @Test
+    void unFiltroMalFormadoSeRechazaComoPedidoInvalido() {
+        MethodArgumentTypeMismatchException e = new MethodArgumentTypeMismatchException(
+                "abc", Long.class, "organizationId", null, new NumberFormatException("abc"));
+
+        ResponseEntity<ApiError> response = handler.handleTypeMismatch(e);
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("invalid_parameter", response.getBody().getError());
+        assertEquals("El valor del parámetro 'organizationId' no es válido.", response.getBody().getMessage());
     }
 }
