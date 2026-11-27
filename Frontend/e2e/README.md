@@ -87,7 +87,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | `t01-perfil.spec.js` | Mi perfil: datos del empleado no editables y persistencia al volver a entrar. | 121 a 124 | @paralelo |
 | `t01-registro.spec.js` | Registro: validaciones, email repetido y contraseña. | 004, 007 a 014, 331, 333 | @paralelo |
 
-Los números son los de la planilla depurada. Los pasos y utilidades de cada tanda están en `helpers/r01.js` a `r15.js` (existen r01 a r06, r08 a r10, r12 y r15).
+Los números son los de la planilla Test Cases E2E. Los pasos y utilidades de cada tanda están en `helpers/r01.js` a `r15.js` (existen r01 a r06, r08 a r10, r12 y r15).
 
 Las fotos de prueba están en `fixtures/`.
 
