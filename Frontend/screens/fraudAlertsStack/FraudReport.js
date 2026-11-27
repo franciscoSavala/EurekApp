@@ -83,6 +83,7 @@ const FraudReport = () => {
     const [organizationId, setOrganizationId] = useState(null);
     const [organizations, setOrganizations] = useState([]);
     const [orgsError, setOrgsError] = useState(false);
+    const [reportError, setReportError] = useState(false);
     const [entries, setEntries] = useState([]);
     // EU-395: la agrupación del gráfico de evolución vive acá, y no adentro del gráfico, porque el
     // PDF se exporta con la que esté elegida en pantalla (el PDF no tiene los botones).
@@ -137,6 +138,7 @@ const FraudReport = () => {
         // EU-431: con el rango invertido el reporte no se genera hasta corregirlo.
         if (rangoInvertido) return;
         setLoading(true);
+        setReportError(false);
         const filters = {
             fromDate: formatDateISO(fromDate),
             toDate: formatDateISO(toDate),
@@ -155,6 +157,7 @@ const FraudReport = () => {
             setShowConfig(false);
         } catch (error) {
             console.log(error);
+            setReportError(true);
         } finally {
             setLoading(false);
         }
@@ -459,6 +462,7 @@ const FraudReport = () => {
                 <TouchableOpacity style={styles.generateBtn} onPress={fetchReport} disabled={loading}>
                     {loading ? <ActivityIndicator color={colors.background} /> : <Text style={styles.generateBtnText}>Generar reporte</Text>}
                 </TouchableOpacity>
+                {reportError && <ErrorRetry message="No pudimos generar el reporte. Intentá de nuevo." onRetry={fetchReport} />}
                 {generatedFilters && (
                     <TouchableOpacity style={styles.closeConfigBtn} onPress={() => setShowConfig(false)}>
                         <Text style={styles.closeConfigBtnText}>Cerrar</Text>
