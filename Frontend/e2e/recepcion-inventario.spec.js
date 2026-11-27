@@ -126,10 +126,10 @@ test.describe('Inventario y detalle del objeto', () => {
     });
 
     test('caso 085: sin conexión con el servidor el inventario avisa del error y no muestra el cartel de vacío @recepcion @paralelo', async () => {
-        await caso(85, 'con el servidor caído aparece "No se pudo cargar el inventario. Verificá tu conexión." y no el inventario vacío (verificado con el servidor simulado sin conexión)', async () => {
+        await caso(85, 'con el servidor caído aparece "No pudimos cargar el inventario. Intentá de nuevo." y no el inventario vacío (verificado con el servidor simulado sin conexión)', async () => {
             await page.route('**/found-objects/organizations/all/**', (route) => route.abort('connectionrefused'));
             await irPorMenu(page, 'Ver inventario');
-            await expect(page.getByText('No se pudo cargar el inventario. Verificá tu conexión.').locator('visible=true').first()).toBeVisible({ timeout: 8000 });
+            await expect(page.getByText('No pudimos cargar el inventario. Intentá de nuevo.').locator('visible=true').first()).toBeVisible({ timeout: 8000 });
             await expect(page.getByText('¡Tu organización no tiene objetos!')).toHaveCount(0);
         });
     });
