@@ -42,7 +42,13 @@ export async function saveLostObject({ description, lostDate, coordinates, organ
             formData.append('file', new Blob([Buffer.from(photo.base64, 'base64')]), 'lost_photo.jpg');
         }
         const response = await fetchWithAuth(url, { method: 'POST', body: formData });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            const err = new Error(`HTTP ${response.status}`);
+            if (response.status === 400) {
+                try { err.serverMessage = (await response.json())?.message; } catch (_) { /* sin cuerpo */ }
+            }
+            throw err;
+        }
         return;
     }
     const parts = photo
@@ -52,5 +58,11 @@ export async function saveLostObject({ description, lostDate, coordinates, organ
     const response = await blobFetchWithAuth('POST', url,
         { 'Content-Type': 'multipart/form-data' }, parts);
     const status = response.info().status;
-    if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+    if (status < 200 || status >= 300) {
+        const err = new Error(`HTTP ${status}`);
+        if (status === 400) {
+            try { err.serverMessage = response.json()?.message; } catch (_) { /* sin cuerpo */ }
+        }
+        throw err;
+    }
 }

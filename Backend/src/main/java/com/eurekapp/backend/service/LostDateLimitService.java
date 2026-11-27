@@ -77,7 +77,7 @@ public class LostDateLimitService {
         }
         if (days <= 0) {
             throw new BadRequestException("max_lost_date_days_invalid",
-                    "El plazo debe ser un número entero mayor a cero.");
+                    "El plazo debe ser un número entero de días mayor a cero.");
         }
     }
 }

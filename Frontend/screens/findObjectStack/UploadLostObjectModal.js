@@ -68,6 +68,10 @@ const UploadLostObjectModal = ({ setModalVisible, modalVisible, query, lostDate,
         } catch (error) {
             console.error(error);
             setResponseOk(false);
+            // EU-424: rechazo de la fecha de pérdida (400): se muestra el motivo que explica el servidor.
+            if (error?.serverMessage) {
+                Toast.show({ type: 'error', text1: 'Revisá la fecha de pérdida', text2: error.serverMessage });
+            }
         } finally {
             setLoading(false);
         }
