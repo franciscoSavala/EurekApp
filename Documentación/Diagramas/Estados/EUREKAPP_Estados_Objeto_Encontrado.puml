@@ -1,0 +1,23 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam stateBackgroundColor #F5F8FF
+title Objeto encontrado: diagrama de transición de estados
+
+state "En inventario\n(was_returned = false)" as INV {
+  state "En plazo" as PLAZO
+  state "Por vencer\n(pasó el 80 % del plazo)" as PV
+  state "Vencido\n(fuera de las búsquedas)" as VEN
+}
+state "Devuelto\n(was_returned = true)" as DEV
+
+[*] --> PLAZO : FoundObjectService.uploadFoundObject()\nEU-40 Publicación de foto y textual de objeto encontrado (Receptar objeto)
+PLAZO --> PV : StoragePeriodService.getStatus() [pasó el 80 % del plazo]\nEU-452 Aplicar el plazo máximo de guarda
+PV --> VEN : StoragePeriodService.getStatus() [fecha de hallazgo + plazo alcanzada]\nEU-452 Aplicar el plazo máximo de guarda
+PV --> PLAZO : StoragePeriodService.getStatus() [la organización amplía o quita el plazo]\nEU-452 Aplicar el plazo máximo de guarda
+VEN --> PLAZO : StoragePeriodService.getStatus() [la organización amplía o quita el plazo]\nEU-452 Aplicar el plazo máximo de guarda
+PLAZO --> DEV : ReturnFoundObjectService.returnFoundObject()\nEU-23 Registro de devolución de un objeto encontrado
+PV --> DEV : ReturnFoundObjectService.returnFoundObject()\nEU-23 Registro de devolución de un objeto encontrado
+VEN --> DEV : ReturnFoundObjectService.returnFoundObject()\nEU-452 Aplicar el plazo máximo de guarda (devolución permitida con el objeto vencido)
+DEV --> [*]
+@enduml

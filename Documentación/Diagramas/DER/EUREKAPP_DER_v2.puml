@@ -1,0 +1,353 @@
+@startuml
+' DER de EurekApp. Fuente: esquema real de MySQL (information_schema) y clases de Weaviate de start-local.sh.
+' Convenciones: "*" = NOT NULL. <<PK>> clave primaria, <<FK>> clave foránea declarada, <<UK>> único.
+' Líneas continuas = clave foránea declarada en la base.
+' Líneas punteadas = referencia lógica sin clave foránea (entre MySQL y Weaviate, o por ID guardado sin restricción).
+' La referencia de FoundObject y LostObject (Weaviate) hacia organizations sigue siendo lógica: la valida la aplicación al guardar.
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam package {
+  BackgroundColor #FAFAFA
+}
+title EurekApp: Diagrama Entidad-Relación
+
+package "MySQL" {
+
+entity "users" as users {
+  * id : BIGINT <<PK>>
+  --
+  * username : VARCHAR(100) <<UK>> (correo, 3 a 100)
+  * password : VARCHAR(255) (hash BCrypt; la ingresada, de 8 a 16)
+  active : BIT(1) (0 = desactivado, 1 = activo)
+  * first_name : VARCHAR(50) (1 a 50)
+  * last_name : VARCHAR(50) (1 a 50)
+  * role : ENUM(USER, ORGANIZATION_OWNER,\n  ORGANIZATION_EMPLOYEE, ENCARGADO, ADMIN)
+  organization_id : BIGINT <<FK>>
+  * xp : BIGINT (>= 0, default 0)
+  * returned_objects : BIGINT (>= 0, default 0)
+  provider_type : VARCHAR(20) (GOOGLE, FACEBOOK o nulo)
+  provider_id : VARCHAR(255)
+  password_reset_token : VARCHAR(10)
+  password_reset_token_expiry : DATETIME(6)
+  fraud_alerts_seen_at : DATETIME(6)
+}
+
+entity "organizations" as organizations {
+  * id : BIGINT <<PK>>
+  --
+  name : VARCHAR(255)
+  contact_data : VARCHAR(255)
+  street : VARCHAR(255)
+  street_number : VARCHAR(255)
+  city : VARCHAR(255)
+  province : VARCHAR(255)
+  country : VARCHAR(255)
+  organization_type : ENUM(TipoOrganizacion)
+  latitude : DOUBLE (-90 a 90)
+  longitude : DOUBLE (-180 a 180)
+  * active : TINYINT(1) (0 o 1, default 1)
+}
+
+entity "organization_policies" as organization_policies {
+  * id : BIGINT <<PK>>
+  --
+  organization_id : BIGINT <<FK>> <<UK>>
+  max_storage_days : INT (null o <= 0: sin plazo)
+  max_lost_date_days : INT (null: 90 días)
+  requires_identity_validation : BIT(1)
+  requires_additional_evidence : BIT(1)
+  additional_evidence_details : VARCHAR(500)
+  organization_type : ENUM(TipoOrganizacion)
+}
+
+entity "organization_policy_history" as organization_policy_history {
+  * id : BIGINT <<PK>>
+  --
+  organization_id : BIGINT <<FK>>
+  changed_at : DATETIME(6)
+  changed_by_id : BIGINT <<FK>>
+  previous_snapshot : TEXT (JSON de la política anterior)
+}
+
+entity "organization_request" as organization_request {
+  * id : BIGINT <<PK>>
+  --
+  * requesting_user_id : BIGINT <<FK>>
+  * organization_name : VARCHAR(200)
+  * organization_type : ENUM(TipoOrganizacion)
+  custom_organization_type : VARCHAR(200)
+  * street : VARCHAR(200)
+  * street_number : VARCHAR(20)
+  * city : VARCHAR(100)
+  * province : VARCHAR(100)
+  * country : VARCHAR(100)
+  latitude : DOUBLE
+  longitude : DOUBLE
+  * owner_first_name : VARCHAR(100)
+  * owner_last_name : VARCHAR(100)
+  * owner_email : VARCHAR(150)
+  * owner_phone : VARCHAR(50)
+  * reason : VARCHAR(1000)
+  * status : ENUM(PENDING_APPROVAL, APPROVED,\n  REJECTED, CANCELLED)
+  * created_at : DATETIME (default CURRENT_TIMESTAMP)
+  resolved_at : DATETIME(6)
+  resolved_by_user_id : BIGINT <<FK>>
+  admin_note : VARCHAR(1000) (obligatoria al rechazar)
+  organization_id : BIGINT <<FK>> (se llena al aprobar)
+}
+
+entity "add_employee_request" as add_employee_request {
+  * id : BIGINT <<PK>>
+  --
+  * user_id : BIGINT <<FK>>
+  * org_id : BIGINT <<FK>>
+  * status : ENUM(PENDING, ACCEPTED, DECLINED)
+}
+
+entity "return_found_objects" as return_found_objects {
+  * id : BIGINT <<PK>>
+  --
+  user_id : BIGINT <<FK>> (quien retira, si tiene cuenta)
+  first_name : VARCHAR(100)
+  last_name : VARCHAR(100)
+  * dni : VARCHAR(20)
+  * phone_number : VARCHAR(20)
+  * found_objectuuid : VARCHAR(255) <<UK>> (UUID Weaviate)
+  * person_photo_uuid : VARCHAR(255) (nombre en S3)
+  * datetime_of_return : DATETIME(6)
+  returned_by_employee_id : BIGINT <<FK>>
+  notification_sent_at : DATETIME(6)
+  notification_recipient : VARCHAR(255)
+  organization_id : BIGINT <<FK>>
+  feedback_token : VARCHAR(36) <<UK>> (UUID)
+}
+
+entity "organization_feedback" as organization_feedback {
+  * id : BIGINT <<PK>>
+  --
+  * return_found_object_id : BIGINT <<FK>> <<UK>>
+  * organization_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+  * staff_treatment : INT (1 a 5)
+  * waiting_time : INT (1 a 5)
+  * instructions_clarity : INT (1 a 5)
+  * object_condition : INT (1 a 5)
+  * pickup_security : INT (1 a 5)
+  comment : VARCHAR(500)
+  * created_at : DATETIME(6)
+}
+
+entity "search_feedback" as search_feedback {
+  * id : BIGINT <<PK>>
+  --
+  organization_id : BIGINT <<FK>> (nulo = búsqueda sin organización)
+  found_object_uuid : VARCHAR(36) (UUID Weaviate)
+  star_rating : INT (0 a 5; solo registros viejos)
+  * was_found : BIT(1)
+  comment : VARCHAR(500)
+  lost_object_text : VARCHAR(500)
+  * created_at : DATETIME(6)
+  user_id : BIGINT <<FK>>
+}
+
+entity "usability_feedback" as usability_feedback {
+  * id : BIGINT <<PK>>
+  --
+  * star_rating : INT (1 a 5)
+  aspects : VARCHAR(200) (lista separada por comas:\n  FACILIDAD_USO, CLARIDAD,\n  TIEMPO_RESPUESTA, NAVEGACION)
+  comment : VARCHAR(500)
+  context : VARCHAR(100) (profile, close_search)
+  * created_at : DATETIME(6)
+  user_id : BIGINT <<FK>>
+}
+
+entity "in_app_notifications" as in_app_notifications {
+  * id : BIGINT <<PK>>
+  --
+  * user_id : BIGINT <<FK>>
+  * title : VARCHAR(200)
+  * description : VARCHAR(500)
+  * type : VARCHAR(50) (TipoAviso)
+  * is_read : BIT(1) (default 0)
+  * created_at : DATETIME(6)
+  related_request_id : BIGINT (sin FK)
+  related_object_uuid : VARCHAR(36) (UUID Weaviate)
+  match_score : DOUBLE (0 a 1)
+  related_lost_object_uuid : VARCHAR(36) (UUID Weaviate)
+}
+
+entity "reward_exclusions" as reward_exclusions {
+  * id : BIGINT <<PK>>
+  --
+  * found_objectuuid : VARCHAR(255) (UUID Weaviate)
+  * user_id : BIGINT <<FK>>
+  * user_role : ENUM(USER, ORGANIZATION_OWNER,\n  ORGANIZATION_EMPLOYEE, ENCARGADO, ADMIN)
+  * reason : VARCHAR(100) (INCOMPATIBLE_ROLE)
+  * excluded_at : DATETIME(6)
+  * organization_id : BIGINT <<FK>>
+}
+
+entity "fraud_alert" as fraud_alert {
+  * id : BIGINT <<PK>>
+  --
+  organization_id : BIGINT <<FK>> (nulo = alerta global)
+  found_object_uuid : VARCHAR(36) (UUID Weaviate)
+  dni : VARCHAR(20)
+  returned_by_employee_id : BIGINT <<FK>>
+  * reason : VARCHAR(60) (lista separada por comas\n  de CASE_1, CASE_2, CASE_3)
+  details : VARCHAR(500)
+  * status : ENUM(ACTIVE, FALSE_POSITIVE)
+  * created_at : DATETIME(6)
+  resolved_at : DATETIME(6)
+  resolved_by_id : BIGINT <<FK>>
+  dedup_key : VARCHAR(255)
+}
+
+entity "fraud_alert_case" as fraud_alert_case {
+  (sin clave primaria: colección de valores)
+  --
+  * fraud_alert_id : BIGINT <<FK>>
+  case_type : ENUM(CASE_1, CASE_2, CASE_3)
+  matched_count : INT (>= 1)
+}
+
+entity "fraud_alert_suspect_user" as fraud_alert_suspect_user {
+  * fraud_alert_id : BIGINT <<PK>> <<FK>>
+  * user_id : BIGINT <<PK>> <<FK>>
+}
+
+entity "fraud_alert_return" as fraud_alert_return {
+  * fraud_alert_id : BIGINT <<PK>> <<FK>>
+  * return_found_object_id : BIGINT <<PK>> <<FK>>
+}
+
+entity "fraud_block" as fraud_block {
+  * id : BIGINT <<PK>>
+  --
+  target_dni : VARCHAR(20)
+  target_user_id : BIGINT <<FK>>
+  * fraud_alert_id : BIGINT <<FK>>
+  * blocked_at : DATETIME(6)
+  * expires_at : DATETIME(6)
+}
+
+entity "fraud_detection_config" as fraud_detection_config {
+  * id : BIGINT <<PK>> (fila única, id = 1)
+  --
+  * fraud_threshold : INT (>= 1)
+  * fraud_window_days : INT (>= 1)
+  * block_duration_days : INT (>= 1)
+}
+}
+
+package "Weaviate (base vectorial)" {
+entity "FoundObject" as FoundObject {
+  * uuid : UUID <<PK>>
+  --
+  image : VECTOR (coseno, sin vectorizador)
+  text : VECTOR (coseno, sin vectorizador)
+  found_date : DATE
+  title : STRING
+  human_description : STRING
+  organization_id : TEXT
+  coordinates : GEOCOORDINATES
+  was_returned : BOOLEAN
+  object_finder_user_id : TEXT
+  category : TEXT (ROPA, BILLETERA, LLAVES,\n  ELECTRONICA, OTROS)
+}
+
+entity "LostObject" as LostObject {
+  * uuid : UUID <<PK>>
+  --
+  image : VECTOR (coseno, sin vectorizador)
+  text : VECTOR (coseno, sin vectorizador)
+  lost_date : DATE
+  description : STRING
+  username : STRING
+  organization_id : TEXT
+  coordinates : GEOCOORDINATES
+  status : TEXT (ACTIVE, PENDING_PICKUP, RETRIEVED,\n  RETRIEVED_BY_OTHER, CLOSED)
+  closed_date : DATE
+  recovered : BOOLEAN
+  category : TEXT (ROPA, BILLETERA, LLAVES,\n  ELECTRONICA, OTROS)
+  has_image : BOOLEAN
+  matched_object_uuid : TEXT
+}
+}
+
+' ---------- Claves foráneas declaradas ----------
+organizations ||--o{ users : organization_id
+organizations ||--o| organization_policies : organization_id
+users |o--o{ organization_policy_history : changed_by_id
+users ||--o{ organization_request : requesting_user_id
+users |o--o{ organization_request : resolved_by_user_id
+organizations |o--o{ organization_request : organization_id
+organizations ||--o{ organization_policy_history : organization_id
+organizations ||--o{ return_found_objects : organization_id
+organizations ||--o{ organization_feedback : organization_id
+organizations ||--o{ reward_exclusions : organization_id
+organizations |o--o{ search_feedback : organization_id
+organizations |o--o{ fraud_alert : organization_id
+users ||--o{ add_employee_request : user_id
+organizations ||--o{ add_employee_request : org_id
+users |o--o{ return_found_objects : user_id
+users |o--o{ return_found_objects : returned_by_employee_id
+return_found_objects ||--o| organization_feedback : return_found_object_id
+users |o--o{ organization_feedback : user_id
+users |o--o{ search_feedback : user_id
+users |o--o{ usability_feedback : user_id
+users ||--o{ in_app_notifications : user_id
+users ||--o{ reward_exclusions : user_id
+users |o--o{ fraud_alert : returned_by_employee_id
+users |o--o{ fraud_alert : resolved_by_id
+fraud_alert ||--|{ fraud_alert_case : fraud_alert_id
+fraud_alert ||--o{ fraud_alert_suspect_user : fraud_alert_id
+users ||--o{ fraud_alert_suspect_user : user_id
+fraud_alert ||--|{ fraud_alert_return : fraud_alert_id
+return_found_objects ||--o{ fraud_alert_return : return_found_object_id
+fraud_alert ||--o{ fraud_block : fraud_alert_id
+users |o--o{ fraud_block : target_user_id
+
+' ---------- Referencias lógicas sin clave foránea ----------
+organizations .. FoundObject : organization_id (texto)
+organizations .. LostObject : organization_id (texto)
+users .. FoundObject : object_finder_user_id (texto)
+users .. LostObject : username
+FoundObject .. return_found_objects : found_objectuuid
+FoundObject .. reward_exclusions : found_objectuuid
+FoundObject .. fraud_alert : found_object_uuid
+FoundObject .. search_feedback : found_object_uuid
+FoundObject .. LostObject : matched_object_uuid
+FoundObject .. in_app_notifications : related_object_uuid
+LostObject .. in_app_notifications : related_lost_object_uuid
+
+legend right
+  <b>Dominios con nombre</b>
+  <b>TipoOrganizacion</b>: CLUB, AIRPORT, SHOPPING, OTHER, UNIVERSITY, SCHOOL,
+  HOSPITAL, HOTEL, RESTAURANT, BUS_TERMINAL, TRAIN_STATION, SPORTS_COMPLEX,
+  GYM, CORPORATE_OFFICE, COWORKING, CINEMA, THEATER, STADIUM, EVENT,
+  CITY_HALL, LIBRARY, MUSEUM, CASINO, RECREATIONAL_PARK, CAMPING,
+  CRUISE_PORT, CHURCH, SUPERMARKET, SHOPPING_MALL, CONVENTION_CENTER,
+  AMUSEMENT_PARK, PRIVATE_BEACH
+  <b>TipoAviso</b>: MATCH_FOUND, EMPLOYEE_INVITATION, ROLE_CHANGED,
+  ORG_REGISTRATION_REQUEST, ORG_REQUEST_APPROVED, ORG_REQUEST_REJECTED,
+  ORG_REACTIVATED, ORG_DEACTIVATED, USER_REACTIVATED,
+  USER_DEACTIVATED, REWARD_EARNED, REWARD_BLOCKED,
+  FRAUD_EMPLOYEE_INVOLVED, FRAUD_BLOCK_LIFTED
+  <b>CASE_1</b>: retiros repetidos del mismo DNI.
+  <b>CASE_2</b>: posible acuerdo entre quien registra y quien retira.
+  <b>CASE_3</b>: posible complicidad de un empleado.
+  --
+  <b>Notas</b>
+  El estado de guarda del objeto (IN_TERM, EXPIRING, EXPIRED) se calcula
+  con max_storage_days y la fecha de hallazgo; no se guarda en ninguna base.
+  Los rangos entre paréntesis los valida la aplicación, no la base.
+  El nombre de la foto en el almacenamiento de imágenes es el UUID del objeto.
+  Las dos bases no comparten transacciones: las referencias entre ellas
+  no tienen integridad referencial.
+endlegend
+@enduml

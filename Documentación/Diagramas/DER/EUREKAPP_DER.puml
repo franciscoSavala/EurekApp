@@ -1,0 +1,339 @@
+@startuml
+hide circle
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+title EurekApp: Diagrama Entidad-Relación
+
+package "MySQL" {
+entity "add_employee_request" as add_employee_request {
+  * id : BIGINT <<PK>>
+  --
+  * status : ENUM(ACCEPTED, DECLINED, PENDING)
+  * org_id : BIGINT <<FK>>
+  * user_id : BIGINT <<FK>>
+}
+
+entity "fraud_alert" as fraud_alert {
+  * id : BIGINT <<PK>>
+  --
+  * created_at : DATETIME(6)
+  dedup_key : VARCHAR(255)
+  details : VARCHAR(500)
+  dni : VARCHAR(20)
+  found_object_uuid : VARCHAR(36)
+  organization_id : VARCHAR(36)
+  * reason : VARCHAR(60)
+  resolved_at : DATETIME(6)
+  * status : ENUM(ACTIVE, FALSE_POSITIVE)
+  resolved_by_id : BIGINT <<FK>>
+  returned_by_employee_id : BIGINT <<FK>>
+}
+
+entity "fraud_alert_case" as fraud_alert_case {
+  --
+  * fraud_alert_id : BIGINT <<FK>>
+  case_type : ENUM(CASE_1, CASE_2, CASE_3)
+  matched_count : INT
+}
+
+entity "fraud_alert_return" as fraud_alert_return {
+  * fraud_alert_id : BIGINT <<PK>> <<FK>>
+  * return_found_object_id : BIGINT <<PK>> <<FK>>
+  --
+}
+
+entity "fraud_alert_suspect_user" as fraud_alert_suspect_user {
+  * fraud_alert_id : BIGINT <<PK>> <<FK>>
+  * user_id : BIGINT <<PK>> <<FK>>
+  --
+}
+
+entity "fraud_block" as fraud_block {
+  * id : BIGINT <<PK>>
+  --
+  * blocked_at : DATETIME(6)
+  * expires_at : DATETIME(6)
+  target_dni : VARCHAR(20)
+  * fraud_alert_id : BIGINT <<FK>>
+  target_user_id : BIGINT <<FK>>
+}
+
+entity "fraud_detection_config" as fraud_detection_config {
+  * id : BIGINT <<PK>>
+  --
+  * block_duration_days : INT
+  * fraud_threshold : INT
+  * fraud_window_days : INT
+}
+
+entity "in_app_notifications" as in_app_notifications {
+  * id : BIGINT <<PK>>
+  --
+  * created_at : DATETIME(6)
+  * description : VARCHAR(500)
+  match_score : DOUBLE
+  * is_read : BIT(1)
+  related_lost_object_uuid : VARCHAR(36)
+  related_object_uuid : VARCHAR(36)
+  related_request_id : BIGINT
+  * title : VARCHAR(200)
+  * type : VARCHAR(50)
+  * user_id : BIGINT <<FK>>
+}
+
+entity "organization_feedback" as organization_feedback {
+  * id : BIGINT <<PK>>
+  --
+  comment : VARCHAR(500)
+  * created_at : DATETIME(6)
+  * instructions_clarity : INT
+  * object_condition : INT
+  * organization_id : BIGINT
+  * pickup_security : INT
+  * staff_treatment : INT
+  * waiting_time : INT
+  * return_found_object_id : BIGINT <<FK>> <<UK>>
+  user_id : BIGINT <<FK>>
+}
+
+entity "organization_policies" as organization_policies {
+  * id : BIGINT <<PK>>
+  --
+  additional_evidence_details : VARCHAR(500)
+  max_storage_days : INT
+  organization_type : ENUM (ver nota)
+  requires_additional_evidence : BIT(1)
+  requires_identity_validation : BIT(1)
+  organization_id : BIGINT <<FK>> <<UK>>
+}
+
+entity "organization_policy_history" as organization_policy_history {
+  * id : BIGINT <<PK>>
+  --
+  changed_at : DATETIME(6)
+  organization_id : BIGINT
+  previous_snapshot : TEXT
+  changed_by_id : BIGINT <<FK>>
+}
+
+entity "organization_request" as organization_request {
+  * id : BIGINT <<PK>>
+  --
+  admin_note : VARCHAR(1000)
+  * city : VARCHAR(100)
+  latitude : DOUBLE
+  longitude : DOUBLE
+  * country : VARCHAR(100)
+  * created_at : DATETIME
+  custom_organization_type : VARCHAR(200)
+  * organization_name : VARCHAR(200)
+  * organization_type : ENUM (ver nota)
+  * owner_email : VARCHAR(150)
+  * owner_first_name : VARCHAR(100)
+  * owner_last_name : VARCHAR(100)
+  * owner_phone : VARCHAR(50)
+  * province : VARCHAR(100)
+  * reason : VARCHAR(1000)
+  resolved_at : DATETIME(6)
+  * status : ENUM(APPROVED, CANCELLED, PENDING_APPROVAL, REJECTED)
+  * street : VARCHAR(200)
+  * street_number : VARCHAR(20)
+  organization_id : BIGINT <<FK>>
+  * requesting_user_id : BIGINT <<FK>>
+  resolved_by_user_id : BIGINT <<FK>>
+}
+
+entity "organizations" as organizations {
+  * id : BIGINT <<PK>>
+  --
+  * active : TINYINT(1)
+  city : VARCHAR(255)
+  contact_data : VARCHAR(255)
+  latitude : DOUBLE
+  longitude : DOUBLE
+  country : VARCHAR(255)
+  name : VARCHAR(255)
+  organization_type : ENUM (ver nota)
+  province : VARCHAR(255)
+  street : VARCHAR(255)
+  street_number : VARCHAR(255)
+}
+
+entity "return_found_objects" as return_found_objects {
+  * id : BIGINT <<PK>>
+  --
+  * dni : VARCHAR(20)
+  * datetime_of_return : DATETIME(6)
+  feedback_token : VARCHAR(36) <<UK>>
+  first_name : VARCHAR(100)
+  * found_objectuuid : VARCHAR(255) <<UK>>
+  last_name : VARCHAR(100)
+  notification_recipient : VARCHAR(255)
+  notification_sent_at : DATETIME(6)
+  organization_id : BIGINT
+  * person_photo_uuid : VARCHAR(255)
+  * phone_number : VARCHAR(20)
+  returned_by_employee_id : BIGINT <<FK>>
+  user_id : BIGINT <<FK>>
+}
+
+entity "reward_exclusions" as reward_exclusions {
+  * id : BIGINT <<PK>>
+  --
+  * excluded_at : DATETIME(6)
+  * found_objectuuid : VARCHAR(255)
+  * organization_id : VARCHAR(255)
+  * reason : VARCHAR(100)
+  * user_role : ENUM(ADMIN, ENCARGADO, ORGANIZATION_EMPLOYEE, ORGANIZATION_OWNER, USER)
+  * user_id : BIGINT <<FK>>
+}
+
+entity "search_feedback" as search_feedback {
+  * id : BIGINT <<PK>>
+  --
+  comment : VARCHAR(500)
+  * created_at : DATETIME(6)
+  found_object_uuid : VARCHAR(36)
+  lost_object_text : VARCHAR(500)
+  organization_id : VARCHAR(36)
+  star_rating : INT
+  * was_found : BIT(1)
+  user_id : BIGINT <<FK>>
+}
+
+entity "usability_feedback" as usability_feedback {
+  * id : BIGINT <<PK>>
+  --
+  aspects : VARCHAR(200)
+  comment : VARCHAR(500)
+  context : VARCHAR(100)
+  * created_at : DATETIME(6)
+  * star_rating : INT
+  user_id : BIGINT <<FK>>
+}
+
+entity "users" as users {
+  * id : BIGINT <<PK>>
+  --
+  * xp : BIGINT
+  active : BIT(1)
+  * first_name : VARCHAR(50)
+  fraud_alerts_seen_at : DATETIME(6)
+  * last_name : VARCHAR(50)
+  * password : VARCHAR(255)
+  password_reset_token : VARCHAR(10)
+  password_reset_token_expiry : DATETIME(6)
+  provider_id : VARCHAR(255)
+  provider_type : VARCHAR(20)
+  * returned_objects : BIGINT
+  * role : ENUM(ADMIN, ENCARGADO, ORGANIZATION_EMPLOYEE, ORGANIZATION_OWNER, USER)
+  * username : VARCHAR(100) <<UK>>
+  organization_id : BIGINT <<FK>>
+}
+
+}
+
+package "Weaviate" {
+entity "FoundObject" as FoundObject {
+  * uuid : UUID <<PK>>
+  --
+  vector image : FLOAT32[512]
+  vector text : FLOAT32[1536]
+  found_date : DATE
+  title : STRING
+  human_description : STRING
+  organization_id : TEXT
+  coordinates : GEOCOORDINATES
+  was_returned : BOOLEAN
+  object_finder_user_id : TEXT
+  category : TEXT (ROPA, BILLETERA, LLAVES, ELECTRONICA, OTROS)
+}
+
+entity "LostObject" as LostObject {
+  * uuid : UUID <<PK>>
+  --
+  vector image : FLOAT32[512]
+  vector text : FLOAT32[1536]
+  lost_date : DATE
+  description : STRING
+  username : STRING
+  organization_id : TEXT
+  coordinates : GEOCOORDINATES
+  status : TEXT (ACTIVE, PENDING_PICKUP, RETRIEVED, RETRIEVED_BY_OTHER, CLOSED)
+  closed_date : DATE
+  recovered : BOOLEAN
+  category : TEXT (ROPA, BILLETERA, LLAVES, ELECTRONICA, OTROS)
+  has_image : BOOLEAN
+  matched_object_uuid : TEXT
+}
+}
+
+package "Almacenamiento de imágenes (S3 o MinIO)" {
+entity "Imagen" as Imagen {
+  * clave : UUID <<PK>>
+  --
+  * contenido : BINARIO
+}
+}
+
+FoundObject ||..|| Imagen : uuid
+LostObject ||..o| Imagen : uuid (si has_image)
+return_found_objects ||..|| Imagen : person_photo_uuid
+return_found_objects |o..|| FoundObject : found_objectuuid
+fraud_alert }o..o| FoundObject : found_object_uuid
+search_feedback }o..o| FoundObject : found_object_uuid
+reward_exclusions }o..|| FoundObject : found_objectuuid
+in_app_notifications }o..o| FoundObject : related_object_uuid
+in_app_notifications }o..o| LostObject : related_lost_object_uuid
+LostObject }o..o| FoundObject : matched_object_uuid
+FoundObject }o..o| users : object_finder_user_id
+LostObject }o..o| users : username
+FoundObject }o..o| organizations : organization_id
+LostObject }o..o| organizations : organization_id
+
+add_employee_request }o--|| organizations
+add_employee_request }o--|| users
+fraud_alert }o--o| users : resolved_by_id
+fraud_alert }o--o| users : returned_by_employee_id
+fraud_alert_case }o--|| fraud_alert
+fraud_alert_return }o--|| fraud_alert
+fraud_alert_return }o--|| return_found_objects
+fraud_alert_suspect_user }o--|| fraud_alert
+fraud_alert_suspect_user }o--|| users
+fraud_block }o--|| fraud_alert
+fraud_block }o--o| users
+in_app_notifications }o--|| users
+organization_feedback |o--|| return_found_objects
+organization_feedback }o--o| users
+organization_policies |o--o| organizations
+organization_policy_history }o--o| users
+organization_request }o--o| organizations
+organization_request }o--|| users : requesting_user_id
+organization_request }o--o| users : resolved_by_user_id
+return_found_objects }o--o| users : returned_by_employee_id
+return_found_objects }o--o| users : user_id
+reward_exclusions }o--|| users
+search_feedback }o--o| users
+usability_feedback }o--o| users
+users }o--o| organizations
+
+note as tipos
+  **organization_type** admite:
+  AIRPORT, AMUSEMENT_PARK, BUS_TERMINAL, CAMPING, CASINO, CHURCH, CINEMA, CITY_HALL
+  CLUB, CONVENTION_CENTER, CORPORATE_OFFICE, COWORKING, CRUISE_PORT, EVENT, GYM, HOSPITAL
+  HOTEL, LIBRARY, MUSEUM, OTHER, PRIVATE_BEACH, RECREATIONAL_PARK, RESTAURANT, SCHOOL
+  SHOPPING, SHOPPING_MALL, SPORTS_COMPLEX, STADIUM, SUPERMARKET, THEATER, TRAIN_STATION, UNIVERSITY
+end note
+
+note as weaviate
+  Las líneas punteadas son referencias lógicas sin clave foránea:
+  ninguna de las dos bases las garantiza, las controla la aplicación.
+  Los vectores se comparan por distancia coseno.
+  Las imágenes se recuperan por su clave; el modelo no depende
+  de cómo las almacena cada proveedor.
+  Estas tablas también referencian organizations sin clave foránea:
+  fraud_alert, organization_feedback, organization_policy_history,
+  return_found_objects, reward_exclusions y search_feedback.
+end note
+@enduml

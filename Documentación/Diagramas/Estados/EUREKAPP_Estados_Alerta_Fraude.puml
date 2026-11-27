@@ -1,0 +1,20 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam stateBackgroundColor #F5F8FF
+title Alerta de fraude: diagrama de transición de estados
+
+state "ACTIVE\n(Activa: bloqueo vigente)" as ACTIVE
+state "FALSE_POSITIVE\n(Falsa alarma)" as FALSE_POSITIVE
+
+[*] --> ACTIVE : FraudDetectionService.detectFraudForReturn()\n[la devolución supera el umbral configurado]\nEU-277 Detectar y limitar fraude en devoluciones (bloqueo automático)
+ACTIVE --> FALSE_POSITIVE : FraudDetectionService.markFalseAlarm()\n[administrador; levanta los bloqueos y avisa]\nEU-277 Detectar y limitar fraude en devoluciones (bloqueo automático)
+
+ACTIVE --> [*] : [el administrador no la marca:\nqueda como fraude confirmado]
+FALSE_POSITIVE --> [*]
+
+note right of ACTIVE
+  Los bloqueos que genera vencen solos
+  al llegar su fecha de expiración.
+end note
+@enduml

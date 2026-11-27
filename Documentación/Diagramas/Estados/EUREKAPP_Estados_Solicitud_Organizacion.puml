@@ -1,0 +1,20 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam stateBackgroundColor #F5F8FF
+title Solicitud de alta de organización: diagrama de transición de estados
+
+state "PENDING_APPROVAL\n(Pendiente de aprobación)" as PENDING_APPROVAL
+state "APPROVED\n(Aprobada)" as APPROVED
+state "REJECTED\n(Rechazada)" as REJECTED
+state "CANCELLED\n(Cancelada)" as CANCELLED
+
+[*] --> PENDING_APPROVAL : OrganizationRequestService.signUpOrganization()\n[el usuario no tiene otra solicitud pendiente]\nEU-20 Registrar solicitud de alta de organización
+PENDING_APPROVAL --> APPROVED : OrganizationRequestService.resolveOrganizationRequest()\n[administrador; crea la organización y asigna el responsable]\nEU-259 Gestionar solicitudes de alta de organizaciones
+PENDING_APPROVAL --> REJECTED : OrganizationRequestService.resolveOrganizationRequest()\n[administrador; motivo obligatorio]\nEU-259 Gestionar solicitudes de alta de organizaciones
+PENDING_APPROVAL --> CANCELLED : OrganizationRequestService.cancelOrganizationRequest()\n[solo quien la envió]\nEU-252 Mejora -> Alta organización
+
+APPROVED --> [*]
+REJECTED --> [*]
+CANCELLED --> [*]
+@enduml

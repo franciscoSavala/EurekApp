@@ -1,0 +1,230 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam nodesep 30
+skinparam ranksep 60
+hide empty fields
+left to right direction
+title EurekApp: Diagrama de clases (capa de servicios)
+
+package "Acceso y usuarios" {
+class AuthService {
+  + login(LoginRequestDto) : LoginResponseDto
+  + register(UserRegistrationRequestDto) : LoginResponseDto
+  + socialLogin(SocialLoginRequestDto) : LoginResponseDto
+  + forgotPassword(String) : void
+  + resetPassword(String, String, String) : void
+  + refreshToken(String) : LoginResponseDto
+}
+class UserService {
+  + getOrganizationEmployees(Organization) : UserListResponseDto
+  + removeEmployeeFromOrganization(UserEurekapp, Long) : Boolean
+  + assignEncargado(UserEurekapp, Long) : void
+  + revokeEncargado(UserEurekapp, Long) : void
+  + addEmployeeToOrganization(UserEurekapp, String) : void
+  + getAllPendingAddEmployeeRequests(UserEurekapp) : AddEmployeeRequestListResponseDto
+  + acceptAddEmployeeRequest(UserEurekapp, Long) : LoginResponseDto
+  + declineAddEmployeeRequest(UserEurekapp, Long) : void
+  + refreshUserDetails(UserEurekapp) : LoginResponseDto
+}
+class AdminService {
+  + getAdminStats(UserEurekapp) : AdminStatsDto
+  + getUsers(UserEurekapp, String) : List<AdminUserDto>
+  + toggleUserActive(UserEurekapp, Long, boolean) : void
+  + getOrganizations(UserEurekapp) : List<AdminOrganizationDto>
+  + toggleOrganizationActive(UserEurekapp, Long, boolean) : void
+}
+class AchievementsService {
+  + getAchievements(UserEurekapp) : AchievementsResponseDto
+}
+}
+
+package "Organizaciones" {
+class OrganizationService {
+  + getAllOrganizations() : OrganizationListResponseDto
+  + getPolicy(UserEurekapp) : OrganizationPolicyDto
+  + updatePolicy(UserEurekapp, OrganizationPolicyDto) : void
+}
+class OrganizationRequestService {
+  + signUpOrganization(UserEurekapp, ...) : OrganizationRegistrationResponseDto
+  + getMyOrganizationRequests(UserEurekapp) : List
+  + cancelOrganizationRequest(UserEurekapp, Long) : void
+  + getPendingRequestsCount(UserEurekapp) : long
+  + getOrganizationRequests(UserEurekapp) : List
+  + getOrganizationRequestDetail(UserEurekapp, Long) : OrganizationRequestDetailDto
+  + resolveOrganizationRequest(UserEurekapp, Long, dto) : void
+}
+}
+
+package "Objetos" {
+class FoundObjectService {
+  + uploadFoundObject(UploadFoundObjectCommand) : FoundObjectUploadedResponseDto
+  + getAllReturnedFoundObjectsByOrganization(UserEurekapp) : FoundObjectsListDto
+  + getFoundObjectDetail(FoundObjectDetailCommand) : FoundObjectDto
+  + getAllUnreturnedFoundObjectsByOrganization(SimilarObjectsCommand) : FoundObjectsListDto <<admite filtro solo vencidos>>
+}
+class FoundObjectSearchService {
+  + getFoundObjectByTextDescription(SimilarObjectsCommand) : FoundObjectsListDto
+  + searchByPhoto(MultipartFile, String, SimilarObjectsCommand) : FoundObjectsListDto
+}
+class SearchScoringService {
+  + normalizeCosineScore(Float) : double
+  + geoModulator(GeoCoordinates, GeoCoordinates) : double
+  + combinedScore(Float, Float, ObjectCategory, ...) : double
+  + isCombinedMatch(double, SearchMode) : boolean
+  + matchThreshold(SearchMode) : double
+  + displayScore(double, SearchMode) : double
+}
+class StoragePeriodService {
+  + getMaxStorageDays(String) : Integer
+  + getExpirationDate(FoundObject, Integer) : LocalDateTime
+  + getStatus(FoundObject, Integer) : StorageStatus
+  + isExpired(FoundObject) : boolean
+  + excludeExpired(List<FoundObject>) : List<FoundObject>
+}
+class LostDateLimitService {
+  + getMaxLostDateDays(Long) : int
+  + validateLostDate(String, LocalDateTime) : void
+  + validateLostDate(Long, LocalDateTime) : void
+  + {static} validateConfiguredDays(Integer) : void
+}
+class LostObjectService {
+  + reportLostObject(ReportLostObjectCommand) : void
+  + notifyMatchingSavedSearches(FoundObject) : void
+  + getMyLostObjects(String) : List<LostObjectResponseDto>
+  + closeLostObject(String, String, boolean) : void
+  + markPendingPickup(String, String, String) : void
+  + onObjectReturned(String, String) : void
+  + reopenLostObject(String, String) : void
+}
+class ReturnFoundObjectService {
+  + returnFoundObject(ReturnFoundObjectCommand, UserEurekapp) : ReturnFoundObjectDto
+  + getRewardExclusions(UserEurekapp) : RewardExclusionListDto
+  + getReturnFoundObject(UserEurekapp, String) : ReturnFoundObjectDto
+}
+}
+
+package "Fraude" {
+class FraudDetectionService {
+  + detectFraudForReturn(ReturnFoundObject) : void
+  + releaseReturn(ReturnFoundObject) : void
+  + getAlerts(UserEurekapp) : List<FraudAlertDto>
+  + getUnseenAlertCount(UserEurekapp) : long
+  + markAlertsSeen(UserEurekapp) : void
+  + getAlertDetail(Long, UserEurekapp) : FraudAlertDto
+  + markFalseAlarm(Long, UserEurekapp) : void
+  + getFraudUserReport(...) : FraudReportResponseDto
+  + getFraudDniReport(...) : FraudReportResponseDto
+  + exportFraudReportCsv(...) : byte[]
+}
+class FraudBlockService {
+  + createBlocksForAlert(FraudAlert, int) : LocalDateTime
+  + liftBlocksForAlert(FraudAlert) : List<UserEurekapp>
+  + isDniBlocked(String) : boolean
+  + isUserBlocked(Long) : boolean
+  + describeActiveDniBlock(String, String) : Optional<String>
+  + describeActiveUserBlock(Long, String) : Optional<String>
+}
+class FraudDetectionConfigService {
+  + getConfig(UserEurekapp) : FraudDetectionConfigDto
+  + updateConfig(UserEurekapp, int, int, int) : FraudDetectionConfigDto
+  + loadOrCreateDefault() : FraudDetectionConfig
+}
+}
+
+package "Opiniones, avisos y reportes" {
+class FeedbackService {
+  + submit(UserEurekapp, SubmitFeedbackRequestDto) : void
+  + getReport(UserEurekapp, LocalDate, LocalDate, String) : FeedbackReportDto
+  + getRecords(UserEurekapp, LocalDate, LocalDate, Boolean) : List
+  + exportCsv(UserEurekapp, LocalDate, LocalDate, Boolean) : byte[]
+}
+class OrganizationFeedbackService {
+  + getSurvey(UserEurekapp, String) : OrganizationFeedbackSurveyDto
+  + submit(UserEurekapp, String, SubmitOrganizationFeedbackRequestDto) : void
+}
+class UsabilityFeedbackService {
+  + submit(UserEurekapp, SubmitUsabilityFeedbackRequestDto) : void
+  + getReport(UserEurekapp, LocalDate, LocalDate, String) : UsabilityFeedbackReportDto
+  + getRecords(UserEurekapp, LocalDate, LocalDate) : List
+  + exportCsv(UserEurekapp, LocalDate, LocalDate) : byte[]
+}
+class InAppNotificationService {
+  + createNotification(UserEurekapp, String, String, String, Long) : void
+  + getNotificationsForUser(UserEurekapp) : List<InAppNotificationDto>
+  + getUnreadCount(UserEurekapp) : long
+  + resolveInvitationNotification(Long, String, String) : void
+  + markAsRead(UserEurekapp, Long) : void
+  + markAllAsRead(UserEurekapp) : void
+}
+interface NotificationService
+class EmailService
+NotificationService <|.. EmailService
+class ReportsService {
+  + getReports(UserEurekapp, LocalDate, LocalDate, String) : ReportsResponseDto
+}
+class StatsService {
+  + getStats() : StatsResponseDto
+}
+class PlatformCountsService {
+  + countUsers() : long
+  + countUsers(Role) : long
+  + countOrganizations() : long
+  + countReturnedFoundObjects() : long
+  + countUnreturnedFoundObjects() : long
+}
+}
+
+FoundObjectService --> LostObjectService : notifyMatchingSavedSearches
+FoundObjectSearchService --> SearchScoringService
+FoundObjectService --> StoragePeriodService : estado y vencimiento
+FoundObjectSearchService --> StoragePeriodService : excludeExpired
+LostObjectService --> StoragePeriodService : no avisa si está vencido
+LostObjectService --> SearchScoringService
+LostObjectService --> InAppNotificationService
+LostObjectService --> NotificationService
+ReturnFoundObjectService --> FraudDetectionService : detectFraudForReturn
+ReturnFoundObjectService --> FraudBlockService : bloqueo vigente
+ReturnFoundObjectService --> LostObjectService : onObjectReturned
+ReturnFoundObjectService --> InAppNotificationService
+ReturnFoundObjectService --> NotificationService
+FraudDetectionService --> FraudBlockService
+FraudDetectionService --> FraudDetectionConfigService
+FraudDetectionService --> InAppNotificationService
+UserService --> InAppNotificationService
+OrganizationRequestService --> InAppNotificationService
+OrganizationRequestService --> NotificationService
+AdminService --> InAppNotificationService
+AdminService --> PlatformCountsService
+StatsService --> PlatformCountsService
+AuthService --> NotificationService
+package "Clientes de servicios externos" {
+interface EmbeddingService <<texto, OpenAI>>
+interface ImageEmbeddingService <<imagen, CLIP>>
+interface ImageClassificationService
+interface TextClassificationService
+interface ImageDescriptionService
+class WeaviateService
+}
+interface IOrganizationPolicyRepository <<plazo de guarda>>
+StoragePeriodService --> IOrganizationPolicyRepository : getMaxStorageDays
+LostDateLimitService --> IOrganizationPolicyRepository : getMaxLostDateDays
+LostObjectService --> LostDateLimitService : valida la fecha de pérdida
+FoundObjectSearchService --> LostDateLimitService : valida la fecha de pérdida
+FoundObjectService --> FraudBlockService
+FoundObjectService --> NotificationService
+FoundObjectService --> EmbeddingService
+FoundObjectService --> ImageEmbeddingService
+FoundObjectService --> ImageClassificationService
+FoundObjectService --> ImageDescriptionService
+FoundObjectSearchService --> EmbeddingService
+FoundObjectSearchService --> ImageEmbeddingService
+FoundObjectSearchService --> TextClassificationService
+LostObjectService --> EmbeddingService
+LostObjectService --> ImageEmbeddingService
+AuthService --> FraudBlockService
+FraudDetectionService --> NotificationService
+UserService --> NotificationService
+AdminService --> NotificationService
+@enduml

@@ -1,0 +1,37 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam stateBackgroundColor #F5F8FF
+title Búsqueda guardada (objeto perdido): diagrama de transición de estados
+
+[*] --> ACTIVE : LostObjectService.reportLostObject()\n[sin objeto reclamado]\nEU-275 Reclamo → búsqueda guardada
+[*] --> PENDING_PICKUP : LostObjectService.reportLostObject()\n[el usuario reconoce un objeto al buscar]\nEU-361 Estado "Por retirar" en las búsquedas guardadas
+
+state "ACTIVE\n(Activa)" as ACTIVE
+state "PENDING_PICKUP\n(Por retirar)" as PENDING_PICKUP
+state "RETRIEVED\n(Retirado)" as RETRIEVED
+state "RETRIEVED_BY_OTHER\n(Retirado por otra persona)" as RETRIEVED_BY_OTHER
+state "CLOSED\n(Cerrada)" as CLOSED
+
+ACTIVE --> PENDING_PICKUP : LostObjectService.markPendingPickup()\nEU-361 Estado "Por retirar" en las búsquedas guardadas
+PENDING_PICKUP --> ACTIVE : LostObjectService.reopenLostObject()\n[el objeto no era el suyo]\nEU-361 Estado "Por retirar" en las búsquedas guardadas
+PENDING_PICKUP --> RETRIEVED : LostObjectService.onObjectReturned()\n[lo retira el dueño de la búsqueda]\nEU-396 La búsqueda guardada refleja que el objeto ya fue retirado
+PENDING_PICKUP --> RETRIEVED_BY_OTHER : LostObjectService.onObjectReturned()\n[lo retira otra persona]\nEU-396 La búsqueda guardada refleja que el objeto ya fue retirado
+
+ACTIVE --> CLOSED : LostObjectService.closeLostObject()\nEU-275 Reclamo → búsqueda guardada
+PENDING_PICKUP --> CLOSED : LostObjectService.closeLostObject()\nEU-275 Reclamo → búsqueda guardada
+RETRIEVED --> CLOSED : LostObjectService.closeLostObject()\nEU-396 La búsqueda guardada refleja que el objeto ya fue retirado
+RETRIEVED_BY_OTHER --> CLOSED : LostObjectService.closeLostObject()\nEU-396 La búsqueda guardada refleja que el objeto ya fue retirado
+
+CLOSED --> [*]
+
+note right of CLOSED
+  Estado final. Al cerrar, el usuario indica
+  si recuperó el objeto (recovered).
+end note
+note bottom of PENDING_PICKUP
+  onObjectReturned() la dispara
+  ReturnFoundObjectService.returnFoundObject()
+  cuando la organización registra la devolución.
+end note
+@enduml

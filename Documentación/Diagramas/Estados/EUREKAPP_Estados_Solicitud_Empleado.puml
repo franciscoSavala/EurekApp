@@ -1,0 +1,23 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 12
+skinparam stateBackgroundColor #F5F8FF
+title Solicitud de alta de empleado: diagrama de transición de estados
+
+state "PENDING\n(Pendiente)" as PENDING
+state "ACCEPTED\n(Aceptada)" as ACCEPTED
+state "DECLINED\n(Rechazada)" as DECLINED
+
+[*] --> PENDING : UserService.addEmployeeToOrganization()\n[el dueño invita a un usuario sin organización]\nEU-6 Gestión de organización (épica; sin historia propia)
+PENDING --> ACCEPTED : UserService.acceptAddEmployeeRequest()\n[el invitado acepta; pasa a ser empleado]\nEU-6 Gestión de organización (épica; sin historia propia)
+PENDING --> DECLINED : UserService.declineAddEmployeeRequest()\n[el invitado rechaza]\nEU-6 Gestión de organización (épica; sin historia propia)
+PENDING --> DECLINED : UserService.acceptAddEmployeeRequest()\n[el invitado aceptó la invitación de otra organización]\nEU-6 Gestión de organización (épica; sin historia propia)
+
+ACCEPTED --> [*]
+DECLINED --> [*]
+
+note bottom of PENDING
+  El aviso por correo de la invitación
+  corresponde a EU-246.
+end note
+@enduml

@@ -1,0 +1,317 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 35
+skinparam ranksep 50
+hide empty methods
+title EurekApp: Diagrama de clases (modelo de dominio)
+
+package "Usuarios y organizaciones" {
+class UserEurekapp {
+  - id : Long
+  - username : String
+  - password : String
+  - active : boolean
+  - firstName : String
+  - lastName : String
+  - role : Role
+  - XP : Long
+  - returnedObjects : Long
+  - providerType : String
+  - providerId : String
+  - passwordResetToken : String
+  - passwordResetTokenExpiry : LocalDateTime
+  - fraudAlertsSeenAt : LocalDateTime
+  + getAuthorities() : Collection<GrantedAuthority>
+  + isEnabled() : boolean
+  + isAccountNonLocked() : boolean
+}
+class Organization {
+  - id : Long
+  - name : String
+  - contactData : String
+  - street : String
+  - streetNumber : String
+  - city : String
+  - province : String
+  - country : String
+  - organizationType : OrganizationType
+  - active : boolean
+}
+class OrganizationPolicy {
+  - id : Long
+  - maxStorageDays : Integer
+  - maxLostDateDays : Integer
+  - requiresIdentityValidation : Boolean
+  - requiresAdditionalEvidence : Boolean
+  - additionalEvidenceDetails : String
+  - organizationType : OrganizationType
+}
+class OrganizationPolicyHistory {
+  - id : Long
+  - changedAt : LocalDateTime
+  - previousSnapshot : String
+}
+class OrganizationRequest {
+  - id : Long
+  - organizationName : String
+  - organizationType : OrganizationType
+  - customOrganizationType : String
+  - street, streetNumber, city, province, country : String
+  - ownerFirstName, ownerLastName : String
+  - ownerEmail, ownerPhone : String
+  - reason : String
+  - status : OrganizationRequestStatus
+  - createdAt : LocalDateTime
+  - resolvedAt : LocalDateTime
+  - adminNote : String
+}
+class AddEmployeeRequest {
+  - id : Long
+  - status : AddEmployeeRequestStatus
+}
+class GeoCoordinates <<embeddable>> {
+  - latitude : Double
+  - longitude : Double
+}
+}
+
+package "Objetos (base vectorial)" {
+class FoundObject {
+  - uuid : String
+  - imageEmbedding : List<Float>
+  - textEmbedding : List<Float>
+  - foundDate : LocalDateTime
+  - title : String
+  - humanDescription : String
+  - organizationId : String
+  - wasReturned : Boolean
+  - category : String
+  - score : Float
+}
+class LostObject {
+  - uuid : String
+  - description : String
+  - username : String
+  - lostDate : LocalDateTime
+  - organizationId : String
+  - imageEmbedding : List<Float>
+  - textEmbedding : List<Float>
+  - category : String
+  - status : LostObjectStatus
+  - closedDate : LocalDateTime
+  - recovered : Boolean
+  - hasImage : Boolean
+  - matchedObjectUuid : String
+}
+}
+
+package "Devolución y recompensas" {
+class ReturnFoundObject {
+  - id : Long
+  - firstName : String
+  - lastName : String
+  - DNI : String
+  - phoneNumber : String
+  - foundObjectUUID : String
+  - personPhotoUUID : String
+  - datetimeOfReturn : LocalDateTime
+  - notificationSentAt : LocalDateTime
+  - notificationRecipient : String
+  - feedbackToken : String
+}
+class RewardExclusion {
+  - id : Long
+  - foundObjectUUID : String
+  - userRole : Role
+  - reason : String
+  - excludedAt : LocalDateTime
+}
+}
+
+package "Fraude" {
+class FraudAlert {
+  - id : Long
+  - foundObjectUUID : String
+  - dni : String
+  - reason : String
+  - details : String
+  - status : FraudAlertStatus
+  - createdAt : LocalDateTime
+  - resolvedAt : LocalDateTime
+  - dedupKey : String
+}
+class FraudCaseMatch <<embeddable>> {
+  - caseType : FraudCaseType
+  - matchedCount : int
+}
+class FraudBlock {
+  - id : Long
+  - targetDni : String
+  - blockedAt : LocalDateTime
+  - expiresAt : LocalDateTime
+}
+class FraudDetectionConfig {
+  - id : Long
+  - fraudThreshold : int
+  - fraudWindowDays : int
+  - blockDurationDays : int
+}
+}
+
+package "Opiniones y avisos" {
+class OrganizationFeedback {
+  - id : Long
+  - staffTreatment : Integer
+  - waitingTime : Integer
+  - instructionsClarity : Integer
+  - objectCondition : Integer
+  - pickupSecurity : Integer
+  - comment : String
+  - createdAt : LocalDateTime
+}
+class SearchFeedback {
+  - id : Long
+  - foundObjectUUID : String
+  - starRating : Integer
+  - wasFound : Boolean
+  - comment : String
+  - lostObjectText : String
+  - createdAt : LocalDateTime
+}
+class UsabilityFeedback {
+  - id : Long
+  - starRating : Integer
+  - aspects : String
+  - comment : String
+  - context : String
+  - createdAt : LocalDateTime
+}
+class InAppNotification {
+  - id : Long
+  - title : String
+  - description : String
+  - type : String
+  - read : boolean
+  - createdAt : LocalDateTime
+  - relatedRequestId : Long
+  - relatedObjectUuid : String
+  - matchScore : Double
+  - relatedLostObjectUuid : String
+}
+}
+
+package "Enumeraciones" {
+enum Role {
+  USER
+  ORGANIZATION_OWNER
+  ORGANIZATION_EMPLOYEE
+  ENCARGADO
+  ADMIN
+}
+enum LostObjectStatus {
+  ACTIVE
+  PENDING_PICKUP
+  RETRIEVED
+  RETRIEVED_BY_OTHER
+  CLOSED
+}
+enum StorageStatus <<calculado, no se guarda>> {
+  IN_TERM
+  EXPIRING
+  EXPIRED
+}
+enum OrganizationRequestStatus {
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+enum AddEmployeeRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+enum FraudAlertStatus {
+  ACTIVE
+  FALSE_POSITIVE
+}
+enum FraudCaseType {
+  CASE_1
+  CASE_2
+  CASE_3
+  + getDisplayLabel() : String
+  + humanizeReason(String) : String
+}
+enum ObjectCategory {
+  ROPA
+  BILLETERA
+  LLAVES
+  ELECTRONICA
+  OTROS
+  + fromLabel(String) : ObjectCategory
+}
+enum OrganizationType {
+  CLUB, AIRPORT, SHOPPING, UNIVERSITY,
+  HOSPITAL, HOTEL, BUS_TERMINAL, ...
+  (32 valores)
+}
+enum Level {
+  LEVEL1 .. LEVEL5
+  - requiredXP : Long
+  + getLevel(Long) : Level
+  + getNextLevel(Long) : Level
+}
+enum ReturnedObjectsAchievement {
+  LEVEL1 .. LEVEL5
+  - requiredObjects : Long
+  + getAchievedLevels(Long) : List
+  + getNextAchievement(Long) : ReturnedObjectsAchievement
+}
+}
+
+UserEurekapp "0..*" --> "0..1" Organization : organization
+Organization *-- GeoCoordinates : coordinates
+OrganizationRequest *-- GeoCoordinates : coordinates
+LostObject *-- GeoCoordinates : coordinates
+FoundObject *-- GeoCoordinates : coordinates
+OrganizationPolicy "0..1" --> "1" Organization : organization
+OrganizationPolicyHistory "0..*" --> "0..1" UserEurekapp : changedBy
+OrganizationRequest "0..*" --> "1" UserEurekapp : requestingUser
+OrganizationRequest "0..*" --> "0..1" UserEurekapp : resolvedBy
+OrganizationRequest "0..1" --> "0..1" Organization : organization
+AddEmployeeRequest "0..*" --> "1" UserEurekapp : user
+AddEmployeeRequest "0..*" --> "1" Organization : organization
+OrganizationPolicyHistory "0..*" --> "1" Organization : organization
+ReturnFoundObject "0..*" --> "1" Organization : organization
+OrganizationFeedback "0..*" --> "1" Organization : organization
+RewardExclusion "0..*" --> "1" Organization : organization
+SearchFeedback "0..*" --> "0..1" Organization : organization
+FraudAlert "0..*" --> "0..1" Organization : organization
+FoundObject "0..*" --> "0..1" UserEurekapp : objectFinderUser
+ReturnFoundObject "0..*" --> "0..1" UserEurekapp : userEurekapp
+ReturnFoundObject "0..*" --> "0..1" UserEurekapp : returnedByEmployee
+RewardExclusion "0..*" --> "1" UserEurekapp : user
+FraudAlert "0..*" --> "0..*" UserEurekapp : suspectUsers
+FraudAlert "0..*" --> "1..*" ReturnFoundObject : triggeringReturns
+FraudAlert "0..*" --> "0..1" UserEurekapp : returnedByEmployee
+FraudAlert "0..*" --> "0..1" UserEurekapp : resolvedBy
+FraudAlert "1" *-- "1..*" FraudCaseMatch : caseMatches
+FraudBlock "0..*" --> "1" FraudAlert : fraudAlert
+FraudBlock "0..*" --> "0..1" UserEurekapp : targetUser
+OrganizationFeedback "0..1" --> "1" ReturnFoundObject : returnFoundObject
+OrganizationFeedback "0..*" --> "0..1" UserEurekapp : user
+SearchFeedback "0..*" --> "0..1" UserEurekapp : user
+UsabilityFeedback "0..*" --> "0..1" UserEurekapp : user
+InAppNotification "0..*" --> "1" UserEurekapp : user
+
+ReturnFoundObject ..> FoundObject : foundObjectUUID
+LostObject ..> FoundObject : matchedObjectUuid
+LostObject ..> UserEurekapp : username
+
+FoundObject ..> StorageStatus : estado de guarda (calculado)
+UserEurekapp ..> Level : nivel por XP
+UserEurekapp ..> ReturnedObjectsAchievement : insignias
+@enduml
