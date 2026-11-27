@@ -151,14 +151,15 @@ public class EmailTemplateService {
     /**
      * Email de la búsqueda INVERSA (EU-279): se cargó un objeto que coincide con una o más búsquedas
      * guardadas del usuario. Lista las búsquedas coincidentes de ese usuario.
+     *
+     * <p>EU-359: no lleva la foto del objeto. Para verla hay que entrar a la app con sesión.</p>
      */
     public String buildObjectMatchFoundEmail(String orgName, String address,
-                                              List<String> searchDescriptions, String imageUrl) {
+                                              List<String> searchDescriptions) {
         Context ctx = new Context();
         ctx.setVariable("orgName", orgName);
         ctx.setVariable("address", address);
         ctx.setVariable("searchDescriptions", searchDescriptions);
-        ctx.setVariable("imageUrl", imageUrl);
         return templateEngine.process("email/object-match-found", ctx);
     }
 

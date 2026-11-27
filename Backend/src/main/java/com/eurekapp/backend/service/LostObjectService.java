@@ -10,6 +10,7 @@ import com.eurekapp.backend.exception.NotFoundException;
 import com.eurekapp.backend.model.*;
 import java.util.Optional;
 import com.eurekapp.backend.repository.*;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import com.eurekapp.backend.service.client.EmbeddingService;
 import com.eurekapp.backend.service.client.ImageClassificationService;
@@ -41,6 +42,9 @@ public class LostObjectService {
      * un fusible defensivo que a la escala real del producto nunca se alcanza (ver EU-324-SUBTAREAS).
      */
     private static final int SEARCH_CANDIDATE_LIMIT = 5000;
+
+    /** EU-359: vigencia del enlace firmado de la foto en "Mis búsquedas". */
+    private static final Duration IMAGE_URL_EXPIRY = Duration.ofHours(1);
 
     private final EmbeddingService embeddingService;
     private final ImageEmbeddingService imageEmbeddingService;
@@ -372,7 +376,6 @@ public class LostObjectService {
         // Datos comunes del objeto encontrado para el mensaje.
         Organization organization = organizationRepository.findById(Long.valueOf(foundObject.getOrganizationId()))
                 .orElseThrow(() -> new ApiException("should_exists_organization", "No sense", HttpStatus.INTERNAL_SERVER_ERROR));
-        String imageUrl = objectStorage.getObjectUrl(foundObject.getUuid());
 
         for (Map.Entry<String, List<LostObject>> entry : matchesByUsername.entrySet()) {
             String username = entry.getKey();
@@ -390,10 +393,11 @@ public class LostObjectService {
                     .map(LostObject::getDescription)
                     .toList();
 
-            // Email.
+            // Email. EU-359: sin foto. El correo se abre días después y desde un cliente sin sesión,
+            // así que cualquier enlace a la imagen la expondría a quien lo reciba o lo reenvíe.
             String message = emailTemplateService.buildObjectMatchFoundEmail(
                     organization.getName(), OrganizationAddress.format(organization),
-                    matchingSearchDescriptions, imageUrl);
+                    matchingSearchDescriptions);
             // Un correo que no sale no puede cortar el resto: el aviso in-app de este usuario y
             // los avisos de los usuarios que siguen se mandan igual.
             try {
@@ -462,20 +466,16 @@ public class LostObjectService {
                             // EU-326: la foto vive en S3 con key = uuid de la búsqueda, y sólo existe si
                             // se guardó con foto. Sin ella no se pide URL: sería un enlace roto.
                             //
-                            // EU-343: el enlace plano alcanza. El bucket permite GetObject anónimo, así
-                            // que esta URL se abre sin firmar. NO firmarla acá: las URLs presignadas
-                            // vencen (1 h en FoundObjectService) y romperían la imagen de una pantalla
-                            // que quedó abierta, sin ganar nada mientras el bucket siga siendo público.
-                            //
-                            // Si alguna vez se cierra el acceso anónimo al bucket —debería, ver el
-                            // ticket de seguridad— hay que pasar ESTA línea y la de FoundObjectService a
-                            // generatePresignedUrl, y recién ahí la firma protege algo.
+                            // EU-359: URL firmada, como el resto de las imágenes de la app, para que la
+                            // foto deje de abrirse sin sesión una vez cerrado el acceso anónimo al bucket.
+                            // Vence a la hora: una pantalla abierta más que eso la muestra rota hasta
+                            // refrescar.
                             //
                             // Ojo al diagnosticar: con ListBucket denegado, S3 responde 403 AccessDenied
                             // (no 404) cuando el objeto NO existe. Un 403 acá suele significar "la foto
                             // nunca se subió", no "el bucket es privado".
                             .imageUrl(Boolean.TRUE.equals(lo.getHasImage())
-                                    ? objectStorage.getObjectUrl(lo.getUuid()) : null)
+                                    ? objectStorage.generatePresignedUrl(lo.getUuid(), IMAGE_URL_EXPIRY) : null)
                             .matchedObjectUuid(lo.getMatchedObjectUuid())
                             .matchedOrganizationName(custodian != null ? custodian.getName() : null)
                             // EU-396: la dirección y no la "información de contacto", que es el correo
