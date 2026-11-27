@@ -19,6 +19,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { isWeb, isIOS } from "../../utils/platform";
 import DonutChart from "../components/DonutChart";
 import WebDateInput from "../components/WebDateInput";
+import ErrorRetry from "../components/ErrorRetry";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -41,13 +42,16 @@ const SearchPrecisionReport = () => {
     const [loading, setLoading] = useState(false);
     const [exportingPdf, setExportingPdf] = useState(false);
     const [error, setError] = useState(null);
+    const [orgsError, setOrgsError] = useState(false);
 
     const fetchOrganizations = async () => {
+        setOrgsError(false);
         try {
             const res = await axiosInstance.get(`${BACK_URL}/admin/organizations`);
             setOrganizations(res.data || []);
         } catch {
             setOrganizations([]);
+            setOrgsError(true);
         }
     };
 
@@ -175,6 +179,7 @@ const SearchPrecisionReport = () => {
 
                 <View style={styles.groupingBlock}>
                     <Text style={styles.label}>Organización</Text>
+                    {orgsError && <ErrorRetry message="No pudimos cargar las organizaciones. Intentá de nuevo." onRetry={fetchOrganizations} />}
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                         {orgOptions.map((o) => {
                             const value = o.id === null ? null : String(o.id);
@@ -211,7 +216,9 @@ const SearchPrecisionReport = () => {
                 </View>
 
                 {loading && <ActivityIndicator style={{ marginTop: 20 }} color="#19b8b8" />}
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error && (error === "No se pudo cargar el reporte."
+                    ? <ErrorRetry message="No pudimos cargar el reporte. Intentá de nuevo." onRetry={fetchFeedback} />
+                    : <Text style={styles.errorText}>{error}</Text>)}
 
                 {!loading && feedbackData && (
                     <>
