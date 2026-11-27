@@ -60,6 +60,7 @@ class OrganizationServiceTest {
     private OrganizationPolicyDto policyDto() {
         return OrganizationPolicyDto.builder()
                 .maxStorageDays(30)
+                .maxLostDateDays(45)
                 .requiresIdentityValidation(true)
                 .requiresAdditionalEvidence(false)
                 .additionalEvidenceDetails("detalle")
@@ -86,6 +87,7 @@ class OrganizationServiceTest {
         ArgumentCaptor<OrganizationPolicy> captor = ArgumentCaptor.forClass(OrganizationPolicy.class);
         verify(policyRepository).save(captor.capture());
         assertThat(captor.getValue().getMaxStorageDays()).isEqualTo(30);
+        assertThat(captor.getValue().getMaxLostDateDays()).isEqualTo(45);
         assertThat(captor.getValue().getOrganizationType()).isEqualTo(OrganizationType.CLUB);
         assertThat(captor.getValue().getOrganization()).isSameAs(owner.getOrganization());
     }
@@ -110,6 +112,18 @@ class OrganizationServiceTest {
         assertThat(hist.getValue().getPreviousSnapshot()).contains("\"maxStorageDays\":10");
         verify(policyRepository).save(previa);
         assertThat(previa.getMaxStorageDays()).isEqualTo(30);
+    }
+
+    @Test
+    void updatePolicy_conPlazoDePerdidaInvalido_seRechazaConBadRequestYNoSeGuardaNada() {
+        UserEurekapp owner = owner();
+        for (Integer invalido : new Integer[] {null, 0, -5}) {
+            OrganizationPolicyDto dto = policyDto();
+            dto.setMaxLostDateDays(invalido);
+            assertThatThrownBy(() -> service.updatePolicy(owner, dto))
+                    .isInstanceOf(com.eurekapp.backend.exception.BadRequestException.class);
+        }
+        verify(policyRepository, never()).save(any());
     }
 
     @Test

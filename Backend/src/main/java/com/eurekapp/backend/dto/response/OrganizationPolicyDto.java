@@ -1,5 +1,6 @@
 package com.eurekapp.backend.dto.response;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +14,8 @@ import java.util.List;
 @AllArgsConstructor
 public class OrganizationPolicyDto {
     private Integer maxStorageDays;
+    @JsonDeserialize(using = StrictDaysDeserializer.class)
+    private Integer maxLostDateDays;
     private Boolean requiresIdentityValidation;
     private Boolean requiresAdditionalEvidence;
     private String additionalEvidenceDetails;

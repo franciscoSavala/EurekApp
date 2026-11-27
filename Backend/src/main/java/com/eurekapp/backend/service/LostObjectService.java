@@ -62,6 +62,7 @@ public class LostObjectService {
     private final InAppNotificationService inAppNotificationService;
     private final SearchScoringService searchScoringService;
     private final StoragePeriodService storagePeriodService;
+    private final LostDateLimitService lostDateLimitService;
     /** EU-402: reclamos en curso, como "usuario|objeto". */
     private final Set<String> claimsInFlight = ConcurrentHashMap.newKeySet();
 
@@ -79,7 +80,8 @@ public class LostObjectService {
             IUserRepository userRepository,
             InAppNotificationService inAppNotificationService,
             SearchScoringService searchScoringService,
-            StoragePeriodService storagePeriodService) {
+            StoragePeriodService storagePeriodService,
+            LostDateLimitService lostDateLimitService) {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
@@ -94,6 +96,7 @@ public class LostObjectService {
         this.inAppNotificationService = inAppNotificationService;
         this.searchScoringService = searchScoringService;
         this.storagePeriodService = storagePeriodService;
+        this.lostDateLimitService = lostDateLimitService;
     }
 
     // Este método se ejecuta cuando un usuario desea guardar una búsqueda para ser avisado cuando se encuentre un
@@ -107,6 +110,8 @@ public class LostObjectService {
         }
 
         validateOrganization(command.getOrganizationId());
+        // EU-424: el plazo se evalúa al guardar; no invalida búsquedas ya guardadas.
+        lostDateLimitService.validateLostDate(command.getOrganizationId(), command.getLostDate());
 
         String matched = command.getMatchedObjectUuid();
         if (matched == null || matched.isBlank()) {

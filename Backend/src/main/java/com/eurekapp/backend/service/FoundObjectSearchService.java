@@ -45,6 +45,7 @@ public class FoundObjectSearchService {
     private final SearchScoringService searchScoringService;
     private final FoundObjectDtoMapper dtoMapper;
     private final StoragePeriodService storagePeriodService;
+    private final LostDateLimitService lostDateLimitService;
 
     public FoundObjectSearchService(EmbeddingService embeddingService,
                                     ImageEmbeddingService imageEmbeddingService,
@@ -54,7 +55,8 @@ public class FoundObjectSearchService {
                                     FoundObjectRepository foundObjectRepository,
                                     SearchScoringService searchScoringService,
                                     FoundObjectDtoMapper dtoMapper,
-                                    StoragePeriodService storagePeriodService) {
+                                    StoragePeriodService storagePeriodService,
+                                    LostDateLimitService lostDateLimitService) {
         this.embeddingService = embeddingService;
         this.imageEmbeddingService = imageEmbeddingService;
         this.imageClassificationService = imageClassificationService;
@@ -64,6 +66,7 @@ public class FoundObjectSearchService {
         this.searchScoringService = searchScoringService;
         this.dtoMapper = dtoMapper;
         this.storagePeriodService = storagePeriodService;
+        this.lostDateLimitService = lostDateLimitService;
     }
 
     /**
@@ -81,6 +84,9 @@ public class FoundObjectSearchService {
      */
     @SneakyThrows
     public FoundObjectsListDto getFoundObjectByTextDescription(SimilarObjectsCommand command){
+
+        // EU-424: la fecha de pérdida no puede ser futura ni superar el plazo de la organización.
+        lostDateLimitService.validateLostDate(command.getOrganizationId(), command.getLostDate());
 
         /*
         *  En base a la descripción provista por el usuario, generamos un vector que la represente.
@@ -197,6 +203,8 @@ public class FoundObjectSearchService {
             throw new BadRequestException("location_required",
                     "Debés indicar una organización o unas coordenadas para buscar.");
         }
+
+        lostDateLimitService.validateLostDate(filters.getOrganizationId(), filters.getLostDate());
 
         byte[] imageBytes = image.getBytes();
         // Vector VISUAL (CLIP) en memoria y vector TEXTUAL (OpenAI).

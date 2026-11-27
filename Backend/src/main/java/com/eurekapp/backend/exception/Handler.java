@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -107,6 +108,25 @@ public class Handler {
                 .details(errorDetails)
                 .build();
 
+        return ResponseEntity.status(apiError.getStatus()).body(apiError);
+    }
+
+    /** Un cuerpo con un valor que un deserializador rechazó con un motivo de negocio sale como 400 con ese motivo. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> handleUnreadableBody(HttpMessageNotReadableException e) {
+        Throwable cause = e;
+        while (cause != null) {
+            if (cause instanceof BadRequestException bre) {
+                return handleBadRequestException(bre);
+            }
+            cause = cause.getCause() == cause ? null : cause.getCause();
+        }
+        ApiError apiError = ApiError.builder()
+                .error("bad_request")
+                .message("El cuerpo del pedido no tiene un formato válido.")
+                .status(HttpStatus.BAD_REQUEST.value())
+                .details(List.of("El cuerpo del pedido no tiene un formato válido."))
+                .build();
         return ResponseEntity.status(apiError.getStatus()).body(apiError);
     }
 

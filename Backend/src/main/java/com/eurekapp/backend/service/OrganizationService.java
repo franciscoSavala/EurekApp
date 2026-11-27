@@ -78,6 +78,7 @@ public class OrganizationService {
 
         if (policyOpt.isEmpty()) {
             return OrganizationPolicyDto.builder()
+                    .maxLostDateDays(LostDateLimitService.DEFAULT_MAX_LOST_DATE_DAYS)
                     .history(history)
                     .build();
         }
@@ -85,6 +86,8 @@ public class OrganizationService {
         OrganizationPolicy p = policyOpt.get();
         return OrganizationPolicyDto.builder()
                 .maxStorageDays(p.getMaxStorageDays())
+                .maxLostDateDays(p.getMaxLostDateDays() != null && p.getMaxLostDateDays() > 0
+                        ? p.getMaxLostDateDays() : LostDateLimitService.DEFAULT_MAX_LOST_DATE_DAYS)
                 .requiresIdentityValidation(p.getRequiresIdentityValidation())
                 .requiresAdditionalEvidence(p.getRequiresAdditionalEvidence())
                 .additionalEvidenceDetails(p.getAdditionalEvidenceDetails())
@@ -98,6 +101,7 @@ public class OrganizationService {
         if (user.getRole() != Role.ORGANIZATION_OWNER) {
             throw new ForbiddenException("forbidden", "Solo el responsable puede modificar las políticas");
         }
+        LostDateLimitService.validateConfiguredDays(dto.getMaxLostDateDays());
         Long orgId = user.getOrganization().getId();
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new BadRequestException("org_not_found", "Organization not found"));
@@ -126,6 +130,7 @@ public class OrganizationService {
                 .build());
 
         policy.setMaxStorageDays(dto.getMaxStorageDays());
+        policy.setMaxLostDateDays(dto.getMaxLostDateDays());
         policy.setRequiresIdentityValidation(dto.getRequiresIdentityValidation());
         policy.setRequiresAdditionalEvidence(dto.getRequiresAdditionalEvidence());
         policy.setAdditionalEvidenceDetails(dto.getAdditionalEvidenceDetails());

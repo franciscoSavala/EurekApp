@@ -65,6 +65,8 @@ const OrganizationPolicy = () => {
     const [historyExpanded, setHistoryExpanded] = useState(false);
 
     const [maxStorageDays, setMaxStorageDays] = useState('');
+    const [maxLostDateDays, setMaxLostDateDays] = useState('90');
+    const [maxLostDateDaysError, setMaxLostDateDaysError] = useState('');
     const [requiresIdentityValidation, setRequiresIdentityValidation] = useState(false);
     const [requiresAdditionalEvidence, setRequiresAdditionalEvidence] = useState(false);
     const [additionalEvidenceDetails, setAdditionalEvidenceDetails] = useState('');
@@ -76,6 +78,8 @@ const OrganizationPolicy = () => {
         try {
             const p = await authFetch('get', `${BACK_URL}/organizations/policy`);
             setMaxStorageDays(p.maxStorageDays != null ? String(p.maxStorageDays) : '');
+            setMaxLostDateDays(p.maxLostDateDays != null ? String(p.maxLostDateDays) : '90');
+            setMaxLostDateDaysError('');
             setRequiresIdentityValidation(p.requiresIdentityValidation === true);
             setRequiresAdditionalEvidence(p.requiresAdditionalEvidence === true);
             setAdditionalEvidenceDetails(p.additionalEvidenceDetails || '');
@@ -94,12 +98,28 @@ const OrganizationPolicy = () => {
         }, [])
     );
 
+    // Entero positivo: sin vacío, cero, negativos, decimales ni letras.
+    const lostDateDaysError = (v) => {
+        const t = String(v).trim();
+        if (t === '') return 'Ingresá la cantidad de días.';
+        if (!/^[0-9]+$/.test(t)) return 'Ingresá solo números enteros, sin decimales ni letras.';
+        if (parseInt(t, 10) <= 0) return 'El plazo debe ser mayor a cero.';
+        return '';
+    };
+
     const handleSave = async () => {
+        const lostErr = lostDateDaysError(maxLostDateDays);
+        setMaxLostDateDaysError(lostErr);
+        if (lostErr) {
+            setSaveOk(null);
+            return;
+        }
         setSaving(true);
         setSaveOk(null);
         try {
             await authFetch('put', `${BACK_URL}/organizations/policy`, {
                 maxStorageDays: maxStorageDays ? parseInt(maxStorageDays, 10) : null,
+                maxLostDateDays: parseInt(maxLostDateDays, 10),
                 requiresIdentityValidation,
                 requiresAdditionalEvidence,
                 additionalEvidenceDetails: additionalEvidenceDetails || null,
@@ -144,6 +164,24 @@ const OrganizationPolicy = () => {
                 value={maxStorageDays}
                 onChangeText={v => setMaxStorageDays(v.replace(/[^0-9]/g, ''))}
             />
+
+            <SectionTitle text="Pérdidas anteriores" />
+            <FieldLabel text="Plazo máximo para registrar pérdidas de fechas anteriores (días)" />
+            <TextInput
+                style={styles.input}
+                placeholder="90"
+                placeholderTextColor={colors.textMuted}
+                keyboardType="numeric"
+                value={maxLostDateDays}
+                onChangeText={v => {
+                    // Se deja escribir cualquier cosa para poder avisar qué está mal, en vez de borrarlo en silencio.
+                    setMaxLostDateDays(v);
+                    setMaxLostDateDaysError(lostDateDaysError(v));
+                }}
+            />
+            {maxLostDateDaysError !== '' && (
+                <Text style={styles.errorMsg}>{maxLostDateDaysError}</Text>
+            )}
 
             <SectionTitle text="Tipo de organización" />
             <TouchableOpacity style={styles.dropdown} onPress={() => setOrgTypePickerOpen(true)}>
