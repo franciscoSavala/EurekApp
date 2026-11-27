@@ -213,6 +213,7 @@ const Profile = ({ route, navigation }) => {
         if(user.role === 'ORGANIZATION_EMPLOYEE'){role = 'Empleado de organización';}
         if(user.role === 'ENCARGADO'){role = 'Encargado';}
         if(user.role === 'USER'){role = 'Usuario regular';}
+        if(user.role === 'ADMIN'){role = 'Administrador';}
         return role;
     };
 
