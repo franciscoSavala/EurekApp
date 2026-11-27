@@ -9,7 +9,8 @@ const { test, expect } = require('@playwright/test');
 const { USUARIOS, foto, nombreUnico, abrirComoUsuario, irAlMenu, bajarHastaVer } = require('./helpers');
 const { casoContinuo: caso, noSePudoProbar } = require('./helpers/t17');
 const { sesionDe } = require('./helpers/sesion');
-const { URL_BACK, auth, leerPoliticas, restaurarPoliticas } = require('./helpers/t09');
+const { URL_BACK, auth, leerPoliticas, restaurarPoliticas, abrirPoliticas, campoDias, guardar: guardarPoliticas } = require('./helpers/t09');
+const T12 = require('./helpers/t12');
 const { abrirFormularioDevolucion, cargarFotoDeQuienRetira, completarDatos, dniUnico } = require('./helpers/t04');
 const { tarjetas, tarjetaDe } = require('./helpers/r03');
 
@@ -49,18 +50,18 @@ test.describe('Plazo de guarda de la organización', () => {
         expect(r.ok(), `no se pudo guardar el plazo ${dias}`).toBeTruthy();
     };
 
-    const cargar = async (titulo, fecha) => {
-        const r = await request.post(`${URL_BACK}/found-objects/organizations/${orgId}`, {
-            headers: auth(tokenEmp),
-            multipart: {
-                title: titulo,
-                detailed_description: 'Billetera marron de cuero con documentos',
-                found_date: fechaLocal(fecha),
-                latitude: '-31.4124',
-                longitude: '-64.1867',
-                file: { name: 'billetera.png', mimeType: 'image/png', buffer: fs.readFileSync(foto('billetera.png')) },
-            },
-        });
+    /**
+     * Carga un objeto por la API. `comoBusqueda` lo carga solo con el título y sin coordenadas (toma la
+     * ubicación de la organización), igual que la búsqueda guardada: así el parecido no queda al borde del umbral.
+     */
+    const cargar = async (titulo, fecha, { comoBusqueda = false } = {}) => {
+        const multipart = {
+            title: titulo,
+            found_date: fechaLocal(fecha),
+            file: { name: 'billetera.png', mimeType: 'image/png', buffer: fs.readFileSync(foto('billetera.png')) },
+        };
+        if (!comoBusqueda) Object.assign(multipart, { detailed_description: 'Billetera marron de cuero con documentos', latitude: '-31.4124', longitude: '-64.1867' });
+        const r = await request.post(`${URL_BACK}/found-objects/organizations/${orgId}`, { headers: auth(tokenEmp), multipart });
         if (!r.ok()) throw new Error(`cargar "${titulo}": ${r.status()} ${await r.text()}`);
         return (await r.json()).id;
     };
@@ -97,6 +98,35 @@ test.describe('Plazo de guarda de la organización', () => {
         expect(r.ok(), `búsqueda: ${r.status()}`).toBeTruthy();
         return (await r.json()).found_objects.map((o) => o.title);
     };
+
+    /** Busca con foto y texto en la organización, con el mismo pedido que la pantalla cuando se adjunta una foto. */
+    const buscarConFotoApi = async (texto, token) => {
+        const q = new URLSearchParams({ query: texto, organizationId: String(orgId), lostDate: fechaLocal(haceDias(500)), lostDateTo: fechaLocal(new Date()) });
+        const r = await request.post(`${URL_BACK}/found-objects/search-by-photo?${q}`, {
+            headers: auth(token),
+            multipart: { file: { name: 'billetera.png', mimeType: 'image/png', buffer: fs.readFileSync(foto('billetera.png')) } },
+        });
+        expect(r.ok(), `búsqueda por foto: ${r.status()} ${r.ok() ? '' : await r.text()}`).toBeTruthy();
+        return (await r.json()).found_objects.map((o) => o.title);
+    };
+
+    /** Guarda una búsqueda con foto de billetera y una fecha de pérdida dada (los avisos solo cruzan búsquedas perdidas antes del hallazgo). */
+    const guardarBusquedaDesde = async (token, descripcion, perdida) => {
+        const r = await request.post(`${URL_BACK}/lost-objects`, {
+            headers: auth(token),
+            multipart: {
+                description: descripcion,
+                lost_date: fechaLocal(perdida),
+                organization_id: String(orgId),
+                file: { name: 'billetera.png', mimeType: 'image/png', buffer: fs.readFileSync(foto('billetera.png')) },
+            },
+        });
+        if (!r.ok()) throw new Error(`guardar búsqueda: ${r.status()} ${await r.text()}`);
+    };
+
+    /** Avisos de coincidencia del usuario por un objeto puntual (otros specs cargan billeteras parecidas). */
+    const avisosPor = async (token, uuid) => (await T12.notificacionesApi(request, token))
+        .filter((n) => n.type === 'MATCH_FOUND' && n.related_object_uuid === uuid);
 
     test.beforeAll(async ({ playwright }) => {
         request = await playwright.request.newContext();
@@ -201,6 +231,43 @@ test.describe('Plazo de guarda de la organización', () => {
         }
     });
 
+    test('caso 367: un objeto vencido no aparece en la búsqueda por foto y uno por vencer sí @organizacion @plazo @serie', async () => {
+        await caso(367, 'al buscar con la foto del objeto vencido aparece el de 300 días y NO el de 400 días', async () => {
+            const usuario = await sesionDe(USUARIOS.usuario);
+            // Mismo motivo que el caso 362: la fecha de pérdida va en el pedido directo.
+            const titulos = await buscarConFotoApi(`Billetera ${sufijoPlazo}`, usuario.token);
+            expect(titulos, 'el objeto por vencer debería aparecer').toContain(tituloPorVencer);
+            expect(titulos, 'el objeto vencido no debería aparecer').not.toContain(tituloVencido);
+        });
+    });
+
+    test('caso 368: un objeto vencido no genera aviso de coincidencia y uno reciente sí @organizacion @plazo @serie', async () => {
+        const u = await T12.registrarUsuario(request, 'plazo');
+        const descripcion = nombreUnico('Billetera carpincho plazo aviso');
+        const cargados = [];
+        try {
+            // La búsqueda se perdió hace 500 días: así el objeto de 400 días también es posterior a la pérdida
+            // y la única razón para no avisar es que está vencido.
+            await guardarBusquedaDesde(u.token, descripcion, haceDias(500));
+            const uuidViejo = await cargar(descripcion, haceDias(400), { comoBusqueda: true });
+            cargados.push(uuidViejo);
+            const uuidNuevo = await cargar(descripcion, new Date(Date.now() - 3600 * 1000), { comoBusqueda: true });
+            cargados.push(uuidNuevo);
+
+            await caso(368, 'el mismo objeto cargado con fecha reciente sí le avisa la coincidencia al usuario (control)', async () => {
+                await T12.esperarNotificacion(request, u.token, 'MATCH_FOUND', (n) => n.related_object_uuid === uuidNuevo);
+            });
+
+            await caso(368, 'el objeto cargado con fecha de hallazgo de hace 400 días no le genera aviso', async () => {
+                // El aviso se calcula en segundo plano: se espera un rato más después del aviso de control.
+                await new Promise((r) => setTimeout(r, 10_000));
+                expect(await avisosPor(u.token, uuidViejo), 'llegó un aviso por el objeto vencido').toEqual([]);
+            });
+        } finally {
+            for (const uuid of cargados) { try { await devolverApi(uuid); } catch (e) { /* ya devuelto */ } }
+        }
+    });
+
     test('caso 365: un objeto vencido se puede devolver @organizacion @plazo @serie', async ({ browser }) => {
         const { context, page } = await abrirComoUsuario(browser, USUARIOS.empleado);
         try {
@@ -245,6 +312,43 @@ test.describe('Plazo de guarda de la organización', () => {
             });
         } finally {
             await context.close();
+        }
+    });
+
+    test('caso 369: al achicar el plazo un objeto por vencer pasa a vencido y sale de la búsqueda @organizacion @plazo @serie', async ({ browser }) => {
+        // El caso 366 deja el plazo vacío: se vuelve a 365 para partir siempre del mismo punto.
+        await ponerPlazo(PLAZO);
+        const usuario = await sesionDe(USUARIOS.usuario);
+        expect(await buscarApi(`Billetera ${sufijoPlazo}`, usuario.token), 'con 365 días el objeto de 300 días debería aparecer').toContain(tituloPorVencer);
+        try {
+            const dueno = await abrirComoUsuario(browser, USUARIOS.dueno);
+            try {
+                await caso(369, 'el dueño baja el plazo de 365 a 250 días desde la pantalla de políticas y queda guardado', async () => {
+                    await abrirPoliticas(dueno.page);
+                    await expect(campoDias(dueno.page)).toHaveValue(String(PLAZO));
+                    await campoDias(dueno.page).fill('250');
+                    await guardarPoliticas(dueno.page);
+                    expect((await leerPoliticas(request, tokenDueno)).maxStorageDays).toBe(250);
+                });
+            } finally {
+                await dueno.context.close();
+            }
+
+            const { context, page } = await abrirComoUsuario(browser, USUARIOS.empleado);
+            try {
+                await caso(369, 'el objeto de 300 días figura como "Vencido" en el inventario y deja de aparecer en la búsqueda', async () => {
+                    await irAlMenu(page, 'Ver inventario');
+                    await expect(tarjetas(page).first()).toBeVisible();
+                    await bajarHastaVer(page, tituloPorVencer);
+                    await expect(tarjetaDe(page, tituloPorVencer).getByText('Vencido', { exact: true })).toBeVisible();
+                    await expect(tarjetaDe(page, tituloPorVencer).getByText('Por vencer', { exact: true })).toHaveCount(0);
+                    expect(await buscarApi(`Billetera ${sufijoPlazo}`, usuario.token), 'el objeto de 300 días ya venció y no debería aparecer').not.toContain(tituloPorVencer);
+                });
+            } finally {
+                await context.close();
+            }
+        } finally {
+            await restaurarPoliticas(request, tokenDueno, original);
         }
     });
 });
