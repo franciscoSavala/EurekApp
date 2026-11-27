@@ -140,13 +140,19 @@ public class FoundObjectSearchService {
         log.debug("getFoundObjectByTextDescription: categoria deducida del texto={}", category);
 
         // EU-452: los objetos vencidos según el plazo de guarda de su organización no se ofrecen.
-        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(foundObjectRepository.query(embeddings,
+        List<FoundObject> candidatos;
+        try {
+            candidatos = foundObjectRepository.query(embeddings,
                                                                     orgId,
                                                                     queryCoordinates,
                                                                     command.getLostDate(),
                                                                     command.getLostDateTo(),
                                                                     false,
-                                                                    category != null ? category.name() : null));
+                                                                    category != null ? category.name() : null);
+        } catch (RuntimeException e) {
+            throw busquedaNoDisponible(e);
+        }
+        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(candidatos);
 
         /*
         *  Llegados a este punto, tenemos todos los objetos encontrados que cumplen con las restricciones de espacio
@@ -236,10 +242,16 @@ public class FoundObjectSearchService {
         // Filtro DURO por categoría: la decide la IA desde la foto (no la elige el usuario). Sin poda
         // por límite ni umbral en la recuperación (limit alto, ver "Poda del universo" en EU-324).
         // EU-452: los objetos vencidos según el plazo de guarda de su organización no se ofrecen.
-        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(foundObjectRepository.queryDual(
+        List<FoundObject> candidatos;
+        try {
+            candidatos = foundObjectRepository.queryDual(
                 imageEmbedding, textEmbedding,
                 orgIdStr, queryCoordinates, filters.getLostDate(), filters.getLostDateTo(), false,
-                category.name(), SEARCH_CANDIDATE_LIMIT, null));
+                category.name(), SEARCH_CANDIDATE_LIMIT, null);
+        } catch (RuntimeException e) {
+            throw busquedaNoDisponible(e);
+        }
+        List<FoundObject> foundObjects = storagePeriodService.excludeExpired(candidatos);
 
         log.debug("searchByPhoto: categoria={} candidatos recuperados={}", category, foundObjects.size());
 
@@ -282,5 +294,16 @@ public class FoundObjectSearchService {
                 })
                 .sorted(Comparator.comparing(FoundObjectDto::getScore, Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
+    }
+
+    /**
+     * EU-338: si la base de vectores falla, la búsqueda no puede responder como si no hubiera
+     * coincidencias. Se propaga como error del servidor para que la pantalla avise y ofrezca reintentar.
+     * Una consulta que responde bien y no trae nada sigue siendo una lista vacía.
+     */
+    private static ApiException busquedaNoDisponible(RuntimeException causa) {
+        log.error("La base de vectores falló al buscar candidatos", causa);
+        return new ApiException("search_unavailable", "No pudimos completar la búsqueda. Intentá de nuevo.",
+                HttpStatus.SERVICE_UNAVAILABLE);
     }
 }

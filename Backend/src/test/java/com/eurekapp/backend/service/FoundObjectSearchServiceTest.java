@@ -1,5 +1,6 @@
 package com.eurekapp.backend.service;
 
+import com.eurekapp.backend.exception.ApiException;
 import com.eurekapp.backend.dto.FoundObjectsListDto;
 import com.eurekapp.backend.exception.BadRequestException;
 import com.eurekapp.backend.model.FoundObject;
@@ -430,5 +431,72 @@ class FoundObjectSearchServiceTest {
 
         verify(storagePeriodService).excludeExpired(List.of(vigente, vencido));
         assertThat(result.getFoundObjects()).extracting(o -> o.getId()).containsExactly("vigente");
+    }
+
+    // ---- EU-338: una consulta que falla nunca se muestra como resultado vacío ----
+
+    @Test
+    void busquedaPorTexto_siLaBaseDeVectoresFalla_lanzaErrorDeBusquedaNoDisponible() {
+        stubOrganizacionYBusqueda();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any()))
+                .thenThrow(new RuntimeException("Weaviate no responde"));
+
+        SimilarObjectsCommand cmd = SimilarObjectsCommand.builder().organizationId(1L).query("billetera").build();
+
+        assertThatThrownBy(() -> service.getFoundObjectByTextDescription(cmd))
+                .isInstanceOf(ApiException.class)
+                .hasMessage("No pudimos completar la búsqueda. Intentá de nuevo.")
+                .extracting(e -> ((ApiException) e).getError()).isEqualTo("search_unavailable");
+    }
+
+    @Test
+    void busquedaPorTexto_siLaBaseResponde_sinCoincidencias_devuelveListaVaciaSinError() {
+        stubOrganizacionYBusqueda();
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(textClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(foundObjectRepository.query(any(), any(), any(), any(), any(), anyBoolean(), any()))
+                .thenReturn(List.of());
+
+        SimilarObjectsCommand cmd = SimilarObjectsCommand.builder().organizationId(1L).query("billetera").build();
+
+        assertThat(service.getFoundObjectByTextDescription(cmd).getFoundObjects()).isEmpty();
+    }
+
+    @Test
+    void busquedaPorFoto_siLaBaseDeVectoresFalla_lanzaErrorDeBusquedaNoDisponible() {
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        SimilarObjectsCommand filters = SimilarObjectsCommand.builder().organizationId(1L).build();
+        Organization org = mock(Organization.class);
+        when(org.getCoordinates()).thenReturn(CORDOBA);
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenThrow(new RuntimeException("Weaviate no responde"));
+
+        assertThatThrownBy(() -> service.searchByPhoto(photo, "billetera", filters))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getError()).isEqualTo("search_unavailable");
+    }
+
+    @Test
+    void busquedaPorFoto_siLaBaseResponde_sinCoincidencias_devuelveListaVaciaSinError() {
+        MockMultipartFile photo = new MockMultipartFile("file", new byte[]{1, 2, 3});
+        SimilarObjectsCommand filters = SimilarObjectsCommand.builder().organizationId(1L).build();
+        Organization org = mock(Organization.class);
+        when(org.getCoordinates()).thenReturn(CORDOBA);
+        when(organizationRepository.existsById(1L)).thenReturn(true);
+        when(organizationRepository.findById(1L)).thenReturn(Optional.of(org));
+        when(imageEmbeddingService.getImageVectorRepresentation(any())).thenReturn(List.of(0.4f));
+        when(imageClassificationService.classify(any())).thenReturn(ObjectCategory.BILLETERA);
+        when(embeddingService.getTextVectorRepresentation(anyString())).thenReturn(List.of(0.1f));
+        when(foundObjectRepository.queryDual(any(), any(), any(), any(), any(), any(), anyBoolean(), any(), anyInt(), any()))
+                .thenReturn(List.of());
+
+        assertThat(service.searchByPhoto(photo, "billetera", filters).getFoundObjects()).isEmpty();
     }
 }
