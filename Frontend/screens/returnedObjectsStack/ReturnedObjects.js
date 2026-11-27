@@ -19,6 +19,7 @@ import {useFocusEffect} from "@react-navigation/native";
 import { colors } from "../../styles/globalStyles";
 import { formatDateES, formatDateTimeLocaleES } from "../../utils/dateFormatter";
 import EmptyState from "../components/EmptyState";
+import ErrorRetry from "../components/ErrorRetry";
 import AppImage from "../components/AppImage";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -29,13 +30,16 @@ const ReturnedObjects = ({ navigation }) => {
     const [foundObjects, setFoundObjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadFailed, setLoadFailed] = useState(false);
 
     const fetchReturnedObjects = async () => {
         try {
             const jsonData = await authFetch('get', `${BACK_URL}/found-objects/getReturnedObjects`);
             setFoundObjects(jsonData.found_objects ?? []);
+            setLoadFailed(false);
         } catch (error) {
             if (__DEV__) console.error(error);
+            setLoadFailed(true);
             // EU-348: si la carga falla, la pantalla mostraba "no devolviste ningún objeto aún" — el
             // mismo cartel que cuando de verdad no hay ninguno. Un error tiene que verse como un error.
             Toast.show({
@@ -115,9 +119,9 @@ const ReturnedObjects = ({ navigation }) => {
     }
 
     const NotFoundComponent = () => {
-        return (
-            <EmptyState icon="box-open" title="Tu organización no ha devuelto ningún objeto aún." />
-        );
+        return loadFailed
+            ? <ErrorRetry message="No pudimos cargar los objetos devueltos. Intentá de nuevo." onRetry={fetchReturnedObjects} />
+            : <EmptyState icon="box-open" title="Tu organización no ha devuelto ningún objeto aún." />;
     }
     return (
         <View style={styles.container}>

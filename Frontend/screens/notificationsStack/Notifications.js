@@ -16,6 +16,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import { useFocusEffect } from "@react-navigation/native";
 import EmptyState from "../components/EmptyState";
+import ErrorRetry from "../components/ErrorRetry";
 import { LoginContext } from "../../hooks/useUser";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
@@ -41,6 +42,7 @@ const Notifications = ({ navigation, route }) => {
     const { setUserRole } = useContext(LoginContext);
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     // EU-345: id del aviso cuya coincidencia se está abriendo, para no disparar dos pedidos si el
     // usuario toca el botón de nuevo mientras carga.
@@ -50,8 +52,10 @@ const Notifications = ({ navigation, route }) => {
         try {
             const res = await axiosInstance.get(BACK_URL + "/notifications");
             setNotifications(res.data);
+            setLoadFailed(false);
         } catch (e) {
             console.log("Error fetching notifications", e);
+            setLoadFailed(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -372,7 +376,9 @@ const Notifications = ({ navigation, route }) => {
                     />
                 }
                 ListEmptyComponent={
-                    <EmptyState icon="bell-slash" title="No tenés notificaciones." />
+                    loadFailed
+                        ? <ErrorRetry message="No pudimos cargar las notificaciones. Intentá de nuevo." onRetry={fetchNotifications} />
+                        : <EmptyState icon="bell-slash" title="No tenés notificaciones." />
                 }
             />
         </View>

@@ -14,6 +14,7 @@ import axiosInstance from "../../utils/axiosInstance";
 import Constants from "expo-constants";
 import Icon from "react-native-vector-icons/FontAwesome6";
 import EmptyState from "../components/EmptyState";
+import ErrorRetry from "../components/ErrorRetry";
 
 const BACK_URL = Constants.expoConfig.extra.backUrl;
 
@@ -41,6 +42,7 @@ const FILTER_LABELS = {
 const OrganizationRequestsAdmin = ({ navigation }) => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [activeFilter, setActiveFilter] = useState("PENDING_APPROVAL");
 
@@ -48,8 +50,10 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
         try {
             const res = await axiosInstance.get(BACK_URL + "/organizations/requests");
             setRequests(res.data);
+            setLoadFailed(false);
         } catch (e) {
             console.log("Error fetching org requests", e);
+            setLoadFailed(true);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -128,7 +132,9 @@ const OrganizationRequestsAdmin = ({ navigation }) => {
                     <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchRequests(); }} />
                 }
                 ListEmptyComponent={
-                    <EmptyState icon="inbox" title="No hay solicitudes en esta categoría." />
+                    loadFailed
+                        ? <ErrorRetry message="No pudimos cargar las solicitudes. Intentá de nuevo." onRetry={fetchRequests} />
+                        : <EmptyState icon="inbox" title="No hay solicitudes en esta categoría." />
                 }
             />
         </View>
