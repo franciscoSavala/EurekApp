@@ -24,6 +24,9 @@ public class OrganizationPolicy {
 
     private Integer maxStorageDays;
 
+    /** Plazo (días) para registrar pérdidas de fechas anteriores; null = valor por defecto (90). */
+    private Integer maxLostDateDays;
+
     private Boolean requiresIdentityValidation;
 
     private Boolean requiresAdditionalEvidence;

@@ -56,6 +56,7 @@ class FoundObjectSearchServiceTest {
     @Mock FoundObjectRepository foundObjectRepository;
     @Mock SearchScoringService searchScoringService;
     @Mock StoragePeriodService storagePeriodService;
+    @Mock LostDateLimitService lostDateLimitService;
 
     FoundObjectSearchService service;
 
@@ -65,7 +66,8 @@ class FoundObjectSearchServiceTest {
         FoundObjectDtoMapper dtoMapper = new FoundObjectDtoMapper(s3Service, organizationRepository, organizationService);
         service = new FoundObjectSearchService(embeddingService, imageEmbeddingService,
                 imageClassificationService, textClassificationService, organizationRepository,
-                foundObjectRepository, searchScoringService, dtoMapper, storagePeriodService);
+                foundObjectRepository, searchScoringService, dtoMapper, storagePeriodService,
+                lostDateLimitService);
         when(storagePeriodService.excludeExpired(org.mockito.ArgumentMatchers.anyList()))
                 .thenAnswer(i -> i.getArgument(0));
     }

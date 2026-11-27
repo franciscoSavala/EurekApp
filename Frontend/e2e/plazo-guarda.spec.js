@@ -46,7 +46,7 @@ test.describe('Plazo de guarda de la organización', () => {
 
     const ponerPlazo = async (dias) => {
         const { history, ...valores } = original;
-        const r = await request.put(`${URL_BACK}/organizations/policy`, { headers: auth(tokenDueno), data: { ...valores, maxStorageDays: dias } });
+        const r = await request.put(`${URL_BACK}/organizations/policy`, { headers: auth(tokenDueno), data: { ...valores, maxStorageDays: dias, maxLostDateDays: 3650 } });
         expect(r.ok(), `no se pudo guardar el plazo ${dias}`).toBeTruthy();
     };
 

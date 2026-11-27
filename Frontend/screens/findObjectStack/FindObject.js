@@ -135,7 +135,13 @@ const FindObject = ({ navigation, route }) => {
             const formData = new FormData();
             formData.append('file', new Blob([Buffer.from(image.base64, 'base64')]), 'search_photo.jpg');
             const response = await fetchWithAuth(url, { method: 'POST', body: formData });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                const err = new Error(`HTTP ${response.status}`);
+                if (response.status === 400) {
+                    try { err.serverMessage = (await response.json())?.message; } catch (_) { /* sin cuerpo */ }
+                }
+                throw err;
+            }
             return await response.json();
         }
         const response = await blobFetchWithAuth(
@@ -146,7 +152,13 @@ const FindObject = ({ navigation, route }) => {
                data: 'RNFetchBlob-base64://' + String(image.base64) }]
         );
         const status = response.info().status;
-        if (status < 200 || status >= 300) throw new Error(`HTTP ${status}`);
+        if (status < 200 || status >= 300) {
+            const err = new Error(`HTTP ${status}`);
+            if (status === 400) {
+                try { err.serverMessage = (await response.json())?.message; } catch (_) { /* sin cuerpo */ }
+            }
+            throw err;
+        }
         return response.json();
     };
 
@@ -200,7 +212,13 @@ const FindObject = ({ navigation, route }) => {
 
         } catch (error) {
             if (__DEV__) console.error(error);
-            Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo realizar la búsqueda. Verificá tu conexión.' });
+            // EU-424: rechazo de la fecha de pérdida (400): se muestra el motivo que explica el servidor.
+            const motivo = error?.response?.status === 400 ? error?.response?.data?.message : error?.serverMessage;
+            if (motivo) {
+                Toast.show({ type: 'error', text1: 'Revisá la fecha de pérdida', text2: motivo });
+            } else {
+                Toast.show({ type: 'error', text1: 'Error', text2: 'No se pudo realizar la búsqueda. Verificá tu conexión.' });
+            }
         } finally {
             setLoading(false);
         }

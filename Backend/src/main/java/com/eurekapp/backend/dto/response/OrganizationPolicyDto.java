@@ -13,6 +13,7 @@ import java.util.List;
 @AllArgsConstructor
 public class OrganizationPolicyDto {
     private Integer maxStorageDays;
+    private Integer maxLostDateDays;
     private Boolean requiresIdentityValidation;
     private Boolean requiresAdditionalEvidence;
     private String additionalEvidenceDetails;

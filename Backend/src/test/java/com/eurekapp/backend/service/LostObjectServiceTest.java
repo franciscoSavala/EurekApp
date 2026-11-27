@@ -84,6 +84,7 @@ class LostObjectServiceTest {
     @Mock IUserRepository userRepository;
     @Mock InAppNotificationService inAppNotificationService;
     @Mock StoragePeriodService storagePeriodService;
+    @Mock LostDateLimitService lostDateLimitService;
 
     LostObjectService service;
 
@@ -96,7 +97,7 @@ class LostObjectServiceTest {
                 objectStorage, lostObjectRepository, foundObjectRepository, userRepository,
                 inAppNotificationService,
                 new SearchScoringService(new com.eurekapp.backend.configuration.ScoringProperties(), 50000.0),
-                storagePeriodService);
+                storagePeriodService, lostDateLimitService);
         org.mockito.Mockito.lenient().when(organizationRepository.existsById(1L)).thenReturn(true);
         when(storagePeriodService.isExpired(any())).thenReturn(false);
 
