@@ -44,8 +44,11 @@ export const CustomDrawerContent = (props) => {
     }
 
     return (
-        <DrawerContentScrollView {...props} contentContainerStyle={{flex: 1}}>
-            <View style={{flex: 1}}>
+        // EU-461: flexGrow y no flex. Con flex el contenido queda clavado al alto de la pantalla y,
+        // cuando las opciones no entran (el administrador tiene más), el pie se dibuja encima de
+        // las últimas. Con flexGrow el pie sigue abajo si sobra lugar y, si no, el menú se desplaza.
+        <DrawerContentScrollView {...props} contentContainerStyle={{flexGrow: 1}}>
+            <View style={{flexGrow: 1}}>
                 <View style={styles.drawerHeader}>
                     <Text style={styles.headerText}>¡Bienvenido, {userFirstName}!</Text>
                 </View>
