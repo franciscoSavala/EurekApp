@@ -54,6 +54,7 @@ Los tests de `@serie` corren de a uno porque comparten estado; los de `@paralelo
 | `notificaciones-solicitudes.spec.js` | Notificaciones de solicitudes de rol: recibida, aceptar, rechazar y cambio de rol. | 251, 254, 255, 258, 262, 263 | @paralelo |
 | `organizacion-empleados.spec.js` | Datos de la organización, alta de empleados por correo, asignar encargado y eliminar empleados. | 154 a 164, 174 a 178, 245 a 248 | @serie |
 | `organizacion-politicas.spec.js` | Políticas de la organización: pantalla, guardado, persistencia, historial y aplicación al devolver. | 165 a 173, 243, 244 | @serie |
+| `plazo-guarda.spec.js` | Plazo máximo de guarda: objetos vencidos fuera de la búsqueda por texto y por foto y sin aviso de coincidencia, etiquetas y filtro en el inventario, fecha de vencimiento en el detalle, devolución de un vencido, plazo vacío y plazo achicado. | 362 a 369 | @serie |
 | `recepcion.spec.js` | Receptar un objeto: campos, éxito, título e imagen obligatorios, formato, tamaño y largo del título. | 064, 065, 067, 075 a 077, 079, 080, 113 | @paralelo |
 | `recepcion-camara.spec.js` | Recepción: sacar la foto con la cámara simulada de Chromium y ver la imagen capturada. | 070 | @paralelo |
 | `recepcion-confirmacion-feedback.spec.js` | Recepción: aviso de confirmación y que no aparezca pedido de opinión. | 081, 082 | @paralelo |
