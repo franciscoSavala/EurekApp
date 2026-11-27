@@ -110,8 +110,8 @@ class LostObjectServiceTest {
         when(organization.getCity()).thenReturn("Córdoba");
         when(organization.getProvince()).thenReturn("Córdoba");
         when(organizationRepository.findById(1L)).thenReturn(Optional.of(organization));
-        when(objectStorage.getObjectUrl(anyString())).thenReturn("http://img/found.jpg");
-        when(emailTemplateService.buildObjectMatchFoundEmail(any(), any(), any(), any()))
+        
+        when(emailTemplateService.buildObjectMatchFoundEmail(any(), any(), any()))
                 .thenReturn("<html>email</html>");
     }
 
@@ -206,7 +206,7 @@ class LostObjectServiceTest {
         // El email recibe la lista con AMBAS búsquedas.
         ArgumentCaptor<List<String>> listCaptor = ArgumentCaptor.forClass(List.class);
         verify(emailTemplateService)
-                .buildObjectMatchFoundEmail(any(), any(), listCaptor.capture(), any());
+                .buildObjectMatchFoundEmail(any(), any(), listCaptor.capture());
         assertThat(listCaptor.getValue()).containsExactlyInAnyOrder("mochila azul", "cartera negra");
 
         // La notificación in-app también las lista a ambas.
@@ -615,22 +615,21 @@ class LostObjectServiceTest {
     void getMyLostObjects_exposesPhotoUrlOnlyWhenSavedWithPhoto() {
         // EU-326: la foto vive en S3 con key = uuid. Una búsqueda guardada SIN foto no tiene nada que
         // mostrar, y pedir la URL igual daría un enlace roto en el detalle.
-        // EU-343: el enlace va SIN firmar. El bucket permite GetObject anónimo, y una URL presignada
-        // vencería dejando la imagen rota en una pantalla abierta, sin ganar seguridad.
+        // EU-359: el enlace va firmado, porque el bucket ya no permite lectura anónima.
         LostObject conFoto = savedSearch("u1@test.com", "billetera marron", 1.0f, CORDOBA);
         conFoto.setHasImage(true);
         LostObject sinFoto = savedSearch("u1@test.com", "paraguas negro", 1.0f, CORDOBA);
         sinFoto.setHasImage(false);
         when(lostObjectRepository.query(any(), eq("u1@test.com"), any(), any(), any()))
                 .thenReturn(List.of(conFoto, sinFoto));
-        when(objectStorage.getObjectUrl(conFoto.getUuid())).thenReturn("https://s3/foto.jpg");
+        when(objectStorage.generatePresignedUrl(eq(conFoto.getUuid()), any())).thenReturn("https://s3/foto.jpg");
 
         List<LostObjectResponseDto> result = service.getMyLostObjects("u1@test.com");
 
         assertThat(result).hasSize(2);
         assertThat(result.get(0).getImageUrl()).isEqualTo("https://s3/foto.jpg");
         assertThat(result.get(1).getImageUrl()).isNull();
-        verify(objectStorage, never()).getObjectUrl(sinFoto.getUuid());
+        verify(objectStorage, never()).generatePresignedUrl(eq(sinFoto.getUuid()), any());
     }
 
     @Test

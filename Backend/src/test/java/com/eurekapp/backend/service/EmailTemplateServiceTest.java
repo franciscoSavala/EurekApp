@@ -86,12 +86,21 @@ class EmailTemplateServiceTest {
     void objectMatchFound_diceDondeEstaYNoUnCorreoDeContacto() {
         String html = service.buildObjectMatchFoundEmail(
                 "UTN FRC", "Maestro Marcelo López 3814, Córdoba",
-                java.util.List.of("Mochila azul con llavero"), null);
+                java.util.List.of("Mochila azul con llavero"));
 
         assertThat(html)
                 .contains("UTN FRC")
                 .contains("Maestro Marcelo López 3814, Córdoba")
                 .doesNotContain("@");
+    }
+
+    @Test
+    void objectMatchFound_noLlevaImagen() {
+        String html = service.buildObjectMatchFoundEmail(
+                "UTN FRC", "Maestro Marcelo López 3814, Córdoba",
+                java.util.List.of("Mochila azul con llavero"));
+
+        assertThat(html).doesNotContain("<img");
     }
 
     @Test
@@ -101,7 +110,7 @@ class EmailTemplateServiceTest {
         // "ingresá a EurekApp" a secas dejaba a la persona sin encontrar lo que le avisaron.
         String html = service.buildObjectMatchFoundEmail(
                 "UTN FRC", "Maestro Marcelo López 3814, Córdoba",
-                java.util.List.of("Mochila azul con llavero"), null);
+                java.util.List.of("Mochila azul con llavero"));
 
         assertThat(html)
                 .contains("Notificaciones")

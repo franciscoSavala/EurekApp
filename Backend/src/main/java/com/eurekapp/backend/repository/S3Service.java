@@ -170,14 +170,6 @@ public class S3Service implements ObjectStorage {
     }
 
     @Override
-    public String getObjectUrl(String objectKey) {
-        if (!endpoint.isBlank()) {
-            return String.format("%s/%s/%s", endpoint, bucketName, objectKey);
-        }
-        return String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region.toString(), objectKey);
-    }
-
-    @Override
     public String generatePresignedUrl(String objectKey, Duration expiry) {
         S3Presigner.Builder presignerBuilder = S3Presigner.builder()
                 .credentialsProvider(credentialsProvider())
